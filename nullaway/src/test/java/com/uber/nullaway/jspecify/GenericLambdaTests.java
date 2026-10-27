@@ -9,6 +9,127 @@ import org.junit.Test;
 public class GenericLambdaTests extends NullAwayTestsBase {
 
   @Test
+  public void explicitLambdaParameterAnnotationsControlBodyNullness() {
+    makeHelper()
+        .addSourceLines(
+            "Test.java",
+            """
+            package com.uber;
+            import java.util.List;
+            import org.jspecify.annotations.NonNull;
+            import org.jspecify.annotations.Nullable;
+            class Test {
+              interface Consumer<T extends @Nullable Object> { void accept(T value); }
+
+              Consumer<Object> instanceConsumer;
+              {
+                instanceConsumer = (@Nullable Object parameter) -> {
+                  // BUG: Diagnostic contains: dereferenced expression
+                  parameter.toString();
+                };
+              }
+              static Consumer<Object> staticConsumer;
+              static {
+                staticConsumer = (@Nullable Object parameter) -> {
+                  // BUG: Diagnostic contains: dereferenced expression
+                  parameter.toString();
+                };
+              }
+              Consumer<List<@Nullable String>> nestedTypeArgument() {
+                return (List<@Nullable String> parameter) -> { parameter.size(); };
+              }
+
+              Consumer<@Nullable Object> nullableParameterOnNullableTarget() {
+                return (@Nullable Object parameter) -> {
+                  // BUG: Diagnostic contains: dereferenced expression
+                  parameter.toString();
+                };
+              }
+              Consumer<Object> nullableParameterOnNonNullTarget() {
+                return (@Nullable Object parameter) -> {
+                  // BUG: Diagnostic contains: dereferenced expression
+                  parameter.toString();
+                };
+              }
+              Consumer<Object> nullCheckRefinesType() {
+                return (@Nullable Object parameter) -> {
+                  if (parameter != null) {
+                    parameter.toString();
+                  }
+                };
+              }
+              Consumer<Object> nonNullParameter() {
+                return (@NonNull Object parameter) -> { parameter.toString(); };
+              }
+              Consumer<Object> unannotatedParameter() {
+                return (Object parameter) -> { parameter.toString(); };
+              }
+              Consumer<@Nullable Object> implicitlyNullableParameter() {
+                return parameter -> {
+                  // BUG: Diagnostic contains: dereferenced expression
+                  parameter.toString();
+                };
+              }
+              Consumer<Object> declarationAnnotation() {
+                return (@javax.annotation.Nullable Object parameter) -> {
+                  // BUG: Diagnostic contains: dereferenced expression
+                  parameter.toString();
+                };
+              }
+              interface ArrayConsumer { void accept(String @Nullable [] value); }
+              ArrayConsumer nullableArray() {
+                return (String @Nullable [] parameter) -> {
+                  // BUG: Diagnostic contains: dereferenced expression
+                  int length = parameter.length;
+                };
+              }
+              interface NullableElementConsumer { void accept(@Nullable String[] value); }
+              NullableElementConsumer nullableElements() {
+                return (@Nullable String[] parameter) -> {
+                  int length = parameter.length;
+                  // BUG: Diagnostic contains: dereferenced expression
+                  parameter[0].toString();
+                };
+              }
+            }
+            """)
+        .doTest();
+  }
+
+  @Test
+  public void explicitLambdaParameterAnnotationsInInitializersStandardMode() {
+    makeTestHelperWithArgs(Arrays.asList("-XepOpt:NullAway:AnnotatedPackages=com.uber"))
+        .addSourceLines(
+            "Test.java",
+            """
+            package com.uber;
+            import java.util.List;
+            import java.util.function.Consumer;
+            import org.jspecify.annotations.Nullable;
+            class Test {
+              Consumer<Object> instanceConsumer;
+              {
+                instanceConsumer = (@Nullable Object parameter) -> {
+                  // BUG: Diagnostic contains: dereferenced expression
+                  parameter.toString();
+                };
+              }
+              static Consumer<Object> staticConsumer;
+              static {
+                staticConsumer = (@Nullable Object parameter) -> {
+                  // BUG: Diagnostic contains: dereferenced expression
+                  parameter.toString();
+                };
+              }
+              Consumer<List<@Nullable String>> nestedTypeArgument() {
+                return (List<@Nullable String> parameter) -> { parameter.size(); };
+              }
+            }
+            """)
+        .doTest();
+  }
+
+  @Test
   public void lambdaAssignedToLocalRespectsExtendsWildcardBoundNullness() {
     makeHelper()
         .addSourceLines(
