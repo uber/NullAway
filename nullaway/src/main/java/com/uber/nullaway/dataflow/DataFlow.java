@@ -473,7 +473,8 @@ public final class DataFlow {
     }
 
     private static boolean isConstructorOrInitializer(Tree tree) {
-      return (tree instanceof MethodTree methodTree && methodTree.getName().contentEquals("<init>"))
+      return (tree instanceof MethodTree methodTree
+              && ASTHelpers.getSymbol(methodTree).isConstructor())
           || tree instanceof BlockTree
           || tree instanceof VariableTree;
     }
