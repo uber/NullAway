@@ -211,6 +211,42 @@ public class CustomLibraryModelsTests {
   }
 
   @Test
+  public void lambdaReturnIsCheckedAgainstModeledNonNullReturnOfUnannotatedInterface() {
+    makeLibraryModelsTestHelperWithArgs(
+            Arrays.asList(
+                "-d",
+                temporaryFolder.getRoot().getAbsolutePath(),
+                "-XepOpt:NullAway:AnnotatedPackages=com.uber",
+                "-XepOpt:NullAway:UnannotatedSubPackages=com.uber.lib.unannotated"))
+        .addSourceLines(
+            "Test.java",
+            """
+            package com.uber;
+            import com.uber.lib.unannotated.NonNullReturnFunction;
+            import java.util.function.Function;
+            class Test {
+              static void takeModeled(NonNullReturnFunction<String, String> f) {}
+              static void takeUnmodeled(Function<String, String> f) {}
+              static void expressionBodyToModeled() {
+                // BUG: Diagnostic contains: returning @Nullable expression
+                takeModeled(x -> null);
+              }
+              static void blockBodyToModeled() {
+                // BUG: Diagnostic contains: returning @Nullable expression
+                takeModeled(x -> { return null; });
+              }
+              static void expressionBodyToUnmodeled() {
+                takeUnmodeled(x -> null);
+              }
+              static void blockBodyToUnmodeled() {
+                takeUnmodeled(x -> { return null; });
+              }
+            }
+            """)
+        .doTest();
+  }
+
+  @Test
   public void libraryModelsAndSelectiveSkippingViaCommandLineOptions() {
     // First test with the library models in effect
     makeLibraryModelsTestHelperWithArgs(

@@ -5,6 +5,7 @@ import com.google.errorprone.VisitorState;
 import com.google.errorprone.util.ASTHelpers;
 import com.sun.source.tree.LambdaExpressionTree;
 import com.sun.source.tree.MethodInvocationTree;
+import com.sun.source.tree.Tree;
 import com.sun.tools.javac.code.Symbol;
 import com.uber.nullaway.Config;
 import com.uber.nullaway.NullabilityUtil;
@@ -27,6 +28,9 @@ import javax.lang.model.element.Name;
  * cases in practice where these lambdas include {@code null} returns, which were already being
  * ignored (due to a bug) before PR #765. This handler offers the best possible support for these
  * cases, at least until our generics support is mature enough to handle them.
+ *
+ * <p>The handler is not registered in JSpecify mode, where generic method inference decides whether
+ * the lambda may return {@code null}.
  *
  * <p>Note: Package {@code com.uber.nullaway.handlers.temporary} is meant for this sort of temporary
  * workaround handler, to be removed as future NullAway features make them unnecessary. This is a
@@ -80,9 +84,13 @@ public class FluentFutureHandler implements Handler {
     if (!isGuavaFunctionDotApply(methodSymbol)) {
       return returnNullness;
     }
-    // Check if we are inside a lambda passed as an argument to a method call:
+    // Check if we are inside a lambda passed as an argument to a method call.  For a lambda with
+    // an expression body, the path ends at the lambda itself, which findEnclosingNode skips
+    Tree leaf = state.getPath().getLeaf();
     LambdaExpressionTree enclosingLambda =
-        ASTHelpers.findEnclosingNode(state.getPath(), LambdaExpressionTree.class);
+        leaf instanceof LambdaExpressionTree lambdaLeaf
+            ? lambdaLeaf
+            : ASTHelpers.findEnclosingNode(state.getPath(), LambdaExpressionTree.class);
     if (enclosingLambda == null
         || !NullabilityUtil.getFunctionalInterfaceMethod(enclosingLambda, state.getTypes())
             .equals(methodSymbol)) {

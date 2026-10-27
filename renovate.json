@@ -15,7 +15,7 @@
   "customManagers": [
     {
       "customType": "regex",
-      "description": "The compile-other-projects job in continuous-integration.yml builds each third-party project at the commit in its sha field. This manager moves sha to the tip of the branch field, using url to find the repository.",
+      "description": "The compile-other-projects job in continuous-integration.yml builds each third-party project at the commit in its sha field. This manager moves sha to the tip of the branch field, using url to find the repository. It matches project, url, branch, and sha only as consecutive lines in that order, so other fields of a matrix entry, such as build, go after sha.",
       "managerFilePatterns": [
         "/^\\.github/workflows/continuous-integration\\.yml$/"
       ],

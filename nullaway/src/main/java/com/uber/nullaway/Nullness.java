@@ -59,10 +59,13 @@ public enum Nullness implements AbstractValue<Nullness> {
   /**
    * Check whether an annotation should be treated as equivalent to <code>@MonotonicNonNull</code>.
    * For now checks if the simple name of the annotation is {@code MonotonicNonNull}, from any
-   * package.
+   * package, or if the annotation is {@code
+   * org.checkerframework.checker.nullness.compatqual.MonotonicNonNullDecl}.
    */
   public static boolean isMonotonicNonNullAnnotation(String annotName) {
-    return annotName.endsWith(".MonotonicNonNull");
+    return annotName.endsWith(".MonotonicNonNull")
+        // no `org.` prefix, for the same reason as NullableDecl in isNullableAnnotation
+        || annotName.endsWith(".checkerframework.checker.nullness.compatqual.MonotonicNonNullDecl");
   }
 
   /**

@@ -80,6 +80,95 @@ public class GenericMethodLambdaOrMethodRefArgTests extends NullAwayTestsBase {
   }
 
   @Test
+  public void voidCompatibleLambdaDiscardsNullableGenericResult() {
+    makeHelper()
+        .addSourceLines(
+            "Repro.java",
+            """
+            package repro;
+
+            import java.util.List;
+            import org.jspecify.annotations.NullMarked;
+            import org.jspecify.annotations.Nullable;
+
+            @NullMarked
+            final class Repro {
+              interface Executable {
+                void execute();
+              }
+
+              interface Processor<T extends @Nullable Object> {
+                T process();
+              }
+
+              interface Action<T extends @Nullable Object> {
+                void accept(List<T> values);
+              }
+
+              static <E extends Throwable> E assertThrows(Class<E> expectedType, Executable executable) {
+                throw new UnsupportedOperationException();
+              }
+
+              static <T extends @Nullable Object> T invoke(Processor<T> processor) {
+                return processor.process();
+              }
+
+              static <T extends @Nullable Object> T requireNonNullArgument(T value, Object required) {
+                return value;
+              }
+
+              static <T extends @Nullable Object> T evaluate(Processor<T> processor) {
+                return processor.process();
+              }
+
+              static <T extends @Nullable Object> T choose(Action<T> action) {
+                throw new UnsupportedOperationException();
+              }
+
+              static <T extends @Nullable Object> @Nullable T fromNullableList(
+                  List<@Nullable T> values) {
+                return null;
+              }
+
+              static void expressionBody() {
+                assertThrows(RuntimeException.class, () -> invoke(() -> null));
+              }
+
+              static void blockBody() {
+                assertThrows(RuntimeException.class, () -> { invoke(() -> null); });
+              }
+
+              static void standaloneLambda() {
+                Executable executable = () -> invoke(() -> null);
+              }
+
+              static void discardedNonGenericCall(Processor<@Nullable Object> processor) {
+                assertThrows(RuntimeException.class, () -> processor.process());
+              }
+
+              static @Nullable String inferFromDiscardedCallArguments() {
+                return choose(values -> fromNullableList(values));
+              }
+
+              static void discardedResultStillChecksArguments() {
+                // BUG: Diagnostic contains: passing @Nullable parameter 'null'
+                assertThrows(RuntimeException.class, () -> requireNonNullArgument(null, null));
+              }
+
+              static @Nullable Object nullableReturn() {
+                return evaluate(() -> invoke(() -> null));
+              }
+
+              static Object nonNullReturn() {
+                // BUG: Diagnostic contains: inference failure: type variable T constrained to be both @NonNull and @Nullable
+                return evaluate(() -> invoke(() -> null));
+              }
+            }
+            """)
+        .doTest();
+  }
+
+  @Test
   public void modeledBoundPreservedForSeparateInferenceInLambdaBody() {
     makeHelper()
         .addSourceLines(

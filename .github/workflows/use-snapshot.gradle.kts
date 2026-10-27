@@ -17,4 +17,11 @@ gradle.lifecycle.beforeProject {
       cacheDynamicVersionsFor(0, "seconds")
     }
   }
+
+  // NullAway runs inside javac, so compiling every source set (main, test, and extras such as
+  // multi-release or test-fixture sources) checks every source set the project runs NullAway on,
+  // without running tests, Javadoc, or linters.
+  tasks.register("compileAllJava") {
+    dependsOn(tasks.withType<JavaCompile>())
+  }
 }

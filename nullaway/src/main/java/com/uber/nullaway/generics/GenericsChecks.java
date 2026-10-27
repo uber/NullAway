@@ -183,12 +183,20 @@ public final class GenericsChecks {
    */
   private final Set<MethodInvocationTree> nestedNullabilityRepairInProgress = new LinkedHashSet<>();
 
-  public @Nullable Type getInferredPolyExpressionType(Tree tree) {
+  /**
+   * Returns the stored NullAway-inferred type of a lambda or method reference when available,
+   * otherwise its javac-attributed type.
+   *
+   * @param tree the lambda or method reference
+   * @return the expression's type, or {@code null} if neither inference nor javac provides one
+   */
+  public @Nullable Type getPolyExpressionType(Tree tree) {
     Preconditions.checkArgument(
         tree instanceof LambdaExpressionTree || tree instanceof MemberReferenceTree,
         "Expected lambda or method reference tree but got: %s",
         tree.getKind());
-    return inferredPolyExpressionTypes.get(tree);
+    Type inferredType = inferredPolyExpressionTypes.get(tree);
+    return inferredType != null ? inferredType : ASTHelpers.getType(tree);
   }
 
   /**
@@ -1659,8 +1667,9 @@ public final class GenericsChecks {
           PolyNullInference.substituteInferenceVariables(
               polyNullContext, inferenceVariables, state, config);
     }
-    // first, handle the call result flow
-    if (typeFromAssignmentContext != null) {
+    // First, handle the call result flow. A TypeKind.VOID type can arise here due to
+    // void-compatible expression lambda; do not generate constraints for that case
+    if (typeFromAssignmentContext != null && typeFromAssignmentContext.getKind() != TypeKind.VOID) {
       Type callResultType =
           (callTree instanceof MethodInvocationTree)
               ? methodTypeForSite.getReturnType()
@@ -2902,27 +2911,36 @@ public final class GenericsChecks {
               ExpressionTree actualParameterWithoutParentheses = actualParameterAndState.expr();
               if (actualParameterWithoutParentheses
                   instanceof MemberReferenceTree memberReferenceTree) {
-                Type groundFormalParameter =
-                    GenericsUtils.groundTargetType(formalParameter, state, config, handler);
                 // the type of the method reference tree provided by javac may not capture
-                // nullability of nested types. So, do explicit type checks based on the return and
-                // parameter types of the referenced method
-                GenericsUtils.processMethodRefTypeRelations(
-                    this,
-                    groundFormalParameter,
-                    memberReferenceTree,
-                    actualParameterAndState.state(),
-                    (subtype, supertype, relationKind) -> {
-                      if (!subtypeParameterNullability(supertype, subtype, state)) {
-                        if (relationKind == MethodRefTypeRelationKind.RETURN) {
-                          reportInvalidMethodReferenceReturnTypeError(
-                              memberReferenceTree, supertype, subtype, state);
-                        } else {
-                          reportInvalidMethodReferenceParameterTypeError(
-                              memberReferenceTree, subtype, supertype, state);
+                // nullability of nested types. So, do explicit type checks based on the return
+                // and parameter types of the referenced method. Type arguments of an unmarked
+                // functional interface method have unspecified nullness and are not checked, as
+                // for the arguments of a call to an unmarked method.
+                if (!CodeAnnotationInfo.instance(state.context)
+                    .isSymbolUnannotated(
+                        NullabilityUtil.getFunctionalInterfaceMethod(
+                            memberReferenceTree, state.getTypes()),
+                        config,
+                        handler)) {
+                  Type groundFormalParameter =
+                      GenericsUtils.groundTargetType(formalParameter, state, config, handler);
+                  GenericsUtils.processMethodRefTypeRelations(
+                      this,
+                      groundFormalParameter,
+                      memberReferenceTree,
+                      actualParameterAndState.state(),
+                      (subtype, supertype, relationKind) -> {
+                        if (!subtypeParameterNullability(supertype, subtype, state)) {
+                          if (relationKind == MethodRefTypeRelationKind.RETURN) {
+                            reportInvalidMethodReferenceReturnTypeError(
+                                memberReferenceTree, supertype, subtype, state);
+                          } else {
+                            reportInvalidMethodReferenceParameterTypeError(
+                                memberReferenceTree, subtype, supertype, state);
+                          }
                         }
-                      }
-                    });
+                      });
+                }
                 maybeStorePolyExpressionTypeFromTarget(
                     actualParameterWithoutParentheses, formalParameter, state);
                 return;
@@ -3013,6 +3031,10 @@ public final class GenericsChecks {
    * Checks that type parameter nullability is consistent between an overriding method and the
    * corresponding overridden method.
    *
+   * <p>Nothing is checked when the overridden method is in {@code @NullUnmarked} or unannotated
+   * code: nullness of its type arguments and type-variable bounds is unspecified, as for the
+   * arguments of a call to such a method.
+   *
    * @param tree A method tree to check
    * @param overridingMethod A symbol of the overriding method
    * @param overriddenMethod A symbol of the overridden method
@@ -3026,7 +3048,9 @@ public final class GenericsChecks {
       Symbol.MethodSymbol overriddenMethod,
       Type overriddenMethodType,
       VisitorState state) {
-    if (!analysis.getConfig().isJSpecifyMode()) {
+    if (!analysis.getConfig().isJSpecifyMode()
+        || CodeAnnotationInfo.instance(state.context)
+            .isSymbolUnannotated(overriddenMethod, config, handler)) {
       return;
     }
     checkTypeParameterNullnessForOverridingMethodReturnType(tree, overriddenMethodType, state);
@@ -3040,7 +3064,8 @@ public final class GenericsChecks {
    * an explicitly typed lambda against the functional interface method, as for the parameters of an
    * overriding method (see {@link #checkTypeParameterNullnessForOverridingMethodParameterType}). An
    * implicitly typed parameter takes its type from the functional interface method, so it is not
-   * checked. Only called in JSpecify mode.
+   * checked, and neither is a parameter of a lambda whose functional interface method is in
+   * {@code @NullUnmarked} or unannotated code. Only called in JSpecify mode.
    *
    * @param tree the lambda
    * @param fiMethod the functional interface method the lambda implements
@@ -3048,10 +3073,12 @@ public final class GenericsChecks {
    */
   public void checkTypeParameterNullnessForExplicitLambdaParameters(
       LambdaExpressionTree tree, Symbol.MethodSymbol fiMethod, VisitorState state) {
-    if (((JCTree.JCLambda) tree).paramKind != JCTree.JCLambda.ParameterKind.EXPLICIT) {
+    if (((JCTree.JCLambda) tree).paramKind != JCTree.JCLambda.ParameterKind.EXPLICIT
+        || CodeAnnotationInfo.instance(state.context)
+            .isSymbolUnannotated(fiMethod, config, handler)) {
       return;
     }
-    Type targetType = getTreeType(tree, state);
+    Type targetType = typeOrNullIfRawNonArray(getPolyExpressionType(tree));
     if (targetType == null) {
       return;
     }
@@ -3126,10 +3153,6 @@ public final class GenericsChecks {
    * have been instantiated (e.g. {@code <T extends X>} on {@code Foo<X>} becomes {@code <T
    * extends @Nullable Object>} when overriding in a {@code Foo<@Nullable Object>} subtype).
    *
-   * <p>Overrides of methods from {@code @NullUnmarked} / unannotated code are skipped: method
-   * type-variable bound nullness is not specified there, and treating unmarked bounds as nullable
-   * would false-positive against typical {@code <T>} overrides in marked code.
-   *
    * @param tree tree for the overriding method
    * @param overridingMethod symbol of the overriding method
    * @param overriddenMethod symbol of the overridden method
@@ -3143,10 +3166,6 @@ public final class GenericsChecks {
       Symbol.MethodSymbol overriddenMethod,
       Type overriddenMethodType,
       VisitorState state) {
-    if (CodeAnnotationInfo.instance(state.context)
-        .isSymbolUnannotated(overriddenMethod, config, handler)) {
-      return;
-    }
     // Generic methods are Type.ForAll; non-generic overridden methods have no method type vars.
     if (!(overriddenMethodType instanceof Type.ForAll forAll)) {
       return;
