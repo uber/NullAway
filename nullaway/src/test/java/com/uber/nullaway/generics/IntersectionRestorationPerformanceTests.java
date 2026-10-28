@@ -33,7 +33,7 @@ public class IntersectionRestorationPerformanceTests {
   private static final int LEVELS = 20;
   private static final int WIDTH = 64;
 
-  @Test
+  @Test(timeout = 30_000)
   public void sharedImplicitBoundsAreVisitedWithBoundedWork() {
     StringBuilder source = new StringBuilder("interface A0<T> {} interface B0<T> {}\n");
     for (int i = 1; i <= LEVELS; i++) {
@@ -65,7 +65,7 @@ public class IntersectionRestorationPerformanceTests {
     compile(source.toString());
   }
 
-  @Test
+  @Test(timeout = 30_000)
   public void smallSharedBoundsWithCyclicLeafReuseCompletedWork() {
     compile(
         """
@@ -81,7 +81,7 @@ public class IntersectionRestorationPerformanceTests {
         """);
   }
 
-  @Test
+  @Test(timeout = 30_000)
   public void mutualCycleRestorationMatchesIsolatedEntryPoints() {
     compile(
         """
@@ -95,7 +95,7 @@ public class IntersectionRestorationPerformanceTests {
         """);
   }
 
-  @Test
+  @Test(timeout = 30_000)
   public void wideReorderedIntersectionsMatchComponentsBySymbol() {
     StringBuilder source = new StringBuilder("import org.jspecify.annotations.*;\n");
     for (int i = 0; i < WIDTH; i++) {

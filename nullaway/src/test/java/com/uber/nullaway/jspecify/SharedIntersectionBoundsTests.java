@@ -9,7 +9,7 @@ import org.junit.Test;
 /** End-to-end source coverage for shared implicit wildcard bounds and recursive bounds. */
 public class SharedIntersectionBoundsTests extends NullAwayTestsBase {
 
-  @Test
+  @Test(timeout = 30_000)
   public void receiverWithTwentyLevelsOfSharedIntersectionBounds() {
     StringBuilder source =
         new StringBuilder(
@@ -49,7 +49,7 @@ public class SharedIntersectionBoundsTests extends NullAwayTestsBase {
     makeHelper().addSourceLines("Test.java", source.toString()).doTest();
   }
 
-  @Test
+  @Test(timeout = 30_000)
   public void recursiveBoundsRetainNullableAndNonNullResults() {
     makeHelper()
         .addSourceLines(
