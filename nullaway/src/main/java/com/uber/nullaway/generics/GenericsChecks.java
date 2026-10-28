@@ -2991,7 +2991,6 @@ public final class GenericsChecks {
             handler)) {
       return;
     }
-    // javac's expression type may omit nested nullability from the referenced signature.
     GenericsUtils.processMethodRefTypeRelations(
         this,
         groundTargetType,
