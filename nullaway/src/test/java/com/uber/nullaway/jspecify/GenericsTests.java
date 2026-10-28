@@ -3638,6 +3638,30 @@ public class GenericsTests extends NullAwayTestsBase {
               void typedNullableBound(NullableBox<@Nullable Object> box) {
                 box.accept(null);
               }
+              void typedNonNullArgument(NullableBox<String> box) {
+                // BUG: Diagnostic contains: passing @Nullable parameter 'null'
+                box.accept(null);
+              }
+              static class RawSubclass extends NullableBox {
+                void callInherited() {
+                  accept(null);
+                }
+              }
+              void rawAnonymousSubclass() {
+                new NullableBox() {
+                  void callInherited() {
+                    accept(null);
+                  }
+                };
+              }
+              void rawAnonymousNonNullBound() {
+                new NonNullBox() {
+                  void callInherited() {
+                    // BUG: Diagnostic contains: passing @Nullable parameter 'null'
+                    accept(null);
+                  }
+                };
+              }
               void rawNullableBoundExplicitNonNull(NullableBox box) {
                 // BUG: Diagnostic contains: passing @Nullable parameter 'null'
                 box.acceptNonNull(null);

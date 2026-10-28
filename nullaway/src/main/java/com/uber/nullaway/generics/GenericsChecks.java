@@ -4111,15 +4111,16 @@ public final class GenericsChecks {
       }
     }
 
+    // the member types of a raw receiver are erased, which loses the nullable upper bound of a
+    // class type variable; the declared parameter type still has it
+    if (!isVarargsParam && hasRawReceiver(invokedMethodSymbol, tree, state)) {
+      return getParameterNullnessForRawReceiver(
+          invokedMethodSymbol.type.getParameterTypes().get(paramIndex));
+    }
+
     Type enclosingType =
         getEnclosingTypeForCallExpression(invokedMethodSymbol, tree, null, state, false);
     if (enclosingType == null) {
-      // getTreeType returns null for a raw receiver, whose member types are erased; the declared
-      // parameter type still tells us if a class type variable has a nullable upper bound
-      if (!isVarargsParam && hasRawReceiver(invokedMethodSymbol, tree)) {
-        return getParameterNullnessForRawReceiver(
-            invokedMethodSymbol.type.getParameterTypes().get(paramIndex));
-      }
       return Nullness.NONNULL;
     }
 
@@ -4127,24 +4128,38 @@ public final class GenericsChecks {
   }
 
   /**
-   * Checks if a call is made through a raw receiver, i.e., an explicit receiver expression of a raw
-   * type, or a constructor call that allocates a raw type.
+   * Checks if a call is made through a raw receiver: an explicit receiver expression of a raw type,
+   * a constructor call that allocates a raw type, or an unqualified call inside a class that
+   * inherits the method through a raw supertype, e.g., an anonymous {@code new Box() {...}}.
    *
    * @param invokedMethodSymbol symbol for the invoked method
    * @param tree the tree for the invocation
+   * @param state the visitor state, whose path is used to find the enclosing class of an
+   *     unqualified call
    * @return true if the receiver of the call has a raw type
    */
-  private static boolean hasRawReceiver(Symbol.MethodSymbol invokedMethodSymbol, Tree tree) {
-    Type receiverType = null;
+  private static boolean hasRawReceiver(
+      Symbol.MethodSymbol invokedMethodSymbol, Tree tree, VisitorState state) {
     if (tree instanceof NewClassTree) {
-      receiverType = ASTHelpers.getType(tree);
-    } else if (!invokedMethodSymbol.isStatic()
-        && tree instanceof MethodInvocationTree methodInvocationTree
-        && ASTHelpers.stripParentheses(methodInvocationTree.getMethodSelect())
-            instanceof MemberSelectTree memberSelectTree) {
-      receiverType = ASTHelpers.getType(memberSelectTree.getExpression());
+      Type allocatedType = ASTHelpers.getType(tree);
+      return allocatedType != null && allocatedType.isRaw();
     }
-    return receiverType != null && receiverType.isRaw();
+    if (!(tree instanceof MethodInvocationTree methodInvocationTree)) {
+      return false; // diff-coverage: ignore -- callers pass only method or constructor invocations
+    }
+    ExpressionTree methodSelect =
+        ASTHelpers.stripParentheses(methodInvocationTree.getMethodSelect());
+    if (methodSelect instanceof MemberSelectTree memberSelectTree) {
+      Type receiverType = ASTHelpers.getType(memberSelectTree.getExpression());
+      return receiverType != null && receiverType.isRaw();
+    }
+    // an unqualified call is always inside a class
+    ClassTree enclosingClass = castToNonNull(state.findEnclosing(ClassTree.class));
+    Type ownerView =
+        state
+            .getTypes()
+            .asSuper(castToNonNull(ASTHelpers.getType(enclosingClass)), invokedMethodSymbol.owner);
+    return ownerView != null && ownerView.isRaw();
   }
 
   /**
