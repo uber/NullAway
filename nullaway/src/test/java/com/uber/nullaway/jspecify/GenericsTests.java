@@ -3600,10 +3600,24 @@ public class GenericsTests extends NullAwayTestsBase {
             "Test.java",
             """
             package com.uber;
+            import java.util.List;
+            import java.util.Map;
             import org.jspecify.annotations.NonNull;
             import org.jspecify.annotations.Nullable;
             @SuppressWarnings({"rawtypes", "unchecked"})
             class Test {
+              void jdkRawMap(Map map) {
+                map.put(null, null);
+              }
+              void jdkTypedMap(Map<@Nullable Object, @Nullable Object> map) {
+                map.put(null, null);
+              }
+              void jdkRawList(List list) {
+                list.add(null);
+              }
+              void jdkTypedList(List<@Nullable Object> list) {
+                list.add(null);
+              }
               static class NullableBox<T extends @Nullable Object> {
                 void accept(T value) {}
                 void acceptNonNull(@NonNull T value) {}
