@@ -2913,9 +2913,15 @@ public final class GenericsChecks {
               ExpressionTree actualParameterWithoutParentheses =
                   ASTHelpers.stripParentheses(currentActualParam);
               if (actualParameterWithoutParentheses instanceof MemberReferenceTree) {
-                // The reference itself checks its signature against this target when visited.
+                // The formal parameter supplies the expected functional interface type. Preserve
+                // its nullability annotations in the cached method reference expression type;
+                // Later, when we visit the MemberReferenceTree directly, checkMethodReference()
+                // uses that type to check the referenced method's parameter and return nullability.
                 maybeStorePolyExpressionTypeFromTarget(
                     actualParameterWithoutParentheses, formalParameter, state);
+                // Return early: the type of the method reference itself is derived from the formal
+                // parameter type, so the subtype compatibility check below will not surface any
+                // independent warnings
                 return;
               }
 
