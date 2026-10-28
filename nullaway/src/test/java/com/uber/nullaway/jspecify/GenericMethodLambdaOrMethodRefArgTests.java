@@ -71,6 +71,7 @@ public class GenericMethodLambdaOrMethodRefArgTests extends NullAwayTestsBase {
             @NullMarked
             class Test<T> {
               List<@Nullable T> nullableValues() { throw new UnsupportedOperationException(); }
+              List<T> nonNullValues() { throw new UnsupportedOperationException(); }
               static <U extends @Nullable Object> List<@Nullable U> genericNullableValues() {
                 throw new UnsupportedOperationException();
               }
@@ -98,6 +99,18 @@ public class GenericMethodLambdaOrMethodRefArgTests extends NullAwayTestsBase {
               Supplier<List<T>> nonNullConditional(boolean flag) {
                 // BUG: Diagnostic contains: referenced method returns
                 return flag ? this::nullableValues : this::nullableValues;
+              }
+              Supplier<List<T>> incompatibleTrueArm(boolean flag) {
+                return flag
+                    // BUG: Diagnostic contains: referenced method returns
+                    ? this::nullableValues
+                    : this::nonNullValues;
+              }
+              Supplier<List<T>> incompatibleFalseArm(boolean flag) {
+                return flag
+                    ? this::nonNullValues
+                    // BUG: Diagnostic contains: referenced method returns
+                    : this::nullableValues;
               }
               static void nullableConditionalArgument(Test<String> target, boolean flag) {
                 target.accept(flag ? target::nullableValues : target::nullableValues);
