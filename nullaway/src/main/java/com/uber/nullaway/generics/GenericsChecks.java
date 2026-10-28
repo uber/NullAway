@@ -2819,8 +2819,12 @@ public final class GenericsChecks {
         // parent call side.
         return new TargetTypeAndAssignmentKind(null, false);
       }
-      // A receiver expression has no parameter target. Resolving the enclosing call's method type
-      // in that case would revisit the receiver while computing its type.
+      // getEnclosingTypeForCallExpression constructs a path with the receiver directly under the
+      // invocation, so this branch can also be reached for a receiver, e.g. the conditional in
+      // (flag ? a : b).method(). Check that expressionTree is a non-receiver argument before
+      // resolving the invocation's method type; otherwise, resolution would compute the receiver's
+      // type again and recurse indefinitely. A receiver has no formal parameter supplying a target
+      // type.
       Type.MethodType attributedMethodType =
           castToNonNull(ASTHelpers.getType(parentInvocation.getMethodSelect())).asMethodType();
       if (getFormalParameterTypeForArgument(parentInvocation, attributedMethodType, expressionTree)
@@ -2995,7 +2999,8 @@ public final class GenericsChecks {
    * @param tree the method reference
    * @param state visitor state whose path ends at the reference
    */
-  public void checkMethodReference(MemberReferenceTree tree, VisitorState state) {
+  public void inferAndCheckMethodReferenceNullability(
+      MemberReferenceTree tree, VisitorState state) {
     Type targetType = getMethodReferenceType(tree, state, false);
     inferredPolyExpressionTypes.putIfAbsent(tree, targetType);
     Type groundTargetType = GenericsUtils.groundTargetType(targetType, state, config, handler);
@@ -3033,8 +3038,8 @@ public final class GenericsChecks {
    * Keeps javac's attributed type as the fallback for contexts without a recovered target.
    *
    * <p>Does not cache the recovered method-reference type: callers may be running dataflow or using
-   * provisional lambda parameters. {@link #checkMethodReference} caches the type when the reference
-   * is visited after inference completes.
+   * provisional lambda parameters. {@link #inferAndCheckMethodReferenceNullability} caches the type
+   * when the reference is visited after inference completes.
    */
   private Type getMethodReferenceType(
       MemberReferenceTree tree, VisitorState state, boolean calledFromDataflow) {

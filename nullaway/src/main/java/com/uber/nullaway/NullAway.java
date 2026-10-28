@@ -1436,7 +1436,7 @@ public class NullAway extends BugChecker
     }
     if (config.isJSpecifyMode()) {
       genericsChecks.maybeStoreLibraryModeledPolyExpressionType(tree, state);
-      genericsChecks.checkMethodReference(tree, state);
+      genericsChecks.inferAndCheckMethodReferenceNullability(tree, state);
     }
     // Technically the qualifier expression of a method reference gets passed to
     // Objects.requireNonNull, but it's fine to treat it as a dereference for error-checking
