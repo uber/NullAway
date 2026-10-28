@@ -4114,10 +4114,37 @@ public final class GenericsChecks {
     Type enclosingType =
         getEnclosingTypeForCallExpression(invokedMethodSymbol, tree, null, state, false);
     if (enclosingType == null) {
+      // getTreeType returns null for a raw receiver, whose member types are erased; the declared
+      // parameter type still tells us if a class type variable has a nullable upper bound
+      if (!isVarargsParam && hasRawReceiver(invokedMethodSymbol, tree)) {
+        return getParameterNullnessForRawReceiver(
+            invokedMethodSymbol.type.getParameterTypes().get(paramIndex));
+      }
       return Nullness.NONNULL;
     }
 
     return getGenericMethodParameterNullness(paramIndex, invokedMethodSymbol, enclosingType, state);
+  }
+
+  /**
+   * Checks if a call is made through a raw receiver, i.e., an explicit receiver expression of a raw
+   * type, or a constructor call that allocates a raw type.
+   *
+   * @param invokedMethodSymbol symbol for the invoked method
+   * @param tree the tree for the invocation
+   * @return true if the receiver of the call has a raw type
+   */
+  private static boolean hasRawReceiver(Symbol.MethodSymbol invokedMethodSymbol, Tree tree) {
+    Type receiverType = null;
+    if (tree instanceof NewClassTree) {
+      receiverType = ASTHelpers.getType(tree);
+    } else if (!invokedMethodSymbol.isStatic()
+        && tree instanceof MethodInvocationTree methodInvocationTree
+        && ASTHelpers.stripParentheses(methodInvocationTree.getMethodSelect())
+            instanceof MemberSelectTree memberSelectTree) {
+      receiverType = ASTHelpers.getType(memberSelectTree.getExpression());
+    }
+    return receiverType != null && receiverType.isRaw();
   }
 
   /**
@@ -4279,6 +4306,29 @@ public final class GenericsChecks {
         TypeSubstitutionUtils.memberType(state.getTypes(), enclosingType, method, config);
     Type paramType = methodType.getParameterTypes().get(parameterIndex);
     return getParameterTypeNullness(paramType, isVarargsParam, state);
+  }
+
+  /**
+   * Returns the nullness of a declared parameter type for a method invoked on a raw receiver. A raw
+   * receiver gives no type argument for a class type variable, so a parameter whose type is such a
+   * type variable is treated as {@code @Nullable} if the variable has a {@code @Nullable} upper
+   * bound, unless the parameter is explicitly annotated {@code @NonNull}.
+   *
+   * @param declaredParamType the parameter type as declared on the method, before any substitution
+   * @return {@code NULLABLE} if the parameter may receive {@code null} through a raw receiver, and
+   *     {@code NONNULL} otherwise
+   */
+  private Nullness getParameterNullnessForRawReceiver(Type declaredParamType) {
+    if (!(declaredParamType instanceof Type.TypeVar typeVar)
+        || !(typeVar.tsym.owner instanceof Symbol.ClassSymbol owner)
+        || Nullness.hasNonNullAnnotation(
+            declaredParamType.getAnnotationMirrors().stream(), config)) {
+      return Nullness.NONNULL;
+    }
+    int typeVarIndex = owner.getTypeParameters().indexOf(typeVar.tsym);
+    return getTypeParamsWithNullableUpperBound(owner.type)[typeVarIndex]
+        ? Nullness.NULLABLE
+        : Nullness.NONNULL;
   }
 
   /**

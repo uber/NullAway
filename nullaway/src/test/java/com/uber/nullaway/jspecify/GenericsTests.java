@@ -3593,6 +3593,54 @@ public class GenericsTests extends NullAwayTestsBase {
         .doTest();
   }
 
+  @Test
+  public void passNullThroughRawReceiver() {
+    makeHelper()
+        .addSourceLines(
+            "Test.java",
+            """
+            package com.uber;
+            import org.jspecify.annotations.NonNull;
+            import org.jspecify.annotations.Nullable;
+            @SuppressWarnings({"rawtypes", "unchecked"})
+            class Test {
+              static class NullableBox<T extends @Nullable Object> {
+                void accept(T value) {}
+                void acceptNonNull(@NonNull T value) {}
+                <U> void acceptMethodTypeVar(U value) {}
+              }
+              static class NonNullBox<T> {
+                void accept(T value) {}
+              }
+              static class NullableHolder<T extends @Nullable Object> {
+                NullableHolder(T value) {}
+              }
+              void rawNullableBound(NullableBox box) {
+                box.accept(null);
+              }
+              void rawNullableBoundConstructor() {
+                new NullableHolder(null);
+              }
+              void typedNullableBound(NullableBox<@Nullable Object> box) {
+                box.accept(null);
+              }
+              void rawNullableBoundExplicitNonNull(NullableBox box) {
+                // BUG: Diagnostic contains: passing @Nullable parameter 'null'
+                box.acceptNonNull(null);
+              }
+              void rawNullableBoundMethodTypeVar(NullableBox box) {
+                // BUG: Diagnostic contains: passing @Nullable parameter 'null'
+                box.acceptMethodTypeVar(null);
+              }
+              void rawNonNullBound(NonNullBox box) {
+                // BUG: Diagnostic contains: passing @Nullable parameter 'null'
+                box.accept(null);
+              }
+            }
+            """)
+        .doTest();
+  }
+
   private CompilationTestHelper makeHelper() {
     return makeTestHelperWithArgs(
         JSpecifyJavacConfig.withJSpecifyModeArgs(
