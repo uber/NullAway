@@ -534,8 +534,10 @@ public class LibraryModelsHandler implements Handler {
     return result;
   }
 
+  /** Returns the optimized view for this compilation, discarding symbols from any prior context. */
+  @SuppressWarnings("ReferenceEquality") // javac contexts identify separate compilations
   private OptimizedLibraryModels getOptLibraryModels(Context context) {
-    if (optLibraryModels == null) {
+    if (optLibraryModels == null || optLibraryModels.context != context) {
       optLibraryModels = new OptimizedLibraryModels(libraryModels, context);
     }
     return optLibraryModels;
@@ -1770,7 +1772,17 @@ public class LibraryModelsHandler implements Handler {
 
     private static final int MAX_METHOD_REF_CACHE_SIZE = 1000;
 
+    private final Context context;
     private final Types types;
+
+    /**
+     * A descriptor of a declaration, not a receiver-instantiated or flow-dependent method type.
+     * Declaration names, owners, and varargs flags are stable during analysis. NullAway constructs
+     * separate types for modeling and inference; if javac replaces the declaration type, the next
+     * lookup must convert it again. Annotation-only updates are stripped by {@link
+     * MethodRef#fromSymbol} and do not affect model matching.
+     */
+    private record CachedMethodRef(Type declarationType, MethodRef ref) {}
 
     /**
      * Mapping from {@link MethodRef} to some state, where lookups first check for a matching method
@@ -1788,20 +1800,21 @@ public class LibraryModelsHandler implements Handler {
      */
     private record NameIndexedMap<T>(
         Map<Name, Map<MethodRef, T>> state,
-        Cache<Symbol.MethodSymbol, MethodRef> symbolToMethodRefCache) {
+        Cache<Symbol.MethodSymbol, CachedMethodRef> symbolToMethodRefCache) {
 
-      /** Looks up a model, reusing a cached symbol conversion when the method name is modeled. */
+      /** Looks up a model, refreshing the cached descriptor when its declaration type changes. */
+      @SuppressWarnings({"ReferenceEquality", "TypeEquals"})
       @Nullable T get(Symbol.MethodSymbol symbol) {
         Map<MethodRef, T> methodRefTMap = state.get(symbol.name);
         if (methodRefTMap == null) {
           return null;
         }
-        MethodRef ref = symbolToMethodRefCache.getIfPresent(symbol);
-        if (ref == null) {
-          ref = MethodRef.fromSymbol(symbol);
-          symbolToMethodRefCache.put(symbol, ref);
+        CachedMethodRef cached = symbolToMethodRefCache.getIfPresent(symbol);
+        if (cached == null || cached.declarationType() != symbol.type) {
+          cached = new CachedMethodRef(symbol.type, MethodRef.fromSymbol(symbol));
+          symbolToMethodRefCache.put(symbol, cached);
         }
-        return methodRefTMap.get(ref);
+        return methodRefTMap.get(cached.ref());
       }
 
       boolean nameNotPresent(Symbol.MethodSymbol symbol) {
@@ -1813,7 +1826,7 @@ public class LibraryModelsHandler implements Handler {
      * Shares symbol conversions across model categories within this compilation's optimized models.
      * Only symbols whose names occur in a model are cached.
      */
-    private final Cache<Symbol.MethodSymbol, MethodRef> symbolToMethodRefCache =
+    private final Cache<Symbol.MethodSymbol, CachedMethodRef> symbolToMethodRefCache =
         CacheBuilder.newBuilder()
             .concurrencyLevel(1)
             .maximumSize(MAX_METHOD_REF_CACHE_SIZE)
@@ -1835,6 +1848,7 @@ public class LibraryModelsHandler implements Handler {
     private final NameIndexedMap<ImmutableSet<PolyNullLocation>> polyNullLocations;
 
     OptimizedLibraryModels(LibraryModels models, Context context) {
+      this.context = context;
       types = Types.instance(context);
       Names names = Names.instance(context);
       failIfNullParams = makeOptimizedSetLookup(names, models.failIfNullParameters());

@@ -162,6 +162,34 @@ public enum Nullness implements AbstractValue<Nullness> {
   }
 
   /**
+   * Like {@link #hasNullableAnnotation(Stream, Config)}, for an annotation list. Avoids building a
+   * stream, which matters on hot paths where most types have no annotations.
+   */
+  public static boolean hasNullableAnnotation(
+      java.util.List<? extends AnnotationMirror> annotations, Config config) {
+    for (AnnotationMirror anno : annotations) {
+      if (isNullableAnnotation(anno.getAnnotationType().toString(), config)) {
+        return true;
+      }
+    }
+    return false;
+  }
+
+  /**
+   * Like {@link #hasNonNullAnnotation(Stream, Config)}, for an annotation list. Avoids building a
+   * stream, which matters on hot paths where most types have no annotations.
+   */
+  public static boolean hasNonNullAnnotation(
+      java.util.List<? extends AnnotationMirror> annotations, Config config) {
+    for (AnnotationMirror anno : annotations) {
+      if (isNonNullAnnotation(anno.getAnnotationType().toString(), config)) {
+        return true;
+      }
+    }
+    return false;
+  }
+
+  /**
    * Check whether an annotation should be treated as equivalent to <code>@Nullable</code>.
    *
    * @param annotName annotation name

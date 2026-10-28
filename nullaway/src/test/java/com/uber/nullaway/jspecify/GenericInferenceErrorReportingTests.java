@@ -1,23 +1,17 @@
 package com.uber.nullaway.jspecify;
 
 import static com.google.common.truth.Truth.assertThat;
-import static com.google.common.truth.Truth.assertWithMessage;
+import static org.junit.Assert.assertThrows;
 
 import com.google.errorprone.CompilationTestHelper;
-import com.google.errorprone.ErrorProneJavaCompiler;
-import com.google.errorprone.FileManagers;
 import com.google.errorprone.FileObjects;
-import com.google.errorprone.scanner.ScannerSupplier;
-import com.uber.nullaway.NullAway;
 import com.uber.nullaway.NullAwayTestsBase;
 import com.uber.nullaway.generics.JSpecifyJavacConfig;
-import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Locale;
 import java.util.stream.Collectors;
 import javax.tools.Diagnostic;
-import javax.tools.DiagnosticCollector;
 import javax.tools.JavaFileObject;
 import org.junit.Test;
 
@@ -66,6 +60,244 @@ public class GenericInferenceErrorReportingTests extends NullAwayTestsBase {
             }
             """)
         .doTest();
+  }
+
+  @Test
+  public void nestedScalarFailurePointsAtTheConstrainedCall() {
+    JavaFileObject callerSource =
+        FileObjects.forSourceLines(
+            "Caller.java",
+            """
+            package com.uber;
+            import java.util.List;
+            import org.jspecify.annotations.NullMarked;
+            import org.jspecify.annotations.Nullable;
+            @NullMarked
+            class Caller {
+              static <X extends @Nullable Object> X id(X value) { return value; }
+              static <U extends @Nullable Object> List<U> one(U value) { throw new RuntimeException(); }
+              static void takeList(List<String> values) {}
+              void test(@Nullable String value) {
+                takeList(id(
+                    id(id(id(id(id(
+                        one(value)
+                    )))))
+                ));
+              }
+            }
+            """);
+
+    assertThat(
+            compileAndReportDiagnostics(List.of(callerSource)).stream()
+                .filter(diagnostic -> diagnostic.contains("inference failure:"))
+                .toList())
+        .containsExactly(
+            "Caller.java:13: [NullAway] inference failure: type variable U constrained to be both"
+                + " @NonNull and @Nullable");
+  }
+
+  @Test
+  public void distinctLowerConflictReportsSourceArgumentsOnceInEitherOrder() {
+    checkDistinctLowerConflict(false);
+    checkDistinctLowerConflict(true);
+  }
+
+  /** Checks one source-level conflict at the later argument, without result or bound cascades. */
+  private void checkDistinctLowerConflict(boolean reverse) {
+    String first = reverse ? "b" : "a";
+    String second = reverse ? "a" : "b";
+    String firstType = reverse ? "LinkedList<String>" : "ArrayList<@Nullable String>";
+    String secondType = reverse ? "ArrayList<@Nullable String>" : "LinkedList<String>";
+    JavaFileObject source =
+        FileObjects.forSourceLines(
+            "Caller.java",
+            """
+            package com.uber;
+            import java.util.ArrayList;
+            import java.util.LinkedList;
+            import java.util.List;
+            import org.jspecify.annotations.NullMarked;
+            import org.jspecify.annotations.Nullable;
+            @NullMarked
+            class Caller {
+              static <X extends @Nullable Object> X pick(X a, X b) { return a; }
+              void test(ArrayList<@Nullable String> a, LinkedList<String> b) {
+                List<String> result = pick(
+                    %s,
+                    %s);
+              }
+            }
+            """
+                .formatted(first, second));
+    assertThat(compileAndReportDiagnostics(List.of(source)))
+        .containsExactly(
+            "Caller.java:13: [NullAway] incompatible types: arguments '"
+                + second
+                + "' ("
+                + secondType
+                + ") and '"
+                + first
+                + "' ("
+                + firstType
+                + ") have conflicting nullability for type variable X");
+  }
+
+  @Test
+  public void threeDistinctLowerSourcesReportOneSourceLevelConflict() {
+    JavaFileObject source =
+        FileObjects.forSourceLines(
+            "Caller.java",
+            """
+            package com.uber;
+            import java.util.ArrayList;
+            import java.util.LinkedList;
+            import java.util.List;
+            import java.util.Vector;
+            import org.jspecify.annotations.NullMarked;
+            import org.jspecify.annotations.Nullable;
+            @NullMarked
+            class Caller {
+              static <X extends @Nullable Object> X pick3(X a, X b, X c) { return a; }
+              void test(ArrayList<String> a, LinkedList<String> b, Vector<@Nullable String> c) {
+                List<String> result = pick3(
+                    a,
+                    b,
+                    c);
+              }
+            }
+            """);
+    assertThat(compileAndReportDiagnostics(List.of(source)))
+        .containsExactly(
+            "Caller.java:15: [NullAway] incompatible types: arguments 'c' (Vector<@Nullable String>)"
+                + " and 'a' (ArrayList<String>) have conflicting nullability for type variable X");
+  }
+
+  @Test
+  public void lowerProvenanceDistinguishesAnnotationVariantsOfTheSameClass() {
+    JavaFileObject source =
+        FileObjects.forSourceLines(
+            "Caller.java",
+            """
+            package com.uber;
+            import java.util.ArrayList;
+            import java.util.LinkedList;
+            import java.util.List;
+            import org.jspecify.annotations.NullMarked;
+            import org.jspecify.annotations.Nullable;
+            @NullMarked
+            class Caller {
+              static <X extends @Nullable Object> X pick3(X a, X b, X c) { return a; }
+              void test(ArrayList<String> a, ArrayList<@Nullable String> b, LinkedList<String> c) {
+                List<String> result = pick3(
+                    a,
+                    b,
+                    c);
+              }
+            }
+            """);
+    assertThat(compileAndReportDiagnostics(List.of(source)))
+        .containsExactly(
+            "Caller.java:14: [NullAway] incompatible types: arguments 'c' (LinkedList<String>)"
+                + " and 'b' (ArrayList<@Nullable String>) have conflicting nullability for type"
+                + " variable X");
+  }
+
+  @Test
+  public void lowerConflictDoesNotHideFixedAnnotationsOnArrayResultDimensions() {
+    JavaFileObject source =
+        FileObjects.forSourceLines(
+            "Caller.java",
+            """
+            package com.uber;
+            import java.util.ArrayList;
+            import java.util.LinkedList;
+            import java.util.List;
+            import org.jspecify.annotations.NullMarked;
+            import org.jspecify.annotations.Nullable;
+            @NullMarked
+            class Caller {
+              static <X extends @Nullable Object> X[] @Nullable [] pickArrays(X a, X b) {
+                throw new RuntimeException();
+              }
+              void test(ArrayList<@Nullable String> a, LinkedList<String> b) {
+                List<String>[][] result = pickArrays(a, b);
+              }
+            }
+            """);
+    List<String> diagnostics = compileAndReportDiagnostics(List.of(source));
+    assertThat(diagnostics).hasSize(2);
+    assertThat(diagnostics.stream().filter(message -> message.contains("arguments 'b'")).toList())
+        .hasSize(1);
+    assertThat(
+            diagnostics.stream()
+                .filter(message -> message.contains("cannot be converted"))
+                .toList())
+        .hasSize(1);
+  }
+
+  @Test
+  public void lowerConflictDoesNotHideDefaultNonNullArrayDimensionContracts() {
+    JavaFileObject source =
+        FileObjects.forSourceLines(
+            "Caller.java",
+            """
+            package com.uber;
+            import java.util.ArrayList;
+            import java.util.LinkedList;
+            import java.util.List;
+            import org.jspecify.annotations.NullMarked;
+            import org.jspecify.annotations.Nullable;
+            @NullMarked
+            class Caller {
+              static <X extends @Nullable Object> void mixed(X a, X b, X[][] other) {}
+              void test(ArrayList<@Nullable String> a, LinkedList<String> b,
+                  List<String>[] @Nullable [] other) {
+                mixed(a, b, other);
+              }
+            }
+            """);
+    List<String> diagnostics = compileAndReportDiagnostics(List.of(source));
+    assertThat(diagnostics).hasSize(2);
+    assertThat(diagnostics.stream().filter(message -> message.contains("arguments 'b'")).toList())
+        .hasSize(1);
+    assertThat(
+            diagnostics.stream()
+                .filter(message -> message.contains("cannot be converted"))
+                .toList())
+        .hasSize(1);
+  }
+
+  @Test
+  public void lowerConflictDoesNotHideAnIndependentParameterMismatch() {
+    JavaFileObject source =
+        FileObjects.forSourceLines(
+            "Caller.java",
+            """
+            package com.uber;
+            import java.util.ArrayList;
+            import java.util.LinkedList;
+            import java.util.List;
+            import org.jspecify.annotations.NullMarked;
+            import org.jspecify.annotations.Nullable;
+            @NullMarked
+            class Caller {
+              static <X extends @Nullable Object> void mixed(X a, X b, List<String> other) {}
+              void test(ArrayList<@Nullable String> a, LinkedList<String> b,
+                  List<@Nullable String> other) {
+                mixed(
+                    a,
+                    b,
+                    other);
+              }
+            }
+            """);
+    assertThat(compileAndReportDiagnostics(List.of(source)))
+        .containsExactly(
+            "Caller.java:14: [NullAway] incompatible types: arguments 'b' (LinkedList<String>)"
+                + " and 'a' (ArrayList<@Nullable String>) have conflicting nullability for type"
+                + " variable X",
+            "Caller.java:15: [NullAway] incompatible types: List<@Nullable String> cannot be"
+                + " converted to List<String>");
   }
 
   /**
@@ -244,6 +476,72 @@ public class GenericInferenceErrorReportingTests extends NullAwayTestsBase {
                 + "but its upper bound requires it to be @NonNull");
   }
 
+  @Test
+  public void scalarInferenceFailureInsideImplicitLambdaReportedOnce() {
+    JavaFileObject callerSource =
+        FileObjects.forSourceLines(
+            "Caller.java",
+            """
+            package com.uber;
+            import org.jspecify.annotations.NullMarked;
+            import org.jspecify.annotations.Nullable;
+            @NullMarked
+            class Caller {
+              interface Mapper<P extends @Nullable Object, R extends @Nullable Object> {
+                R apply(P value);
+              }
+              static <P extends @Nullable Object, R extends @Nullable Object> R map(
+                  P value, Mapper<P, R> mapper) {
+                throw new UnsupportedOperationException();
+              }
+              static <T> T nonNullId(T value) { return value; }
+              static void test() {
+                map("value", x -> nonNullId(null));
+              }
+            }
+            """);
+
+    List<String> diagnostics = compileAndReportDiagnostics(List.of(callerSource));
+    assertThat(
+            diagnostics.stream()
+                .filter(diagnostic -> diagnostic.contains("inference failure:"))
+                .toList())
+        .hasSize(1);
+    assertThat(
+            diagnostics.stream()
+                .anyMatch(diagnostic -> diagnostic.contains("passing @Nullable parameter")))
+        .isTrue();
+  }
+
+  @Test
+  public void scalarInferenceFailureInsideImplicitLambdaSuppressed() {
+    JavaFileObject callerSource =
+        FileObjects.forSourceLines(
+            "Caller.java",
+            """
+            package com.uber;
+            import org.jspecify.annotations.NullMarked;
+            import org.jspecify.annotations.Nullable;
+            @NullMarked
+            class Caller {
+              interface Mapper<P extends @Nullable Object, R extends @Nullable Object> {
+                R apply(P value);
+              }
+              static <P extends @Nullable Object, R extends @Nullable Object> R map(
+                  P value, Mapper<P, R> mapper) {
+                throw new UnsupportedOperationException();
+              }
+              static <T> T nonNullId(T value) { return value; }
+              @SuppressWarnings("NullAway")
+              static void test() {
+                map("value", x -> nonNullId(null));
+              }
+            }
+            """);
+
+    assertThat(compileAndReportDiagnostics(List.of(callerSource))).isEmpty();
+  }
+
   /**
    * Fails when an explicit {@code @Nullable} annotation on a type-variable use constrains the
    * underlying inference variable, which makes NullAway report one mismatch twice: as an inference
@@ -306,6 +604,70 @@ public class GenericInferenceErrorReportingTests extends NullAwayTestsBase {
                 + " required");
   }
 
+  /** Nested declaration-bound violations are reported once as ordinary incompatibilities. */
+  @Test
+  public void nestedDeclarationBoundViolationReportedOnce() {
+    JavaFileObject callerSource =
+        FileObjects.forSourceLines(
+            "Caller.java",
+            """
+            package com.uber;
+            import org.jspecify.annotations.NullMarked;
+            import org.jspecify.annotations.Nullable;
+            @NullMarked
+            class Caller {
+              static class Box<T extends @Nullable Object> {}
+              static class Bad extends Box<@Nullable String> {}
+              static <T extends Box<String>> T boundedId(T value) { return value; }
+              static void test(Box<@Nullable String> direct, Bad bad) {
+                boundedId(direct);
+                boundedId(bad);
+              }
+            }
+            """);
+
+    assertThat(compileAndReportDiagnostics(List.of(callerSource)))
+        .containsExactly(
+            "Caller.java:10: [NullAway] incompatible types: Box<@Nullable String> cannot be"
+                + " converted to Box<String>",
+            "Caller.java:11: [NullAway] incompatible types: Bad cannot be converted to Box<String>"
+                + " (Bad is a subtype of Box<@Nullable String>)");
+  }
+
+  /**
+   * Characterizes a pre-existing false-positive limitation for mixed invariant lower bounds. The
+   * unconstrained type variable T could be inferred as Object, making both calls valid. The current
+   * incompatibilities are not correct full inference; retain their exact diagnostics here without
+   * treating them as desired behavior or allowing additional inference-failure diagnostics.
+   */
+  @Test
+  public void knownLimitationMixedInvariantLowerBoundsReportFalsePositiveIncompatibilities() {
+    JavaFileObject callerSource =
+        FileObjects.forSourceLines(
+            "Caller.java",
+            """
+            package com.uber;
+            import org.jspecify.annotations.NullMarked;
+            import org.jspecify.annotations.Nullable;
+            @NullMarked
+            class Caller {
+              static class Box<T extends @Nullable Object> {}
+              static <T extends @Nullable Object> void consume(T first, T second) {}
+              static void test(Box<@Nullable String> nullable, Box<String> nonNull) {
+                consume(nullable, nonNull);
+                consume(nonNull, nullable);
+              }
+            }
+            """);
+
+    assertThat(compileAndReportDiagnostics(List.of(callerSource)))
+        .containsExactly(
+            "Caller.java:9: [NullAway] incompatible types: Box<String> cannot be converted to"
+                + " Box<@Nullable String>",
+            "Caller.java:10: [NullAway] incompatible types: Box<@Nullable String> cannot be"
+                + " converted to Box<String>");
+  }
+
   /**
    * Fails when {@link #compileAndReportDiagnostics} reports a diagnostic that names no line in the
    * compiled source. javac emits a summary note against a file rather than against no file at all,
@@ -337,6 +699,14 @@ public class GenericInferenceErrorReportingTests extends NullAwayTestsBase {
     assertThat(compileAndReportDiagnostics(List.of(uncheckedSource))).isEmpty();
   }
 
+  @Test
+  public void compilerErrorsAreNotReportedAsInferenceDiagnostics() {
+    JavaFileObject invalidSource =
+        FileObjects.forSourceLines("Invalid.java", "class Invalid { MissingType value; }");
+    List<JavaFileObject> sources = List.of(invalidSource);
+    assertThrows(AssertionError.class, () -> compileAndCollectJSpecifyDiagnostics(sources));
+  }
+
   /**
    * Compiles {@code sources} with NullAway in JSpecify mode and reports every diagnostic that names
    * a position in them, as {@code <file>:<line>: <message>}. A caller asserts the returned list,
@@ -355,30 +725,7 @@ public class GenericInferenceErrorReportingTests extends NullAwayTestsBase {
    * @return the rendered diagnostics, in the order javac emitted them
    */
   private List<String> compileAndReportDiagnostics(List<JavaFileObject> sources) {
-    DiagnosticCollector<JavaFileObject> diagnosticCollector = new DiagnosticCollector<>();
-    List<String> args =
-        new ArrayList<>(
-            JSpecifyJavacConfig.withJSpecifyModeArgs(
-                Arrays.asList(
-                    "-d",
-                    temporaryFolder.getRoot().getAbsolutePath(),
-                    "-XepOpt:NullAway:AnnotatedPackages=com.uber")));
-    args.add("-proc:none");
-    ErrorProneJavaCompiler compiler =
-        new ErrorProneJavaCompiler(ScannerSupplier.fromBugCheckerClasses(NullAway.class));
-
-    boolean compilationSucceeded =
-        compiler
-            .getTask(null, FileManagers.testFileManager(), diagnosticCollector, args, null, sources)
-            .call();
-
-    assertWithMessage("compilation failed: %s", diagnosticCollector.getDiagnostics())
-        .that(compilationSucceeded)
-        .isTrue();
-    return diagnosticCollector.getDiagnostics().stream()
-        .filter(
-            diagnostic ->
-                diagnostic.getSource() != null && diagnostic.getLineNumber() != Diagnostic.NOPOS)
+    return compileAndCollectJSpecifyDiagnostics(sources).stream()
         .map(GenericInferenceErrorReportingTests::render)
         .toList();
   }
@@ -402,6 +749,74 @@ public class GenericInferenceErrorReportingTests extends NullAwayTestsBase {
             .filter(line -> !line.startsWith("(see "))
             .collect(Collectors.joining(" "));
     return fileName + ":" + diagnostic.getLineNumber() + ": " + message;
+  }
+
+  /** Each independent nested bound violation gets exactly one diagnostic on its own call line. */
+  @Test
+  public void independentNestedDeclarationBoundViolationsReportedOnceOnDistinctLines() {
+    JavaFileObject callerSource =
+        FileObjects.forSourceLines(
+            "Caller.java",
+            """
+            package com.uber;
+            import org.jspecify.annotations.NullMarked;
+            import org.jspecify.annotations.Nullable;
+            @NullMarked
+            class Caller {
+              static class Box<E extends @Nullable Object> {}
+              static class Bad extends Box<@Nullable String> {}
+              static class Good extends Box<String> {}
+              static <T extends Box<String>> T boundedId(T value) { return value; }
+              static <A extends @Nullable Object, B extends @Nullable Object> void pair(
+                  A first, B second) {}
+              static void test(Bad firstBad, Bad secondBad, Good good) {
+                pair(
+                    boundedId(firstBad),
+                    boundedId(secondBad));
+                pair(boundedId(good), boundedId(good));
+              }
+            }
+            """);
+
+    assertThat(compileAndReportDiagnostics(List.of(callerSource)))
+        .containsExactly(
+            "Caller.java:14: [NullAway] incompatible types: Bad cannot be converted to Box<String>"
+                + " (Bad is a subtype of Box<@Nullable String>)",
+            "Caller.java:15: [NullAway] incompatible types: Bad cannot be converted to Box<String>"
+                + " (Bad is a subtype of Box<@Nullable String>)");
+  }
+
+  @Test
+  public void nestedDeclarationBoundViolationInsideLazyInferenceLocallySuppressed() {
+    JavaFileObject callerSource =
+        FileObjects.forSourceLines(
+            "Caller.java",
+            """
+            package com.uber;
+            import org.jspecify.annotations.NullMarked;
+            import org.jspecify.annotations.Nullable;
+            @NullMarked
+            class Caller {
+              static class Box<T extends @Nullable Object> {}
+              static class Bad extends Box<@Nullable String> {}
+              interface Factory<R extends @Nullable Object> {
+                R get();
+              }
+              static <R extends @Nullable Object> R supply(Factory<R> factory) {
+                return factory.get();
+              }
+              static <T extends Box<String>> T boundedId(T value) { return value; }
+              @NullMarked
+              static void test(Bad bad) {
+                supply(() -> {
+                  @SuppressWarnings("NullAway") var result = boundedId(bad);
+                  return result;
+                });
+              }
+            }
+            """);
+
+    assertThat(compileAndReportDiagnostics(List.of(callerSource))).isEmpty();
   }
 
   private CompilationTestHelper makeHelper() {

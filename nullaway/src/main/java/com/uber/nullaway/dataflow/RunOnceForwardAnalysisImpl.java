@@ -28,7 +28,12 @@ class RunOnceForwardAnalysisImpl<
   @Override
   public void performAnalysis(ControlFlowGraph cfg) {
     if (!analysisPerformed) {
-      super.performAnalysis(cfg);
+      DataflowRunState.enter();
+      try {
+        super.performAnalysis(cfg);
+      } finally {
+        DataflowRunState.exit();
+      }
       analysisPerformed = true;
     }
   }
