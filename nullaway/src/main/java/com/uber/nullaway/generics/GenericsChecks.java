@@ -794,12 +794,13 @@ public final class GenericsChecks {
     if (tree instanceof LambdaExpressionTree
         || tree instanceof MemberReferenceTree
         || tree instanceof ConditionalExpressionTree) {
-      Type result = inferredPolyExpressionTypes.get(tree);
+      Type result =
+          tree instanceof MemberReferenceTree memberReferenceTree
+              ? getMethodReferenceType(memberReferenceTree, state, calledFromDataflow)
+              : inferredPolyExpressionTypes.get(tree);
       if (result == null) {
-        // For lambda and method ref poly expressions, their nullness-enhanced type should have
-        // already been cached via an inference call from a parent tree.  In contrast, the
-        // nullness-enhanced type of a conditional expression tree may not have been computed, so we
-        // invoke getConditionalExpressionType here to do so
+        // A lambda's nullness-enhanced type should have already been cached from its parent tree.
+        // A conditional expression's type may still need to be computed from its target context.
         result =
             tree instanceof ConditionalExpressionTree conditionalExpressionTree
                 ? getConditionalExpressionType(conditionalExpressionTree, state, calledFromDataflow)
@@ -2812,13 +2813,23 @@ public final class GenericsChecks {
         // parent call side.
         return new TargetTypeAndAssignmentKind(null, false);
       }
-      Type methodType = ASTHelpers.getType(parentInvocation.getMethodSelect());
-      if (methodType != null) {
-        return new TargetTypeAndAssignmentKind(
-            getFormalParameterTypeForArgument(
-                parentInvocation, methodType.asMethodType(), expressionTree),
-            false);
+      // A receiver expression has no parameter target. Resolving the enclosing call's method type
+      // in that case would revisit the receiver while computing its type.
+      Type.MethodType attributedMethodType =
+          castToNonNull(ASTHelpers.getType(parentInvocation.getMethodSelect())).asMethodType();
+      if (getFormalParameterTypeForArgument(parentInvocation, attributedMethodType, expressionTree)
+          == null) {
+        return new TargetTypeAndAssignmentKind(null, false);
       }
+      Type.MethodType methodType =
+          getInvokedMethodTypeAtCall(
+              ASTHelpers.getSymbol(parentInvocation),
+              parentInvocation,
+              parentPath,
+              parentState,
+              calledFromDataflow);
+      return new TargetTypeAndAssignmentKind(
+          getFormalParameterTypeForArgument(parentInvocation, methodType, expressionTree), false);
     }
     // (Also 2c, but for constructors)
     if (parent instanceof NewClassTree parentConstructorCall) {
@@ -2979,7 +2990,8 @@ public final class GenericsChecks {
    * @param state visitor state whose path ends at the reference
    */
   public void checkMethodReference(MemberReferenceTree tree, VisitorState state) {
-    Type targetType = castToNonNull(getPolyExpressionType(tree));
+    Type targetType = getMethodReferenceType(tree, state, false);
+    inferredPolyExpressionTypes.putIfAbsent(tree, targetType);
     Type groundTargetType = GenericsUtils.groundTargetType(targetType, state, config, handler);
     // Type arguments of an unmarked functional interface method have unspecified nullness,
     // as for the arguments of a call to an unmarked method.
@@ -3007,6 +3019,41 @@ public final class GenericsChecks {
             }
           }
         });
+  }
+
+  /**
+   * Recovers nullability annotations from a method reference's target context when inference has
+   * not already cached its type. Conditional arms share the enclosing conditional's target type.
+   * Keeps javac's attributed type as the fallback for contexts without a recovered target.
+   *
+   * <p>Does not cache the recovered method-reference type: callers may be running dataflow or using
+   * provisional lambda parameters. {@link #checkMethodReference} caches the type when the reference
+   * is visited after inference completes.
+   */
+  private Type getMethodReferenceType(
+      MemberReferenceTree tree, VisitorState state, boolean calledFromDataflow) {
+    Type cachedType = inferredPolyExpressionTypes.get(tree);
+    if (cachedType != null) {
+      return cachedType;
+    }
+    // An attributed method reference always has an enclosing expression or declaration.
+    TreePath parentPath = castToNonNull(state.getPath().getParentPath());
+    while (parentPath.getLeaf() instanceof ParenthesizedTree) {
+      parentPath = castToNonNull(parentPath.getParentPath());
+    }
+    Type targetType =
+        parentPath.getLeaf() instanceof ConditionalExpressionTree conditionalTree
+            ? getConditionalExpressionType(
+                conditionalTree, state.withPath(parentPath), calledFromDataflow)
+            : getTargetTypeFromParentContext(tree, state.getPath(), state, calledFromDataflow)
+                .typeFromAssignmentContext();
+    Type expressionType = castToNonNull(ASTHelpers.getType(tree));
+    if (targetType == null) {
+      return expressionType;
+    }
+    Type groundTargetType = GenericsUtils.groundTargetType(targetType, state, config, handler);
+    return TypeSubstitutionUtils.restoreExplicitNullabilityAnnotations(
+        groundTargetType, expressionType, config);
   }
 
   /**

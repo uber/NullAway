@@ -58,6 +58,83 @@ public class GenericMethodLambdaOrMethodRefArgTests extends NullAwayTestsBase {
   }
 
   @Test
+  public void methodReferenceTargetsPreserveNullableTypeVariablesInCastsAndConditionals() {
+    makeHelper()
+        .addSourceLines(
+            "Test.java",
+            """
+            package com.uber;
+            import java.util.List;
+            import java.util.function.Supplier;
+            import org.jspecify.annotations.NullMarked;
+            import org.jspecify.annotations.Nullable;
+            @NullMarked
+            class Test<T> {
+              List<@Nullable T> nullableValues() { throw new UnsupportedOperationException(); }
+              static <U extends @Nullable Object> List<@Nullable U> genericNullableValues() {
+                throw new UnsupportedOperationException();
+              }
+              void accept(Supplier<List<@Nullable T>> supplier) {}
+              void acceptNonNull(Supplier<List<T>> supplier) {}
+              static <U extends @Nullable Object> void acceptGeneric(
+                  Supplier<List<U>> supplier, List<U> values) {}
+              Supplier<List<@Nullable T>> nullableCast() {
+                return (Supplier<List<@Nullable T>>) this::nullableValues;
+              }
+              Supplier<List<T>> nonNullCast() {
+                // BUG: Diagnostic contains: referenced method returns
+                return (Supplier<List<T>>) this::nullableValues;
+              }
+              Supplier<List<@Nullable T>> nullableGenericCast() {
+                return (Supplier<List<@Nullable T>>) Test::genericNullableValues;
+              }
+              Supplier<List<T>> nonNullGenericCast() {
+                // BUG: Diagnostic contains: referenced method returns
+                return (Supplier<List<T>>) Test::genericNullableValues;
+              }
+              Supplier<List<@Nullable T>> nullableConditional(boolean flag) {
+                return flag ? this::nullableValues : this::nullableValues;
+              }
+              Supplier<List<T>> nonNullConditional(boolean flag) {
+                // BUG: Diagnostic contains: referenced method returns
+                return flag ? this::nullableValues : this::nullableValues;
+              }
+              static void nullableConditionalArgument(Test<String> target, boolean flag) {
+                target.accept(flag ? target::nullableValues : target::nullableValues);
+              }
+              static void nonNullConditionalArgument(Test<String> target, boolean flag) {
+                // BUG: Diagnostic contains: referenced method returns
+                target.acceptNonNull(flag ? target::nullableValues : target::nullableValues);
+              }
+              static void parenthesizedConditionalArm(Test<String> target, boolean flag) {
+                target.accept(flag ? (target::nullableValues) : (target::nullableValues));
+              }
+              static void inferredNullableConditional(Test<String> target, boolean flag,
+                  List<@Nullable String> values) {
+                acceptGeneric(flag ? (target::nullableValues) : (target::nullableValues), values);
+              }
+              static void incompatibleInferredConditional(Test<String> target, boolean flag,
+                  List<String> values) {
+                // BUG: Diagnostic contains: inference failure
+                acceptGeneric(flag ? (target::nullableValues) : (target::nullableValues), values);
+              }
+              static void nestedConditional(Test<String> target, boolean first, boolean second) {
+                target.accept(first ? (second ? target::nullableValues : target::nullableValues)
+                    : target::nullableValues);
+              }
+              Supplier<List<@Nullable T>> nullableSwitch(int selector) {
+                return switch (selector) { default -> this::nullableValues; };
+              }
+              Supplier<List<T>> nonNullSwitch(int selector) {
+                // BUG: Diagnostic contains: referenced method returns
+                return switch (selector) { default -> this::nullableValues; };
+              }
+            }
+            """)
+        .doTest();
+  }
+
+  @Test
   public void issue2063InlineGenericMethodReference() {
     checkInlineGenericMethodReference(
         "@NullMarked interface Publisher<T extends @Nullable Object> {}");
