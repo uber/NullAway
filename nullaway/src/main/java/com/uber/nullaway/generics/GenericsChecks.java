@@ -2446,6 +2446,11 @@ public final class GenericsChecks {
       return;
     }
     TreePath pathToRetExpr = new TreePath(state.getPath(), retExpr);
+    ExpressionTree retExprWithoutParentheses = ASTHelpers.stripParentheses(retExpr);
+    if (retExprWithoutParentheses instanceof LambdaExpressionTree) {
+      // Lambda parameter checking needs the target's nested type-variable annotations in the cache.
+      maybeStorePolyExpressionTypeFromTarget(retExprWithoutParentheses, formalReturnType, state);
+    }
     Type returnExpressionType = getTreeType(retExpr, state.withPath(pathToRetExpr));
     if (returnExpressionType != null) {
       if (isCallNeedingInference(retExpr)) {
