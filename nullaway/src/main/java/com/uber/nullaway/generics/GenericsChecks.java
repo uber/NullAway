@@ -2981,14 +2981,16 @@ public final class GenericsChecks {
   public void checkMethodReference(MemberReferenceTree tree, VisitorState state) {
     Type targetType = castToNonNull(getPolyExpressionType(tree));
     Type groundTargetType = GenericsUtils.groundTargetType(targetType, state, config, handler);
-    inferMethodReferenceTypeArguments(tree, groundTargetType, state);
     // Type arguments of an unmarked functional interface method have unspecified nullness,
     // as for the arguments of a call to an unmarked method.
-    if (CodeAnnotationInfo.instance(state.context)
-        .isSymbolUnannotated(
-            NullabilityUtil.getFunctionalInterfaceMethod(tree, state.getTypes()),
-            config,
-            handler)) {
+    boolean unannotatedTarget =
+        CodeAnnotationInfo.instance(state.context)
+            .isSymbolUnannotated(
+                NullabilityUtil.getFunctionalInterfaceMethod(tree, state.getTypes()),
+                config,
+                handler);
+    inferMethodReferenceTypeArguments(tree, groundTargetType, !unannotatedTarget, state);
+    if (unannotatedTarget) {
       return;
     }
     GenericsUtils.processMethodRefTypeRelations(
@@ -3015,9 +3017,15 @@ public final class GenericsChecks {
    *
    * <p>Called only while visiting the reference, after dataflow and speculative inference, so the
    * result can be cached for subsequent method-reference checks.
+   *
+   * @param tree the method reference
+   * @param targetType the ground functional-interface target type
+   * @param reportFailure whether to report inference failures; false for unannotated targets whose
+   *     nested nullability is unspecified
+   * @param state visitor state whose path ends at the reference
    */
   private void inferMethodReferenceTypeArguments(
-      MemberReferenceTree tree, Type targetType, VisitorState state) {
+      MemberReferenceTree tree, Type targetType, boolean reportFailure, VisitorState state) {
     Symbol.MethodSymbol referencedMethod = castToNonNull(ASTHelpers.getSymbol(tree));
     // return if the reference is to a non-generic method, has explicit type arguments, or if we
     // already ran inference for the reference
@@ -3033,7 +3041,9 @@ public final class GenericsChecks {
       result = new InferenceSuccess(solver.solve(), new IdentityHashMap<>());
     } catch (UnsatisfiableConstraintsException e) {
       String message = inferenceFailureMessage(e, new IdentityHashMap<>());
-      reportInferenceFailure(tree, message, state);
+      if (reportFailure) {
+        reportInferenceFailure(tree, message, state);
+      }
       result = new InferenceFailure(message);
     }
     inferredTypeVarNullabilityForGenericCalls.put(tree, result);

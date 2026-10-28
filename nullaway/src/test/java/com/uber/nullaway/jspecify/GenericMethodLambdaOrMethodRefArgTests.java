@@ -10,6 +10,54 @@ import org.junit.Test;
 public class GenericMethodLambdaOrMethodRefArgTests extends NullAwayTestsBase {
 
   @Test
+  public void unmarkedMethodReferenceTargetsDoNotReportNestedInferenceFailures() {
+    makeHelper()
+        .addSourceLines(
+            "Test.java",
+            """
+            package com.uber;
+            import java.util.List;
+            import org.jspecify.annotations.NullMarked;
+            import org.jspecify.annotations.NullUnmarked;
+            import org.jspecify.annotations.Nullable;
+            @NullMarked
+            class Test {
+              @NullUnmarked interface UnmarkedFn<T> { void apply(T value); }
+              interface MarkedFn<T extends @Nullable Object> { void apply(T value); }
+              @NullUnmarked interface ExplicitNullableFn {
+                @Nullable Object apply(@Nullable Object value);
+              }
+              static <T> void nonNullElements(List<T> values) {}
+              static <T extends @Nullable Object> T identity(T value) { return value; }
+              static void acceptUnmarked(UnmarkedFn<List<@Nullable String>> function) {}
+              static void acceptMarked(MarkedFn<List<@Nullable String>> function) {}
+              static void acceptExplicitNullable(ExplicitNullableFn function) {}
+              void unmarkedArgument() { acceptUnmarked(Test::nonNullElements); }
+              void unmarkedLocal() {
+                UnmarkedFn<List<@Nullable String>> function = Test::nonNullElements;
+              }
+              UnmarkedFn<List<@Nullable String>> unmarkedReturn() {
+                return Test::nonNullElements;
+              }
+              void explicitNullableSignatureStillInfers() { acceptExplicitNullable(Test::identity); }
+              void markedArgument() {
+                // BUG: Diagnostic contains: inference failure
+                acceptMarked(Test::nonNullElements);
+              }
+              void markedLocal() {
+                // BUG: Diagnostic contains: inference failure
+                MarkedFn<List<@Nullable String>> function = Test::nonNullElements;
+              }
+              MarkedFn<List<@Nullable String>> markedReturn() {
+                // BUG: Diagnostic contains: inference failure
+                return Test::nonNullElements;
+              }
+            }
+            """)
+        .doTest();
+  }
+
+  @Test
   public void issue2063InlineGenericMethodReference() {
     checkInlineGenericMethodReference(
         "@NullMarked interface Publisher<T extends @Nullable Object> {}");
