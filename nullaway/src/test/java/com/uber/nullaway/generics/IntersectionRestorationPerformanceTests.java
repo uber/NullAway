@@ -66,6 +66,36 @@ public class IntersectionRestorationPerformanceTests {
   }
 
   @Test
+  public void smallSharedBoundsWithCyclicLeafReuseCompletedWork() {
+    compile(
+        """
+        interface A0<T extends A0<?>> {}
+        interface B0<T> {}
+        interface A1<T extends A0<?> & B0<?>> {}
+        interface B1<T extends A0<?> & B0<?>> {}
+        interface A2<T extends A1<?> & B1<?>> {}
+        class Test {
+          // BUG: Diagnostic contains: cyclicShared: visitedOnce=true, leafNullable=true, inputsPreserved=true
+          A2<?> cyclicShared;
+        }
+        """);
+  }
+
+  @Test
+  public void mutualCycleRestorationMatchesIsolatedEntryPoints() {
+    compile(
+        """
+        interface A<T extends B<?>> {}
+        interface B<T extends A<?>> {}
+        interface Root<T extends A<?> & B<?>> {}
+        class Test {
+          // BUG: Diagnostic contains: cycleContexts: matchesIsolated=true, restored=true, inputsPreserved=true
+          Root<?> cycleContexts;
+        }
+        """);
+  }
+
+  @Test
   public void wideReorderedIntersectionsMatchComponentsBySymbol() {
     StringBuilder source = new StringBuilder("import org.jspecify.annotations.*;\n");
     for (int i = 0; i < WIDTH; i++) {
@@ -120,38 +150,59 @@ public class IntersectionRestorationPerformanceTests {
             .getConfig();
     private int remaining;
     private int remainingSymbolComparisons;
+    private final IdentityHashMap<Type, Integer> visits = new IdentityHashMap<>();
 
     /** Reports bounded work and restoration observations at each explicitly marked fixture. */
     @Override
     public Description matchVariable(VariableTree tree, VisitorState state) {
       String name = tree.getName().toString();
-      if (!name.equals("unchanged") && !name.equals("restored") && !name.equals("wide")) {
+      if (!name.equals("unchanged")
+          && !name.equals("restored")
+          && !name.equals("wide")
+          && !name.equals("cyclicShared")
+          && !name.equals("cycleContexts")) {
         return NO_MATCH;
       }
       String message;
       try {
         // There are 2 * LEVELS + 1 reachable formal bounds, not 2^LEVELS independent paths.
         remaining = 32 * (2 * LEVELS + 1);
+        visits.clear();
         if (name.equals("wide")) {
           message = checkWide(tree);
+        } else if (name.equals("cycleContexts")) {
+          message = checkCycleContexts(tree, state);
         } else {
           Type original = ASTHelpers.getType(tree);
-          Type source = detach(original, new IdentityHashMap<>(), name.equals("restored"), state);
+          boolean annotate = name.equals("restored") || name.equals("cyclicShared");
+          Type source = detach(original, new IdentityHashMap<>(), annotate, state);
           Type target = detach(original, new IdentityHashMap<>(), false, state);
           Type result =
               TypeSubstitutionUtils.restoreExplicitNullabilityAnnotations(source, target, config);
           boolean leafNullable = GenericsUtils.isAnnotatedAsNullable(leaf(result), config);
           boolean preserved =
               !GenericsUtils.isAnnotatedAsNullable(leaf(target), config)
-                  && GenericsUtils.isAnnotatedAsNullable(leaf(source), config)
-                      == name.equals("restored")
+                  && GenericsUtils.isAnnotatedAsNullable(leaf(source), config) == annotate
                   && !GenericsUtils.isAnnotatedAsNullable(leaf(original), config);
-          message =
-              name
-                  + ": bounded=true, leafNullable="
-                  + leafNullable
-                  + ", inputsPreserved="
-                  + preserved;
+          if (name.equals("cyclicShared")) {
+            boolean visitedOnce =
+                !visits.isEmpty() && visits.values().stream().allMatch(count -> count == 1);
+            message =
+                name
+                    + ": visitedOnce="
+                    + visitedOnce
+                    + ", leafNullable="
+                    + leafNullable
+                    + ", inputsPreserved="
+                    + preserved;
+          } else {
+            message =
+                name
+                    + ": bounded=true, leafNullable="
+                    + leafNullable
+                    + ", inputsPreserved="
+                    + preserved;
+          }
         }
       } catch (WorkBudgetExceeded exhausted) {
         message =
@@ -202,7 +253,13 @@ public class IntersectionRestorationPerformanceTests {
         }
         copy =
             new Type.IntersectionClassType(
-                components.toList(), (Symbol.ClassSymbol) type.tsym, intersection.allInterfaces);
+                components.toList(), (Symbol.ClassSymbol) type.tsym, intersection.allInterfaces) {
+              @Override
+              public <R, S> R accept(Type.Visitor<R, S> visitor, S parameter) {
+                visits.merge(this, 1, Integer::sum);
+                return super.accept(visitor, parameter);
+              }
+            };
       } else if (type instanceof Type.ClassType clazz && !clazz.getTypeArguments().isEmpty()) {
         ListBuffer<Type> arguments = new ListBuffer<>();
         var formals = clazz.tsym.type.getTypeArguments();
@@ -218,7 +275,14 @@ public class IntersectionRestorationPerformanceTests {
                   (Type.TypeVar) detach(formal, copies, annotate, state)));
           formals = formals.tail;
         }
-        copy = new Type.ClassType(clazz.getEnclosingType(), arguments.toList(), clazz.tsym);
+        copy =
+            new Type.ClassType(clazz.getEnclosingType(), arguments.toList(), clazz.tsym) {
+              @Override
+              public <R, S> R accept(Type.Visitor<R, S> visitor, S parameter) {
+                visits.merge(this, 1, Integer::sum);
+                return super.accept(visitor, parameter);
+              }
+            };
       } else {
         return type;
       }
@@ -226,7 +290,71 @@ public class IntersectionRestorationPerformanceTests {
       return copy;
     }
 
-    /** Follows one shared branch to the terminal Object bound, without expanding the DAG. */
+    /**
+     * Checks that shared traversal of a two-node cycle agrees with entering each node in isolation.
+     * Reusing a truncated result under a different active cycle entry changes the third bound.
+     */
+    private String checkCycleContexts(VariableTree tree, VisitorState state) {
+      Type original = ASTHelpers.getType(tree);
+      Type source = detach(original, new IdentityHashMap<>(), true, state);
+      Type target = detach(original, new IdentityHashMap<>(), false, state);
+      Type sourceBound = implicitBound(source);
+      Type targetBound = implicitBound(target);
+      Type sourceA = intersectionComponent(sourceBound, "A");
+      Type sourceB = intersectionComponent(sourceBound, "B");
+      Type targetA = intersectionComponent(targetBound, "A");
+      Type targetB = intersectionComponent(targetBound, "B");
+      String sourceBefore = boundNullness(sourceA) + boundNullness(sourceB);
+      String targetBefore = boundNullness(targetA) + boundNullness(targetB);
+      Type shared =
+          TypeSubstitutionUtils.restoreExplicitNullabilityAnnotations(source, target, config);
+      Type sharedBound = implicitBound(shared);
+      String sharedA = boundNullness(intersectionComponent(sharedBound, "A"));
+      String sharedB = boundNullness(intersectionComponent(sharedBound, "B"));
+      Type isolatedA =
+          TypeSubstitutionUtils.restoreExplicitNullabilityAnnotations(sourceA, targetA, config);
+      Type isolatedB =
+          TypeSubstitutionUtils.restoreExplicitNullabilityAnnotations(sourceB, targetB, config);
+      return "cycleContexts: matchesIsolated="
+          + (sharedA.equals(boundNullness(isolatedA)) && sharedB.equals(boundNullness(isolatedB)))
+          + ", restored="
+          + (sharedA.startsWith("11") && sharedB.startsWith("11"))
+          + ", inputsPreserved="
+          + (sourceBefore.equals(boundNullness(sourceA) + boundNullness(sourceB))
+              && targetBefore.equals(boundNullness(targetA) + boundNullness(targetB)));
+    }
+
+    /** Records only three top-level nullness observations, never recursively expands a cycle. */
+    private String boundNullness(Type type) {
+      StringBuilder result = new StringBuilder();
+      for (int i = 0; i < 3; i++) {
+        type = implicitBound(type);
+        result.append(GenericsUtils.isAnnotatedAsNullable(type, config) ? '1' : '0');
+      }
+      return result.toString();
+    }
+
+    /** Reads the implicit bound of the fixture's only wildcard argument. */
+    private static Type implicitBound(Type type) {
+      Type.WildcardType wildcard = (Type.WildcardType) type.getTypeArguments().head;
+      Type.TypeVar formal =
+          wildcard.bound == null
+              ? (Type.TypeVar) type.tsym.type.getTypeArguments().head
+              : wildcard.bound;
+      return formal.getUpperBound();
+    }
+
+    /** Selects a named component without depending on javac's intersection ordering. */
+    private static Type intersectionComponent(Type type, String name) {
+      for (Type component : ((Type.IntersectionClassType) type).getExplicitComponents()) {
+        if (component.tsym.getSimpleName().contentEquals(name)) {
+          return component;
+        }
+      }
+      throw new AssertionError("Missing component: " + name);
+    }
+
+    /** Follows one shared branch to a non-intersection bound, without expanding the DAG. */
     private static Type leaf(Type type) {
       Type.WildcardType wildcard = (Type.WildcardType) type.getTypeArguments().head;
       Type.TypeVar formal =

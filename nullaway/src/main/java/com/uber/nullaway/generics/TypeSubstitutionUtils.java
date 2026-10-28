@@ -402,33 +402,174 @@ public class TypeSubstitutionUtils {
 
     private final Config config;
 
+    /** Formal target/source pairs, scoped to this restoration operation and allocated lazily. */
+    private @Nullable IdentityHashMap<Type.TypeVar, IdentityHashMap<Type.TypeVar, BoundPair>>
+        implicitWildcardBounds;
+
+    /** The current implicit-bound traversal, excluding ordinary structural visitor calls. */
+    private @Nullable BoundFrame activeImplicitWildcardBoundFrame;
+
     /**
-     * Pairs of implicit wildcard bounds currently being traversed. Allocated lazily, as the map is
-     * only needed for types involving wildcards.
+     * Identity-keyed state shared by active traversals and completed results for one formal pair.
      */
-    private @Nullable IdentityHashMap<Type.TypeVar, Set<Type.TypeVar>> activeImplicitWildcardBounds;
-
-    /** Completed bound-pair results, scoped to this restoration operation and keyed by identity. */
-    private @Nullable IdentityHashMap<Type, IdentityHashMap<Type, Type>>
-        completedImplicitWildcardBounds;
-
-    /** Counts active-cycle cutoffs so partially traversed cyclic bounds are not memoized. */
-    private int implicitWildcardBoundCycleCount;
-
-    /** Returns the completed source-bound results for one target bound, allocating lazily. */
-    private IdentityHashMap<Type, Type> getCompletedImplicitWildcardBounds(Type targetBound) {
-      if (completedImplicitWildcardBounds == null) {
-        completedImplicitWildcardBounds = new IdentityHashMap<>();
-      }
-      return completedImplicitWildcardBounds.computeIfAbsent(
-          targetBound, unused -> new IdentityHashMap<>());
+    private static final class BoundPair {
+      private @Nullable BoundFrame activeFrame;
+      private @Nullable BoundResult completedResult;
     }
 
-    private IdentityHashMap<Type.TypeVar, Set<Type.TypeVar>> getActiveImplicitWildcardBounds() {
-      if (activeImplicitWildcardBounds == null) {
-        activeImplicitWildcardBounds = new IdentityHashMap<>();
+    /** A bound traversal's cycle summary; sets stay absent on entirely acyclic paths. */
+    private static final class BoundFrame {
+      private final @Nullable BoundFrame parent;
+      private final int depth;
+      private final BoundPair pair;
+      private boolean cyclic;
+      private @Nullable Set<BoundPair> cyclePairs;
+      private @Nullable Set<BoundPair> cutoffs;
+
+      private BoundFrame(@Nullable BoundFrame parent, BoundPair pair) {
+        this.parent = parent;
+        this.depth = parent == null ? 0 : parent.depth + 1;
+        this.pair = pair;
       }
-      return activeImplicitWildcardBounds;
+
+      /** Records a cutoff and marks exactly the active path participating in its cycle. */
+      private void recordCutoff(BoundFrame cutoff) {
+        for (BoundFrame frame = this; ; frame = Verify.verifyNotNull(frame.parent)) {
+          frame.cyclic = true;
+          if (frame == cutoff) {
+            break;
+          }
+        }
+        if (cyclePairs == null) {
+          cyclePairs = Collections.newSetFromMap(new IdentityHashMap<>());
+        }
+        cyclePairs.add(cutoff.pair);
+        if (cutoffs == null) {
+          cutoffs = Collections.newSetFromMap(new IdentityHashMap<>());
+        }
+        cutoffs.add(cutoff.pair);
+      }
+
+      /** Propagates a child's summary without sharing mutable sets with its cached result. */
+      private void merge(BoundResult child) {
+        if (child.cyclePairs != null) {
+          if (cyclePairs == null) {
+            cyclePairs = Collections.newSetFromMap(new IdentityHashMap<>());
+          }
+          cyclePairs.addAll(child.cyclePairs);
+        }
+        if (child.externalCutoffs != null) {
+          if (cutoffs == null) {
+            cutoffs = Collections.newSetFromMap(new IdentityHashMap<>());
+          }
+          cutoffs.addAll(child.externalCutoffs);
+        }
+      }
+    }
+
+    /** A restored bound and the active-path conditions under which it can be reused. */
+    private static final class BoundResult {
+      private final Type targetBound;
+      private final Type sourceBound;
+      private final Type resultType;
+      private final @Nullable Set<BoundPair> cyclePairs;
+      private final @Nullable Set<BoundPair> externalCutoffs;
+
+      /** Closes internal cycles, retaining only cutoff dependencies on strict ancestors. */
+      private BoundResult(Type targetBound, Type sourceBound, Type resultType, BoundFrame frame) {
+        this.targetBound = targetBound;
+        this.sourceBound = sourceBound;
+        this.resultType = resultType;
+        if (frame.cyclic) {
+          if (frame.cyclePairs == null) {
+            frame.cyclePairs = Collections.newSetFromMap(new IdentityHashMap<>());
+          }
+          frame.cyclePairs.add(frame.pair);
+        }
+        this.cyclePairs = frame.cyclePairs;
+        Set<BoundPair> external = null;
+        if (frame.cutoffs != null) {
+          for (BoundPair cutoff : frame.cutoffs) {
+            BoundFrame active = cutoff.activeFrame;
+            if (active != null && active.depth < frame.depth) {
+              if (external == null) {
+                external = Collections.newSetFromMap(new IdentityHashMap<>());
+              }
+              external.add(cutoff);
+            }
+          }
+        }
+        this.externalCutoffs = external;
+      }
+
+      /** Requires the same external cutoffs and forbids new cutoffs within the cached cycles. */
+      private boolean canReuse(Type targetBound, Type sourceBound) {
+        if (this.targetBound != targetBound || this.sourceBound != sourceBound) {
+          return false;
+        }
+        if (externalCutoffs != null) {
+          for (BoundPair cutoff : externalCutoffs) {
+            if (cutoff.activeFrame == null) {
+              return false;
+            }
+          }
+        }
+        if (cyclePairs != null) {
+          for (BoundPair cyclePair : cyclePairs) {
+            if (cyclePair.activeFrame != null
+                && (externalCutoffs == null || !externalCutoffs.contains(cyclePair))) {
+              return false;
+            }
+          }
+        }
+        return true;
+      }
+    }
+
+    /** Gets state by formal-pair identity, not by possibly shared upper-bound objects. */
+    private BoundPair getImplicitWildcardBoundPair(Type.TypeVar target, Type.TypeVar source) {
+      if (implicitWildcardBounds == null) {
+        implicitWildcardBounds = new IdentityHashMap<>();
+      }
+      return implicitWildcardBounds
+          .computeIfAbsent(target, unused -> new IdentityHashMap<>())
+          .computeIfAbsent(source, unused -> new BoundPair());
+    }
+
+    /**
+     * Restores a non-active pair's upper bound, reusing results only in compatible cycle contexts.
+     * Cached external cutoffs also mark the active path, just as an actual traversal would.
+     */
+    private Type restoreImplicitWildcardBound(BoundPair pair, Type targetBound, Type sourceBound) {
+      BoundFrame parent = activeImplicitWildcardBoundFrame;
+      BoundResult completed = pair.completedResult;
+      // Check before making this pair active: an internal self-cycle is safe to reuse here.
+      if (completed != null && completed.canReuse(targetBound, sourceBound)) {
+        if (parent != null) {
+          if (completed.externalCutoffs != null) {
+            for (BoundPair cutoff : completed.externalCutoffs) {
+              parent.recordCutoff(Verify.verifyNotNull(cutoff.activeFrame));
+            }
+          }
+          parent.merge(completed);
+        }
+        return completed.resultType;
+      }
+      BoundFrame frame = new BoundFrame(parent, pair);
+      pair.activeFrame = frame;
+      activeImplicitWildcardBoundFrame = frame;
+      try {
+        Type restored = visit(targetBound, sourceBound);
+        completed = new BoundResult(targetBound, sourceBound, restored, frame);
+        pair.completedResult = completed;
+      } finally {
+        activeImplicitWildcardBoundFrame = parent;
+        pair.activeFrame = null;
+      }
+      if (parent != null) {
+        parent.merge(completed);
+      }
+      return completed.resultType;
     }
 
     RestoreNullnessAnnotationsVisitor(Config config) {
@@ -532,39 +673,16 @@ public class TypeSubstitutionUtils {
           && wildcardType.bound != null) {
         Type.TypeVar formalTypeVariable = wt.bound;
         Type.TypeVar otherFormalTypeVariable = wildcardType.bound;
-        IdentityHashMap<Type.TypeVar, Set<Type.TypeVar>> activeBounds =
-            getActiveImplicitWildcardBounds();
-        Set<Type.TypeVar> activeOtherBounds = activeBounds.get(formalTypeVariable);
-        if (activeOtherBounds == null) {
-          activeOtherBounds = Collections.newSetFromMap(new IdentityHashMap<>());
-          activeBounds.put(formalTypeVariable, activeOtherBounds);
-        } else if (activeOtherBounds.contains(otherFormalTypeVariable)) {
-          // F-bounded type variables make the implicit upper-bound graph cyclic. Re-entering the
-          // same pair cannot reveal any annotations that were not handled on the first visit.
-          implicitWildcardBoundCycleCount++;
+        BoundPair pair = getImplicitWildcardBoundPair(formalTypeVariable, otherFormalTypeVariable);
+        BoundFrame active = pair.activeFrame;
+        if (active != null) {
+          // Preserve the original wildcard, including its lower bound, at an active-path cutoff.
+          Verify.verifyNotNull(activeImplicitWildcardBoundFrame).recordCutoff(active);
           return wt;
         }
-        activeOtherBounds.add(otherFormalTypeVariable);
         Type upperBound = formalTypeVariable.getUpperBound();
-        Type updatedUpperBound;
-        try {
-          Type otherUpperBound = otherFormalTypeVariable.getUpperBound();
-          IdentityHashMap<Type, Type> completedBounds =
-              getCompletedImplicitWildcardBounds(upperBound);
-          updatedUpperBound = completedBounds.get(otherUpperBound);
-          if (updatedUpperBound == null) {
-            int cycleCountBefore = implicitWildcardBoundCycleCount;
-            updatedUpperBound = visit(upperBound, otherUpperBound);
-            if (implicitWildcardBoundCycleCount == cycleCountBefore) {
-              completedBounds.put(otherUpperBound, updatedUpperBound);
-            }
-          }
-        } finally {
-          activeOtherBounds.remove(otherFormalTypeVariable);
-          if (activeOtherBounds.isEmpty()) {
-            activeBounds.remove(formalTypeVariable);
-          }
-        }
+        Type updatedUpperBound =
+            restoreImplicitWildcardBound(pair, upperBound, otherFormalTypeVariable.getUpperBound());
         if (updatedUpperBound != upperBound) {
           wt = replaceImplicitWildcardUpperBound(wt, formalTypeVariable, updatedUpperBound);
         }
