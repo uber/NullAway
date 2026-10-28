@@ -17,6 +17,7 @@ import com.sun.tools.javac.util.ListBuffer;
 import com.uber.nullaway.Config;
 import com.uber.nullaway.Nullness;
 import java.util.Collections;
+import java.util.HashMap;
 import java.util.IdentityHashMap;
 import java.util.Map;
 import java.util.Set;
@@ -407,6 +408,22 @@ public class TypeSubstitutionUtils {
      */
     private @Nullable IdentityHashMap<Type.TypeVar, Set<Type.TypeVar>> activeImplicitWildcardBounds;
 
+    /** Completed bound-pair results, scoped to this restoration operation and keyed by identity. */
+    private @Nullable IdentityHashMap<Type, IdentityHashMap<Type, Type>>
+        completedImplicitWildcardBounds;
+
+    /** Counts active-cycle cutoffs so partially traversed cyclic bounds are not memoized. */
+    private int implicitWildcardBoundCycleCount;
+
+    /** Returns the completed source-bound results for one target bound, allocating lazily. */
+    private IdentityHashMap<Type, Type> getCompletedImplicitWildcardBounds(Type targetBound) {
+      if (completedImplicitWildcardBounds == null) {
+        completedImplicitWildcardBounds = new IdentityHashMap<>();
+      }
+      return completedImplicitWildcardBounds.computeIfAbsent(
+          targetBound, unused -> new IdentityHashMap<>());
+    }
+
     private IdentityHashMap<Type.TypeVar, Set<Type.TypeVar>> getActiveImplicitWildcardBounds() {
       if (activeImplicitWildcardBounds == null) {
         activeImplicitWildcardBounds = new IdentityHashMap<>();
@@ -449,12 +466,19 @@ public class TypeSubstitutionUtils {
       if (t instanceof Type.IntersectionClassType) {
         Type.IntersectionClassType updated =
             (Type.IntersectionClassType) updateDirectNullabilityAnnotationsForType(t, other);
+        Map<Symbol.TypeSymbol, Type> sourceComponents = null;
+        if (other instanceof Type.IntersectionClassType source) {
+          sourceComponents = new HashMap<>();
+          for (Type sourceComponent : source.getComponents()) {
+            sourceComponents.putIfAbsent(sourceComponent.tsym, sourceComponent);
+          }
+        }
         ListBuffer<Type> components = new ListBuffer<>();
         boolean changed = false;
         for (Type component : updated.getComponents()) {
           Type corresponding;
-          if (other instanceof Type.IntersectionClassType source) {
-            corresponding = intersectionComponent(source, component.tsym);
+          if (sourceComponents != null) {
+            corresponding = sourceComponents.get(component.tsym);
           } else if (component.tsym.equals(other.tsym)) {
             corresponding = other;
           } else {
@@ -517,13 +541,24 @@ public class TypeSubstitutionUtils {
         } else if (activeOtherBounds.contains(otherFormalTypeVariable)) {
           // F-bounded type variables make the implicit upper-bound graph cyclic. Re-entering the
           // same pair cannot reveal any annotations that were not handled on the first visit.
+          implicitWildcardBoundCycleCount++;
           return wt;
         }
         activeOtherBounds.add(otherFormalTypeVariable);
         Type upperBound = formalTypeVariable.getUpperBound();
         Type updatedUpperBound;
         try {
-          updatedUpperBound = visit(upperBound, otherFormalTypeVariable.getUpperBound());
+          Type otherUpperBound = otherFormalTypeVariable.getUpperBound();
+          IdentityHashMap<Type, Type> completedBounds =
+              getCompletedImplicitWildcardBounds(upperBound);
+          updatedUpperBound = completedBounds.get(otherUpperBound);
+          if (updatedUpperBound == null) {
+            int cycleCountBefore = implicitWildcardBoundCycleCount;
+            updatedUpperBound = visit(upperBound, otherUpperBound);
+            if (implicitWildcardBoundCycleCount == cycleCountBefore) {
+              completedBounds.put(otherUpperBound, updatedUpperBound);
+            }
+          }
         } finally {
           activeOtherBounds.remove(otherFormalTypeVariable);
           if (activeOtherBounds.isEmpty()) {
