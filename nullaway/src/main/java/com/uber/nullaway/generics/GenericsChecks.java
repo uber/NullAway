@@ -3010,8 +3010,8 @@ public final class GenericsChecks {
   /**
    * Infers a generic method reference's type argument nullability from its known target type before
    * checking target compatibility. References already handled by enclosing generic call inference
-   * retain that joint solution. Resolving a reference while generating constraints only reads
-   * cached solutions, so it cannot recursively start this inference.
+   * retain that joint solution. Inference may need to run, e.g., if a reference to a generic method
+   * is passed as an argument to a non-generic method.
    *
    * <p>Called only while visiting the reference, after dataflow and speculative inference, so the
    * result can be cached for subsequent method-reference checks.
@@ -3019,7 +3019,8 @@ public final class GenericsChecks {
   private void inferMethodReferenceTypeArguments(
       MemberReferenceTree tree, Type targetType, VisitorState state) {
     Symbol.MethodSymbol referencedMethod = castToNonNull(ASTHelpers.getSymbol(tree));
-    // javac represents omitted method-reference type arguments with null, not an empty list.
+    // return if the reference is to a non-generic method, has explicit type arguments, or if we
+    // already ran inference for the reference
     if (!(referencedMethod.type instanceof Type.ForAll)
         || tree.getTypeArguments() != null
         || inferredTypeVarNullabilityForGenericCalls.containsKey(tree)) {
