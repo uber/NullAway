@@ -9,6 +9,79 @@ import org.junit.Test;
 public class GenericLambdaTests extends NullAwayTestsBase {
 
   @Test
+  public void methodReferencesReturnedFromLambdasPreserveNestedTargets() {
+    makeHelper()
+        .addSourceLines(
+            "Test.java",
+            """
+            package com.uber;
+            import java.util.List;
+            import java.util.function.Consumer;
+            import java.util.function.Supplier;
+            import org.jspecify.annotations.NullMarked;
+            import org.jspecify.annotations.Nullable;
+            @NullMarked
+            class Test {
+              interface Factory<E> { Consumer<List<@Nullable E>> create(); }
+              static void nullableElements(List<@Nullable String> values) {}
+              static void nonNullElements(List<String> values) {}
+              static <E extends @Nullable Object> void genericNullableElements(
+                  List<@Nullable E> values) {}
+              static <E> void genericNonNullElements(List<E> values) {}
+              Factory<String> compatibleExpression() {
+                return () -> Test::nullableElements;
+              }
+              Factory<String> compatibleBlock() {
+                return () -> { return Test::nullableElements; };
+              }
+              Factory<String> compatibleParenthesizedExpression() {
+                return () -> ((Test::nullableElements));
+              }
+              Factory<String> compatibleParenthesizedBlock() {
+                return () -> { return ((Test::nullableElements)); };
+              }
+              Factory<String> incompatibleExpression() {
+                // BUG: Diagnostic contains: parameter type of referenced method
+                return () -> Test::nonNullElements;
+              }
+              Factory<String> incompatibleBlock() {
+                // BUG: Diagnostic contains: parameter type of referenced method
+                return () -> { return Test::nonNullElements; };
+              }
+              Factory<String> compatibleGenericExpression() {
+                return () -> Test::genericNullableElements;
+              }
+              Factory<String> compatibleGenericBlock() {
+                return () -> { return Test::genericNullableElements; };
+              }
+              Factory<String> incompatibleGenericExpression() {
+                // BUG: Diagnostic contains: inference failure
+                return () -> Test::genericNonNullElements;
+              }
+              Factory<String> incompatibleGenericBlock() {
+                // BUG: Diagnostic contains: inference failure
+                return () -> { return Test::genericNonNullElements; };
+              }
+              Supplier<Consumer<List<@Nullable String>>> compatibleSupplierExpression() {
+                return () -> Test::nullableElements;
+              }
+              Supplier<Consumer<List<@Nullable String>>> compatibleSupplierBlock() {
+                return () -> { return Test::nullableElements; };
+              }
+              Supplier<Consumer<List<@Nullable String>>> incompatibleSupplierExpression() {
+                // BUG: Diagnostic contains: parameter type of referenced method
+                return () -> Test::nonNullElements;
+              }
+              Supplier<Consumer<List<@Nullable String>>> incompatibleSupplierBlock() {
+                // BUG: Diagnostic contains: parameter type of referenced method
+                return () -> { return Test::nonNullElements; };
+              }
+            }
+            """)
+        .doTest();
+  }
+
+  @Test
   public void returnedPolyExpressionsPreserveNullableTypeVariableTargets() {
     makeHelper()
         .addSourceLines(
