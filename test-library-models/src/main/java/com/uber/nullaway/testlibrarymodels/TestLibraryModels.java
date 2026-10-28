@@ -354,6 +354,7 @@ public class TestLibraryModels implements LibraryModels {
   /** Creates the immutable method type-variable models used by this test provider. */
   private static ImmutableSetMultimap<MethodRef, Integer>
       createMethodTypeVariablesWithNullableUpperBounds() {
+
     return new ImmutableSetMultimap.Builder<MethodRef, Integer>()
         .put(
             methodRef(
@@ -395,6 +396,7 @@ public class TestLibraryModels implements LibraryModels {
                 "com.uber.lib.unannotated.PolyNullMethods",
                 "<T,U>genericFromSuppliers(java.util.function.Supplier<? extends T>,java.util.function.Supplier<? extends U>)"),
             1)
+        .put(methodRef("com.uber.Test", "<T>modeledWildcardSource(T)"), 0)
         .build();
   }
 

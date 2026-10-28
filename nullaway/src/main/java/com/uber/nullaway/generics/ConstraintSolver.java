@@ -556,6 +556,17 @@ public interface ConstraintSolver {
   }
 
   /**
+   * A fixed-variable bound cannot satisfy a non-null wildcard inference requirement. Unlike a
+   * contextual scalar contradiction, this deferred proof belongs to the wildcard's own call site.
+   */
+  class NonNullWildcardBoundViolationException extends UnsatisfiableConstraintsException {
+    /** Records the variable whose non-null bound conflicts with the actual's fixed bound. */
+    public NonNullWildcardBoundViolationException(InferenceVariable variable) {
+      super(variable.typeVariable(), true, variable.site());
+    }
+  }
+
+  /**
    * Indicates a proven nested-nullness violation of a declaration upper bound for which no safe
    * annotation source can preserve ordinary compatibility diagnostics. This includes cyclic
    * inference, non-generic subclasses of annotated generic bounds, and incompatible nominal shapes
