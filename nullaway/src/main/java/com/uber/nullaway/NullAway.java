@@ -621,6 +621,7 @@ public class NullAway extends BugChecker
       boolean isElementNullable = isArrayElementNullable(arrayType, config);
       if (!checkTopLevelNullnessCompatibility(
           expression,
+          lhsType,
           isElementNullable ? Nullness.NULLABLE : Nullness.NONNULL,
           MessageTypes.ASSIGN_NULLABLE_TO_NONNULL_ARRAY,
           tree,
@@ -642,6 +643,7 @@ public class NullAway extends BugChecker
     }
     if (checkTopLevelNullnessCompatibility(
         tree.getExpression(),
+        lhsType,
         Nullness.NONNULL,
         MessageTypes.ASSIGN_FIELD_NULLABLE,
         tree,
@@ -1304,6 +1306,20 @@ public class NullAway extends BugChecker
   }
 
   /**
+   * Returns the destination type of a returned expression, substituting the functional interface's
+   * type arguments for a lambda return.
+   */
+  private static Type returnTypeAtReturn(
+      Symbol.MethodSymbol methodSymbol,
+      @Nullable LambdaExpressionTree lambdaTree,
+      VisitorState state) {
+    Type lambdaType = ASTHelpers.getType(lambdaTree);
+    return lambdaType == null
+        ? methodSymbol.getReturnType()
+        : state.getTypes().memberType(lambdaType, methodSymbol).getReturnType();
+  }
+
+  /**
    * Checks that if a returned expression is {@code @Nullable}, the enclosing method does not have a
    * {@code @NonNull} return type. Also performs an unboxing check on the returned expression.
    * Finally, in JSpecify mode, also checks that the nullability of generic type arguments of the
@@ -1360,7 +1376,13 @@ public class NullAway extends BugChecker
     }
 
     checkTopLevelNullnessCompatibility(
-        retExpr, Nullness.NONNULL, MessageTypes.RETURN_NULLABLE, errorTree, methodSymbol, state);
+        retExpr,
+        returnTypeAtReturn(methodSymbol, lambdaTree, state),
+        Nullness.NONNULL,
+        MessageTypes.RETURN_NULLABLE,
+        errorTree,
+        methodSymbol,
+        state);
     return Description.NO_MATCH;
   }
 
@@ -1963,7 +1985,13 @@ public class NullAway extends BugChecker
               ? Nullness.NULLABLE
               : Nullness.NONNULL;
       checkTopLevelNullnessCompatibility(
-          initializer, targetNullness, MessageTypes.ASSIGN_FIELD_NULLABLE, tree, symbol, state);
+          initializer,
+          symbol.type,
+          targetNullness,
+          MessageTypes.ASSIGN_FIELD_NULLABLE,
+          tree,
+          symbol,
+          state);
     }
     return Description.NO_MATCH;
   }
@@ -2386,7 +2414,8 @@ public class NullAway extends BugChecker
       List<? extends ExpressionTree> actualParams) {
     List<VarSymbol> formalParams = methodSymbol.getParameters();
 
-    InvocationArguments invArgs = new InvocationArguments(tree, methodSymbol.type.asMethodType());
+    InvocationArguments invArgs =
+        new InvocationArguments(tree, invokedMethodTypeAtCall(tree, methodSymbol));
     // always do unboxing checks, whether or not the invoked method is annotated
     invArgs.forEach(
         (actual, argPos, formalParamType, varArgsPassedAsArray) -> {
@@ -2472,6 +2501,7 @@ public class NullAway extends BugChecker
           }
           checkTopLevelNullnessCompatibility(
               actual,
+              formalParamType,
               Nullness.NONNULL,
               MessageTypes.PASS_NULLABLE,
               actual,
@@ -3058,6 +3088,24 @@ public class NullAway extends BugChecker
   }
 
   /**
+   * Returns the method or constructor type with javac's call-site substitutions, falling back to
+   * the declared method type if javac recorded no resolved type.
+   */
+  private static Type.MethodType invokedMethodTypeAtCall(
+      Tree tree, Symbol.MethodSymbol methodSymbol) {
+    Type invokedType =
+        tree instanceof MethodInvocationTree invocationTree
+            ? ASTHelpers.getType(invocationTree.getMethodSelect())
+            : ((JCTree.JCNewClass) tree).constructorType;
+    return invokedType
+            instanceof
+            Type.MethodType invokedMethodType // diff-coverage: ignore -- javac resolves every call.
+        ? invokedMethodType
+        : methodSymbol.type
+            .asMethodType(); // diff-coverage: ignore -- Defensive missing-type fallback.
+  }
+
+  /**
    * Checks top-level compatibility with a resolved destination contract and reports an error for an
    * incompatible pseudo-assignment. Context-specific generic inference and nested type checks are
    * performed independently by the caller. Locals and reassigned parameter variables have inferred
@@ -3067,6 +3115,9 @@ public class NullAway extends BugChecker
    * distinction matters for handlers that are notified only of successful nonnull field writes.
    *
    * @param expression expression being assigned, passed, or returned
+   * @param targetType destination type after call-site substitutions, or {@code null} if unknown;
+   *     for array writes and individually passed varargs, this is the component type. Will be used
+   *     to support future features like {@code NO_CHANGE}.
    * @param targetNullness destination's nullness after applying context-specific rules and handlers
    * @param messageType diagnostic identifying the pseudo-assignment context
    * @param errorTree tree on which to report the diagnostic
@@ -3076,6 +3127,7 @@ public class NullAway extends BugChecker
    */
   private boolean checkTopLevelNullnessCompatibility(
       ExpressionTree expression,
+      @SuppressWarnings("UnusedVariable") @Nullable Type targetType,
       Nullness targetNullness,
       MessageTypes messageType,
       Tree errorTree,
