@@ -4111,55 +4111,43 @@ public final class GenericsChecks {
       }
     }
 
-    // the member types of a raw receiver are erased, which loses the nullable upper bound of a
-    // class type variable; the declared parameter type still has it
-    if (!isVarargsParam && hasRawReceiver(invokedMethodSymbol, tree, state)) {
-      return getParameterNullnessForRawReceiver(
-          invokedMethodSymbol.type.getParameterTypes().get(paramIndex));
-    }
-
     Type enclosingType =
-        getEnclosingTypeForCallExpression(invokedMethodSymbol, tree, null, state, false);
+        getEnclosingTypeForCallExpression(
+            invokedMethodSymbol, tree, null, state, false, /* preserveRaw= */ true);
     if (enclosingType == null) {
       return Nullness.NONNULL;
+    }
+    Type ownerView = state.getTypes().asSuper(enclosingType, invokedMethodSymbol.owner);
+    if (ownerView != null && ownerView.isRaw()) {
+      return isClassTypeVariableWithoutNonNull(
+              invokedMethodSymbol.type.getParameterTypes().get(paramIndex))
+          ? Nullness.NULLABLE
+          : Nullness.NONNULL;
     }
 
     return getGenericMethodParameterNullness(paramIndex, invokedMethodSymbol, enclosingType, state);
   }
 
   /**
-   * Checks if a call is made through a raw receiver: an explicit receiver expression of a raw type,
-   * a constructor call that allocates a raw type, or an unqualified call inside a class that
-   * inherits the method through a raw supertype, e.g., an anonymous {@code new Box() {...}}.
+   * Checks if a declared parameter type is a class type variable without an explicit
+   * {@code @NonNull} annotation.
    *
-   * @param invokedMethodSymbol symbol for the invoked method
-   * @param tree the tree for the invocation
-   * @param state the visitor state, whose path is used to find the enclosing class of an
-   *     unqualified call
-   * @return true if the receiver of the call has a raw type
+   * <p>This is an intentional limitation of raw-type checking. When a method is invoked through a
+   * receiver whose view as the method's owner is raw, e.g., {@code box.accept(null)} with {@code
+   * Box box} or {@code this.accept(null)} in {@code class Sub extends Box}, javac erases the class
+   * type variables in the method's parameter types. NullAway does not try to recover a nullness
+   * contract after erasure; it permits {@code null} for such parameters, accepting false negatives
+   * to avoid false positives, as it does elsewhere for raw types.
+   *
+   * @param declaredParamType the parameter type as declared on the method, before any substitution
+   * @return true if {@code declaredParamType} is a class type variable that is not explicitly
+   *     {@code @NonNull}
    */
-  private static boolean hasRawReceiver(
-      Symbol.MethodSymbol invokedMethodSymbol, Tree tree, VisitorState state) {
-    if (tree instanceof NewClassTree) {
-      Type allocatedType = ASTHelpers.getType(tree);
-      return allocatedType != null && allocatedType.isRaw();
-    }
-    if (!(tree instanceof MethodInvocationTree methodInvocationTree)) {
-      return false; // diff-coverage: ignore -- callers pass only method or constructor invocations
-    }
-    ExpressionTree methodSelect =
-        ASTHelpers.stripParentheses(methodInvocationTree.getMethodSelect());
-    if (methodSelect instanceof MemberSelectTree memberSelectTree) {
-      Type receiverType = ASTHelpers.getType(memberSelectTree.getExpression());
-      return receiverType != null && receiverType.isRaw();
-    }
-    // an unqualified call is always inside a class
-    ClassTree enclosingClass = castToNonNull(state.findEnclosing(ClassTree.class));
-    Type ownerView =
-        state
-            .getTypes()
-            .asSuper(castToNonNull(ASTHelpers.getType(enclosingClass)), invokedMethodSymbol.owner);
-    return ownerView != null && ownerView.isRaw();
+  private boolean isClassTypeVariableWithoutNonNull(Type declaredParamType) {
+    return declaredParamType instanceof Type.TypeVar typeVar
+        && typeVar.tsym.owner instanceof Symbol.ClassSymbol
+        && !Nullness.hasNonNullAnnotation(
+            declaredParamType.getAnnotationMirrors().stream(), config);
   }
 
   /**
@@ -4210,7 +4198,7 @@ public final class GenericsChecks {
    * @param path the path to the invocation tree, or null if not available
    * @param state the visitor state
    * @param calledFromDataflow whether this method is being called from dataflow analysis
-   * @return the enclosing type for the method call, or null if it cannot be determined
+   * @return the enclosing type for the method call, or null if it cannot be determined or is raw
    */
   private @Nullable Type getEnclosingTypeForCallExpression(
       Symbol.MethodSymbol invokedMethodSymbol,
@@ -4218,6 +4206,30 @@ public final class GenericsChecks {
       @Nullable TreePath path,
       VisitorState state,
       boolean calledFromDataflow) {
+    return getEnclosingTypeForCallExpression(
+        invokedMethodSymbol, tree, path, state, calledFromDataflow, false);
+  }
+
+  /**
+   * Like {@link #getEnclosingTypeForCallExpression(Symbol.MethodSymbol, Tree, TreePath,
+   * VisitorState, boolean)}, but can keep a raw receiver type instead of returning {@code null} for
+   * it, so callers can tell a raw receiver apart from a receiver whose type is unavailable.
+   *
+   * @param invokedMethodSymbol symbol for the invoked method
+   * @param tree the tree for the invocation
+   * @param path the path to the invocation tree, or null if not available
+   * @param state the visitor state
+   * @param calledFromDataflow whether this method is being called from dataflow analysis
+   * @param preserveRaw whether to return a raw receiver type rather than {@code null}
+   * @return the enclosing type for the method call, or null if it cannot be determined
+   */
+  private @Nullable Type getEnclosingTypeForCallExpression(
+      Symbol.MethodSymbol invokedMethodSymbol,
+      Tree tree,
+      @Nullable TreePath path,
+      VisitorState state,
+      boolean calledFromDataflow,
+      boolean preserveRaw) {
     Type enclosingType = null;
     if (tree instanceof MethodInvocationTree methodInvocationTree) {
       if (invokedMethodSymbol.isStatic()) {
@@ -4245,6 +4257,9 @@ public final class GenericsChecks {
                   calledFromDataflow);
         } else {
           enclosingType = getTreeType(receiver, state.withPath(receiverPath), calledFromDataflow);
+          if (enclosingType == null && preserveRaw) {
+            enclosingType = rawTypeOrNull(receiver);
+          }
         }
       }
     } else {
@@ -4252,8 +4267,23 @@ public final class GenericsChecks {
       // for a constructor invocation, the type from the invocation itself is the "enclosing type"
       // for the purposes of determining type arguments
       enclosingType = getTreeType(tree, state, calledFromDataflow);
+      if (enclosingType == null && preserveRaw) {
+        enclosingType = rawTypeOrNull(tree);
+      }
     }
     return enclosingType;
+  }
+
+  /**
+   * Returns the javac type of {@code tree} if it is a raw type, which {@link #getTreeType(Tree,
+   * VisitorState, boolean)} reports as {@code null}.
+   *
+   * @param tree the tree
+   * @return the raw type of {@code tree}, or {@code null} if its type is not raw
+   */
+  private static @Nullable Type rawTypeOrNull(Tree tree) {
+    Type type = ASTHelpers.getType(tree);
+    return type != null && type.isRaw() ? type : null;
   }
 
   /**
@@ -4321,29 +4351,6 @@ public final class GenericsChecks {
         TypeSubstitutionUtils.memberType(state.getTypes(), enclosingType, method, config);
     Type paramType = methodType.getParameterTypes().get(parameterIndex);
     return getParameterTypeNullness(paramType, isVarargsParam, state);
-  }
-
-  /**
-   * Returns the nullness of a declared parameter type for a method invoked on a raw receiver. A raw
-   * receiver gives no type argument for a class type variable, so a parameter whose type is such a
-   * type variable is treated as {@code @Nullable} if the variable has a {@code @Nullable} upper
-   * bound, unless the parameter is explicitly annotated {@code @NonNull}.
-   *
-   * @param declaredParamType the parameter type as declared on the method, before any substitution
-   * @return {@code NULLABLE} if the parameter may receive {@code null} through a raw receiver, and
-   *     {@code NONNULL} otherwise
-   */
-  private Nullness getParameterNullnessForRawReceiver(Type declaredParamType) {
-    if (!(declaredParamType instanceof Type.TypeVar typeVar)
-        || !(typeVar.tsym.owner instanceof Symbol.ClassSymbol owner)
-        || Nullness.hasNonNullAnnotation(
-            declaredParamType.getAnnotationMirrors().stream(), config)) {
-      return Nullness.NONNULL;
-    }
-    int typeVarIndex = owner.getTypeParameters().indexOf(typeVar.tsym);
-    return getTypeParamsWithNullableUpperBound(owner.type)[typeVarIndex]
-        ? Nullness.NULLABLE
-        : Nullness.NONNULL;
   }
 
   /**
