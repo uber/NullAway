@@ -4117,6 +4117,12 @@ public final class GenericsChecks {
     if (enclosingType == null) {
       return Nullness.NONNULL;
     }
+    // When the receiver has a raw type, e.g., box.accept(null) with Box box, or this.accept(null)
+    // in class Sub extends Box, we assume class type variable parameters are @Nullable, unless
+    // they are explicitly @NonNull. javac erases these parameter types, and we intentionally do not
+    // try to recover a nullness contract after erasure, accepting false negatives to avoid false
+    // positives, as elsewhere for raw types. We check the receiver's view as the method's owner,
+    // since a subclass of a raw type is not itself raw.
     Type ownerView = state.getTypes().asSuper(enclosingType, invokedMethodSymbol.owner);
     if (ownerView != null && ownerView.isRaw()) {
       return isClassTypeVariableWithoutNonNull(
@@ -4131,13 +4137,6 @@ public final class GenericsChecks {
   /**
    * Checks if a declared parameter type is a class type variable without an explicit
    * {@code @NonNull} annotation.
-   *
-   * <p>This is an intentional limitation of raw-type checking. When a method is invoked through a
-   * receiver whose view as the method's owner is raw, e.g., {@code box.accept(null)} with {@code
-   * Box box} or {@code this.accept(null)} in {@code class Sub extends Box}, javac erases the class
-   * type variables in the method's parameter types. NullAway does not try to recover a nullness
-   * contract after erasure; it permits {@code null} for such parameters, accepting false negatives
-   * to avoid false positives, as it does elsewhere for raw types.
    *
    * @param declaredParamType the parameter type as declared on the method, before any substitution
    * @return true if {@code declaredParamType} is a class type variable that is not explicitly
