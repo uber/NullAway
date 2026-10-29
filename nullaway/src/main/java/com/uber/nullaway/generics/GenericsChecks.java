@@ -4112,12 +4112,41 @@ public final class GenericsChecks {
     }
 
     Type enclosingType =
-        getEnclosingTypeForCallExpression(invokedMethodSymbol, tree, null, state, false);
+        getEnclosingTypeForCallExpression(
+            invokedMethodSymbol, tree, null, state, false, /* preserveRaw= */ true);
     if (enclosingType == null) {
       return Nullness.NONNULL;
     }
+    // When the receiver has a raw type, e.g., box.accept(null) with Box box, or this.accept(null)
+    // in class Sub extends Box, we assume class type variable parameters are @Nullable, unless
+    // they are explicitly @NonNull. javac erases these parameter types, and we intentionally do not
+    // try to recover a nullness contract after erasure, accepting false negatives to avoid false
+    // positives, as elsewhere for raw types. We check the receiver's view as the method's owner,
+    // since a subclass of a raw type is not itself raw.
+    Type ownerView = state.getTypes().asSuper(enclosingType, invokedMethodSymbol.owner);
+    if (ownerView != null && ownerView.isRaw()) {
+      return isClassTypeVariableWithoutNonNull(
+              invokedMethodSymbol.type.getParameterTypes().get(paramIndex))
+          ? Nullness.NULLABLE
+          : Nullness.NONNULL;
+    }
 
     return getGenericMethodParameterNullness(paramIndex, invokedMethodSymbol, enclosingType, state);
+  }
+
+  /**
+   * Checks if a declared parameter type is a class type variable without an explicit
+   * {@code @NonNull} annotation.
+   *
+   * @param declaredParamType the parameter type as declared on the method, before any substitution
+   * @return true if {@code declaredParamType} is a class type variable that is not explicitly
+   *     {@code @NonNull}
+   */
+  private boolean isClassTypeVariableWithoutNonNull(Type declaredParamType) {
+    return declaredParamType instanceof Type.TypeVar typeVar
+        && typeVar.tsym.owner instanceof Symbol.ClassSymbol
+        && !Nullness.hasNonNullAnnotation(
+            declaredParamType.getAnnotationMirrors().stream(), config);
   }
 
   /**
@@ -4168,7 +4197,7 @@ public final class GenericsChecks {
    * @param path the path to the invocation tree, or null if not available
    * @param state the visitor state
    * @param calledFromDataflow whether this method is being called from dataflow analysis
-   * @return the enclosing type for the method call, or null if it cannot be determined
+   * @return the enclosing type for the method call, or null if it cannot be determined or is raw
    */
   private @Nullable Type getEnclosingTypeForCallExpression(
       Symbol.MethodSymbol invokedMethodSymbol,
@@ -4176,6 +4205,30 @@ public final class GenericsChecks {
       @Nullable TreePath path,
       VisitorState state,
       boolean calledFromDataflow) {
+    return getEnclosingTypeForCallExpression(
+        invokedMethodSymbol, tree, path, state, calledFromDataflow, false);
+  }
+
+  /**
+   * Like {@link #getEnclosingTypeForCallExpression(Symbol.MethodSymbol, Tree, TreePath,
+   * VisitorState, boolean)}, but can keep a raw receiver type instead of returning {@code null} for
+   * it, so callers can tell a raw receiver apart from a receiver whose type is unavailable.
+   *
+   * @param invokedMethodSymbol symbol for the invoked method
+   * @param tree the tree for the invocation
+   * @param path the path to the invocation tree, or null if not available
+   * @param state the visitor state
+   * @param calledFromDataflow whether this method is being called from dataflow analysis
+   * @param preserveRaw whether to return a raw receiver type rather than {@code null}
+   * @return the enclosing type for the method call, or null if it cannot be determined
+   */
+  private @Nullable Type getEnclosingTypeForCallExpression(
+      Symbol.MethodSymbol invokedMethodSymbol,
+      Tree tree,
+      @Nullable TreePath path,
+      VisitorState state,
+      boolean calledFromDataflow,
+      boolean preserveRaw) {
     Type enclosingType = null;
     if (tree instanceof MethodInvocationTree methodInvocationTree) {
       if (invokedMethodSymbol.isStatic()) {
@@ -4203,6 +4256,9 @@ public final class GenericsChecks {
                   calledFromDataflow);
         } else {
           enclosingType = getTreeType(receiver, state.withPath(receiverPath), calledFromDataflow);
+          if (enclosingType == null && preserveRaw) {
+            enclosingType = rawTypeOrNull(receiver);
+          }
         }
       }
     } else {
@@ -4210,8 +4266,23 @@ public final class GenericsChecks {
       // for a constructor invocation, the type from the invocation itself is the "enclosing type"
       // for the purposes of determining type arguments
       enclosingType = getTreeType(tree, state, calledFromDataflow);
+      if (enclosingType == null && preserveRaw) {
+        enclosingType = rawTypeOrNull(tree);
+      }
     }
     return enclosingType;
+  }
+
+  /**
+   * Returns the javac type of {@code tree} if it is a raw type, which {@link #getTreeType(Tree,
+   * VisitorState, boolean)} reports as {@code null}.
+   *
+   * @param tree the tree
+   * @return the raw type of {@code tree}, or {@code null} if its type is not raw
+   */
+  private static @Nullable Type rawTypeOrNull(Tree tree) {
+    Type type = ASTHelpers.getType(tree);
+    return type != null && type.isRaw() ? type : null;
   }
 
   /**
