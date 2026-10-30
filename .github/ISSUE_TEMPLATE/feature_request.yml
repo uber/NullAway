@@ -9,6 +9,7 @@ body:
         For large features, please discuss the proposal in an issue before investing in an implementation, as described in our [contributing guide](https://github.com/uber/NullAway/blob/master/CONTRIBUTING.md).
         Before requesting support for an annotation or a JSpecify feature, check [Supported annotations](https://github.com/uber/NullAway/wiki/Supported-Annotations) and [JSpecify support](https://github.com/uber/NullAway/wiki/JSpecify-Support).
         For usage questions, you can ask in the [NullAway Discord server](https://discord.gg/QH2F779).
+        Put annotations and code in backticks, such as `@Nullable`; otherwise GitHub can interpret annotations as user mentions.
 
   - type: textarea
     id: problem

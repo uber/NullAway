@@ -7,13 +7,14 @@ body:
       value: |
         Thanks for using NullAway! Before filing, please search [existing issues, including closed ones](https://github.com/uber/NullAway/issues?q=is%3Aissue), and link the closest related issue under "Additional context", if any.
         For help with configuration, see the [configuration guide](https://github.com/uber/NullAway/wiki/Configuration) or ask in the [NullAway Discord server](https://discord.gg/QH2F779).
+        Put annotations and code in backticks, such as `@Nullable`; otherwise GitHub can interpret annotations as user mentions.
 
   - type: dropdown
     id: kind
     attributes:
       label: Kind of problem
       description: |
-        Some missed errors are by design and listed in [Deliberate unsoundness](https://github.com/uber/NullAway/wiki/Deliberate-Unsoundness). [Error messages](https://github.com/uber/NullAway/wiki/Error-Messages) explains each diagnostic and how to address it.
+        NullAway checks only annotated code. Before reporting a missed error, confirm the affected code is in scope for your configuration (`AnnotatedPackages` or `OnlyNullMarked`/`@NullMarked`). Some missed errors are by design and listed in [Deliberate unsoundness](https://github.com/uber/NullAway/wiki/Deliberate-Unsoundness). [Error messages](https://github.com/uber/NullAway/wiki/Error-Messages) explains each diagnostic and how to address it.
       options:
         - False positive (NullAway reports an error on correct code)
         - False negative (NullAway misses a nullness error)
@@ -28,7 +29,7 @@ body:
       label: Minimal reproducer
       description: |
         A small Java sample or test case, with imports and nullness annotations, that shows the problem when compiled with NullAway. Put the code in a ```java fenced block, and compile it once more after your last edit. If it needs a third-party library, name the library and its version.
-        You can instead link to a small reproducer repository and give the command to run.
+        You can instead link to a small reproducer repository and give the command to run. If you could not reduce the code, paste the method around the reported line and say so.
       placeholder: |
         ```java
         import org.jspecify.annotations.NullMarked;
@@ -46,7 +47,7 @@ body:
     id: actual
     attributes:
       label: Actual behavior
-      description: Paste the NullAway diagnostics or the stack trace as text, not as a screenshot. For a false negative, write "no error reported". No Markdown code fences are needed.
+      description: Paste the NullAway diagnostics or the stack trace as text, not as a screenshot. For a false negative, write "no error reported"; for other problems, describe what happens. No Markdown code fences are needed.
       render: text
     validations:
       required: true
@@ -60,20 +61,16 @@ body:
       required: true
 
   - type: textarea
-    id: description
-    attributes:
-      label: Describe the bug
-      description: Explain what went wrong, such as an unexpected warning, a missing nullness error, or a compiler crash.
-    validations:
-      required: false
-
-  - type: textarea
     id: configuration
     attributes:
       label: NullAway configuration
       description: |
         Include your NullAway compiler options, especially JSpecifyMode, AnnotatedPackages or OnlyNullMarked, custom nullness annotations, and library models if used. The options are described in [Configuration](https://github.com/uber/NullAway/wiki/Configuration).
-        You may replace internal package names. Remove secrets and unrelated build configuration if including a build file.
+        You may replace internal package names. Remove secrets and unrelated build configuration if including a build file. No Markdown code fences are needed.
+      placeholder: |
+        -XepOpt:NullAway:OnlyNullMarked=true
+        -XepOpt:NullAway:JSpecifyMode=true
+      render: text
     validations:
       required: true
 
@@ -81,7 +78,7 @@ body:
     id: nullaway_version
     attributes:
       label: NullAway version
-      description: Include the full version number (major, minor, and patch), or the commit if using an unreleased build.
+      description: The version of `com.uber.nullaway:nullaway`, with major, minor, and patch, or the commit if using an unreleased build.
       placeholder: "e.g. 0.14.2"
     validations:
       required: true
@@ -90,7 +87,7 @@ body:
     id: error_prone_version
     attributes:
       label: Error Prone version
-      description: The version of error_prone_core used by your build.
+      description: The version of `com.google.errorprone:error_prone_core` used by your build, not of the Gradle or Maven plugin.
       placeholder: "e.g. 2.50.0"
     validations:
       required: true
@@ -124,6 +121,6 @@ body:
     id: additional
     attributes:
       label: Additional context
-      description: Include related issues, relevant dependencies, annotation processors, workarounds, or the last working NullAway version if this is a regression.
+      description: Include anything the reproducer does not show, related issues, relevant dependencies, annotation processors, workarounds, or the last working NullAway version if this is a regression.
     validations:
       required: false
