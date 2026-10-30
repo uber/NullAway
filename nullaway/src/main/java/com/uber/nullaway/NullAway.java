@@ -619,14 +619,17 @@ public class NullAway extends BugChecker
           pathWithLeaf(pathWithLeaf(state.getPath(), arrayAccess), arrayExpr);
       Type arrayType = genericsChecks.getTreeType(arrayExpr, state.withPath(pathToArrayExpr));
       boolean isElementNullable = isArrayElementNullable(arrayType, config);
-      if (!checkTopLevelNullnessCompatibility(
-          expression,
-          lhsType,
-          isElementNullable ? Nullness.NULLABLE : Nullness.NONNULL,
-          MessageTypes.ASSIGN_NULLABLE_TO_NONNULL_ARRAY,
-          tree,
-          ASTHelpers.getSymbol(arrayExpr),
-          state)) {
+      if (!isTopLevelNullnessCompatible(
+          expression, lhsType, isElementNullable ? Nullness.NULLABLE : Nullness.NONNULL, state)) {
+        state.reportMatch(
+            errorBuilder.createErrorDescription(
+                new ErrorMessage(
+                    MessageTypes.ASSIGN_NULLABLE_TO_NONNULL_ARRAY,
+                    "Writing @Nullable expression into array with @NonNull contents."),
+                buildDescription(tree),
+                state,
+                ASTHelpers.getSymbol(arrayExpr),
+                expression));
         return Description.NO_MATCH;
       }
     }
@@ -641,15 +644,19 @@ public class NullAway extends BugChecker
       // field already annotated
       return Description.NO_MATCH;
     }
-    if (checkTopLevelNullnessCompatibility(
-        tree.getExpression(),
-        lhsType,
-        Nullness.NONNULL,
-        MessageTypes.ASSIGN_FIELD_NULLABLE,
-        tree,
-        assigned,
-        state)) {
+    if (isTopLevelNullnessCompatible(tree.getExpression(), lhsType, Nullness.NONNULL, state)) {
       handler.onNonNullFieldAssignment(assigned, getNullnessAnalysis(state), state);
+    } else {
+      state.reportMatch(
+          errorBuilder.createErrorDescriptionForNullAssignment(
+              new ErrorMessage(
+                  MessageTypes.ASSIGN_FIELD_NULLABLE,
+                  "assigning @Nullable expression to @NonNull field"),
+              tree.getExpression(),
+              buildDescription(tree),
+              state,
+              assigned,
+              tree.getExpression()));
     }
     return Description.NO_MATCH;
   }
@@ -1375,14 +1382,19 @@ public class NullAway extends BugChecker
       }
     }
 
-    checkTopLevelNullnessCompatibility(
-        retExpr,
-        returnTypeAtReturn(methodSymbol, lambdaTree, state),
-        Nullness.NONNULL,
-        MessageTypes.RETURN_NULLABLE,
-        errorTree,
-        methodSymbol,
-        state);
+    if (!isTopLevelNullnessCompatible(
+        retExpr, returnTypeAtReturn(methodSymbol, lambdaTree, state), Nullness.NONNULL, state)) {
+      state.reportMatch(
+          errorBuilder.createErrorDescriptionForNullAssignment(
+              new ErrorMessage(
+                  MessageTypes.RETURN_NULLABLE,
+                  "returning @Nullable expression from method with @NonNull return type"),
+              retExpr,
+              buildDescription(errorTree),
+              state,
+              methodSymbol,
+              retExpr));
+    }
     return Description.NO_MATCH;
   }
 
@@ -1984,14 +1996,18 @@ public class NullAway extends BugChecker
           getFieldInitializationSkipResult(state, symbol, null) == Handler.FieldSkipResult.YES
               ? Nullness.NULLABLE
               : Nullness.NONNULL;
-      checkTopLevelNullnessCompatibility(
-          initializer,
-          symbol.type,
-          targetNullness,
-          MessageTypes.ASSIGN_FIELD_NULLABLE,
-          tree,
-          symbol,
-          state);
+      if (!isTopLevelNullnessCompatible(initializer, symbol.type, targetNullness, state)) {
+        state.reportMatch(
+            errorBuilder.createErrorDescriptionForNullAssignment(
+                new ErrorMessage(
+                    MessageTypes.ASSIGN_FIELD_NULLABLE,
+                    "assigning @Nullable expression to @NonNull field"),
+                initializer,
+                buildDescription(tree),
+                state,
+                symbol,
+                initializer));
+      }
     }
     return Description.NO_MATCH;
   }
@@ -2499,14 +2515,20 @@ public class NullAway extends BugChecker
             // Preserve the fast path for nullable and unannotated parameters.
             return;
           }
-          checkTopLevelNullnessCompatibility(
-              actual,
-              formalParamType,
-              Nullness.NONNULL,
-              MessageTypes.PASS_NULLABLE,
-              actual,
-              formalParams.get(argPos),
-              state);
+          if (!isTopLevelNullnessCompatible(actual, formalParamType, Nullness.NONNULL, state)) {
+            state.reportMatch(
+                errorBuilder.createErrorDescriptionForNullAssignment(
+                    new ErrorMessage(
+                        MessageTypes.PASS_NULLABLE,
+                        "passing @Nullable parameter '"
+                            + state.getSourceForNode(actual)
+                            + "' where @NonNull is required"),
+                    actual,
+                    buildDescription(actual),
+                    state,
+                    formalParams.get(argPos),
+                    actual));
+          }
         });
     // Check for @NonNull being passed to castToNonNull (if configured)
     return checkCastToNonNullTakesNullable(tree, state, methodSymbol, actualParams);
@@ -3106,10 +3128,10 @@ public class NullAway extends BugChecker
   }
 
   /**
-   * Checks top-level compatibility with a resolved destination contract and reports an error for an
-   * incompatible pseudo-assignment. Context-specific generic inference and nested type checks are
-   * performed independently by the caller. Locals and reassigned parameter variables have inferred
-   * top-level nullness and do not require this check.
+   * Checks top-level compatibility with a resolved destination contract. Context-specific generic
+   * inference, nested type checks, and diagnostic reporting are performed independently by the
+   * caller. Locals and reassigned parameter variables have inferred top-level nullness and do not
+   * require this check.
    *
    * <p>Returns whether the assignment is compatible, even if its diagnostic is suppressed. This
    * distinction matters for handlers that are notified only of successful nonnull field writes.
@@ -3119,51 +3141,21 @@ public class NullAway extends BugChecker
    *     for array writes and individually passed varargs, this is the component type. Will be used
    *     to support future features like {@code NO_CHANGE}.
    * @param targetNullness destination's nullness after applying context-specific rules and handlers
-   * @param messageType diagnostic identifying the pseudo-assignment context
-   * @param errorTree tree on which to report the diagnostic
-   * @param target destination symbol, or the array symbol for an array-element write
    * @param state visitor state at the pseudo-assignment
    * @return whether the top-level nullness is compatible
    */
-  private boolean checkTopLevelNullnessCompatibility(
+  private boolean isTopLevelNullnessCompatible(
       ExpressionTree expression,
       @SuppressWarnings("UnusedVariable") @Nullable Type targetType,
       Nullness targetNullness,
-      MessageTypes messageType,
-      Tree errorTree,
-      @Nullable Symbol target,
       VisitorState state) {
     if (targetNullness != Nullness.NONNULL) {
       return true;
     }
     Nullness expressionNullness = getExpressionNullness(state, expression);
-    if (expressionNullness == null // diff-coverage: ignore -- Preserve missing-dataflow fallback.
-        || !NullabilityUtil.nullnessToBool(expressionNullness)) {
-      return true;
-    }
-    String message =
-        switch (messageType) { // diff-coverage: ignore -- Private callers use only four cases.
-          case ASSIGN_FIELD_NULLABLE -> "assigning @Nullable expression to @NonNull field";
-          case RETURN_NULLABLE ->
-              "returning @Nullable expression from method with @NonNull return type";
-          case PASS_NULLABLE ->
-              "passing @Nullable parameter '"
-                  + state.getSourceForNode(expression)
-                  + "' where @NonNull is required";
-          case ASSIGN_NULLABLE_TO_NONNULL_ARRAY ->
-              "Writing @Nullable expression into array with @NonNull contents.";
-          default ->
-              throw new AssertionError(messageType); // diff-coverage: ignore -- Private callers.
-        };
-    ErrorMessage errorMessage = new ErrorMessage(messageType, message);
-    Description description =
-        messageType == MessageTypes.ASSIGN_NULLABLE_TO_NONNULL_ARRAY
-            ? errorBuilder.createErrorDescription(
-                errorMessage, buildDescription(errorTree), state, target, expression)
-            : errorBuilder.createErrorDescriptionForNullAssignment(
-                errorMessage, expression, buildDescription(errorTree), state, target, expression);
-    state.reportMatch(description);
-    return false;
+    return expressionNullness
+            == null // diff-coverage: ignore -- Preserve missing-dataflow fallback.
+        || !NullabilityUtil.nullnessToBool(expressionNullness);
   }
 
   /** Returns whether the effective nullness of an expression permits null. */
