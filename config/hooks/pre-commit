@@ -4,8 +4,15 @@ set -e
 
 REPO_ROOT_DIR="$(git rev-parse --show-toplevel)"
 
-if ! GIT_LITERAL_PATHSPECS=0 GIT_GLOB_PATHSPECS=0 GIT_NOGLOB_PATHSPECS=0 GIT_ICASE_PATHSPECS=0 \
+if GIT_LITERAL_PATHSPECS=0 GIT_GLOB_PATHSPECS=0 GIT_NOGLOB_PATHSPECS=0 GIT_ICASE_PATHSPECS=0 \
     git diff --cached --quiet --diff-filter=ACMR -- ':(icase,glob)**/*.java'; then
+    :
+else
+    diff_status=$?
+    if [ "$diff_status" -ne 1 ]; then
+        exit "$diff_status"
+    fi
+
     if gradle_output=$("${REPO_ROOT_DIR}/gradlew" spotlessApply -Pspotless.ratchet.from=HEAD 2>&1); then
         :
     else
@@ -14,8 +21,19 @@ if ! GIT_LITERAL_PATHSPECS=0 GIT_GLOB_PATHSPECS=0 GIT_NOGLOB_PATHSPECS=0 GIT_ICA
         exit "$gradle_status"
     fi
 
-    GIT_LITERAL_PATHSPECS=0 GIT_GLOB_PATHSPECS=0 GIT_NOGLOB_PATHSPECS=0 GIT_ICASE_PATHSPECS=0 \
-        git diff --cached --name-only -z --diff-filter=ACMR -- ':(icase,glob)**/*.java' |
+    java_files=$(mktemp) || exit 1
+    trap 'rm -f "$java_files"' 0
+
+    if GIT_LITERAL_PATHSPECS=0 GIT_GLOB_PATHSPECS=0 GIT_NOGLOB_PATHSPECS=0 GIT_ICASE_PATHSPECS=0 \
+        git diff --cached --name-only -z --diff-filter=ACMR -- ':(icase,glob)**/*.java' >"$java_files"; then
+        :
+    else
+        diff_status=$?
+        exit "$diff_status"
+    fi
+
+    if [ -s "$java_files" ]; then
         GIT_LITERAL_PATHSPECS=1 GIT_GLOB_PATHSPECS=0 GIT_NOGLOB_PATHSPECS=0 GIT_ICASE_PATHSPECS=0 \
-        xargs -0 git add --
+            xargs -0 git add -- <"$java_files"
+    fi
 fi
