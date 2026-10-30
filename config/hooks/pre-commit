@@ -4,10 +4,7 @@ set -e
 
 REPO_ROOT_DIR="$(git rev-parse --show-toplevel)"
 
-files=$(git diff --cached --name-only --diff-filter=ACMR | grep -Ei '\.java$' || true)
-if [ ! -z "${files}" ]; then
-    comma_files=$(echo "$files" | paste -s -d "," -)
-
+if ! git diff --cached --quiet --diff-filter=ACMR -- ':(icase,glob)**/*.java'; then
     if gradle_output=$("${REPO_ROOT_DIR}/gradlew" spotlessApply -Pspotless.ratchet.from=HEAD 2>&1); then
         :
     else
@@ -16,7 +13,6 @@ if [ ! -z "${files}" ]; then
         exit "$gradle_status"
     fi
 
-    printf '%s\n' "$files" | while IFS= read -r file; do
-        GIT_LITERAL_PATHSPECS=1 git add -- "$file"
-    done
+    git diff --cached --name-only -z --diff-filter=ACMR -- ':(icase,glob)**/*.java' |
+        GIT_LITERAL_PATHSPECS=1 xargs -0 git add --
 fi
