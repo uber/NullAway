@@ -126,7 +126,7 @@ final class PolyNullInference {
         || solution.inconsistentVariables().contains(variable)) {
       return null;
     }
-    return TypeSubstitutionUtils.hasNullableRoot(inferred, config)
+    return GenericsUtils.isAnnotatedAsNullable(inferred, config)
         ? Nullness.NULLABLE
         : Nullness.NONNULL;
   }
@@ -546,8 +546,8 @@ final class PolyNullInference {
     /** Returns the owned scalar variable unless an occurrence explicitly overrides its nullness. */
     private @Nullable InferenceVariable variableForUse(Type type) {
       return type instanceof Type.TypeVar
-              && !TypeSubstitutionUtils.hasNullableRoot(type, config)
-              && !TypeSubstitutionUtils.hasExplicitNonNullRoot(type, config)
+              && !GenericsUtils.isAnnotatedAsNullable(type, config)
+              && !GenericsUtils.isAnnotatedAsNonNull(type, config)
           ? variables.get(type.asElement())
           : null;
     }
@@ -564,16 +564,16 @@ final class PolyNullInference {
               solution != null && lower != null ? solution.inferredTypes().get(lower) : null;
           boolean nullable =
               constraint.subtype() instanceof NullType
-                  || TypeSubstitutionUtils.hasNullableRoot(constraint.subtype(), config)
+                  || GenericsUtils.isAnnotatedAsNullable(constraint.subtype(), config)
                   || (lower != null && forced.get(lower) == Nullness.NULLABLE)
                   || (inferredLower != null
-                      && TypeSubstitutionUtils.hasNullableRoot(inferredLower, config));
+                      && GenericsUtils.isAnnotatedAsNullable(inferredLower, config));
           boolean nonnull =
               upper != null
                   ? forced.get(upper) == Nullness.NONNULL
-                  : !TypeSubstitutionUtils.hasNullableRoot(constraint.supertype(), config)
+                  : !GenericsUtils.isAnnotatedAsNullable(constraint.supertype(), config)
                       && (!(constraint.supertype() instanceof Type.TypeVar variable)
-                          || TypeSubstitutionUtils.hasExplicitNonNullRoot(variable, config)
+                          || GenericsUtils.isAnnotatedAsNonNull(variable, config)
                           || !GenericsUtils.upperBoundIsNullable(
                               variable.asElement(), config, handler, state));
           if (nullable && upper != null) {

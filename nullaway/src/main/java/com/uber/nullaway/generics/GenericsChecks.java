@@ -633,6 +633,7 @@ public final class GenericsChecks {
     }
   }
 
+  /** Returns which class type parameters permit nullable arguments. */
   private boolean[] getTypeParamsWithNullableUpperBound(Type type) {
     Symbol.TypeSymbol tsym = type.tsym;
     com.sun.tools.javac.util.List<Type> baseTypeArgs = tsym.type.getTypeArguments();
@@ -640,7 +641,7 @@ public final class GenericsChecks {
     for (int i = 0; i < baseTypeArgs.size(); i++) {
       Type typeVariable = baseTypeArgs.get(i);
       Type upperBound = typeVariable.getUpperBound();
-      if (TypeSubstitutionUtils.hasNullableRoot(upperBound, config)
+      if (GenericsUtils.isAnnotatedAsNullable(upperBound, config)
           || handler.onOverrideClassTypeVariableUpperBound(type.tsym.toString(), i)) {
         result[i] = true;
       }
@@ -693,7 +694,7 @@ public final class GenericsChecks {
         Type typeVariable = baseTypeVariables.get(i);
         Type upperBound = typeVariable.getUpperBound();
         boolean hasNullableAnnotation =
-            TypeSubstitutionUtils.hasNullableRoot(upperBound, config)
+            GenericsUtils.isAnnotatedAsNullable(upperBound, config)
                 || handler.onOverrideClassTypeVariableUpperBound(baseType.tsym.toString(), i);
         // if type variable's upper bound does not have @Nullable annotation then the instantiation
         // is invalid
@@ -4960,10 +4961,10 @@ public final class GenericsChecks {
       return true;
     }
     Type upperBound = substitutedTypeVar.getUpperBound();
-    if (TypeSubstitutionUtils.hasNullableRoot(upperBound, config)) {
+    if (GenericsUtils.isAnnotatedAsNullable(upperBound, config)) {
       return true;
     }
-    if (Nullness.hasNonNullAnnotation(upperBound.getAnnotationMirrors(), config)) {
+    if (GenericsUtils.isAnnotatedAsNonNull(upperBound, config)) {
       return false;
     }
     // Member-type substitution (asMemberOf) can strip type-use @Nullable from a concrete method
@@ -4977,10 +4978,10 @@ public final class GenericsChecks {
     List<Symbol.TypeVariableSymbol> originalTypeParams = overriddenMethod.getTypeParameters();
     Type originalBound =
         (Type) ((TypeVariable) originalTypeParams.get(typeVarIndex).asType()).getUpperBound();
-    if (TypeSubstitutionUtils.hasNullableRoot(originalBound, config)) {
+    if (GenericsUtils.isAnnotatedAsNullable(originalBound, config)) {
       return true;
     }
-    if (Nullness.hasNonNullAnnotation(originalBound.getAnnotationMirrors(), config)) {
+    if (GenericsUtils.isAnnotatedAsNonNull(originalBound, config)) {
       return false;
     }
     // Bound may still be a free type variable (e.g. subclass keeps the enclosing type parameter).
@@ -5844,12 +5845,40 @@ public final class GenericsChecks {
     }
 
     Type enclosingType =
-        getEnclosingTypeForCallExpression(invokedMethodSymbol, tree, null, state, false);
+        getEnclosingTypeForCallExpression(
+            invokedMethodSymbol, tree, null, state, false, /* preserveRaw= */ true);
     if (enclosingType == null) {
       return Nullness.NONNULL;
     }
+    // When the receiver has a raw type, e.g., box.accept(null) with Box box, or this.accept(null)
+    // in class Sub extends Box, we assume class type variable parameters are @Nullable, unless
+    // they are explicitly @NonNull. javac erases these parameter types, and we intentionally do not
+    // try to recover a nullness contract after erasure, accepting false negatives to avoid false
+    // positives, as elsewhere for raw types. We check the receiver's view as the method's owner,
+    // since a subclass of a raw type is not itself raw.
+    Type ownerView = state.getTypes().asSuper(enclosingType, invokedMethodSymbol.owner);
+    if (ownerView != null && ownerView.isRaw()) {
+      return isClassTypeVariableWithoutNonNull(
+              invokedMethodSymbol.type.getParameterTypes().get(paramIndex))
+          ? Nullness.NULLABLE
+          : Nullness.NONNULL;
+    }
 
     return getGenericMethodParameterNullness(paramIndex, invokedMethodSymbol, enclosingType, state);
+  }
+
+  /**
+   * Checks if a declared parameter type is a class type variable without an explicit
+   * {@code @NonNull} annotation.
+   *
+   * @param declaredParamType the parameter type as declared on the method, before any substitution
+   * @return true if {@code declaredParamType} is a class type variable that is not explicitly
+   *     {@code @NonNull}
+   */
+  private boolean isClassTypeVariableWithoutNonNull(Type declaredParamType) {
+    return declaredParamType instanceof Type.TypeVar typeVar
+        && typeVar.tsym.owner instanceof Symbol.ClassSymbol
+        && !GenericsUtils.isAnnotatedAsNonNull(declaredParamType, config);
   }
 
   /**
@@ -5900,7 +5929,7 @@ public final class GenericsChecks {
    * @param path the path to the invocation tree, or null if not available
    * @param state the visitor state
    * @param calledFromDataflow whether this method is being called from dataflow analysis
-   * @return the enclosing type for the method call, or null if it cannot be determined
+   * @return the enclosing type for the method call, or null if it cannot be determined or is raw
    */
   private @Nullable Type getEnclosingTypeForCallExpression(
       Symbol.MethodSymbol invokedMethodSymbol,
@@ -5908,6 +5937,30 @@ public final class GenericsChecks {
       @Nullable TreePath path,
       VisitorState state,
       boolean calledFromDataflow) {
+    return getEnclosingTypeForCallExpression(
+        invokedMethodSymbol, tree, path, state, calledFromDataflow, false);
+  }
+
+  /**
+   * Like {@link #getEnclosingTypeForCallExpression(Symbol.MethodSymbol, Tree, TreePath,
+   * VisitorState, boolean)}, but can keep a raw receiver type instead of returning {@code null} for
+   * it, so callers can tell a raw receiver apart from a receiver whose type is unavailable.
+   *
+   * @param invokedMethodSymbol symbol for the invoked method
+   * @param tree the tree for the invocation
+   * @param path the path to the invocation tree, or null if not available
+   * @param state the visitor state
+   * @param calledFromDataflow whether this method is being called from dataflow analysis
+   * @param preserveRaw whether to return a raw receiver type rather than {@code null}
+   * @return the enclosing type for the method call, or null if it cannot be determined
+   */
+  private @Nullable Type getEnclosingTypeForCallExpression(
+      Symbol.MethodSymbol invokedMethodSymbol,
+      Tree tree,
+      @Nullable TreePath path,
+      VisitorState state,
+      boolean calledFromDataflow,
+      boolean preserveRaw) {
     Type enclosingType = null;
     if (tree instanceof MethodInvocationTree methodInvocationTree) {
       if (invokedMethodSymbol.isStatic()) {
@@ -5935,6 +5988,9 @@ public final class GenericsChecks {
                   calledFromDataflow);
         } else {
           enclosingType = getTreeType(receiver, state.withPath(receiverPath), calledFromDataflow);
+          if (enclosingType == null && preserveRaw) {
+            enclosingType = rawTypeOrNull(receiver);
+          }
         }
       }
     } else {
@@ -5942,8 +5998,23 @@ public final class GenericsChecks {
       // for a constructor invocation, the type from the invocation itself is the "enclosing type"
       // for the purposes of determining type arguments
       enclosingType = getTreeType(tree, state, calledFromDataflow);
+      if (enclosingType == null && preserveRaw) {
+        enclosingType = rawTypeOrNull(tree);
+      }
     }
     return enclosingType;
+  }
+
+  /**
+   * Returns the javac type of {@code tree} if it is a raw type, which {@link #getTreeType(Tree,
+   * VisitorState, boolean)} reports as {@code null}.
+   *
+   * @param tree the tree
+   * @return the raw type of {@code tree}, or {@code null} if its type is not raw
+   */
+  private static @Nullable Type rawTypeOrNull(Tree tree) {
+    Type type = ASTHelpers.getType(tree);
+    return type != null && type.isRaw() ? type : null;
   }
 
   /**
@@ -6111,7 +6182,7 @@ public final class GenericsChecks {
    * @return Returns the Nullness of the type based on the Nullability annotation.
    */
   private static Nullness getTypeNullness(Type type, Config config) {
-    boolean hasNullableAnnotation = TypeSubstitutionUtils.hasNullableRoot(type, config);
+    boolean hasNullableAnnotation = GenericsUtils.isAnnotatedAsNullable(type, config);
     if (hasNullableAnnotation) {
       return Nullness.NULLABLE;
     }
@@ -6157,7 +6228,7 @@ public final class GenericsChecks {
       return NullnessHint.HINT_NULLABLE;
     }
     if (type instanceof Type.TypeVar typeVar
-        && !Nullness.hasNonNullAnnotation(type.getAnnotationMirrors().stream(), config)
+        && !GenericsUtils.isAnnotatedAsNonNull(type, config)
         && GenericsUtils.upperBoundIsNullable(typeVar.asElement(), config, handler, state)) {
       return NullnessHint.UNKNOWN;
     }
@@ -6187,7 +6258,7 @@ public final class GenericsChecks {
     }
     // An explicit @NonNull takes precedence over a wildcard or capture's nullable upper bound.
     // PolyNull inference is one source of such an annotation on a call's return type.
-    if (Nullness.hasNonNullAnnotation(type.getAnnotationMirrors().stream(), config)) {
+    if (GenericsUtils.isAnnotatedAsNonNull(type, config)) {
       return Nullness.NONNULL;
     }
     Type.WildcardType wildcard = GenericsUtils.asWildcard(type);
@@ -6315,7 +6386,7 @@ public final class GenericsChecks {
   }
 
   public boolean isNullableAnnotated(Type type) {
-    return TypeSubstitutionUtils.hasNullableRoot(type, config);
+    return GenericsUtils.isAnnotatedAsNullable(type, config);
   }
 
   /**

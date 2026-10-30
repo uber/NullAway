@@ -53,6 +53,7 @@ import com.uber.nullaway.dataflow.AccessPathElement;
 import com.uber.nullaway.dataflow.AccessPathNullnessAnalysis;
 import com.uber.nullaway.dataflow.NullnessStore;
 import com.uber.nullaway.generics.GenericsChecks;
+import com.uber.nullaway.generics.GenericsUtils;
 import com.uber.nullaway.generics.TypeMetadataBuilder;
 import com.uber.nullaway.generics.TypeSubstitutionUtils;
 import com.uber.nullaway.handlers.stream.CollectLikeMethodRecord;
@@ -368,8 +369,8 @@ class StreamNullabilityPropagator implements Handler {
       return type;
     }
     Type streamElementType = typeArgs.get(0);
-    if (!Nullness.hasNullableAnnotation(
-        streamElementType.getAnnotationMirrors().stream(), castToNonNull(analysis).getConfig())) {
+    if (!GenericsUtils.isAnnotatedAsNullable(
+        streamElementType, castToNonNull(analysis).getConfig())) {
       return type;
     }
     // Rather than just stripping the @Nullable annotation, use an explicit @NonNull annotation, as

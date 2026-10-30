@@ -21,6 +21,96 @@ import org.junit.Test;
 public class BytecodeGenericsTests extends NullAwayTestsBase {
 
   @Test
+  public void intersectionBoundsFromBytecode() {
+    makeHelper()
+        .addSourceLines(
+            "Test.java",
+            """
+            package com.uber;
+            import com.uber.lib.generics.IntersectionTypeParam;
+            import org.jspecify.annotations.Nullable;
+            class Test {
+              static void acceptsAllNullableBounds(
+                  IntersectionTypeParam<
+                      @Nullable String,
+                      String,
+                      String,
+                      @Nullable String,
+                      String,
+                      @Nullable String,
+                      String,
+                      String> value) {}
+
+              static void rejectsBoundsWithNonNullComponents(
+                  IntersectionTypeParam<
+                      String,
+                      // BUG: Diagnostic contains: type variable E2 of type com.uber.lib.generics.IntersectionTypeParam
+                      @Nullable String,
+                      // BUG: Diagnostic contains: type variable E3 of type com.uber.lib.generics.IntersectionTypeParam
+                      @Nullable String,
+                      String,
+                      // BUG: Diagnostic contains: type variable E5 of type com.uber.lib.generics.IntersectionTypeParam
+                      @Nullable String,
+                      String,
+                      // BUG: Diagnostic contains: type variable E7 of type com.uber.lib.generics.IntersectionTypeParam
+                      @Nullable String,
+                      // BUG: Diagnostic contains: type variable E8 of type com.uber.lib.generics.IntersectionTypeParam
+                      @Nullable String> value) {}
+            }
+            """)
+        .doTest();
+  }
+
+  @Test
+  public void innerClassBoundsFromBytecode() {
+    makeHelper()
+        .addSourceLines(
+            "Test.java",
+            """
+            package com.uber;
+            import com.uber.lib.generics.InnerClassBound;
+            import org.jspecify.annotations.Nullable;
+            class Test {
+              static void acceptsNullableInnerClassBound(
+                  InnerClassBound.Box<InnerClassBound.@Nullable Inner> value) {}
+
+              static void rejectsNullableArgumentForAnnotatedEnclosingType(
+                  // BUG: Diagnostic contains: type variable T of type com.uber.lib.generics.InnerClassBound.OuterAnnotatedBox
+                  InnerClassBound.OuterAnnotatedBox<InnerClassBound.@Nullable Inner> value) {}
+
+              static void rejectsNullableArgumentForAnnotatedEnclosingTypeInIntersection(
+                  InnerClassBound.OuterAnnotatedIntersectionBox<
+                      // BUG: Diagnostic contains: type variable T of type com.uber.lib.generics.InnerClassBound.OuterAnnotatedIntersectionBox
+                      InnerClassBound.@Nullable Inner> value) {}
+            }
+            """)
+        .doTest();
+  }
+
+  @Test
+  public void nestedNullableTypeArgumentInBoundFromBytecode() {
+    makeHelper()
+        .addSourceLines(
+            "Test.java",
+            """
+            package com.uber;
+            import com.uber.lib.generics.NestedNullableInBound;
+            import java.util.List;
+            import org.jspecify.annotations.Nullable;
+            class Test {
+              interface Strings extends List<@Nullable String> {}
+
+              static void acceptsNonNullArgument(NestedNullableInBound<Strings> value) {}
+
+              static void rejectsNullableArgument(
+                  // BUG: Diagnostic contains: type variable T of type com.uber.lib.generics.NestedNullableInBound
+                  NestedNullableInBound<@Nullable Strings> value) {}
+            }
+            """)
+        .doTest();
+  }
+
+  @Test
   public void issue1851SelfReferentialWildcardBound() {
     makeTestHelperWithArgs(
             JSpecifyJavacConfig.withJSpecifyModeArgs(

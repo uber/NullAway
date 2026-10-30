@@ -3635,6 +3635,48 @@ public class CoreTests extends NullAwayTestsBase {
   }
 
   @Test
+  public void anonymousInnerClassArgumentsFollowSuperclassParameterTypes() {
+    defaultCompilationHelper
+        .addSourceLines(
+            "Outer.java",
+            """
+            package com.uber;
+            import org.jspecify.annotations.Nullable;
+            class Outer {
+              class Inner {
+                Inner(int number, @Nullable Object value) {}
+              }
+              static void nullableReferenceArgument(Outer outer, int number, @Nullable Integer boxed) {
+                outer.new Inner(number, boxed) {};
+              }
+              static void nullablePrimitiveArgument(Outer outer, @Nullable Integer boxed) {
+                // BUG: Diagnostic contains: unboxing of a @Nullable expression 'boxed'
+                outer.new Inner(boxed, null) {};
+              }
+              static void nonNullPrimitiveArgument(Outer outer, Integer boxed) {
+                outer.new Inner(boxed, null) {};
+              }
+              void implicitOuterNullableReferenceArgument(int number, @Nullable Integer boxed) {
+                new Inner(number, boxed) {};
+              }
+              void implicitOuterNullablePrimitiveArgument(@Nullable Integer boxed) {
+                // BUG: Diagnostic contains: unboxing of a @Nullable expression 'boxed'
+                new Inner(boxed, null) {};
+              }
+              static void regularInnerNullableReferenceArgument(
+                  Outer outer, int number, @Nullable Integer boxed) {
+                outer.new Inner(number, boxed);
+              }
+              static void regularInnerNullablePrimitiveArgument(Outer outer, @Nullable Integer boxed) {
+                // BUG: Diagnostic contains: unboxing of a @Nullable expression 'boxed'
+                outer.new Inner(boxed, null);
+              }
+            }
+            """)
+        .doTest();
+  }
+
+  @Test
   public void enclosingExpressionForNewClassTree() {
     defaultCompilationHelper
         .addSourceLines(
