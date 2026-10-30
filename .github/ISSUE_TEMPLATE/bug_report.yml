@@ -29,7 +29,7 @@ body:
       label: Minimal reproducer
       description: |
         A small Java sample or test case, with imports and nullness annotations, that shows the problem when compiled with NullAway. Put the code in a ```java fenced block, and compile it once more after your last edit. If it needs a third-party library, name the library and its version.
-        You can instead link to a small reproducer repository and give the command to run. If you could not reduce the code, paste the method around the reported line and say so.
+        You can instead link to a small reproducer repository and give the command to run. If you could not reduce the code, paste the method around the reported line and say so. If the problem does not depend on the code, give the build command that shows it.
       placeholder: |
         ```java
         import org.jspecify.annotations.NullMarked;
@@ -56,7 +56,7 @@ body:
     id: expected
     attributes:
       label: Expected behavior
-      description: Which diagnostic should or should not be reported, and on which expression, for example "no error on `x.foo()`". If the expectation comes from the JSpecify specification or the NullAway docs, link the section.
+      description: Which diagnostic should or should not be reported, and on which expression, for example "no error on `x.foo()`". For a crash, write "no crash". If the expectation comes from the JSpecify specification or the NullAway docs, link the section.
     validations:
       required: true
 

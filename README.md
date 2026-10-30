@@ -136,7 +136,7 @@ For more details on NullAway's checks, error messages, and limitations, see [our
 
 ## Support
 
-For help with setup, configuration, and usage, see the [configuration guide](https://github.com/uber/NullAway/wiki/Configuration) or [join the NullAway Discord server](https://discord.gg/QH2F779) and ask us a question there.
+For help with setup, configuration, and usage, see the [configuration guide](https://github.com/uber/NullAway/wiki/Configuration) or [join the NullAway Discord server](https://discord.gg/QH2F779) and ask us a question there. To report a bug or request a feature, [open an issue](https://github.com/uber/NullAway/issues/new/choose).
 
 ## Contributors
 
