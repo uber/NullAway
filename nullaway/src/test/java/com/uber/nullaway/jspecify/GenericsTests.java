@@ -3593,6 +3593,140 @@ public class GenericsTests extends NullAwayTestsBase {
         .doTest();
   }
 
+  @Test
+  public void passNullThroughRawReceiver() {
+    makeHelper()
+        .addSourceLines(
+            "Test.java",
+            """
+            package com.uber;
+            import java.util.List;
+            import java.util.Map;
+            import org.jspecify.annotations.NonNull;
+            import org.jspecify.annotations.Nullable;
+            @SuppressWarnings({"rawtypes", "unchecked"})
+            class Test {
+              static class NullableBox<T extends @Nullable Object> {
+                void accept(T value) {}
+                void acceptNonNull(@NonNull T value) {}
+                void acceptString(String value) {}
+                void acceptInt(int value) {}
+                <U> void acceptMethodTypeVar(U value) {}
+              }
+              static class NonNullBox<T> {
+                void accept(T value) {}
+              }
+              static class DependentBox<T extends @Nullable Object, U extends T> {
+                void accept(U value) {}
+              }
+              static class NullableHolder<T extends @Nullable Object> {
+                NullableHolder(T value) {}
+              }
+              static class OpenNullableHolder<T extends @Nullable Object> {
+                OpenNullableHolder(T value) {}
+              }
+              static class RawSubclass extends NullableBox {
+                void unqualified() {
+                  accept(null);
+                }
+                void qualifiedWithThis() {
+                  this.accept(null);
+                }
+                void qualifiedWithSuper() {
+                  super.accept(null);
+                }
+                class Inner {
+                  void unqualifiedFromInnerClass() {
+                    accept(null);
+                  }
+                  void qualifiedWithOuterThis() {
+                    RawSubclass.this.accept(null);
+                  }
+                }
+              }
+              static class TypedSubclass extends NullableBox<String> {
+                void unqualified() {
+                  // BUG: Diagnostic contains: passing @Nullable parameter 'null'
+                  accept(null);
+                }
+                void qualifiedWithThis() {
+                  // BUG: Diagnostic contains: passing @Nullable parameter 'null'
+                  this.accept(null);
+                }
+                void qualifiedWithSuper() {
+                  // BUG: Diagnostic contains: passing @Nullable parameter 'null'
+                  super.accept(null);
+                }
+              }
+              void jdkRawMap(Map map) {
+                map.put(null, null);
+              }
+              void jdkTypedMap(Map<@Nullable Object, @Nullable Object> map) {
+                map.put(null, null);
+              }
+              void jdkRawList(List list) {
+                list.add(null);
+              }
+              void jdkTypedList(List<@Nullable Object> list) {
+                list.add(null);
+              }
+              void rawReceiver(NullableBox box) {
+                box.accept(null);
+              }
+              void rawNonNullBound(NonNullBox box) {
+                box.accept(null);
+              }
+              void rawReceiverDependentBound(DependentBox box) {
+                box.accept(null);
+              }
+              void rawConstructor() {
+                new NullableHolder(null);
+              }
+              void rawAnonymousConstructor() {
+                new OpenNullableHolder(null) {};
+              }
+              void rawSubclassVariable(RawSubclass sub) {
+                sub.accept(null);
+              }
+              void rawAnonymousSubclass() {
+                new NonNullBox() {
+                  void unqualified() {
+                    accept(null);
+                  }
+                };
+              }
+              void typedReceiver(NullableBox<@Nullable Object> box) {
+                box.accept(null);
+              }
+              void typedNonNullArgument(NullableBox<String> box) {
+                // BUG: Diagnostic contains: passing @Nullable parameter 'null'
+                box.accept(null);
+              }
+              void typedSubclassVariable(TypedSubclass sub) {
+                // BUG: Diagnostic contains: passing @Nullable parameter 'null'
+                sub.accept(null);
+              }
+              void rawNullableBoundExplicitNonNull(NullableBox box) {
+                // BUG: Diagnostic contains: passing @Nullable parameter 'null'
+                box.acceptNonNull(null);
+              }
+              void rawReceiverStringParameter(NullableBox box) {
+                // BUG: Diagnostic contains: passing @Nullable parameter 'null'
+                box.acceptString(null);
+              }
+              void rawReceiverUnboxing(NullableBox box, @Nullable Integer value) {
+                // BUG: Diagnostic contains: unboxing of a @Nullable expression
+                box.acceptInt(value);
+              }
+              void rawReceiverMethodTypeVariable(NullableBox box) {
+                // BUG: Diagnostic contains: passing @Nullable parameter 'null'
+                box.acceptMethodTypeVar(null);
+              }
+            }
+            """)
+        .doTest();
+  }
+
   private CompilationTestHelper makeHelper() {
     return makeTestHelperWithArgs(
         JSpecifyJavacConfig.withJSpecifyModeArgs(

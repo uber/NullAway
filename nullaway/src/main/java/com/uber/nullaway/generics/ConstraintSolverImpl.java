@@ -314,8 +314,8 @@ public final class ConstraintSolverImpl implements ConstraintSolver {
       Type effectiveBound = freshVar.getUpperBound();
       boolean inferredDependency =
           effectiveBound instanceof TypeVar
-              && !Nullness.hasNullableAnnotation(effectiveBound.getAnnotationMirrors(), config)
-              && !Nullness.hasNonNullAnnotation(effectiveBound.getAnnotationMirrors(), config)
+              && !GenericsUtils.isAnnotatedAsNullable(effectiveBound, config)
+              && !GenericsUtils.isAnnotatedAsNonNull(effectiveBound, config)
               && fresh.values().stream()
                   .anyMatch(variable -> variable.tsym.equals(effectiveBound.tsym));
       if (variablesWithNullnessMarkedBounds.contains(entry.getKey())
@@ -2825,7 +2825,7 @@ public final class ConstraintSolverImpl implements ConstraintSolver {
     if (isKnownNullable(type)) {
       return BoundNullness.NULLABLE;
     }
-    if (Nullness.hasNonNullAnnotation(type.getAnnotationMirrors(), config)) {
+    if (GenericsUtils.isAnnotatedAsNonNull(type, config)) {
       return BoundNullness.NONNULL;
     }
     InferenceVariable inferenceVariable = inferenceVariableForUse(type);
@@ -3079,8 +3079,8 @@ public final class ConstraintSolverImpl implements ConstraintSolver {
       return type;
     }
     Type result = type;
-    if (!TypeSubstitutionUtils.hasNullableRoot(type, config)
-        && !Nullness.hasNonNullAnnotation(type.getAnnotationMirrors(), config)) {
+    if (!GenericsUtils.isAnnotatedAsNullable(type, config)
+        && !GenericsUtils.isAnnotatedAsNonNull(type, config)) {
       result =
           TypeSubstitutionUtils.typeWithAnnot(
               type, GenericsChecks.getSyntheticNonNullAnnotType(state));
@@ -3201,10 +3201,10 @@ public final class ConstraintSolverImpl implements ConstraintSolver {
     if (visiting.put(upperBound, Boolean.TRUE) != null) {
       return false;
     }
-    if (Nullness.hasNonNullAnnotation(upperBound.getAnnotationMirrors(), config)) {
+    if (GenericsUtils.isAnnotatedAsNonNull(upperBound, config)) {
       return false;
     }
-    if (TypeSubstitutionUtils.hasNullableRoot(upperBound, config)) {
+    if (GenericsUtils.isAnnotatedAsNullable(upperBound, config)) {
       return true;
     }
     if (upperBound instanceof WildcardType || upperBound instanceof CapturedType) {
@@ -3261,8 +3261,8 @@ public final class ConstraintSolverImpl implements ConstraintSolver {
     // Only treat as an inference variable if the use _doesn't_ have an explicit @Nullable or
     // @NonNull annotation.
     if (inferenceVar == null
-        || Nullness.hasNullableAnnotation(tv.getAnnotationMirrors(), config)
-        || Nullness.hasNonNullAnnotation(tv.getAnnotationMirrors(), config)) {
+        || GenericsUtils.isAnnotatedAsNullable(tv, config)
+        || GenericsUtils.isAnnotatedAsNonNull(tv, config)) {
       return null;
     }
     return inferenceVar;
@@ -3275,7 +3275,7 @@ public final class ConstraintSolverImpl implements ConstraintSolver {
 
   /** Returns whether a type is explicitly nullable or is the null type. */
   private boolean isKnownNullable(Type t) {
-    return t instanceof NullType || TypeSubstitutionUtils.hasNullableRoot(t, config);
+    return t instanceof NullType || GenericsUtils.isAnnotatedAsNullable(t, config);
   }
 
   /**
@@ -3292,7 +3292,7 @@ public final class ConstraintSolverImpl implements ConstraintSolver {
     return !isKnownNullable(t)
         && !treatAsTypeVariableForInference(t)
         && (!(t instanceof TypeVar tv)
-            || Nullness.hasNonNullAnnotation(t.getAnnotationMirrors(), config)
+            || GenericsUtils.isAnnotatedAsNonNull(t, config)
             || (!GenericsUtils.upperBoundIsNullable(tv.asElement(), config, handler, state)
                 && !upperBoundAllowsNullable(tv.getUpperBound())));
   }

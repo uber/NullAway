@@ -19,6 +19,7 @@ import com.sun.tools.javac.util.ListBuffer;
 import com.uber.nullaway.Config;
 import com.uber.nullaway.Nullness;
 import java.util.Collections;
+import java.util.HashMap;
 import java.util.IdentityHashMap;
 import java.util.LinkedHashMap;
 import java.util.Map;
@@ -32,42 +33,11 @@ import org.jspecify.annotations.Nullable;
 public class TypeSubstitutionUtils {
 
   /**
-   * Reads root nullability, including the structural representation used for intersections. An
-   * intersection permits null only when every explicit component permits null; its implicit Object
-   * component is not an additional source-level non-null constraint.
-   */
-  public static boolean hasNullableRoot(Type type, Config config) {
-    if (type instanceof Type.IntersectionClassType intersection) {
-      for (Type component : intersection.getExplicitComponents()) {
-        if (!hasNullableRoot(component, config)) {
-          return false;
-        }
-      }
-      return !intersection.getExplicitComponents().isEmpty();
-    }
-    return Nullness.hasNullableAnnotation(type.getAnnotationMirrors(), config);
-  }
-
-  /**
-   * Returns whether explicit non-null evidence qualifies the root. One explicitly non-null
-   * intersection component excludes null; a merely unannotated component is not an explicit marker.
-   */
-  static boolean hasExplicitNonNullRoot(Type type, Config config) {
-    if (type instanceof Type.IntersectionClassType intersection) {
-      for (Type component : intersection.getExplicitComponents()) {
-        if (hasExplicitNonNullRoot(component, config)) {
-          return true;
-        }
-      }
-      return false;
-    }
-    return Nullness.hasNonNullAnnotation(type.getAnnotationMirrors().stream(), config);
-  }
-
-  /**
-   * Rebuilds a detached intersection with its original nominal symbol and complete component list,
-   * including implicit Object for interface-only intersections. Metadata cloning is unsafe here: it
-   * asserts on JDK 17 and produces a plain ClassType on newer javac versions.
+   * Returns a new intersection with the symbol and {@code allInterfaces} flag of {@code original}
+   * and the given components. {@code components} must be complete, as {@code getComponents()}
+   * returns them: for an interface-only intersection, that starts with the implicit {@code Object}.
+   * {@code TypeMetadataBuilder.cloneTypeWithMetadata} cannot be used here: on JDK 17 it throws an
+   * {@code AssertionError}, and on JDK 21 and later it can return a plain class type.
    */
   private static Type.IntersectionClassType rebuildIntersection(
       Type.IntersectionClassType original, List<Type> components) {
@@ -75,7 +45,7 @@ public class TypeSubstitutionUtils {
         components, (Symbol.ClassSymbol) original.tsym, original.allInterfaces);
   }
 
-  /** Finds an intersection's corresponding nominal component without positional slot copying. */
+  /** Finds an intersection's corresponding component by symbol rather than component position. */
   private static @Nullable Type intersectionComponent(
       Type.IntersectionClassType intersection, Symbol.TypeSymbol symbol) {
     for (Type component : intersection.getComponents()) {
@@ -297,8 +267,8 @@ public class TypeSubstitutionUtils {
         // Raw bounds select a nominal component, never a synthetic intersection root.
         return type;
       }
-      if (hasNullableRoot(type, config)
-          || Nullness.hasNonNullAnnotation(type.getAnnotationMirrors(), config)) {
+      if (GenericsUtils.isAnnotatedAsNullable(type, config)
+          || GenericsUtils.isAnnotatedAsNonNull(type, config)) {
         return type;
       }
       ListBuffer<Attribute.TypeCompound> annotations = new ListBuffer<>();
@@ -784,7 +754,7 @@ public class TypeSubstitutionUtils {
     for (Type.TypeVar occurrence : collector.getMatches()) {
       Type inferred = Verify.verifyNotNull(inferredTypes.get(occurrence.asElement()));
       Type nullnessAnnotType =
-          hasNullableRoot(inferred, config)
+          GenericsUtils.isAnnotatedAsNullable(inferred, config)
               ? GenericsChecks.getSyntheticNullableAnnotType(state)
               : GenericsChecks.getSyntheticNonNullAnnotType(state);
       typeVars.append(occurrence);
@@ -955,9 +925,9 @@ public class TypeSubstitutionUtils {
       // javac may have dropped that annotation or moved an array-root annotation here. Restore
       // only this aligned capture's root; copying bounds would change the caller's capture.
       Type updated =
-          hasNullableRoot(inferredType, config)
+          GenericsUtils.isAnnotatedAsNullable(inferredType, config)
               ? target
-              : withoutNullableRootAnnotations(target, config);
+              : withoutTopLevelNullableAnnotations(target, config);
       return copyDirectNullabilityAnnotations(inferredType, updated, config);
     }
     if (target instanceof Type.IntersectionClassType) {
@@ -1082,6 +1052,9 @@ public class TypeSubstitutionUtils {
    * are read and written structurally. Matching explicit nullness retains target identity; default
    * non-null is not an explicit marker. Absent component annotations are not explicit overrides and
    * must not erase root evidence already restored from authoritative declaration attributes.
+   *
+   * <p>This inference overlay preserves unrelated metadata and unchanged target identity, unlike
+   * {@link #typeWithAnnot}, which replaces all root annotations during explicit restoration.
    */
   private static Type copyDirectNullabilityAnnotations(Type source, Type target, Config config) {
     if (target instanceof Type.IntersectionClassType intersection) {
@@ -1095,16 +1068,14 @@ public class TypeSubstitutionUtils {
       return changed ? rebuildIntersection(intersection, components.toList()) : target;
     }
     if (source instanceof Type.IntersectionClassType intersection) {
-      boolean nullable = hasNullableRoot(intersection, config);
-      for (Type component : intersection.getExplicitComponents()) {
-        if (hasNullableRoot(component, config) == nullable) {
-          Type updated = copyDirectNullabilityAnnotations(component, target, config);
-          if (nullable || updated != target) {
-            return updated;
-          }
-          // A default non-null source root carries no annotation to restore. In particular, a
-          // stripped declaration must not overwrite explicit markers in an instantiated bound.
+      boolean nullable = GenericsUtils.isAnnotatedAsNullable(intersection, config);
+      for (Type component : GenericsUtils.nullabilityMatchingComponents(intersection, config)) {
+        Type updated = copyDirectNullabilityAnnotations(component, target, config);
+        if (nullable || updated != target) {
+          return updated;
         }
+        // A default non-null source root carries no annotation to restore. In particular, a
+        // stripped declaration must not overwrite explicit markers in an instantiated bound.
       }
       return target;
     }
@@ -1118,8 +1089,8 @@ public class TypeSubstitutionUtils {
         continue;
       }
       boolean nullable = Nullness.isNullableAnnotation(name, config);
-      if (Nullness.hasNullableAnnotation(target.getAnnotationMirrors(), config) == nullable
-          && Nullness.hasNonNullAnnotation(target.getAnnotationMirrors(), config) == !nullable
+      if (GenericsUtils.isAnnotatedAsNullable(target, config) == nullable
+          && GenericsUtils.isAnnotatedAsNonNull(target, config) == !nullable
           // Synthetic markers also certify inferred nullness; an explicit annotation alone does
           // not.
           && (!GenericsChecks.isSyntheticNullnessAnnotation(annotation.type)
@@ -1208,17 +1179,174 @@ public class TypeSubstitutionUtils {
 
     private final Config config;
 
-    /**
-     * Pairs of implicit wildcard bounds currently being traversed. Allocated lazily, as the map is
-     * only needed for types involving wildcards.
-     */
-    private @Nullable IdentityHashMap<Type.TypeVar, Set<Type.TypeVar>> activeImplicitWildcardBounds;
+    /** Formal target/source pairs, scoped to this restoration operation and allocated lazily. */
+    private @Nullable IdentityHashMap<Type.TypeVar, IdentityHashMap<Type.TypeVar, BoundPair>>
+        implicitWildcardBounds;
 
-    private IdentityHashMap<Type.TypeVar, Set<Type.TypeVar>> getActiveImplicitWildcardBounds() {
-      if (activeImplicitWildcardBounds == null) {
-        activeImplicitWildcardBounds = new IdentityHashMap<>();
+    /** The current implicit-bound traversal, excluding ordinary structural visitor calls. */
+    private @Nullable BoundFrame activeImplicitWildcardBoundFrame;
+
+    /**
+     * Identity-keyed state shared by active traversals and completed results for one formal pair.
+     */
+    private static final class BoundPair {
+      private @Nullable BoundFrame activeFrame;
+      private @Nullable BoundResult completedResult;
+    }
+
+    /** A bound traversal's cycle summary; sets stay absent on entirely acyclic paths. */
+    private static final class BoundFrame {
+      private final @Nullable BoundFrame parent;
+      private final int depth;
+      private final BoundPair pair;
+      private boolean cyclic;
+      private @Nullable Set<BoundPair> cyclePairs;
+      private @Nullable Set<BoundPair> cutoffs;
+
+      private BoundFrame(@Nullable BoundFrame parent, BoundPair pair) {
+        this.parent = parent;
+        this.depth = parent == null ? 0 : parent.depth + 1;
+        this.pair = pair;
       }
-      return activeImplicitWildcardBounds;
+
+      /** Records a cutoff and marks exactly the active path participating in its cycle. */
+      private void recordCutoff(BoundFrame cutoff) {
+        for (BoundFrame frame = this; ; frame = Verify.verifyNotNull(frame.parent)) {
+          frame.cyclic = true;
+          if (frame == cutoff) {
+            break;
+          }
+        }
+        if (cyclePairs == null) {
+          cyclePairs = Collections.newSetFromMap(new IdentityHashMap<>());
+        }
+        cyclePairs.add(cutoff.pair);
+        if (cutoffs == null) {
+          cutoffs = Collections.newSetFromMap(new IdentityHashMap<>());
+        }
+        cutoffs.add(cutoff.pair);
+      }
+
+      /** Propagates a child's summary without sharing mutable sets with its cached result. */
+      private void merge(BoundResult child) {
+        if (child.cyclePairs != null) {
+          if (cyclePairs == null) {
+            cyclePairs = Collections.newSetFromMap(new IdentityHashMap<>());
+          }
+          cyclePairs.addAll(child.cyclePairs);
+        }
+        if (child.externalCutoffs != null) {
+          if (cutoffs == null) {
+            cutoffs = Collections.newSetFromMap(new IdentityHashMap<>());
+          }
+          cutoffs.addAll(child.externalCutoffs);
+        }
+      }
+    }
+
+    /** A restored bound and the active-path conditions under which it can be reused. */
+    private static final class BoundResult {
+      private final Type targetBound;
+      private final Type sourceBound;
+      private final Type resultType;
+      private final @Nullable Set<BoundPair> cyclePairs;
+      private final @Nullable Set<BoundPair> externalCutoffs;
+
+      /** Closes internal cycles, retaining only cutoff dependencies on strict ancestors. */
+      private BoundResult(Type targetBound, Type sourceBound, Type resultType, BoundFrame frame) {
+        this.targetBound = targetBound;
+        this.sourceBound = sourceBound;
+        this.resultType = resultType;
+        if (frame.cyclic) {
+          if (frame.cyclePairs == null) {
+            frame.cyclePairs = Collections.newSetFromMap(new IdentityHashMap<>());
+          }
+          frame.cyclePairs.add(frame.pair);
+        }
+        this.cyclePairs = frame.cyclePairs;
+        Set<BoundPair> external = null;
+        if (frame.cutoffs != null) {
+          for (BoundPair cutoff : frame.cutoffs) {
+            BoundFrame active = cutoff.activeFrame;
+            if (active != null && active.depth < frame.depth) {
+              if (external == null) {
+                external = Collections.newSetFromMap(new IdentityHashMap<>());
+              }
+              external.add(cutoff);
+            }
+          }
+        }
+        this.externalCutoffs = external;
+      }
+
+      /** Requires the same external cutoffs and forbids new cutoffs within the cached cycles. */
+      private boolean canReuse(Type targetBound, Type sourceBound) {
+        if (this.targetBound != targetBound || this.sourceBound != sourceBound) {
+          return false;
+        }
+        if (externalCutoffs != null) {
+          for (BoundPair cutoff : externalCutoffs) {
+            if (cutoff.activeFrame == null) {
+              return false;
+            }
+          }
+        }
+        if (cyclePairs != null) {
+          for (BoundPair cyclePair : cyclePairs) {
+            if (cyclePair.activeFrame != null
+                && (externalCutoffs == null || !externalCutoffs.contains(cyclePair))) {
+              return false;
+            }
+          }
+        }
+        return true;
+      }
+    }
+
+    /** Gets state by formal-pair identity, not by possibly shared upper-bound objects. */
+    private BoundPair getImplicitWildcardBoundPair(Type.TypeVar target, Type.TypeVar source) {
+      if (implicitWildcardBounds == null) {
+        implicitWildcardBounds = new IdentityHashMap<>();
+      }
+      return implicitWildcardBounds
+          .computeIfAbsent(target, unused -> new IdentityHashMap<>())
+          .computeIfAbsent(source, unused -> new BoundPair());
+    }
+
+    /**
+     * Restores a non-active pair's upper bound, reusing results only in compatible cycle contexts.
+     * Cached external cutoffs also mark the active path, just as an actual traversal would.
+     */
+    private Type restoreImplicitWildcardBound(BoundPair pair, Type targetBound, Type sourceBound) {
+      BoundFrame parent = activeImplicitWildcardBoundFrame;
+      BoundResult completed = pair.completedResult;
+      // Check before making this pair active: an internal self-cycle is safe to reuse here.
+      if (completed != null && completed.canReuse(targetBound, sourceBound)) {
+        if (parent != null) {
+          if (completed.externalCutoffs != null) {
+            for (BoundPair cutoff : completed.externalCutoffs) {
+              parent.recordCutoff(Verify.verifyNotNull(cutoff.activeFrame));
+            }
+          }
+          parent.merge(completed);
+        }
+        return completed.resultType;
+      }
+      BoundFrame frame = new BoundFrame(parent, pair);
+      pair.activeFrame = frame;
+      activeImplicitWildcardBoundFrame = frame;
+      try {
+        Type restored = visit(targetBound, sourceBound);
+        completed = new BoundResult(targetBound, sourceBound, restored, frame);
+        pair.completedResult = completed;
+      } finally {
+        activeImplicitWildcardBoundFrame = parent;
+        pair.activeFrame = null;
+      }
+      if (parent != null) {
+        parent.merge(completed);
+      }
+      return completed.resultType;
     }
 
     RestoreNullnessAnnotationsVisitor(Config config) {
@@ -1256,25 +1384,45 @@ public class TypeSubstitutionUtils {
       if (t instanceof Type.IntersectionClassType) {
         Type.IntersectionClassType updated =
             (Type.IntersectionClassType) updateDirectNullabilityAnnotationsForType(t, other);
+        Map<Symbol.TypeSymbol, Type> sourceComponents = null;
+        if (other instanceof Type.IntersectionClassType source) {
+          sourceComponents = new HashMap<>();
+          for (Type sourceComponent : source.getComponents()) {
+            sourceComponents.putIfAbsent(sourceComponent.tsym, sourceComponent);
+          }
+        }
         ListBuffer<Type> components = new ListBuffer<>();
         boolean changed = false;
         for (Type component : updated.getComponents()) {
-          Type corresponding =
-              other instanceof Type.IntersectionClassType source
-                  ? intersectionComponent(source, component.tsym)
-                  : null;
+          Type corresponding;
+          if (sourceComponents != null) {
+            corresponding = sourceComponents.get(component.tsym);
+          } else if (component.tsym.equals(other.tsym)) {
+            corresponding = other;
+          } else {
+            corresponding = null;
+          }
           Type restored = corresponding == null ? component : visit(component, corresponding);
           components.append(restored);
           changed |= restored != component;
         }
         return changed ? rebuildIntersection(updated, components.toList()) : updated;
       }
-      if (other instanceof Type.IntersectionClassType intersection) {
-        Type corresponding = intersectionComponent(intersection, t.tsym);
-        Type restored = corresponding == null ? t : visit(t, corresponding);
-        return copyDirectNullabilityAnnotations(other, restored, config);
+      if (other instanceof Type.IntersectionClassType source) {
+        Type corresponding = intersectionComponent(source, t.tsym);
+        Type restored = corresponding == null ? t : restoreClassTypeArguments(t, corresponding);
+        return updateDirectNullabilityAnnotationsForType(restored, other);
       }
       Type updated = updateDirectNullabilityAnnotationsForType(t, other);
+      return restoreClassTypeArguments(updated, other);
+    }
+
+    /**
+     * Restores enclosing-type and type-argument annotations without copying the source's top-level
+     * annotation. A matching intersection component may have different top-level nullability from
+     * the complete intersection.
+     */
+    private Type restoreClassTypeArguments(Type updated, Type other) {
       // A raw source type has no type arguments from which to restore nested annotations.
       if (!(other instanceof Type.ClassType) || other.isRaw()) {
         return updated;
@@ -1302,28 +1450,16 @@ public class TypeSubstitutionUtils {
           && wildcardType.bound != null) {
         Type.TypeVar formalTypeVariable = wt.bound;
         Type.TypeVar otherFormalTypeVariable = wildcardType.bound;
-        IdentityHashMap<Type.TypeVar, Set<Type.TypeVar>> activeBounds =
-            getActiveImplicitWildcardBounds();
-        Set<Type.TypeVar> activeOtherBounds = activeBounds.get(formalTypeVariable);
-        if (activeOtherBounds == null) {
-          activeOtherBounds = Collections.newSetFromMap(new IdentityHashMap<>());
-          activeBounds.put(formalTypeVariable, activeOtherBounds);
-        } else if (activeOtherBounds.contains(otherFormalTypeVariable)) {
-          // F-bounded type variables make the implicit upper-bound graph cyclic. Re-entering the
-          // same pair cannot reveal any annotations that were not handled on the first visit.
+        BoundPair pair = getImplicitWildcardBoundPair(formalTypeVariable, otherFormalTypeVariable);
+        BoundFrame active = pair.activeFrame;
+        if (active != null) {
+          // Preserve the original wildcard, including its lower bound, at an active-path cutoff.
+          Verify.verifyNotNull(activeImplicitWildcardBoundFrame).recordCutoff(active);
           return wt;
         }
-        activeOtherBounds.add(otherFormalTypeVariable);
         Type upperBound = formalTypeVariable.getUpperBound();
-        Type updatedUpperBound;
-        try {
-          updatedUpperBound = visit(upperBound, otherFormalTypeVariable.getUpperBound());
-        } finally {
-          activeOtherBounds.remove(otherFormalTypeVariable);
-          if (activeOtherBounds.isEmpty()) {
-            activeBounds.remove(formalTypeVariable);
-          }
-        }
+        Type updatedUpperBound =
+            restoreImplicitWildcardBound(pair, upperBound, otherFormalTypeVariable.getUpperBound());
         if (updatedUpperBound != upperBound) {
           wt = replaceImplicitWildcardUpperBound(wt, formalTypeVariable, updatedUpperBound);
         }
@@ -1352,9 +1488,7 @@ public class TypeSubstitutionUtils {
       if (t == wt.type) {
         return wt;
       } else {
-        Type.WildcardType restored = TYPE_METADATA_BUILDER.createWildcardType(wt, t);
-        restored.bound = wt.bound;
-        return restored;
+        return TYPE_METADATA_BUILDER.createWildcardType(wt, t);
       }
     }
 
@@ -1423,12 +1557,9 @@ public class TypeSubstitutionUtils {
         // A synthetic annotation records NullAway's inferred nullability for the type variable that
         // javac instantiated as this capture. It constrains the capture itself, so represent it on
         // the capture's structural upper bound rather than as a use-site projection of the capture.
-        Type updatedUpperBound = copyDirectNullabilityAnnotations(other, t.getUpperBound(), config);
+        Type updatedUpperBound = typeWithAnnot(t.getUpperBound(), syntheticNullnessAnnotation);
         updated =
-            updatedUpperBound == t.getUpperBound()
-                ? t
-                : TYPE_METADATA_BUILDER.createDetachedCapturedType(
-                    t, t.wildcard, updatedUpperBound);
+            TYPE_METADATA_BUILDER.createDetachedCapturedType(t, t.wildcard, updatedUpperBound);
       } else {
         // An explicit annotation on a type-variable use remains a use-site annotation after the
         // type variable is instantiated as a capture.
@@ -1469,16 +1600,13 @@ public class TypeSubstitutionUtils {
       return replaceCapturedTypeWildcard((Type.CapturedType) updated, updatedWildcard);
     }
 
-    /** Returns a synthetic root nullness annotation, including structural intersection roots. */
+    /** Returns a synthetic top-level nullness annotation for {@code type}, if one is present. */
     private Attribute.@Nullable TypeCompound getDirectSyntheticNullnessAnnotation(Type type) {
-      if (type instanceof Type.IntersectionClassType intersection) {
-        boolean nullable = hasNullableRoot(intersection, config);
-        for (Type component : intersection.getExplicitComponents()) {
-          if (hasNullableRoot(component, config) == nullable) {
-            Attribute.TypeCompound annotation = getDirectSyntheticNullnessAnnotation(component);
-            if (annotation != null) {
-              return annotation;
-            }
+      if (type instanceof Type.IntersectionClassType source) {
+        for (Type component : GenericsUtils.nullabilityMatchingComponents(source, config)) {
+          Attribute.TypeCompound annotation = getDirectSyntheticNullnessAnnotation(component);
+          if (annotation != null) {
+            return annotation;
           }
         }
         return null;
@@ -1508,16 +1636,45 @@ public class TypeSubstitutionUtils {
 
     /**
      * Updates the nullability annotations on a type {@code t} based on the nullability annotations
-     * on a type {@code other}. Intersection root annotations are read and written structurally.
-     * Default non-null components carry no explicit override and must not erase annotations already
-     * restored onto the target.
+     * on a type {@code other}. When {@code other} is an intersection, copies the nullness
+     * annotation of the first explicit component that carries one and whose nullability matches the
+     * intersection's. If no such component exists, returns {@code t} unchanged.
      *
      * @param t the type to update
      * @param other the type to update from
      * @return the updated type, or {@code t} if no updates were made
      */
     private Type updateDirectNullabilityAnnotationsForType(Type t, Type other) {
-      return copyDirectNullabilityAnnotations(other, t, config);
+      if (other instanceof Type.IntersectionClassType source) {
+        for (Type component : GenericsUtils.nullabilityMatchingComponents(source, config)) {
+          Type updated = updateDirectNullabilityAnnotationsForType(t, component);
+          if (updated != t) {
+            return updated;
+          }
+        }
+        return t;
+      }
+      // first check for annotations directly on the type variable
+      for (Attribute.TypeCompound annot : other.getAnnotationMirrors()) {
+        if (annot.type.tsym == null) {
+          continue;
+        }
+        String qualifiedName = annot.type.tsym.getQualifiedName().toString();
+        if (Nullness.isNullableAnnotation(qualifiedName, config)
+            || Nullness.isNonNullAnnotation(qualifiedName, config)) {
+          return typeWithAnnot(t, annot);
+        }
+      }
+      return t;
+    }
+
+    /**
+     * Replaces the type's top-level annotations with an annotation of type {@code annot.type} via
+     * {@link TypeSubstitutionUtils#typeWithAnnot(Type, Type)}.
+     */
+    private static Type typeWithAnnot(Type t, Attribute.TypeCompound annot) {
+      Type annotType = annot.type;
+      return TypeSubstitutionUtils.typeWithAnnot(t, annotType);
     }
 
     @Override
@@ -1537,36 +1694,32 @@ public class TypeSubstitutionUtils {
 
     /**
      * Visits each corresponding pair in two lists of types. Returns a list of the updated types, or
-     * {@code newtypes} itself if no updates were made. Allocates output cells only after the first
-     * changed type, copying the unchanged prefix without visiting it again.
+     * {@code newtypes} itself if no updates were made.
      *
      * @param newtypes list of new types to be updated
      * @param origtypes list of original types to update from
      * @return the updated list of types, or {@code newtypes} itself if no updates were made
      */
     private List<Type> visitTypeLists(List<Type> newtypes, List<Type> origtypes) {
-      ListBuffer<Type> buf = null;
+      ListBuffer<Type> buf = new ListBuffer<>();
+      boolean changed = false;
       for (List<Type> l = newtypes, l1 = origtypes; l.nonEmpty(); l = l.tail, l1 = l1.tail) {
         Type t = l.head;
         Type t1 = l1.head;
         Type t2 = visit(t, t1);
-        if (buf == null && t2 != t) {
-          buf = new ListBuffer<>();
-          for (List<Type> prefix = newtypes; prefix != l; prefix = prefix.tail) {
-            buf.append(prefix.head);
-          }
-        }
-        if (buf != null) {
-          buf.append(t2);
+        buf.append(t2);
+        if (t2 != t) {
+          changed = true;
         }
       }
-      return buf == null ? newtypes : buf.toList();
+      return changed ? buf.toList() : newtypes;
     }
   }
 
   /**
-   * Replaces root annotations without changing a type's Java shape. Intersection root annotations
-   * are represented on all detached components, never on a metadata clone of the intersection.
+   * Returns {@code t} with its top-level annotations replaced by one annotation of type {@code
+   * annotType}. For an intersection, returns a new intersection in which every component, including
+   * an implicit {@code Object}, carries that annotation.
    */
   public static Type typeWithAnnot(Type t, Type annotType) {
     if (t instanceof Type.IntersectionClassType intersection) {
@@ -1592,38 +1745,35 @@ public class TypeSubstitutionUtils {
    * @return the type without the {@code @Nullable} annotation
    */
   public static Type removeNullableAnnotation(Type argumentType, Config config) {
-    Verify.verify(hasNullableRoot(argumentType, config));
-    return withoutNullableRootAnnotations(argumentType, config);
+    Verify.verify(GenericsUtils.isAnnotatedAsNullable(argumentType, config));
+    return withoutTopLevelNullableAnnotations(argumentType, config);
   }
 
   /**
-   * Removes nullable root annotations if present, preserving structure and unrelated annotations.
+   * Returns {@code type} without its top-level nullable annotations. For an intersection, removes
+   * them from every component.
    */
-  private static Type withoutNullableRootAnnotations(Type type, Config config) {
+  private static Type withoutTopLevelNullableAnnotations(Type type, Config config) {
     if (type instanceof Type.IntersectionClassType intersection) {
       ListBuffer<Type> components = new ListBuffer<>();
-      boolean changed = false;
       for (Type component : intersection.getComponents()) {
-        Type updated = withoutNullableRootAnnotations(component, config);
-        components.append(updated);
-        changed |= updated != component;
+        components.append(withoutTopLevelNullableAnnotations(component, config));
       }
-      return changed ? rebuildIntersection(intersection, components.toList()) : type;
+      return rebuildIntersection(intersection, components.toList());
     }
-    ListBuffer<Attribute.TypeCompound> annotations = new ListBuffer<>();
-    boolean changed = false;
-    for (Attribute.TypeCompound annotation : type.getAnnotationMirrors()) {
-      if (annotation.type.tsym != null
-          && Nullness.isNullableAnnotation(
-              annotation.type.tsym.getQualifiedName().toString(), config)) {
-        changed = true;
-      } else {
-        annotations.append(annotation);
+    ListBuffer<Attribute.TypeCompound> updatedAnnotations = new ListBuffer<>();
+    boolean removedNullable = false;
+    for (Attribute.TypeCompound annot : type.getAnnotationMirrors()) {
+      String annotationName = annot.type.toString();
+      if (Nullness.isNullableAnnotation(annotationName, config)) {
+        removedNullable = true;
+        continue;
       }
+      updatedAnnotations.append(annot);
     }
-    return changed
+    return removedNullable
         ? TYPE_METADATA_BUILDER.cloneTypeWithMetadata(
-            type, TYPE_METADATA_BUILDER.create(annotations.toList()))
+            type, TYPE_METADATA_BUILDER.create(updatedAnnotations.toList()))
         : type;
   }
 
@@ -1639,6 +1789,9 @@ public class TypeSubstitutionUtils {
    */
   public static Type subst(Types types, Type t, List<Type> from, List<Type> to, Config config) {
     if (t instanceof Type.IntersectionClassType intersection) {
+      // Full-type inference substitutes inside root bounds, not just their annotations. Rebuild
+      // with the original symbol and allInterfaces flag: javac's substitution can expose an
+      // implicit Object as an explicit bound. Annotation restoration alone cannot repair that.
       ListBuffer<Type> components = new ListBuffer<>();
       boolean changed = false;
       for (Type component : intersection.getComponents()) {
