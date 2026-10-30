@@ -16,5 +16,7 @@ if [ ! -z "${files}" ]; then
         exit "$gradle_status"
     fi
 
-    git add $(echo "$files" | paste -s -d " " -)
+    printf '%s\n' "$files" | while IFS= read -r file; do
+        GIT_LITERAL_PATHSPECS=1 git add -- "$file"
+    done
 fi
