@@ -95,6 +95,26 @@ public class IntersectionRestorationPerformanceTests {
         """);
   }
 
+  @Test
+  public void identicalTypesDoNotTraverseImplicitBounds() {
+    compile(
+        """
+        interface A<T extends B<?>> {}
+        interface B<T extends A<?>> {}
+        interface Root<T extends A<?> & B<?>> {}
+        class Test {
+          void identicalClassType() {
+            // BUG: Diagnostic contains: identicalClass: unchanged=true, bounded=true
+            Root<?> identicalClass;
+          }
+          void identicalIntersectionBound() {
+            // BUG: Diagnostic contains: identicalIntersection: unchanged=true, bounded=true
+            Root<?> identicalIntersection;
+          }
+        }
+        """);
+  }
+
   @Test(timeout = 30_000)
   public void wideReorderedIntersectionsMatchComponentsBySymbol() {
     StringBuilder source = new StringBuilder("import org.jspecify.annotations.*;\n");
@@ -160,7 +180,9 @@ public class IntersectionRestorationPerformanceTests {
           && !name.equals("restored")
           && !name.equals("wide")
           && !name.equals("cyclicShared")
-          && !name.equals("cycleContexts")) {
+          && !name.equals("cycleContexts")
+          && !name.equals("identicalClass")
+          && !name.equals("identicalIntersection")) {
         return NO_MATCH;
       }
       String message;
@@ -168,7 +190,9 @@ public class IntersectionRestorationPerformanceTests {
         // There are 2 * LEVELS + 1 reachable formal bounds, not 2^LEVELS independent paths.
         remaining = 32 * (2 * LEVELS + 1);
         visits.clear();
-        if (name.equals("wide")) {
+        if (name.equals("identicalClass") || name.equals("identicalIntersection")) {
+          message = checkIdentical(tree, state, name);
+        } else if (name.equals("wide")) {
           message = checkWide(tree);
         } else if (name.equals("cycleContexts")) {
           message = checkCycleContexts(tree, state);
@@ -212,6 +236,26 @@ public class IntersectionRestorationPerformanceTests {
                     : ": bound-read budget exceeded");
       }
       return buildDescription(tree).setMessage(message).build();
+    }
+
+    /**
+     * Checks that an identical class or intersection bound is returned without expanding its graph.
+     * Distinct enclosing class types still require reading the shared formal's bound once per side.
+     */
+    @SuppressWarnings({"ReferenceEquality", "TypeEquals"}) // Check object identity, not subtyping.
+    private String checkIdentical(VariableTree tree, VisitorState state, String name) {
+      Type source = detach(ASTHelpers.getType(tree), new IdentityHashMap<>(), false, state);
+      Type target = source;
+      if (name.equals("identicalIntersection")) {
+        target =
+            new Type.ClassType(source.getEnclosingType(), source.getTypeArguments(), source.tsym);
+        remaining = 2;
+      } else {
+        remaining = 0;
+      }
+      Type result =
+          TypeSubstitutionUtils.restoreExplicitNullabilityAnnotations(source, target, config);
+      return name + ": unchanged=" + (result == target) + ", bounded=" + (remaining == 0);
     }
 
     /**

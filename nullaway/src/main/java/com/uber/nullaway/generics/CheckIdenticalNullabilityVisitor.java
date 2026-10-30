@@ -2,6 +2,7 @@ package com.uber.nullaway.generics;
 
 import static com.uber.nullaway.NullabilityUtil.castToNonNull;
 
+import com.google.common.base.Equivalence;
 import com.google.errorprone.VisitorState;
 import com.sun.tools.javac.code.BoundKind;
 import com.sun.tools.javac.code.Symbol;
@@ -10,8 +11,10 @@ import com.sun.tools.javac.code.Types;
 import com.uber.nullaway.Config;
 import com.uber.nullaway.handlers.Handler;
 import java.util.Collections;
+import java.util.HashMap;
 import java.util.IdentityHashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 import javax.lang.model.type.NullType;
 import javax.lang.model.type.TypeKind;
@@ -33,6 +36,31 @@ public class CheckIdenticalNullabilityVisitor extends Types.DefaultTypeVisitor<B
    * is only needed for types involving wildcards.
    */
   private @Nullable IdentityHashMap<Type.WildcardType, Set<Type>> activeWildcardComparisons;
+
+  /**
+   * Reuses contextual capture bounds within one check, preserving identities across comparisons.
+   */
+  private @Nullable Map<UpperBoundsKey, List<Type>> effectiveUpperBounds;
+
+  /**
+   * Identifies a parameterization without relying on the identity of its class-type wrapper, which
+   * capture conversion can recreate. Bound computation depends on the declaration, enclosing type,
+   * and argument identities, not the containing class type's top-level nullness annotation.
+   */
+  private record UpperBoundsKey(
+      Equivalence.Wrapper<Symbol.TypeSymbol> symbol,
+      Equivalence.Wrapper<Type> enclosing,
+      List<Equivalence.Wrapper<Type>> arguments) {
+    /** Uses identity equivalence because javac type equality can ignore annotation metadata. */
+    UpperBoundsKey(Type.ClassType type) {
+      this(
+          Equivalence.identity().wrap(type.tsym),
+          Equivalence.identity().wrap(type.getEnclosingType()),
+          type.getTypeArguments().stream()
+              .map(argument -> Equivalence.identity().wrap(argument))
+              .toList());
+    }
+  }
 
   private IdentityHashMap<Type.WildcardType, Set<Type>> getActiveWildcardComparisons() {
     if (activeWildcardComparisons == null) {
@@ -108,11 +136,8 @@ public class CheckIdenticalNullabilityVisitor extends Types.DefaultTypeVisitor<B
     List<Type> lhsUpperBounds = lhsTypeArguments;
     List<Type> rhsUpperBounds = rhsTypeArguments;
     if (config.handleWildcardGenerics()) {
-      lhsUpperBounds =
-          GenericsUtils.effectiveUpperBoundsForTypeArguments(lhsType, state, config, handler);
-      rhsUpperBounds =
-          GenericsUtils.effectiveUpperBoundsForTypeArguments(
-              (Type.ClassType) rhsTypeAsSuper, state, config, handler);
+      lhsUpperBounds = effectiveUpperBounds(lhsType);
+      rhsUpperBounds = effectiveUpperBounds((Type.ClassType) rhsTypeAsSuper);
     }
     for (int i = 0; i < lhsTypeArguments.size(); i++) {
       Type lhsTypeArgument = lhsTypeArguments.get(i);
@@ -130,6 +155,16 @@ public class CheckIdenticalNullabilityVisitor extends Types.DefaultTypeVisitor<B
     // NOTE: I don't think we need to use rhsTypeAsSuper here, since the enclosing type of rhsType
     // should be converted properly via another call to asSuper when we recurse.
     return lhsType.getEnclosingType().accept(this, rhsType.getEnclosingType());
+  }
+
+  /** Computes contextual wildcard bounds once per parameterization in this root check. */
+  private List<Type> effectiveUpperBounds(Type.ClassType type) {
+    if (effectiveUpperBounds == null) {
+      effectiveUpperBounds = new HashMap<>();
+    }
+    return effectiveUpperBounds.computeIfAbsent(
+        new UpperBoundsKey(type),
+        unused -> GenericsUtils.effectiveUpperBoundsForTypeArguments(type, state, config, handler));
   }
 
   /** Check identical nullability for every type in the intersection */
