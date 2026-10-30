@@ -161,6 +161,100 @@ public class VarDeclaredLocalTests extends NullAwayTestsBase {
   }
 
   @Test
+  public void conditionalVarInitializerReassignmentUsesDeclaredTypeDuringDataflow() {
+    makeHelper()
+        .addSourceLines(
+            "Test.java",
+            """
+            package com.uber;
+            import org.jspecify.annotations.NullMarked;
+            import org.jspecify.annotations.Nullable;
+            @NullMarked
+            class Test {
+              interface Box<T extends @Nullable Object> {
+                T get();
+              }
+              static <T> T id(T t) {
+                return t;
+              }
+              static <T extends @Nullable Object> Box<T> box(T value) {
+                throw new RuntimeException();
+              }
+              static <T> T supplied(java.util.function.Supplier<T> supplier) {
+                return supplier.get();
+              }
+              boolean flag = true;
+              // The field's type must not become a target for the local initializer.
+              Box<@Nullable String> fieldInitializer = switch (0) {
+                default -> {
+                  String s = "value";
+                  s.length();
+                  Box<String> nonNull = box(s);
+                  var x = flag ? nonNull : nonNull;
+                  x = id(nonNull);
+                  x.get().length();
+                  yield box(null);
+                }
+              };
+              void acceptsSameType(boolean b, String s) {
+                s.length(); // Trigger dataflow before visiting the var declaration.
+                var x = b ? s : s;
+                x = id(s);
+              }
+              void acceptsSameTypeWithNestedConditional(boolean b, boolean c, String s) {
+                s.length();
+                var x = b ? s : (c ? s : s);
+                x = id(s);
+              }
+              void acceptsSameTypeInLambda(boolean b, String s) {
+                Runnable action = () -> {
+                  s.length();
+                  var x = b ? s : s;
+                  x = id(s);
+                };
+                action.run();
+              }
+              void usesVarInGenericLambdaReturn(boolean b, String s) {
+                String result = supplied(() -> {
+                  var x = b ? s : s;
+                  return id(x);
+                });
+                result.length();
+              }
+              void capturesFlowRefinedVarInNestedGenericLambda(@Nullable String s) {
+                String result = supplied(() -> {
+                  if (s == null) {
+                    return "";
+                  }
+                  // Inferring x from its captured use must retain this outer null check.
+                  var x = box(s);
+                  return supplied(() -> x.get());
+                });
+                result.length();
+              }
+              void acceptsSameTypeInInitializer(boolean b, String s) {
+                class Local {
+                  {
+                    s.length();
+                    var x = b ? s : s;
+                    x = id(s);
+                  }
+                }
+                new Local();
+              }
+              void rejectsIncompatibleTypeArgument(
+                  boolean b, String s, Box<String> nonNull, Box<@Nullable String> nullable) {
+                s.length();
+                var x = b ? nonNull : nonNull;
+                // BUG: Diagnostic contains: incompatible types: Box<@Nullable String> cannot be converted to Box<String>
+                x = id(nullable);
+              }
+            }
+            """)
+        .doTest();
+  }
+
+  @Test
   public void varInTryWithResources() {
     makeHelper()
         .addSourceLines(

@@ -94,7 +94,11 @@ public final class AccessPathNullnessAnalysis {
             analysis,
             new CoreNullnessStoreInitializer(analysis.getGenericsChecks()),
             /* trackUnreachableStores= */ false);
-    this.dataFlow = new DataFlow(config.assertsEnabled(), handler);
+    this.dataFlow =
+        new DataFlow(
+            config.assertsEnabled(),
+            handler,
+            config.isJSpecifyMode() ? analysis.getGenericsChecks() : null);
 
     if (config.checkContracts()) {
       this.contractNullnessPropagation =

@@ -1,13 +1,16 @@
 package com.uber.nullaway.dataflow.cfg;
 
 import com.google.common.base.Preconditions;
+import com.sun.source.tree.EnhancedForLoopTree;
 import com.sun.source.tree.ExpressionTree;
 import com.sun.source.tree.LiteralTree;
 import com.sun.source.tree.MethodInvocationTree;
 import com.sun.source.tree.ThrowTree;
 import com.sun.source.tree.Tree;
 import com.sun.source.tree.TreeVisitor;
+import com.sun.source.tree.VariableTree;
 import com.sun.source.util.TreePath;
+import com.uber.nullaway.generics.GenericsChecks;
 import com.uber.nullaway.handlers.Handler;
 import javax.annotation.processing.ProcessingEnvironment;
 import javax.lang.model.type.TypeMirror;
@@ -35,9 +38,9 @@ import org.jspecify.annotations.Nullable;
  * translation performed by the checker framework.
  *
  * <p>This holds the static method {@link #build(TreePath, UnderlyingAST, boolean, boolean,
- * ProcessingEnvironment, Handler)}, called to perform the CFG translation, and the class {@link
- * NullAwayCFGTranslationPhaseOne}, which extends {@link CFGTranslationPhaseOne} and adds hooks for
- * the NullAway handlers mechanism and some utility methods.
+ * ProcessingEnvironment, Handler, GenericsChecks)}, called to perform the CFG translation, and the
+ * class {@link NullAwayCFGTranslationPhaseOne}, which extends {@link CFGTranslationPhaseOne} and
+ * adds hooks for the NullAway handlers mechanism and some utility methods.
  */
 public final class NullAwayCFGBuilder extends CFGBuilder {
 
@@ -59,6 +62,8 @@ public final class NullAwayCFGBuilder extends CFGBuilder {
    * @param env annotation processing environment containing type utilities
    * @param handler a NullAway handler or chain of handlers (through {@link
    *     com.uber.nullaway.handlers.CompositeHandler}
+   * @param genericsChecks checker in which to record var declaration paths, or {@code null} outside
+   *     JSpecify mode
    * @return a control flow graph
    */
   public static ControlFlowGraph build(
@@ -67,7 +72,8 @@ public final class NullAwayCFGBuilder extends CFGBuilder {
       boolean assumeAssertionsEnabled,
       boolean assumeAssertionsDisabled,
       ProcessingEnvironment env,
-      Handler handler) {
+      Handler handler,
+      @Nullable GenericsChecks genericsChecks) {
     TreeBuilder builder = new TreeBuilder(env);
     AnnotationProvider annotationProvider = new BasicAnnotationProvider();
     CFGTranslationPhaseOne phase1translator =
@@ -77,7 +83,8 @@ public final class NullAwayCFGBuilder extends CFGBuilder {
             assumeAssertionsEnabled,
             assumeAssertionsDisabled,
             env,
-            handler);
+            handler,
+            genericsChecks);
     PhaseOneResult phase1result = phase1translator.process(bodyPath, underlyingAST);
     ControlFlowGraph phase2result = CFGTranslationPhaseTwo.process(phase1result);
     ControlFlowGraph phase3result = CFGTranslationPhaseThree.process(phase2result);
@@ -93,6 +100,8 @@ public final class NullAwayCFGBuilder extends CFGBuilder {
 
     private final Handler handler;
 
+    private final @Nullable GenericsChecks genericsChecks;
+
     /**
      * Create a new NullAway phase one translation visitor.
      *
@@ -104,6 +113,8 @@ public final class NullAwayCFGBuilder extends CFGBuilder {
      * @param env annotation processing environment containing type utilities
      * @param handler a NullAway handler or chain of handlers (through {@link
      *     com.uber.nullaway.handlers.CompositeHandler}
+     * @param genericsChecks checker in which to record var declaration paths, or {@code null}
+     *     outside JSpecify mode
      */
     public NullAwayCFGTranslationPhaseOne(
         TreeBuilder builder,
@@ -111,9 +122,30 @@ public final class NullAwayCFGBuilder extends CFGBuilder {
         boolean assumeAssertionsEnabled,
         boolean assumeAssertionsDisabled,
         ProcessingEnvironment env,
-        Handler handler) {
+        Handler handler,
+        @Nullable GenericsChecks genericsChecks) {
       super(builder, annotationProvider, assumeAssertionsEnabled, assumeAssertionsDisabled, env);
       this.handler = handler;
+      this.genericsChecks = genericsChecks;
+    }
+
+    /** Records var declaration paths during the existing CFG traversal, before dataflow runs. */
+    @Override
+    public Node visitVariable(VariableTree tree, @Nullable Void p) {
+      if (genericsChecks != null) {
+        genericsChecks.registerVarLocalDeclaration(getCurrentPath());
+      }
+      return super.visitVariable(tree, null);
+    }
+
+    /** Records enhanced-for variables, which the CFG translator does not visit as declarations. */
+    @Override
+    public Node visitEnhancedForLoop(EnhancedForLoopTree tree, @Nullable Void p) {
+      if (genericsChecks != null) {
+        genericsChecks.registerVarLocalDeclaration(
+            new TreePath(getCurrentPath(), tree.getVariable()));
+      }
+      return super.visitEnhancedForLoop(tree, null);
     }
 
     /**
