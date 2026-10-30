@@ -435,7 +435,8 @@ public class NullAway extends BugChecker
       lambdaTree = (LambdaExpressionTree) leaf;
       methodSymbol = NullabilityUtil.getFunctionalInterfaceMethod(lambdaTree, state.getTypes());
     }
-    return checkReturnExpression(retExpr, methodSymbol, lambdaTree, tree, state);
+    checkReturnExpression(retExpr, methodSymbol, lambdaTree, tree, state);
+    return Description.NO_MATCH;
   }
 
   @Override
@@ -1331,15 +1332,15 @@ public class NullAway extends BugChecker
    * {@code @NonNull} return type. Also performs an unboxing check on the returned expression.
    * Finally, in JSpecify mode, also checks that the nullability of generic type arguments of the
    * returned expression's type match the method return type, unless the method is unannotated.
+   * Diagnostics are reported directly through {@code state}.
    *
    * @param retExpr the expression being returned
    * @param methodSymbol symbol for the enclosing method
    * @param lambdaTree if return is inside a lambda, the tree for the lambda, otherwise {@code null}
    * @param errorTree tree on which to report an error if needed
    * @param state the visitor state
-   * @return {@link Description#NO_MATCH}; diagnostics are reported directly through {@code state}
    */
-  private Description checkReturnExpression(
+  private void checkReturnExpression(
       ExpressionTree retExpr,
       Symbol.MethodSymbol methodSymbol,
       @Nullable LambdaExpressionTree lambdaTree,
@@ -1349,13 +1350,13 @@ public class NullAway extends BugChecker
     if (returnType.isPrimitive()) {
       // check for unboxing
       doUnboxingCheck(state, retExpr);
-      return Description.NO_MATCH;
+      return;
     }
     if (ASTHelpers.isSameType(returnType, Suppliers.JAVA_LANG_VOID_TYPE.get(state), state)) {
       // Temporarily treat a Void return type as if it were @Nullable Void.  Change this once
       // we are confident that all use cases can be type checked reasonably (may require generics
       // support)
-      return Description.NO_MATCH;
+      return;
     }
 
     // Check generic type arguments for returned expression here, since we need to check the type
@@ -1369,7 +1370,7 @@ public class NullAway extends BugChecker
     // Now, perform the check for returning @Nullable from @NonNull.  First, we check if the return
     // type is @Nullable, and if so, bail out.
     if (getMethodReturnNullness(methodSymbol, state, Nullness.NULLABLE).equals(Nullness.NULLABLE)) {
-      return Description.NO_MATCH;
+      return;
     } else if (config.isJSpecifyMode() && lambdaTree != null) {
       Type lambdaType = genericsChecks.getPolyExpressionType(lambdaTree);
       if (genericsChecks
@@ -1378,7 +1379,7 @@ public class NullAway extends BugChecker
           || genericsChecks.passingLambdaOrMethodRefWithGenericReturnToUnmarkedCode(
               methodSymbol, lambdaTree, state, codeAnnotationInfo)) {
         // In JSpecify mode, the return type of a lambda may be @Nullable via a type argument
-        return Description.NO_MATCH;
+        return;
       }
     }
 
@@ -1395,7 +1396,6 @@ public class NullAway extends BugChecker
               methodSymbol,
               retExpr));
     }
-    return Description.NO_MATCH;
   }
 
   @Override
@@ -1438,7 +1438,7 @@ public class NullAway extends BugChecker
     if (tree.getBodyKind() == LambdaExpressionTree.BodyKind.EXPRESSION
         && funcInterfaceMethod.getReturnType().getKind() != TypeKind.VOID) {
       ExpressionTree resExpr = (ExpressionTree) tree.getBody();
-      return checkReturnExpression(resExpr, funcInterfaceMethod, tree, tree, state);
+      checkReturnExpression(resExpr, funcInterfaceMethod, tree, tree, state);
     }
     return Description.NO_MATCH;
   }
@@ -3153,8 +3153,8 @@ public class NullAway extends BugChecker
       return true;
     }
     Nullness expressionNullness = getExpressionNullness(state, expression);
-    return expressionNullness
-            == null // diff-coverage: ignore -- Preserve missing-dataflow fallback.
+    return expressionNullness // diff-coverage: ignore -- Preserve missing-dataflow fallback.
+            == null
         || !NullabilityUtil.nullnessToBool(expressionNullness);
   }
 
