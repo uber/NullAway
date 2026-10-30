@@ -3110,26 +3110,19 @@ public class NullAway extends BugChecker
   }
 
   /**
-   * Returns the method or constructor type with javac's call-site substitutions, falling back to
-   * the declared method type if javac recorded no resolved type. For an anonymous class, uses the
-   * superclass constructor's declared type, since the anonymous constructor type may include an
-   * implicit outer-instance parameter that is absent from the source arguments.
+   * Returns the method or constructor type with javac's call-site substitutions. For an anonymous
+   * class, uses the superclass constructor's declared type, since the anonymous constructor type
+   * may include an implicit outer-instance parameter that is absent from the source arguments.
    */
   private static Type.MethodType invokedMethodTypeAtCall(
       Tree tree, Symbol.MethodSymbol methodSymbol) {
     if (tree instanceof NewClassTree newClassTree && newClassTree.getClassBody() != null) {
       return methodSymbol.type.asMethodType();
     }
-    Type invokedType =
-        tree instanceof MethodInvocationTree invocationTree
-            ? ASTHelpers.getType(invocationTree.getMethodSelect())
-            : ((JCTree.JCNewClass) tree).constructorType;
-    return invokedType
-            instanceof
-            Type.MethodType invokedMethodType // diff-coverage: ignore -- javac resolves every call.
-        ? invokedMethodType
-        : methodSymbol.type
-            .asMethodType(); // diff-coverage: ignore -- Defensive missing-type fallback.
+    return (Type.MethodType)
+        (tree instanceof MethodInvocationTree invocationTree
+            ? castToNonNull(ASTHelpers.getType(invocationTree.getMethodSelect()))
+            : ((JCTree.JCNewClass) tree).constructorType);
   }
 
   /**
