@@ -10,6 +10,694 @@ import org.junit.Test;
 
 public class GenericMethodTests extends NullAwayTestsBase {
 
+  // Exercises GenericsUtils.upperBoundIsNullable's method-model lookup and propagation of inferred
+  // nullable results through a generic call. This is an integration control, not a distinguishing
+  // test for typeWithAnnot's intersection branch.
+  @Test
+  public void modeledNullableIntersectionBound() {
+    makeHelper()
+        .addSourceLines(
+            "ModeledIntersectionBounds.java",
+            """
+            package com.uber;
+            import org.jspecify.annotations.NullMarked;
+            import org.jspecify.annotations.Nullable;
+            @NullMarked
+            class ModeledIntersectionBounds {
+              interface A { void a(); }
+              interface B { void b(); }
+              static class Both implements A, B {
+                public void a() {}
+                public void b() {}
+              }
+              // The test library model permits nullable instantiations of T.
+              static <T extends A & B> T identity(T value) { return value; }
+              void test(Both value, @Nullable Both nullableValue) {
+                var result = identity(value);
+                result.a();
+                result.b();
+                // BUG: Diagnostic contains: dereferenced expression
+                identity(nullableValue).a();
+              }
+            }
+            """)
+        .doTest();
+  }
+
+  @Test
+  public void nullCheckedIntersectionInstantiationIsNonNull() {
+    makeHelper()
+        .addSourceLines(
+            "Test.java",
+            """
+            package com.uber;
+            import org.jspecify.annotations.NullMarked;
+            import org.jspecify.annotations.Nullable;
+            @NullMarked
+            class Test {
+              interface I {}
+              interface J {}
+              static final class A implements I, J {}
+              static final class B implements I, J {}
+              static <E extends @Nullable Object> E first(E a, E b) { return a; }
+              static <E extends @Nullable Object> E id(E value) { return value; }
+
+              static void rejectsNullableIntersection(@Nullable A a, B b) {
+                var value = first(a, b);
+                // BUG: Diagnostic contains: dereferenced expression
+                id(value).hashCode();
+              }
+
+              static void acceptsNullCheckedIntersection(@Nullable A a, B b) {
+                var value = first(a, b);
+                if (value != null) {
+                  id(value).hashCode();
+                }
+              }
+            }
+            """)
+        .doTest();
+  }
+
+  @Test
+  public void sourceWrittenAllNullableIntersectionBounds() {
+    makeHelper()
+        .addSourceLines(
+            "Test.java",
+            """
+            package com.uber;
+            import org.jspecify.annotations.*;
+            @NullMarked
+            class Test {
+              interface A { void a(); }
+              interface B { void b(); }
+              static class Both implements A, B {
+                public void a() {}
+                public void b() {}
+              }
+              static class Box1<T extends @Nullable A & @Nullable B> {
+                T value;
+                Box1(T value) { this.value = value; }
+              }
+              static <T extends @Nullable A & @Nullable B> T id1(T value) { return value; }
+              static void acceptsNullableAB(@Nullable Both value) {
+                Box1<@Nullable Both> box = new Box1<@Nullable Both>(value);
+                Test.<@Nullable Both>id1(value);
+                // BUG: Diagnostic contains: dereferenced expression
+                Test.<@Nullable Both>id1(value).a();
+                var result = id1(value);
+                // BUG: Diagnostic contains: dereferenced expression
+                result.a();
+                id1(new Both()).a();
+              }
+
+              static class Box2<T extends @Nullable B & @Nullable A> {
+                T value;
+                Box2(T value) { this.value = value; }
+              }
+              static <T extends @Nullable B & @Nullable A> T id2(T value) { return value; }
+              static void acceptsNullableBA(@Nullable Both value) {
+                Box2<@Nullable Both> box = new Box2<@Nullable Both>(value);
+                Test.<@Nullable Both>id2(value);
+                // BUG: Diagnostic contains: dereferenced expression
+                Test.<@Nullable Both>id2(value).a();
+                var result = id2(value);
+                // BUG: Diagnostic contains: dereferenced expression
+                result.a();
+                id2(new Both()).a();
+              }
+
+              static class Box3<T extends @Nullable Object & @Nullable A & @Nullable B> {
+                T value;
+                Box3(T value) { this.value = value; }
+              }
+              static <T extends @Nullable Object & @Nullable A & @Nullable B> T id3(T value) { return value; }
+              static void acceptsNullableObjectAB(@Nullable Both value) {
+                Box3<@Nullable Both> box = new Box3<@Nullable Both>(value);
+                Test.<@Nullable Both>id3(value);
+                // BUG: Diagnostic contains: dereferenced expression
+                Test.<@Nullable Both>id3(value).a();
+                var result = id3(value);
+                // BUG: Diagnostic contains: dereferenced expression
+                result.a();
+                id3(new Both()).a();
+              }
+
+              static class Box4<T extends @Nullable Object & @Nullable B & @Nullable A> {
+                T value;
+                Box4(T value) { this.value = value; }
+              }
+              static <T extends @Nullable Object & @Nullable B & @Nullable A> T id4(T value) { return value; }
+              static void acceptsNullableObjectBA(@Nullable Both value) {
+                Box4<@Nullable Both> box = new Box4<@Nullable Both>(value);
+                Test.<@Nullable Both>id4(value);
+                // BUG: Diagnostic contains: dereferenced expression
+                Test.<@Nullable Both>id4(value).a();
+                var result = id4(value);
+                // BUG: Diagnostic contains: dereferenced expression
+                result.a();
+                id4(new Both()).a();
+              }
+            }
+            """)
+        .doTest();
+  }
+
+  @Test
+  public void sourceWrittenMixedNullnessIntersectionBounds() {
+    makeHelper()
+        .addSourceLines(
+            "Test.java",
+            """
+            package com.uber;
+            import org.jspecify.annotations.*;
+            @NullMarked
+            class Test {
+              interface A { void a(); }
+              interface B { void b(); }
+              static class Both implements A, B {
+                public void a() {}
+                public void b() {}
+              }
+              static class Box1<T extends A & @Nullable B> {}
+              static <T extends A & @Nullable B> T id1(T value) {
+                value.a();
+                return value;
+              }
+              // BUG: Diagnostic contains: cannot be @Nullable
+              void rejectsNullableClassArgumentWithDefaultNonNullAAndNullableB(Box1<@Nullable Both> box) {}
+              static void rejectsNullableWithDefaultNonNullAAndNullableB(@Nullable Both value) {
+                Box1<Both> box = new Box1<Both>();
+                id1(new Both()).a();
+                // BUG: Diagnostic contains: passing @Nullable parameter 'value'
+                id1(value);
+                // BUG: Diagnostic contains: Type argument cannot be @Nullable
+                Test.<@Nullable Both>id1(new Both());
+              }
+
+              static class Box2<T extends @Nullable A & B> {}
+              static <T extends @Nullable A & B> T id2(T value) {
+                value.a();
+                return value;
+              }
+              // BUG: Diagnostic contains: cannot be @Nullable
+              void rejectsNullableClassArgumentWithNullableAAndDefaultNonNullB(Box2<@Nullable Both> box) {}
+              static void rejectsNullableWithNullableAAndDefaultNonNullB(@Nullable Both value) {
+                Box2<Both> box = new Box2<Both>();
+                id2(new Both()).a();
+                // BUG: Diagnostic contains: passing @Nullable parameter 'value'
+                id2(value);
+                // BUG: Diagnostic contains: Type argument cannot be @Nullable
+                Test.<@Nullable Both>id2(new Both());
+              }
+
+              static class Box3<T extends B & @Nullable A> {}
+              static <T extends B & @Nullable A> T id3(T value) {
+                value.a();
+                return value;
+              }
+              // BUG: Diagnostic contains: cannot be @Nullable
+              void rejectsNullableClassArgumentWithDefaultNonNullBAndNullableA(Box3<@Nullable Both> box) {}
+              static void rejectsNullableWithDefaultNonNullBAndNullableA(@Nullable Both value) {
+                Box3<Both> box = new Box3<Both>();
+                id3(new Both()).a();
+                // BUG: Diagnostic contains: passing @Nullable parameter 'value'
+                id3(value);
+                // BUG: Diagnostic contains: Type argument cannot be @Nullable
+                Test.<@Nullable Both>id3(new Both());
+              }
+
+              static class Box4<T extends @Nullable B & A> {}
+              static <T extends @Nullable B & A> T id4(T value) {
+                value.a();
+                return value;
+              }
+              // BUG: Diagnostic contains: cannot be @Nullable
+              void rejectsNullableClassArgumentWithNullableBAndDefaultNonNullA(Box4<@Nullable Both> box) {}
+              static void rejectsNullableWithNullableBAndDefaultNonNullA(@Nullable Both value) {
+                Box4<Both> box = new Box4<Both>();
+                id4(new Both()).a();
+                // BUG: Diagnostic contains: passing @Nullable parameter 'value'
+                id4(value);
+                // BUG: Diagnostic contains: Type argument cannot be @Nullable
+                Test.<@Nullable Both>id4(new Both());
+              }
+
+              static class Box5<T extends @NonNull A & @Nullable B> {}
+              static <T extends @NonNull A & @Nullable B> T id5(T value) {
+                value.a();
+                return value;
+              }
+              // BUG: Diagnostic contains: cannot be @Nullable
+              void rejectsNullableClassArgumentWithExplicitNonNullAAndNullableB(Box5<@Nullable Both> box) {}
+              static void rejectsNullableWithExplicitNonNullAAndNullableB(@Nullable Both value) {
+                Box5<Both> box = new Box5<Both>();
+                id5(new Both()).a();
+                // BUG: Diagnostic contains: passing @Nullable parameter 'value'
+                id5(value);
+                // BUG: Diagnostic contains: Type argument cannot be @Nullable
+                Test.<@Nullable Both>id5(new Both());
+              }
+
+              static class Box6<T extends @Nullable A & @NonNull B> {}
+              static <T extends @Nullable A & @NonNull B> T id6(T value) {
+                value.a();
+                return value;
+              }
+              // BUG: Diagnostic contains: cannot be @Nullable
+              void rejectsNullableClassArgumentWithNullableAAndExplicitNonNullB(Box6<@Nullable Both> box) {}
+              static void rejectsNullableWithNullableAAndExplicitNonNullB(@Nullable Both value) {
+                Box6<Both> box = new Box6<Both>();
+                id6(new Both()).a();
+                // BUG: Diagnostic contains: passing @Nullable parameter 'value'
+                id6(value);
+                // BUG: Diagnostic contains: Type argument cannot be @Nullable
+                Test.<@Nullable Both>id6(new Both());
+              }
+
+              static class Box7<T extends @NonNull B & @Nullable A> {}
+              static <T extends @NonNull B & @Nullable A> T id7(T value) {
+                value.a();
+                return value;
+              }
+              // BUG: Diagnostic contains: cannot be @Nullable
+              void rejectsNullableClassArgumentWithExplicitNonNullBAndNullableA(Box7<@Nullable Both> box) {}
+              static void rejectsNullableWithExplicitNonNullBAndNullableA(@Nullable Both value) {
+                Box7<Both> box = new Box7<Both>();
+                id7(new Both()).a();
+                // BUG: Diagnostic contains: passing @Nullable parameter 'value'
+                id7(value);
+                // BUG: Diagnostic contains: Type argument cannot be @Nullable
+                Test.<@Nullable Both>id7(new Both());
+              }
+
+              static class Box8<T extends @Nullable B & @NonNull A> {}
+              static <T extends @Nullable B & @NonNull A> T id8(T value) {
+                value.a();
+                return value;
+              }
+              // BUG: Diagnostic contains: cannot be @Nullable
+              void rejectsNullableClassArgumentWithNullableBAndExplicitNonNullA(Box8<@Nullable Both> box) {}
+              static void rejectsNullableWithNullableBAndExplicitNonNullA(@Nullable Both value) {
+                Box8<Both> box = new Box8<Both>();
+                id8(new Both()).a();
+                // BUG: Diagnostic contains: passing @Nullable parameter 'value'
+                id8(value);
+                // BUG: Diagnostic contains: Type argument cannot be @Nullable
+                Test.<@Nullable Both>id8(new Both());
+              }
+
+              static class Box9<T extends Object & @Nullable A & @Nullable B> {}
+              static <T extends Object & @Nullable A & @Nullable B> T id9(T value) {
+                value.a();
+                return value;
+              }
+              // BUG: Diagnostic contains: cannot be @Nullable
+              void rejectsNullableClassArgumentWithDefaultNonNullObjectAB(Box9<@Nullable Both> box) {}
+              static void rejectsNullableWithDefaultNonNullObjectAB(@Nullable Both value) {
+                Box9<Both> box = new Box9<Both>();
+                id9(new Both()).a();
+                // BUG: Diagnostic contains: passing @Nullable parameter 'value'
+                id9(value);
+                // BUG: Diagnostic contains: Type argument cannot be @Nullable
+                Test.<@Nullable Both>id9(new Both());
+              }
+
+              static class Box10<T extends Object & @Nullable B & @Nullable A> {}
+              static <T extends Object & @Nullable B & @Nullable A> T id10(T value) {
+                value.a();
+                return value;
+              }
+              // BUG: Diagnostic contains: cannot be @Nullable
+              void rejectsNullableClassArgumentWithDefaultNonNullObjectBA(Box10<@Nullable Both> box) {}
+              static void rejectsNullableWithDefaultNonNullObjectBA(@Nullable Both value) {
+                Box10<Both> box = new Box10<Both>();
+                id10(new Both()).a();
+                // BUG: Diagnostic contains: passing @Nullable parameter 'value'
+                id10(value);
+                // BUG: Diagnostic contains: Type argument cannot be @Nullable
+                Test.<@Nullable Both>id10(new Both());
+              }
+
+              static class Box11<T extends @NonNull Object & @Nullable A & @Nullable B> {}
+              static <T extends @NonNull Object & @Nullable A & @Nullable B> T id11(T value) {
+                value.a();
+                return value;
+              }
+              // BUG: Diagnostic contains: cannot be @Nullable
+              void rejectsNullableClassArgumentWithExplicitNonNullObjectAB(Box11<@Nullable Both> box) {}
+              static void rejectsNullableWithExplicitNonNullObjectAB(@Nullable Both value) {
+                Box11<Both> box = new Box11<Both>();
+                id11(new Both()).a();
+                // BUG: Diagnostic contains: passing @Nullable parameter 'value'
+                id11(value);
+                // BUG: Diagnostic contains: Type argument cannot be @Nullable
+                Test.<@Nullable Both>id11(new Both());
+              }
+
+              static class Box12<T extends @NonNull Object & @Nullable B & @Nullable A> {}
+              static <T extends @NonNull Object & @Nullable B & @Nullable A> T id12(T value) {
+                value.a();
+                return value;
+              }
+              // BUG: Diagnostic contains: cannot be @Nullable
+              void rejectsNullableClassArgumentWithExplicitNonNullObjectBA(Box12<@Nullable Both> box) {}
+              static void rejectsNullableWithExplicitNonNullObjectBA(@Nullable Both value) {
+                Box12<Both> box = new Box12<Both>();
+                id12(new Both()).a();
+                // BUG: Diagnostic contains: passing @Nullable parameter 'value'
+                id12(value);
+                // BUG: Diagnostic contains: Type argument cannot be @Nullable
+                Test.<@Nullable Both>id12(new Both());
+              }
+
+              static class Box13<T extends @Nullable Object & A & @Nullable B> {}
+              static <T extends @Nullable Object & A & @Nullable B> T id13(T value) {
+                value.a();
+                return value;
+              }
+              // BUG: Diagnostic contains: cannot be @Nullable
+              void rejectsNullableClassArgumentWithNullableObjectAndDefaultNonNullA(Box13<@Nullable Both> box) {}
+              static void rejectsNullableWithNullableObjectAndDefaultNonNullA(@Nullable Both value) {
+                Box13<Both> box = new Box13<Both>();
+                id13(new Both()).a();
+                // BUG: Diagnostic contains: passing @Nullable parameter 'value'
+                id13(value);
+                // BUG: Diagnostic contains: Type argument cannot be @Nullable
+                Test.<@Nullable Both>id13(new Both());
+              }
+
+              static class Box14<T extends @Nullable Object & @Nullable A & B> {}
+              static <T extends @Nullable Object & @Nullable A & B> T id14(T value) {
+                value.a();
+                return value;
+              }
+              // BUG: Diagnostic contains: cannot be @Nullable
+              void rejectsNullableClassArgumentWithNullableObjectAndDefaultNonNullB(Box14<@Nullable Both> box) {}
+              static void rejectsNullableWithNullableObjectAndDefaultNonNullB(@Nullable Both value) {
+                Box14<Both> box = new Box14<Both>();
+                id14(new Both()).a();
+                // BUG: Diagnostic contains: passing @Nullable parameter 'value'
+                id14(value);
+                // BUG: Diagnostic contains: Type argument cannot be @Nullable
+                Test.<@Nullable Both>id14(new Both());
+              }
+            }
+            """)
+        .doTest();
+  }
+
+  @Test
+  public void overrideSourceWrittenIntersectionBounds() {
+    makeHelper()
+        .addSourceLines(
+            "Test.java",
+            """
+            package com.uber;
+            import org.jspecify.annotations.*;
+            @NullMarked
+            class Test {
+              interface A { void a(); }
+              interface B { void b(); }
+              interface Parent1<X> {
+                <T extends @Nullable A & @Nullable B> void nullableAB(T value);
+                <T extends @NonNull A & @Nullable B> void nonNullAB(T value);
+                <T extends A & @Nullable B> void defaultNonNullAB(T value);
+              }
+              abstract static class Matching1 implements Parent1<String> {
+                @Override
+                public <T extends @Nullable A & @Nullable B> void nullableAB(T value) {
+                  if (value != null) {
+                    value.a();
+                  }
+                }
+                @Override
+                public <T extends @NonNull A & @Nullable B> void nonNullAB(T value) { value.a(); }
+                @Override
+                public <T extends A & @Nullable B> void defaultNonNullAB(T value) { value.a(); }
+              }
+              abstract static class Mismatching1 implements Parent1<String> {
+                @Override
+                // BUG: Diagnostic contains: Method type variable T has a non-null upper bound
+                public <T extends @NonNull A & @Nullable B> void nullableAB(T value) {}
+                @Override
+                // BUG: Diagnostic contains: Method type variable T has a @Nullable upper bound
+                public <T extends @Nullable A & @Nullable B> void nonNullAB(T value) {}
+                @Override
+                // BUG: Diagnostic contains: Method type variable T has a @Nullable upper bound
+                public <T extends @Nullable A & @Nullable B> void defaultNonNullAB(T value) {}
+              }
+
+              interface Parent2<X> {
+                <T extends @Nullable B & @Nullable A> void nullableBA(T value);
+                <T extends @NonNull B & @Nullable A> void nonNullBA(T value);
+                <T extends B & @Nullable A> void defaultNonNullBA(T value);
+              }
+              abstract static class Matching2 implements Parent2<String> {
+                @Override
+                public <T extends @Nullable B & @Nullable A> void nullableBA(T value) {
+                  if (value != null) {
+                    value.a();
+                  }
+                }
+                @Override
+                public <T extends @NonNull B & @Nullable A> void nonNullBA(T value) { value.a(); }
+                @Override
+                public <T extends B & @Nullable A> void defaultNonNullBA(T value) { value.a(); }
+              }
+              abstract static class Mismatching2 implements Parent2<String> {
+                @Override
+                // BUG: Diagnostic contains: Method type variable T has a non-null upper bound
+                public <T extends @NonNull B & @Nullable A> void nullableBA(T value) {}
+                @Override
+                // BUG: Diagnostic contains: Method type variable T has a @Nullable upper bound
+                public <T extends @Nullable B & @Nullable A> void nonNullBA(T value) {}
+                @Override
+                // BUG: Diagnostic contains: Method type variable T has a @Nullable upper bound
+                public <T extends @Nullable B & @Nullable A> void defaultNonNullBA(T value) {}
+              }
+
+              interface Parent3<X> {
+                <T extends @Nullable Object & @Nullable A & @Nullable B> void nullableObjectAB(T value);
+                <T extends @NonNull Object & @Nullable A & @Nullable B> void nonNullObjectAB(T value);
+                <T extends Object & @Nullable A & @Nullable B> void defaultNonNullObjectAB(T value);
+              }
+              abstract static class Matching3 implements Parent3<String> {
+                @Override
+                public <T extends @Nullable Object & @Nullable A & @Nullable B> void nullableObjectAB(T value) {
+                  if (value != null) {
+                    value.a();
+                  }
+                }
+                @Override
+                public <T extends @NonNull Object & @Nullable A & @Nullable B> void nonNullObjectAB(T value) { value.a(); }
+                @Override
+                public <T extends Object & @Nullable A & @Nullable B> void defaultNonNullObjectAB(T value) { value.a(); }
+              }
+              abstract static class Mismatching3 implements Parent3<String> {
+                @Override
+                // BUG: Diagnostic contains: Method type variable T has a non-null upper bound
+                public <T extends @NonNull Object & @Nullable A & @Nullable B> void nullableObjectAB(T value) {}
+                @Override
+                // BUG: Diagnostic contains: Method type variable T has a @Nullable upper bound
+                public <T extends @Nullable Object & @Nullable A & @Nullable B> void nonNullObjectAB(T value) {}
+                @Override
+                // BUG: Diagnostic contains: Method type variable T has a @Nullable upper bound
+                public <T extends @Nullable Object & @Nullable A & @Nullable B> void defaultNonNullObjectAB(T value) {}
+              }
+
+              interface Parent4<X> {
+                <T extends @Nullable Object & @Nullable B & @Nullable A> void nullableObjectBA(T value);
+                <T extends @NonNull Object & @Nullable B & @Nullable A> void nonNullObjectBA(T value);
+                <T extends Object & @Nullable B & @Nullable A> void defaultNonNullObjectBA(T value);
+              }
+              abstract static class Matching4 implements Parent4<String> {
+                @Override
+                public <T extends @Nullable Object & @Nullable B & @Nullable A> void nullableObjectBA(T value) {
+                  if (value != null) {
+                    value.a();
+                  }
+                }
+                @Override
+                public <T extends @NonNull Object & @Nullable B & @Nullable A> void nonNullObjectBA(T value) { value.a(); }
+                @Override
+                public <T extends Object & @Nullable B & @Nullable A> void defaultNonNullObjectBA(T value) { value.a(); }
+              }
+              abstract static class Mismatching4 implements Parent4<String> {
+                @Override
+                // BUG: Diagnostic contains: Method type variable T has a non-null upper bound
+                public <T extends @NonNull Object & @Nullable B & @Nullable A> void nullableObjectBA(T value) {}
+                @Override
+                // BUG: Diagnostic contains: Method type variable T has a @Nullable upper bound
+                public <T extends @Nullable Object & @Nullable B & @Nullable A> void nonNullObjectBA(T value) {}
+                @Override
+                // BUG: Diagnostic contains: Method type variable T has a @Nullable upper bound
+                public <T extends @Nullable Object & @Nullable B & @Nullable A> void defaultNonNullObjectBA(T value) {}
+              }
+            }
+            """)
+        .doTest();
+  }
+
+  @Test
+  public void intersectionComponentAnnotationsThroughGenericMethodCall() {
+    makeHelper()
+        .addSourceLines(
+            "Test.java",
+            """
+            package com.uber;
+            import org.jspecify.annotations.*;
+            @NullMarked
+            class Test {
+              static class Base {}
+              interface A<X extends @Nullable Object> { X a(); }
+              interface B<X extends @Nullable Object> { X b(); }
+              static <T extends A<@Nullable String> & B<String>> T id1(T value) { return value; }
+              static <T extends A<@Nullable String> & B<String>> void preservesAnnotationsWithAB(T value) {
+                id1(value).b().length();
+                // BUG: Diagnostic contains: dereferenced expression
+                id1(value).a().length();
+                A<@Nullable String> nullableA = id1(value);
+                B<String> nonNullB = id1(value);
+                // BUG: Diagnostic contains: incompatible types:
+                A<String> nonNullA = id1(value);
+                // BUG: Diagnostic contains: incompatible types:
+                B<@Nullable String> nullableB = id1(value);
+              }
+
+              static <T extends B<String> & A<@Nullable String>> T id2(T value) { return value; }
+              static <T extends B<String> & A<@Nullable String>> void preservesAnnotationsWithBA(T value) {
+                id2(value).b().length();
+                // BUG: Diagnostic contains: dereferenced expression
+                id2(value).a().length();
+                A<@Nullable String> nullableA = id2(value);
+                B<String> nonNullB = id2(value);
+                // BUG: Diagnostic contains: incompatible types:
+                A<String> nonNullA = id2(value);
+                // BUG: Diagnostic contains: incompatible types:
+                B<@Nullable String> nullableB = id2(value);
+              }
+
+              static <T extends Base & A<@Nullable String> & B<String>> T id3(T value) { return value; }
+              static <T extends Base & A<@Nullable String> & B<String>> void preservesAnnotationsWithBaseAB(T value) {
+                id3(value).b().length();
+                // BUG: Diagnostic contains: dereferenced expression
+                id3(value).a().length();
+                A<@Nullable String> nullableA = id3(value);
+                B<String> nonNullB = id3(value);
+                // BUG: Diagnostic contains: incompatible types:
+                A<String> nonNullA = id3(value);
+                // BUG: Diagnostic contains: incompatible types:
+                B<@Nullable String> nullableB = id3(value);
+              }
+
+              static <T extends Base & B<String> & A<@Nullable String>> T id4(T value) { return value; }
+              static <T extends Base & B<String> & A<@Nullable String>> void preservesAnnotationsWithBaseBA(T value) {
+                id4(value).b().length();
+                // BUG: Diagnostic contains: dereferenced expression
+                id4(value).a().length();
+                A<@Nullable String> nullableA = id4(value);
+                B<String> nonNullB = id4(value);
+                // BUG: Diagnostic contains: incompatible types:
+                A<String> nonNullA = id4(value);
+                // BUG: Diagnostic contains: incompatible types:
+                B<@Nullable String> nullableB = id4(value);
+              }
+            }
+            """)
+        .doTest();
+  }
+
+  @Test
+  public void intersectionComponentAnnotationsThroughGenericClassCall() {
+    makeHelper()
+        .addSourceLines(
+            "Test.java",
+            """
+            package com.uber;
+            import java.util.List;
+            import org.jspecify.annotations.*;
+            @NullMarked
+            class Test {
+              static class Base {}
+              interface A<X> { X a(); }
+              interface B<X> { X b(); }
+              static class Box1<T extends A<List<@Nullable String>> & B<List<String>>> {
+                final T value;
+                Box1(T value) { this.value = value; }
+                T get() { return value; }
+              }
+              static <T extends A<List<@Nullable String>> & B<List<String>>> void preservesAnnotationsWithAB(T value) {
+                Box1<T> box = new Box1<T>(value);
+                box.get().b().get(0).length();
+                // BUG: Diagnostic contains: dereferenced expression
+                box.get().a().get(0).length();
+                A<List<@Nullable String>> nullableA = box.get();
+                B<List<String>> nonNullB = box.get();
+                // BUG: Diagnostic contains: incompatible types:
+                A<List<String>> nonNullA = box.get();
+                // BUG: Diagnostic contains: incompatible types:
+                B<List<@Nullable String>> nullableB = box.get();
+              }
+
+              static class Box2<T extends B<List<String>> & A<List<@Nullable String>>> {
+                final T value;
+                Box2(T value) { this.value = value; }
+                T get() { return value; }
+              }
+              static <T extends B<List<String>> & A<List<@Nullable String>>> void preservesAnnotationsWithBA(T value) {
+                Box2<T> box = new Box2<T>(value);
+                box.get().b().get(0).length();
+                // BUG: Diagnostic contains: dereferenced expression
+                box.get().a().get(0).length();
+                A<List<@Nullable String>> nullableA = box.get();
+                B<List<String>> nonNullB = box.get();
+                // BUG: Diagnostic contains: incompatible types:
+                A<List<String>> nonNullA = box.get();
+                // BUG: Diagnostic contains: incompatible types:
+                B<List<@Nullable String>> nullableB = box.get();
+              }
+
+              static class Box3<T extends Base & A<List<@Nullable String>> & B<List<String>>> {
+                final T value;
+                Box3(T value) { this.value = value; }
+                T get() { return value; }
+              }
+              static <T extends Base & A<List<@Nullable String>> & B<List<String>>> void preservesAnnotationsWithBaseAB(T value) {
+                Box3<T> box = new Box3<T>(value);
+                box.get().b().get(0).length();
+                // BUG: Diagnostic contains: dereferenced expression
+                box.get().a().get(0).length();
+                A<List<@Nullable String>> nullableA = box.get();
+                B<List<String>> nonNullB = box.get();
+                // BUG: Diagnostic contains: incompatible types:
+                A<List<String>> nonNullA = box.get();
+                // BUG: Diagnostic contains: incompatible types:
+                B<List<@Nullable String>> nullableB = box.get();
+              }
+
+              static class Box4<T extends Base & B<List<String>> & A<List<@Nullable String>>> {
+                final T value;
+                Box4(T value) { this.value = value; }
+                T get() { return value; }
+              }
+              static <T extends Base & B<List<String>> & A<List<@Nullable String>>> void preservesAnnotationsWithBaseBA(T value) {
+                Box4<T> box = new Box4<T>(value);
+                box.get().b().get(0).length();
+                // BUG: Diagnostic contains: dereferenced expression
+                box.get().a().get(0).length();
+                A<List<@Nullable String>> nullableA = box.get();
+                B<List<String>> nonNullB = box.get();
+                // BUG: Diagnostic contains: incompatible types:
+                A<List<String>> nonNullA = box.get();
+                // BUG: Diagnostic contains: incompatible types:
+                B<List<@Nullable String>> nullableB = box.get();
+              }
+            }
+            """)
+        .doTest();
+  }
+
   @Test
   public void modeledNullableDependentBoundKeepsPeerNonNull() {
     makeHelper()
@@ -2024,7 +2712,8 @@ public class GenericMethodTests extends NullAwayTestsBase {
                 // nested nullability, so we don't report an error here.
                 m(cache.policy().refreshes());
               }
-            }""")
+            }
+            """)
         .doTest();
   }
 
@@ -2045,7 +2734,8 @@ public class GenericMethodTests extends NullAwayTestsBase {
                 // BUG: Diagnostic contains: incompatible types: Box<CompletableFuture<Object>> cannot be converted to Box<@Nullable CompletableFuture<Object>>
                 accept(box);
               }
-            }""")
+            }
+            """)
         .doTest();
   }
 
