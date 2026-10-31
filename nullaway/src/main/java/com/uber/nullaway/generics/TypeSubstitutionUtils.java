@@ -595,6 +595,10 @@ public class TypeSubstitutionUtils {
 
     @Override
     public Type visitClassType(Type.ClassType t, Type other) {
+      // Shared types already contain the source annotations, including in implicit bounds.
+      if (t == other) {
+        return t;
+      }
       if (other instanceof Type.WildcardType wt) {
         // When the other type is a wildcard, restore nullability annotations from the bound that
         // determines the functional interface type.
