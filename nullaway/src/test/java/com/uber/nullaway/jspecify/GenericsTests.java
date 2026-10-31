@@ -3727,6 +3727,34 @@ public class GenericsTests extends NullAwayTestsBase {
         .doTest();
   }
 
+  @Test
+  public void capturedWildcardOfNonStaticInnerClassWithWildcardHandlingDisabled() {
+    makeTestHelperWithArgs(
+            JSpecifyJavacConfig.withJSpecifyModeArgs(
+                Arrays.asList(
+                    "-XepOpt:NullAway:OnlyNullMarked=true",
+                    "-XepOpt:NullAway:HandleWildcardGenerics=false")))
+        .addSourceLines(
+            "Test.java",
+            """
+            import java.util.function.Supplier;
+            import org.jspecify.annotations.NullMarked;
+            @NullMarked
+            class Test {
+              class Inner {}
+              void take(Inner inner) {}
+              void declaration(Supplier<? extends Inner> supplier) {
+                Inner local = supplier.get();
+              }
+              void argumentThroughVar(Supplier<? extends Inner> supplier) {
+                var inner = supplier.get();
+                take(inner);
+              }
+            }
+            """)
+        .doTest();
+  }
+
   private CompilationTestHelper makeHelper() {
     return makeTestHelperWithArgs(
         JSpecifyJavacConfig.withJSpecifyModeArgs(
