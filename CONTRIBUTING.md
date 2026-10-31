@@ -14,6 +14,24 @@ For big features, please open an issue so that we can agree on the direction, an
 
 Small pull requests for things like typos, bug fixes, etc are always welcome.
 
+Reporting bugs
+--------------
+
+Before filing, search [existing issues, including closed ones](https://github.com/uber/NullAway/issues?q=is%3Aissue). The web UI provides a [bug report form](.github/ISSUE_TEMPLATE/bug_report.yml). Issues created through `gh` or an API do not automatically inherit the form's required fields or labels, so include these sections in the issue body:
+
+* `### Kind of problem`: false positive, false negative, crash, or other.
+* `### Minimal reproducer`: a Java sample with imports and nullness annotations, or a small repository with the command to run it. Compile the sample again after the last edit. If you cannot reduce it, include the surrounding method and say so.
+* `### Actual behavior`: diagnostics or a stack trace as text, not screenshots. For a missed error, write "no error reported"; for other problems, describe what happens.
+* `### Expected behavior`: which diagnostics should or should not appear, and on which expressions. Link relevant documentation or specifications when applicable.
+* `### NullAway configuration`: compiler options and relevant build configuration. Remove secrets and unrelated configuration; internal package names may be replaced.
+* `### NullAway version`: the version of `com.uber.nullaway:nullaway`, or the commit for an unreleased build.
+* `### Error Prone version`: the version of `com.google.errorprone:error_prone_core`, not the build plugin version.
+* `### JDK version`: the compiler JDK version and the source or release level if different.
+
+Put Java samples in fenced `java` blocks, and configuration and compiler output in fenced `text` blocks. Unlike the web form's fields configured with `render: text`, CLI/API submissions need those fences supplied explicitly. Put inline code and annotations such as `@Nullable` in backticks to prevent markup loss and unintended mentions.
+
+Under `### Additional context`, include related issues, build tool and plugin versions, relevant dependencies, workarounds, and whether the problem reproduces on the latest release. If you have permission, explicitly apply the `bug` label, for example with `gh issue create --label bug`.
+
 DOs and DON'Ts
 --------------
 
