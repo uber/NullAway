@@ -11,16 +11,19 @@ git_clean_pathspecs() (
 
 REPO_ROOT_DIR="$(git rev-parse --show-toplevel)"
 
+# Save staged Java paths as NUL-delimited records to preserve special filenames.
 java_files=$(mktemp)
 trap 'rm -f "$java_files"' 0
 
 git_clean_pathspecs diff --cached --name-only -z --diff-filter=ACMR \
     -- ':(icase,glob)**/*.java' >"$java_files"
 
+# Skip formatting when there are no staged Java changes.
 if [ ! -s "$java_files" ]; then
     exit 0
 fi
 
+# Run Spotless silently on success and report Gradle output on failure.
 if gradle_output=$("${REPO_ROOT_DIR}/gradlew" spotlessApply -Pspotless.ratchet.from=HEAD 2>&1); then
     :
 else
@@ -29,5 +32,6 @@ else
     exit "$gradle_status"
 fi
 
+# Restage every selected Java file, including any previously unstaged edits.
 git_clean_pathspecs --literal-pathspecs add \
     --pathspec-from-file="$java_files" --pathspec-file-nul
