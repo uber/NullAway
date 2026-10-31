@@ -103,7 +103,12 @@ public final class OracleRunner {
               "-XepOpt:NullAway:JSpecifyMode=true"),
           "jspecify-nullmarked",
           ImmutableList.of(
-              "-XepOpt:NullAway:OnlyNullMarked=true", "-XepOpt:NullAway:JSpecifyMode=true"));
+              "-XepOpt:NullAway:OnlyNullMarked=true", "-XepOpt:NullAway:JSpecifyMode=true"),
+          "jspecify-experimental",
+          ImmutableList.of(
+              "-XepOpt:NullAway:OnlyNullMarked=true",
+              "-XepOpt:NullAway:JSpecifyMode=true",
+              "-XepOpt:NullAway:JSpecifyExperimental=true"));
 
   /** The test sources seeds come from, relative to the working directory. */
   private static final String TESTS = "src/test/java";
