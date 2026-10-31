@@ -10,9 +10,8 @@ import com.sun.tools.javac.code.Type;
 import com.sun.tools.javac.code.Types;
 import com.uber.nullaway.Config;
 import com.uber.nullaway.handlers.Handler;
-import java.util.Collections;
 import java.util.HashMap;
-import java.util.IdentityHashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -31,11 +30,15 @@ public class CheckIdenticalNullabilityVisitor extends Types.DefaultTypeVisitor<B
   private final Config config;
   private final Handler handler;
 
+  /** Containment results proven by a completed outermost wildcard comparison in this check. */
+  private @Nullable Set<ContainmentKey> completedWildcardComparisons;
+
   /**
-   * Wildcard argument pairs currently being checked for containment. Allocated lazily, as the map
-   * is only needed for types involving wildcards.
+   * Active and provisionally successful comparisons in the current wildcard traversal. All
+   * obligations are conjunctive, so these can be reused within the traversal, but are published as
+   * completed only if its outermost comparison succeeds. A failure or exception discards them.
    */
-  private @Nullable IdentityHashMap<Type.WildcardType, Set<Type>> activeWildcardComparisons;
+  private @Nullable Set<ContainmentKey> pendingWildcardComparisons;
 
   /**
    * Reuses contextual capture bounds within one check, preserving identities across comparisons.
@@ -62,11 +65,21 @@ public class CheckIdenticalNullabilityVisitor extends Types.DefaultTypeVisitor<B
     }
   }
 
-  private IdentityHashMap<Type.WildcardType, Set<Type>> getActiveWildcardComparisons() {
-    if (activeWildcardComparisons == null) {
-      activeWildcardComparisons = new IdentityHashMap<>();
+  /** Includes contextual bounds because one wildcard can occur in different parameterizations. */
+  private record ContainmentKey(
+      Equivalence.Wrapper<Type.WildcardType> lhsWildcard,
+      Equivalence.Wrapper<Type> lhsUpperBound,
+      Equivalence.Wrapper<Type> rhsArgument,
+      Equivalence.Wrapper<Type> rhsUpperBound) {
+    /** Preserves nullness metadata and contextual bound identities when comparing questions. */
+    ContainmentKey(
+        Type.WildcardType lhsWildcard, Type lhsUpperBound, Type rhsArgument, Type rhsUpperBound) {
+      this(
+          Equivalence.identity().wrap(lhsWildcard),
+          Equivalence.identity().wrap(lhsUpperBound),
+          Equivalence.identity().wrap(rhsArgument),
+          Equivalence.identity().wrap(rhsUpperBound));
     }
-    return activeWildcardComparisons;
   }
 
   CheckIdenticalNullabilityVisitor(
@@ -269,27 +282,37 @@ public class CheckIdenticalNullabilityVisitor extends Types.DefaultTypeVisitor<B
    */
   private boolean wildcardContains(
       Type.WildcardType lhsWildcard, Type lhsUpperBound, Type rhsTypeArgument, Type rhsUpperBound) {
-    IdentityHashMap<Type.WildcardType, Set<Type>> activeComparisons =
-        getActiveWildcardComparisons();
-    Set<Type> activeRhsArguments = activeComparisons.get(lhsWildcard);
-    if (activeRhsArguments == null) {
-      activeRhsArguments = Collections.newSetFromMap(new IdentityHashMap<>());
-      activeComparisons.put(lhsWildcard, activeRhsArguments);
-    } else if (activeRhsArguments.contains(rhsTypeArgument)) {
-      // Recursive bounds can lead back to the exact same containment question. Re-entering that
-      // pair cannot reveal a mismatch that was not already handled on the first visit.
+    ContainmentKey key =
+        new ContainmentKey(lhsWildcard, lhsUpperBound, rhsTypeArgument, rhsUpperBound);
+    if (completedWildcardComparisons != null && completedWildcardComparisons.contains(key)) {
       return true;
     }
-    activeRhsArguments.add(rhsTypeArgument);
+    boolean outermost = pendingWildcardComparisons == null;
+    if (outermost) {
+      pendingWildcardComparisons = new HashSet<>();
+    }
+    Set<ContainmentKey> pending = castToNonNull(pendingWildcardComparisons);
+    if (!pending.add(key)) {
+      // A repeated question is either active (a cycle) or already checked in this traversal.
+      // Its success remains provisional until every obligation of the outermost question passes.
+      return true;
+    }
     try {
-      return switch (lhsWildcard.kind) {
-        case UNBOUND, EXTENDS -> typeArgumentSubtype(lhsUpperBound, rhsUpperBound);
-        case SUPER -> superWildcardContains(lhsWildcard, rhsTypeArgument);
-      };
+      boolean result =
+          switch (lhsWildcard.kind) {
+            case UNBOUND, EXTENDS -> typeArgumentSubtype(lhsUpperBound, rhsUpperBound);
+            case SUPER -> superWildcardContains(lhsWildcard, rhsTypeArgument);
+          };
+      if (outermost && result) {
+        if (completedWildcardComparisons == null) {
+          completedWildcardComparisons = new HashSet<>();
+        }
+        completedWildcardComparisons.addAll(pending);
+      }
+      return result;
     } finally {
-      activeRhsArguments.remove(rhsTypeArgument);
-      if (activeRhsArguments.isEmpty()) {
-        activeComparisons.remove(lhsWildcard);
+      if (outermost) {
+        pendingWildcardComparisons = null;
       }
     }
   }
