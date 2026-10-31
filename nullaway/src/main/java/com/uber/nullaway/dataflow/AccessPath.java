@@ -546,11 +546,15 @@ public final class AccessPath implements MapKey {
       if (indexNode instanceof IntegerLiteralNode intIndexNode) {
         elements.push(ArrayIndexElement.withIntegerIndex(arrayElement, intIndexNode.getValue()));
       } else {
-        if (indexElement != null) {
-          elements.push(ArrayIndexElement.withVariableIndex(arrayElement, indexElement));
-        } else {
+        if (indexElement == null) {
           return null;
         }
+        ArrayIndexElement arrayIndex =
+            ArrayIndexElement.withVariableIndex(arrayElement, indexElement);
+        if (arrayIndex == null) {
+          return null;
+        }
+        elements.push(arrayIndex);
       }
       result = buildAccessPathRecursive(arrayNode, elements, apContext, mapKey);
     } else if (node instanceof MethodInvocationNode invocation) {
