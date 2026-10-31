@@ -1088,6 +1088,8 @@ public final class GenericsChecks {
     if (rhsType != null) {
       if (varLocalDeclaration) {
         lhsType = rhsType;
+      } else {
+        rhsType = applyUnmarkedMethodReturnNullness(rhsTree, lhsType, rhsType, state);
       }
       boolean isAssignmentValid = subtypeParameterNullability(lhsType, rhsType, state);
       if (!isAssignmentValid) {
@@ -1318,6 +1320,105 @@ public final class GenericsChecks {
     } else {
       return getTreeType(rhsTree, state.withPath(pathToRhs), calledFromDataflow);
     }
+  }
+
+  /**
+   * Applies JSpecify's unspecified-nullness semantics to the return type of an unmarked method.
+   *
+   * <p>An unannotated reference type use in a null-unmarked method signature has unspecified
+   * nullness. For lenient (some-world) checking, that use is compatible with either nullness in the
+   * target context. Javac does not retain an unspecified qualifier after substituting receiver and
+   * method type variables, so the resolved type otherwise looks non-null and can cause a false
+   * generic-invariance diagnostic.
+   *
+   * <p>To model the unspecified positions, the target's explicit annotations and implicit non-null
+   * defaults are copied onto the resolved return type. Explicit annotations from the method
+   * declaration are then restored so an unmarked API's explicit contract remains enforceable. Calls
+   * with a handler-provided return model are left unchanged because that model is the explicit
+   * contract for the call.
+   */
+  @SuppressWarnings({"ReferenceEquality", "TypeEquals"}) // deliberate identity check
+  private Type applyUnmarkedMethodReturnNullness(
+      ExpressionTree expression, Type targetType, Type resolvedExpressionType, VisitorState state) {
+    ExpressionTree expressionWithoutParentheses = ASTHelpers.stripParentheses(expression);
+    if (!(expressionWithoutParentheses instanceof MethodInvocationTree invocationTree)) {
+      return resolvedExpressionType;
+    }
+    Symbol.MethodSymbol methodSymbol = ASTHelpers.getSymbol(invocationTree);
+    if (methodSymbol == null
+        || !CodeAnnotationInfo.instance(state.context)
+            .isSymbolUnannotated(methodSymbol, config, handler)
+        || hasPolyNullModel(methodSymbol, state)
+        || !(targetType.tsym instanceof Symbol.ClassSymbol targetClassSymbol)) {
+      return resolvedExpressionType;
+    }
+
+    Type.MethodType declaredMethodType = methodSymbol.type.asMethodType();
+    Type.MethodType modeledMethodType =
+        handler.onOverrideMethodType(methodSymbol, declaredMethodType, state, invocationTree);
+    if (modeledMethodType.getReturnType() != declaredMethodType.getReturnType()) {
+      return resolvedExpressionType;
+    }
+
+    Type resolvedAsTarget =
+        TypeSubstitutionUtils.asSuper(
+            state.getTypes(), resolvedExpressionType, targetClassSymbol, config);
+    Type declaredAsTarget =
+        TypeSubstitutionUtils.asSuper(
+            state.getTypes(), declaredMethodType.getReturnType(), targetClassSymbol, config);
+    if (resolvedAsTarget == null || declaredAsTarget == null) {
+      return resolvedExpressionType;
+    }
+    Type targetWithExplicitDefaults = withExplicitNonNullDefaults(targetType, state);
+    Type withTargetNullness =
+        TypeSubstitutionUtils.restoreExplicitNullabilityAnnotations(
+            targetWithExplicitDefaults, resolvedAsTarget, config);
+    return TypeSubstitutionUtils.restoreExplicitNullabilityAnnotations(
+        declaredAsTarget, withTargetNullness, config);
+  }
+
+  /**
+   * Returns {@code type} with the implicit non-null default made explicit on concrete reference
+   * types nested within it.
+   *
+   * <p>This representation is used only as an annotation source. It lets substitution distinguish a
+   * target's implicit non-null use from an unspecified source use whose resolved javac type may
+   * carry {@code @Nullable}. Wildcard bounds keep their existing handling in the generic subtype
+   * checker; concrete class arguments and array components are copied recursively.
+   */
+  @SuppressWarnings({"ReferenceEquality", "TypeEquals"}) // deliberate identity checks
+  private Type withExplicitNonNullDefaults(Type type, VisitorState state) {
+    Type updated = type;
+    if ((type.getKind() == TypeKind.DECLARED
+            || type.getKind() == TypeKind.TYPEVAR
+            || type.getKind() == TypeKind.ARRAY)
+        && !Nullness.hasNullableAnnotation(type.getAnnotationMirrors().stream(), config)
+        && !Nullness.hasNonNullAnnotation(type.getAnnotationMirrors().stream(), config)) {
+      updated = TypeSubstitutionUtils.typeWithAnnot(type, getSyntheticNonNullAnnotType(state));
+    }
+    if (updated instanceof Type.ClassType classType) {
+      Type enclosingType = classType.getEnclosingType();
+      Type updatedEnclosingType = withExplicitNonNullDefaults(enclosingType, state);
+      com.sun.tools.javac.util.List<Type> typeArguments = classType.getTypeArguments();
+      com.sun.tools.javac.util.ListBuffer<Type> updatedTypeArguments =
+          new com.sun.tools.javac.util.ListBuffer<>();
+      boolean changed = updatedEnclosingType != enclosingType;
+      for (Type typeArgument : typeArguments) {
+        Type updatedTypeArgument = withExplicitNonNullDefaults(typeArgument, state);
+        updatedTypeArguments.append(updatedTypeArgument);
+        changed |= updatedTypeArgument != typeArgument;
+      }
+      return changed
+          ? TYPE_METADATA_BUILDER.createClassType(
+              classType, updatedEnclosingType, updatedTypeArguments.toList())
+          : updated;
+    }
+    if (updated instanceof Type.ArrayType arrayType) {
+      Type componentType = arrayType.getComponentType();
+      Type updatedComponentType = withExplicitNonNullDefaults(componentType, state);
+      return TYPE_METADATA_BUILDER.createArrayType(arrayType, updatedComponentType);
+    }
+    return updated;
   }
 
   private static boolean isAssignmentToKind(Tree tree, ElementKind kind) {
@@ -2463,6 +2564,8 @@ public final class GenericsChecks {
       if (returnExpressionType == null) {
         return;
       }
+      returnExpressionType =
+          applyUnmarkedMethodReturnNullness(retExpr, formalReturnType, returnExpressionType, state);
       boolean isReturnTypeValid =
           subtypeParameterNullability(formalReturnType, returnExpressionType, state);
       if (!isReturnTypeValid) {
@@ -2983,6 +3086,9 @@ public final class GenericsChecks {
                 if (actualParameterType == null) {
                   return;
                 }
+                actualParameterType =
+                    applyUnmarkedMethodReturnNullness(
+                        currentActualParam, formalParameter, actualParameterType, state);
                 if (!subtypeParameterNullability(formalParameter, actualParameterType, state)) {
                   reportInvalidParametersNullabilityError(
                       formalParameter, actualParameterType, currentActualParam, state);
