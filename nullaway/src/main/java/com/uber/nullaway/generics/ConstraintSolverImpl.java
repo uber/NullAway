@@ -176,6 +176,11 @@ public final class ConstraintSolverImpl implements ConstraintSolver {
      */
     final Map<String, BoundEvidence> lowerBoundEvidence = new LinkedHashMap<>();
 
+    /** Fixed lower uses that constrain this variable's root, not an annotated projection of it. */
+    final List<Type> rootFixedLowerBounds = new ArrayList<>();
+
+    final Set<String> rootFixedLowerBoundKeys = new LinkedHashSet<>();
+
     /** Fixed type-variable lower uses retained as declaration-diagnostic provenance. */
     final List<Type> fixedTypeVariableLowerBounds = new ArrayList<>();
 
@@ -200,6 +205,12 @@ public final class ConstraintSolverImpl implements ConstraintSolver {
    * messages.
    */
   private final Map<InferenceVariable, VarState> vars = new LinkedHashMap<>();
+
+  /** Deferred containment obligations, checked after every call's lower bounds are available. */
+  private final Set<NonNullWildcardRequirement> nonNullWildcardRequirements = new LinkedHashSet<>();
+
+  /** A wildcard's actual upper bound must fit an inferred variable whose bound excludes null. */
+  private record NonNullWildcardRequirement(Type actual, InferenceVariable required) {}
 
   /** Incremented whenever a variable, structured bound, or variable edge is added. */
   private int structuredConstraintVersion = 0;
@@ -732,8 +743,17 @@ public final class ConstraintSolverImpl implements ConstraintSolver {
           case UNBOUND, EXTENDS -> {
             Type subtypeUpperBound =
                 GenericsUtils.effectiveWildcardUpperBound(subtypeTypeArg, state, config, handler);
-            subtypeUpperBound.accept(
-                this, GenericsUtils.wildcardUpperBound(supertypeWildcard, state, config, handler));
+            Type supertypeUpperBound =
+                GenericsUtils.wildcardUpperBound(supertypeWildcard, state, config, handler);
+            InferenceVariable required = inferenceVariableForUse(supertypeUpperBound);
+            if (supertypeWildcard.kind == BoundKind.EXTENDS
+                && !(subtypeTypeArg instanceof CapturedType)
+                && required != null
+                && !getState(required).nullableAllowed) {
+              nonNullWildcardRequirements.add(
+                  new NonNullWildcardRequirement(subtypeUpperBound, required));
+            }
+            subtypeUpperBound.accept(this, supertypeUpperBound);
           }
           case SUPER -> {
             Type supertypeLowerBound = castToNonNull(supertypeWildcard.getSuperBound());
@@ -790,6 +810,7 @@ public final class ConstraintSolverImpl implements ConstraintSolver {
     lowerConflicts.clear();
     lowerConflictKeys.clear();
     prepareStructuredConstraints();
+    constrainNonNullWildcardRequirements();
 
     /* ---------- work-list propagation of nullability ---------- */
     Deque<InferenceVariable> work = new ArrayDeque<>();
@@ -1135,6 +1156,19 @@ public final class ConstraintSolverImpl implements ConstraintSolver {
   }
 
   /**
+   * Applies wildcard containment obligations after nested calls have contributed their evidence. A
+   * fixed variable with a nullable bound remains symbolic for nullable-accepting calls, but no
+   * instantiation of a non-null-bounded wildcard variable can contain all its possible values.
+   */
+  private void constrainNonNullWildcardRequirements() {
+    for (NonNullWildcardRequirement requirement : nonNullWildcardRequirements) {
+      if (hasNullableFixedLowerBound(requirement.actual())) {
+        throw new NonNullWildcardBoundViolationException(requirement.required());
+      }
+    }
+  }
+
+  /**
    * Checks corresponding invariant slots in a common Java shape. Arrays descend covariantly, so
    * differing component-root nullness is not a conflict. An intersection supplies independent
    * nominal views of both lowers, not a synthetic class whose empty argument list can hide their
@@ -1209,6 +1243,79 @@ public final class ConstraintSolverImpl implements ConstraintSolver {
       }
     } finally {
       endBoundComparison("lower-at-shape", first, shape);
+    }
+  }
+
+  /**
+   * Finds explicitly nullable fixed-variable evidence through root-inference subtype edges. Using
+   * structural edges here would ignore occurrence-level non-null projections. The graph is complete
+   * before this walk, so the result does not depend on whether an outer call was visited first.
+   */
+  private boolean hasNullableFixedLowerBound(Type actual) {
+    if (Nullness.hasNonNullAnnotation(actual.getAnnotationMirrors().stream(), config)) {
+      return false;
+    }
+    InferenceVariable variable = inferenceVariableForUse(actual);
+    if (variable == null) {
+      return actual instanceof TypeVar
+          && !(actual instanceof CapturedType)
+          && inferenceVariableForStructure(actual) == null
+          && explicitlyNullableBound(actual, new LinkedHashSet<>());
+    }
+    Deque<InferenceVariable> work = new ArrayDeque<>();
+    Set<InferenceVariable> visited = new LinkedHashSet<>();
+    work.add(variable);
+    visited.add(variable);
+    while (!work.isEmpty()) {
+      VarState current = castToNonNull(vars.get(work.removeFirst()));
+      for (Type lower : current.rootFixedLowerBounds) {
+        if (lower instanceof TypeVar
+            && !(lower instanceof CapturedType)
+            && inferenceVariableForStructure(lower) == null
+            && !Nullness.hasNonNullAnnotation(lower.getAnnotationMirrors().stream(), config)
+            && explicitlyNullableBound(lower, new LinkedHashSet<>())) {
+          return true;
+        }
+      }
+      for (InferenceVariable subtype : current.subtypes) {
+        if (visited.add(subtype)) {
+          work.add(subtype);
+        }
+      }
+    }
+    return false;
+  }
+
+  /**
+   * Reads explicit nullable-bound evidence without treating an unmarked default as nullable. Root
+   * projections take precedence over inherited bounds; an intersection permits null only if all
+   * components do. Cyclic bounds provide no additional evidence.
+   */
+  private boolean explicitlyNullableBound(Type type, Set<Element> visiting) {
+    if (Nullness.hasNonNullAnnotation(type.getAnnotationMirrors().stream(), config)) {
+      return false;
+    }
+    if (isKnownNullable(type)) {
+      return true;
+    }
+    if (type instanceof Type.IntersectionClassType intersection) {
+      for (TypeMirror component : intersection.getBounds()) {
+        if (!explicitlyNullableBound((Type) component, visiting)) {
+          return false;
+        }
+      }
+      return true;
+    }
+    if (!(type instanceof TypeVar variable)
+        || type instanceof CapturedType
+        || !visiting.add(variable.asElement())) {
+      return false;
+    }
+    try {
+      return hasNullableUpperBoundOverride(variable.asElement())
+          || explicitlyNullableBound(variable.getUpperBound(), visiting);
+    } finally {
+      visiting.remove(variable.asElement());
     }
   }
 
@@ -3127,6 +3234,17 @@ public final class ConstraintSolverImpl implements ConstraintSolver {
       }
     } else if (sStructure != null) {
       recordStructuredBound(sStructure, t, false);
+    }
+
+    if (tVar != null
+        && sStructure == null
+        && s instanceof TypeVar
+        && !(s instanceof CapturedType)) {
+      VarState target = getState(tVar);
+      if (target.rootFixedLowerBoundKeys.add(structuredTypeKey(s))) {
+        target.rootFixedLowerBounds.add(s);
+        structuredConstraintVersion++;
+      }
     }
 
     /* top-level nullability rules */
