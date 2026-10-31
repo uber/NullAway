@@ -197,6 +197,7 @@ public class VarDeclaredLocalTests extends NullAwayTestsBase {
                 }
               };
               void acceptsSameType(boolean b, String s) {
+                // From #2090
                 s.length(); // Trigger dataflow before visiting the var declaration.
                 var x = b ? s : s;
                 x = id(s);
