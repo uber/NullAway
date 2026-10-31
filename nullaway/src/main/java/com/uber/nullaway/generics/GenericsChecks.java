@@ -165,8 +165,8 @@ public final class GenericsChecks {
   /** Maps each {@code var}-declared local to its inferred NullAway type */
   private final Map<Symbol, Type> inferredVarLocalTypes = new LinkedHashMap<>();
 
-  /** Maps each {@code var}-declared local to its declaration tree */
-  private final Map<Symbol, VariableTree> varLocalDeclarations = new LinkedHashMap<>();
+  /** Maps each {@code var}-declared local to its declaration path. */
+  private final Map<Symbol, TreePath> varLocalDeclarations = new LinkedHashMap<>();
 
   /**
    * PolyNull results inferred separately from generic call inference, cached by invocation
@@ -1106,12 +1106,17 @@ public final class GenericsChecks {
   }
 
   /**
-   * Associates the {@code Symbol} for a {@code var}-declared local with the local's declaration.
-   * This is used in case we observe a use of the local before we have processed the declaration
-   * (e.g., due to dataflow analysis), and need to jump to the declaration to infer the variable's
-   * type.
+   * Associates the {@code Symbol} for a {@code var}-declared local with its declaration path.
+   * Called during CFG construction and lambda return scanning so the declaration's location is
+   * available before inference processes a use of the local.
+   *
+   * <p>Retain the traversal's path so its enclosing path identities match the corresponding
+   * dataflow analysis.
+   *
+   * @param declarationPath path whose leaf is the variable declaration
    */
-  public void registerVarLocalDeclaration(VariableTree tree) {
+  public void registerVarLocalDeclaration(TreePath declarationPath) {
+    VariableTree tree = (VariableTree) declarationPath.getLeaf();
     if (!isVarLocalVariableDeclaration(tree)) {
       return;
     }
@@ -1119,7 +1124,7 @@ public final class GenericsChecks {
     if (symbol != null
         && (symbol.getKind().equals(ElementKind.LOCAL_VARIABLE)
             || symbol.getKind().equals(ElementKind.RESOURCE_VARIABLE))) {
-      varLocalDeclarations.put(symbol, (JCTree.JCVariableDecl) tree);
+      varLocalDeclarations.put(symbol, declarationPath);
     }
   }
 
@@ -1152,10 +1157,11 @@ public final class GenericsChecks {
     if (cachedType != null) {
       return cachedType;
     }
-    VariableTree variableDecl = varLocalDeclarations.get(symbol);
-    if (variableDecl == null) {
+    TreePath declarationPath = varLocalDeclarations.get(symbol);
+    if (declarationPath == null) {
       return null;
     }
+    VariableTree variableDecl = (VariableTree) declarationPath.getLeaf();
     ExpressionTree initializer = variableDecl.getInitializer();
     if (initializer == null) {
       Type enhancedForElementType =
@@ -1168,7 +1174,9 @@ public final class GenericsChecks {
       }
       return typeOrNullIfRawNonArray(symbol.type);
     }
-    TreePath pathToInitializer = pathWithLeaf(state.getPath(), initializer);
+    // Inference may start at a use of the local, including a later assignment during dataflow.
+    // Use the declaration's actual path so the initializer cannot inherit that use's target type.
+    TreePath pathToInitializer = new TreePath(declarationPath, initializer);
     return getInferredTypeForVarLocalDeclaration(
         variableDecl, initializer, pathToInitializer, state, calledFromDataflow);
   }
@@ -2234,7 +2242,7 @@ public final class GenericsChecks {
     /** Makes var-local declarations available before generating constraints for their uses. */
     @Override
     public @Nullable Void visitVariable(VariableTree tree, @Nullable Void unused) {
-      genericsChecks.registerVarLocalDeclaration(tree);
+      genericsChecks.registerVarLocalDeclaration(getCurrentPath());
       return super.visitVariable(tree, null);
     }
 
