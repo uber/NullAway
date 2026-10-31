@@ -1,0 +1,55 @@
+name: NullAway oracles
+# The oracles take five to ten minutes and report findings that need triage, so they run after a
+# change lands on master rather than on every pull request or merge queue entry.
+on:
+  push:
+    branches:
+      - master
+  workflow_dispatch:
+# A newer push to master supersedes a run still in progress: the oracles check the tip of master.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+permissions:
+  contents: read
+jobs:
+  oracles:
+    name: "Run crash, metamorphic, and growth oracles"
+    # A fork runs the oracles only when someone starts them by hand.
+    if: github.repository == 'uber/NullAway' || github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - name: Check out NullAway sources
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      # The known findings were recorded with the javac of JDK 21, which decides which seeds and
+      # variants are valid sources.
+      - name: 'Set up JDK 21'
+        uses: actions/setup-java@b843ebf9b913146b38da2eaa7aeddf76074ae1ad # v6.1.0
+        with:
+          java-version: 21
+          distribution: 'temurin'
+          check-latest: 'true'
+      - name: Setup Gradle
+        uses: gradle/actions/setup-gradle@3f5f9adaf7d9fecd50b5935e54106014257a94e6 # v6.4.0
+      # Fails only on a crash signature or a growth finding that
+      # nullaway/src/oracles/known-findings.tsv does not list. Divergences are reported in the
+      # summary and the artifact and never fail the job.
+      - name: Run the oracles
+        run: ./gradlew :nullaway:runOracles --args="--mutants 3 --max-minutes 40 --seeds tests,bound-graphs"
+      - name: Write the job summary
+        if: always()
+        run: |
+          if [ -f nullaway/build/oracles/summary.md ]; then
+            cat nullaway/build/oracles/summary.md >> "$GITHUB_STEP_SUMMARY"
+          fi
+      - name: Upload the oracle report
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: oracle-report
+          path: nullaway/build/oracles
+          if-no-files-found: warn
+          retention-days: 30
