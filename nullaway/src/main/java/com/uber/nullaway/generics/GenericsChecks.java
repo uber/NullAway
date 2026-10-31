@@ -19,6 +19,7 @@ import com.sun.source.tree.BlockTree;
 import com.sun.source.tree.ClassTree;
 import com.sun.source.tree.ConditionalExpressionTree;
 import com.sun.source.tree.EnhancedForLoopTree;
+import com.sun.source.tree.ExpressionStatementTree;
 import com.sun.source.tree.ExpressionTree;
 import com.sun.source.tree.IdentifierTree;
 import com.sun.source.tree.LambdaExpressionTree;
@@ -40,7 +41,7 @@ import com.sun.tools.javac.code.BoundKind;
 import com.sun.tools.javac.code.Symbol;
 import com.sun.tools.javac.code.Symtab;
 import com.sun.tools.javac.code.Type;
-import com.sun.tools.javac.code.Types;
+import com.sun.tools.javac.code.TypeTag;
 import com.sun.tools.javac.tree.JCTree;
 import com.sun.tools.javac.tree.TreeInfo;
 import com.sun.tools.javac.util.Name;
@@ -56,14 +57,23 @@ import com.uber.nullaway.NullabilityUtil;
 import com.uber.nullaway.Nullness;
 import com.uber.nullaway.ResolvedMethodReference;
 import com.uber.nullaway.dataflow.AccessPathNullnessAnalysis;
+import com.uber.nullaway.dataflow.DataflowRunState;
 import com.uber.nullaway.dataflow.EnclosingEnvironmentNullness;
 import com.uber.nullaway.dataflow.NullnessStore;
+import com.uber.nullaway.generics.ConstraintSolver.BoundEvidence;
+import com.uber.nullaway.generics.ConstraintSolver.InferenceVariable;
+import com.uber.nullaway.generics.ConstraintSolver.InputDependencies;
+import com.uber.nullaway.generics.ConstraintSolver.LowerBoundConflict;
+import com.uber.nullaway.generics.ConstraintSolver.NestedUpperBoundViolationException;
+import com.uber.nullaway.generics.ConstraintSolver.Solution;
+import com.uber.nullaway.generics.ConstraintSolver.SourceOrigin;
 import com.uber.nullaway.generics.ConstraintSolver.UnsatisfiableConstraintsException;
 import com.uber.nullaway.generics.GenericsUtils.MethodRefTypeRelationKind;
 import com.uber.nullaway.generics.PolyNullInference.PolyNullInferenceContext;
 import com.uber.nullaway.handlers.Handler;
 import com.uber.nullaway.handlers.Handler.NullnessHint;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.IdentityHashMap;
 import java.util.LinkedHashMap;
@@ -71,6 +81,7 @@ import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.atomic.AtomicReference;
 import javax.lang.model.element.Element;
@@ -78,6 +89,7 @@ import javax.lang.model.element.ElementKind;
 import javax.lang.model.type.ExecutableType;
 import javax.lang.model.type.NullType;
 import javax.lang.model.type.TypeKind;
+import javax.lang.model.type.TypeMirror;
 import javax.lang.model.type.TypeVariable;
 import org.jspecify.annotations.Nullable;
 
@@ -87,47 +99,140 @@ public final class GenericsChecks {
   /** Marker interface for results of attempting to infer nullability of type variables at a call */
   private interface CallInferenceResult {}
 
-  /**
-   * Indicates successful inference of nullability of type variables at a call. Stores the inferred
-   * nullability of every inference variable in the inference problem, which may span several calls
-   * (nested calls, generic method references, etc.), and any PolyNull nullability computed by the
-   * same solver run.
-   */
-  private static final class InferenceSuccess implements CallInferenceResult {
+  /** Complete and partial outcomes expose site-scoped substitutions and their solution facts. */
+  private interface InferenceWithTypes extends CallInferenceResult {
+    Solution solution();
 
-    private final IdentityHashMap<Tree, Map<Element, ConstraintSolver.InferredNullability>>
-        typeVarNullabilityBySite = new IdentityHashMap<>();
+    Map<Tree, Map<Element, Type>> typesBySite();
 
-    private final IdentityHashMap<MethodInvocationTree, Nullness> polyNullnessByInvocation;
+    Map<MethodInvocationTree, Nullness> polyNullnessByInvocation();
 
-    /**
-     * Groups the solution by tree identity, preserving solution iteration order within each site's
-     * type variable map.
-     *
-     * @param solution the inferred nullability of every inference variable in the problem
-     * @param polyNullnessByInvocation the PolyNull nullness inferred for each modeled invocation
-     */
-    private InferenceSuccess(
-        Map<ConstraintSolver.InferenceVariable, ConstraintSolver.InferredNullability> solution,
-        IdentityHashMap<MethodInvocationTree, Nullness> polyNullnessByInvocation) {
-      this.polyNullnessByInvocation = polyNullnessByInvocation;
-      solution.forEach(
-          (inferenceVar, nullability) ->
-              typeVarNullabilityBySite
-                  .computeIfAbsent(inferenceVar.site(), unused -> new LinkedHashMap<>())
-                  .put(inferenceVar.typeVariable(), nullability));
-    }
-
-    /**
-     * Returns the inferred nullability of the type variables inferred at {@code site}.
-     *
-     * @param site a call or method reference participating in the inference problem
-     * @return a map from declared type variables to their inferred nullability at {@code site}
-     */
-    Map<Element, ConstraintSolver.InferredNullability> typeVarNullabilityForSite(Tree site) {
-      return typeVarNullabilityBySite.getOrDefault(site, Map.of());
+    /** Selects substitutions belonging to one call or reference, never a sibling's variables. */
+    default Map<Element, Type> inferredTypesForSite(Tree site) {
+      return typesBySite().getOrDefault(site, Map.of());
     }
   }
+
+  /** A completed, consistent solution eligible for publication subject to lifecycle guards. */
+  private record InferenceSuccess(
+      Solution solution,
+      Map<Tree, Map<Element, Type>> typesBySite,
+      Map<Tree, InferenceCall> calls,
+      Map<MethodInvocationTree, Nullness> polyNullnessByInvocation)
+      implements InferenceWithTypes {}
+
+  /**
+   * Uncertified or contradictory evidence used for ordinary checking, never success caching.
+   * Diagnostic call templates retain their original declared failed-variable positions.
+   */
+  private record InferencePartial(
+      Solution solution,
+      Map<Tree, Map<Element, Type>> typesBySite,
+      Map<Tree, InferenceCall> diagnosticCalls,
+      Map<MethodInvocationTree, Nullness> polyNullnessByInvocation)
+      implements InferenceWithTypes {}
+
+  /** Indexes immutable site-scoped substitution views once, without changing certification. */
+  private static Map<Tree, Map<Element, Type>> indexInferredTypesBySite(Solution solution) {
+    Map<Tree, Map<Element, Type>> bySite = new LinkedHashMap<>();
+    solution
+        .inferredTypes()
+        .forEach(
+            (variable, type) ->
+                bySite
+                    .computeIfAbsent(variable.site(), unused -> new LinkedHashMap<>())
+                    .put(variable.typeVariable(), type));
+    bySite.replaceAll((site, types) -> Map.copyOf(types));
+    return Map.copyOf(bySite);
+  }
+
+  /** Exact participating inputs and ownership of this inference problem's fresh symbols. */
+  private static final class InferenceCacheState {
+    final Set<MemberReferenceTree> methodReferences = new LinkedHashSet<>();
+    final Map<Tree, InferenceCall> calls = new LinkedHashMap<>();
+    final Map<Tree, List<Type>> inputsBySite = new LinkedHashMap<>();
+    final Map<Tree, List<Type>> callContexts = new LinkedHashMap<>();
+    final Map<Element, InferenceVariable> ownedVariables = new LinkedHashMap<>();
+    final IdentityHashMap<MethodInvocationTree, PolyNullInferenceContext> polyNullContexts =
+        new IdentityHashMap<>();
+
+    /** Records fixed inputs as well as inputs containing locally inferred variables. */
+    void recordInput(ConstraintSolver solver, Tree site, Type type) {
+      inputsBySite.computeIfAbsent(site, unused -> new ArrayList<>()).add(type);
+      solver.recordInferenceSiteInput(site, type);
+    }
+
+    /** Retains contextual inputs separately from the call templates completed on success. */
+    void recordCallContext(ConstraintSolver solver, Tree site, Type type) {
+      callContexts.computeIfAbsent(site, unused -> new ArrayList<>()).add(type);
+      recordInput(solver, site, type);
+    }
+
+    /** Retains the site identity needed to complete fresh symbols from the full solution. */
+    void recordVariables(Tree site, Map<Element, Type.TypeVar> variables) {
+      variables.forEach(
+          (declaration, fresh) ->
+              ownedVariables.put(fresh.asElement(), new InferenceVariable(declaration, site)));
+    }
+  }
+
+  /** Mutually exclusive type-publication categories for a completed inference attempt. */
+  private enum InferenceTypePublication {
+    NONE,
+    COMPLETE_SOLUTION,
+    CERTIFIED_PARTIAL_TARGETS,
+    CONTRADICTORY_ROOT,
+    FAILURE_SITE
+  }
+
+  /**
+   * Immutable publication policy for one completed attempt. Each site is selected independently;
+   * poly targets are completed and certified before any consumer can publish them.
+   */
+  private record InferencePublicationDecision(
+      InferenceTypePublication types,
+      Set<Tree> reusableCalls,
+      Set<MemberReferenceTree> methodReferences,
+      Set<Tree> diagnosticSites,
+      Map<Tree, Type> polyTargets) {
+    /** Freezes publication selections before any cache is modified. */
+    private InferencePublicationDecision {
+      reusableCalls = Collections.unmodifiableSet(new LinkedHashSet<>(reusableCalls));
+      methodReferences = Collections.unmodifiableSet(new LinkedHashSet<>(methodReferences));
+      diagnosticSites = Collections.unmodifiableSet(new LinkedHashSet<>(diagnosticSites));
+      polyTargets = Collections.unmodifiableMap(new LinkedHashMap<>(polyTargets));
+    }
+  }
+
+  /** Solvers whose owned symbols are external inputs to a newly nested inference problem. */
+  private final List<ConstraintSolver> activeInferenceSolvers = new ArrayList<>();
+
+  /** A scalar input observed while solving against a running analysis, including its fallback. */
+  private record DataflowInferenceInput(TreePath path, Type type, Nullness nullness) {}
+
+  /** A completed outcome valid only for the observed flow inputs and symbolic lambda context. */
+  private record DataflowInferenceOutcome(
+      InferenceSuccess result,
+      Map<Tree, DataflowInferenceInput> inputs,
+      Map<Symbol, Type> lambdaParameters,
+      Map<LambdaExpressionTree, Type> lambdaTargets) {}
+
+  /** Analysis-local reuse, separate from certification and persistent type publication. */
+  private static final class DataflowInferenceScope {
+    final Tree enclosingTree;
+    final Map<Tree, DataflowInferenceOutcome> outcomes = new LinkedHashMap<>();
+    final List<Map<Tree, DataflowInferenceInput>> activeInputs = new ArrayList<>();
+
+    /** Identifies the exact method, lambda, or initializer whose analysis owns these outcomes. */
+    DataflowInferenceScope(Tree enclosingTree) {
+      this.enclosingTree = enclosingTree;
+    }
+  }
+
+  /**
+   * Installed only around an analysis initiated by refinement, then discarded in a finally block.
+   */
+  private @Nullable DataflowInferenceScope dataflowInferenceScope;
 
   /** Indicates failed inference of nullability of type variables at a call */
   private record InferenceFailure(@SuppressWarnings("UnusedVariable") @Nullable String errorMessage)
@@ -143,16 +248,42 @@ public final class GenericsChecks {
    * not present as a key in this map, it means inference has not yet been attempted for that call.
    */
   private final Map<Tree, CallInferenceResult> inferredTypeVarNullabilityForGenericCalls =
-      new LinkedHashMap<>();
+      new VersionedMap<>();
 
-  /** Calls for which a generic inference failure diagnostic has already been reported. */
+  /** Final root contexts retained only when their inference inputs are independently reusable. */
+  private final Map<Tree, CallAndContext> completedCallContexts = new VersionedMap<>();
+
+  /**
+   * Completed enclosing or independent inference results indexed by generic method references. Each
+   * published reference has independent inputs and fully completed owned substitutions, even if
+   * other sites in the same inference problem depend on external unresolved inputs.
+   */
+  private final Map<MemberReferenceTree, InferenceSuccess>
+      inferredResultsForGenericMethodReferences = new VersionedMap<>();
+
+  /** References currently being solved independently, guarding declaration-type resolution. */
+  private final Set<MemberReferenceTree> methodReferenceInferenceInProgress = new LinkedHashSet<>();
+
+  /** Calls or references for which a generic inference failure has already been reported. */
   private final Set<Tree> callsWithReportedInferenceFailures = new LinkedHashSet<>();
+
+  /** Sites for which a nested declaration-upper-bound violation has already been reported. */
+  private final Set<Tree> reportedNestedUpperBoundViolations = new LinkedHashSet<>();
+
+  /**
+   * Completed uncertified outcomes, distinct from reusable inference and diagnostic deduplication.
+   */
+  private final Map<Tree, InferencePartial> diagnosticInferenceResults = new VersionedMap<>();
+
+  /** Reporting history has no role in determining which type positions remain checkable. */
+  private final Set<ConstraintSolver.InferenceVariable> reportedLowerConflicts =
+      new LinkedHashSet<>();
 
   /**
    * Maps poly expressions for which we have computed a context-derived type to that type, if
    * inference succeeded.
    */
-  private final Map<Tree, Type> inferredPolyExpressionTypes = new LinkedHashMap<>();
+  private final Map<Tree, Type> inferredPolyExpressionTypes = new VersionedMap<>();
 
   /**
    * Types of implicit lambda parameters to use while generating inference constraints. These types
@@ -162,11 +293,167 @@ public final class GenericsChecks {
    */
   private Map<Symbol, Type> lambdaParameterTypesForInference = Map.of();
 
+  /** Ground lambda targets scoped to constraint generation, including parameterless lambdas. */
+  private Map<LambdaExpressionTree, Type> lambdaTargetTypesForInference = Map.of();
+
+  /** Symbolic var-local types owned by the solver generating the current lambda's constraints. */
+  private record LambdaVarLocalInference(
+      ConstraintSolver solver,
+      InferenceCacheState cacheState,
+      Map<Symbol, Type> types,
+      Map<Symbol, TreePath> declarations,
+      boolean calledFromDataflow) {}
+
+  /** Never published: these local types may contain unsolved variables of the owning solver. */
+  private @Nullable LambdaVarLocalInference lambdaVarLocalInference = null;
+
+  /** Cached syntax recipes; receiver-dependent types are resolved anew in their typing context. */
+  private final Map<ExpressionTree, CallSite> callSites = new LinkedHashMap<>();
+
+  /** An annotated executable and its result template before site-scoped inference substitution. */
+  private record InferenceCall(CallSite site, Type.MethodType signature, Type resultTemplate) {
+
+    /** Applies signature models without changing the result of an allocation into void. */
+    InferenceCall withSignature(Type.MethodType modeledSignature) {
+      return new InferenceCall(
+          site,
+          modeledSignature,
+          site.returnsAllocation() ? resultTemplate : modeledSignature.getReturnType());
+    }
+  }
+
+  /** One stable syntax recipe for a regular invocation, constructor chain, or allocation. */
+  private final class CallSite {
+    final ExpressionTree tree;
+    final Symbol.MethodSymbol symbol;
+    final List<Symbol.TypeVariableSymbol> variables;
+    final Type attributedResult;
+    final boolean fixedResult;
+    final @Nullable Type allocatedType;
+    final List<? extends Tree> explicitArguments;
+
+    /**
+     * Resolves the declaration once and selects exactly the type arguments omitted at this site.
+     */
+    CallSite(ExpressionTree tree) {
+      this.tree = tree;
+      List<Symbol.TypeVariableSymbol> inferred = new ArrayList<>();
+      if (tree instanceof NewClassTree construction) {
+        symbol = resolveConstructorSymbol(construction);
+        allocatedType = getConstructedTypeAtCallSite(construction);
+        attributedResult = allocatedType;
+        boolean diamond = TreeInfo.isDiamond((JCTree) construction);
+        fixedResult = !diamond;
+        explicitArguments = construction.getTypeArguments();
+        if (diamond) {
+          inferred.addAll(allocatedType.tsym.getTypeParameters());
+        }
+        if (explicitArguments.isEmpty()) {
+          inferred.addAll(symbol.getTypeParameters());
+        }
+      } else {
+        Verify.verify(tree instanceof MethodInvocationTree);
+        symbol = (Symbol.MethodSymbol) castToNonNull(ASTHelpers.getSymbol(tree));
+        allocatedType = null;
+        attributedResult = castToNonNull(ASTHelpers.getType(tree));
+        fixedResult = false;
+        explicitArguments = ((MethodInvocationTree) tree).getTypeArguments();
+        if (explicitArguments.isEmpty() && symbol.type instanceof Type.ForAll) {
+          inferred.addAll(symbol.getTypeParameters());
+        }
+      }
+      variables = List.copyOf(inferred);
+    }
+
+    /** Distinguishes an allocated result from an executable's declared return type. */
+    boolean returnsAllocation() {
+      return allocatedType != null;
+    }
+
+    /** Resolves annotated receiver types and witnesses without publishing provisional types. */
+    InferenceCall resolve(@Nullable TreePath path, VisitorState state, boolean calledFromDataflow) {
+      Type executable = symbol.type;
+      Type resultTemplate;
+      if (allocatedType != null) {
+        NewClassTree construction = (NewClassTree) tree;
+        Type template =
+            fixedResult
+                ? typeWithPreservedAnnotations(construction.getIdentifier())
+                : allocatedType.tsym.type;
+        resultTemplate =
+            withEnclosingTypeFromQualifier(template, construction, state, calledFromDataflow);
+        executable =
+            TypeSubstitutionUtils.memberType(state.getTypes(), resultTemplate, symbol, config);
+      } else {
+        Type receiver =
+            getEnclosingTypeForCallExpression(symbol, tree, path, state, calledFromDataflow);
+        if (receiver != null) {
+          executable = TypeSubstitutionUtils.memberType(state.getTypes(), receiver, symbol, config);
+        }
+        resultTemplate = executable.getReturnType();
+      }
+      if (!explicitArguments.isEmpty() && executable instanceof Type.ForAll quantified) {
+        executable =
+            TypeSubstitutionUtils.subst(
+                state.getTypes(),
+                quantified.asMethodType(),
+                quantified.tvars,
+                convertTreesToTypes(explicitArguments),
+                config);
+        if (!returnsAllocation()) {
+          resultTemplate = executable.getReturnType();
+        }
+      }
+      return new InferenceCall(this, executable.asMethodType(), resultTemplate);
+    }
+
+    /** Collects javac's independent executable and allocated-type shape evidence for this site. */
+    Map<Element, Type> javacInstantiations(Type.MethodType declaration, VisitorState state) {
+      Map<Element, Type> result = new LinkedHashMap<>();
+      Type attributedSignature;
+      if (allocatedType != null) {
+        result.putAll(
+            InferenceTypeShapes.inferInstantiations(
+                allocatedType.tsym.type, allocatedType, variables, state, config));
+        attributedSignature = ((JCTree.JCNewClass) tree).constructorType;
+      } else {
+        attributedSignature = ASTHelpers.getType(((MethodInvocationTree) tree).getMethodSelect());
+      }
+      if (attributedSignature != null) {
+        InferenceTypeShapes.inferInstantiations(
+                declaration, attributedSignature.asMethodType(), variables, state, config)
+            .forEach(result::putIfAbsent);
+      }
+      return result;
+    }
+
+    /** Returns the instantiated javac signature, preserving the existing fallback source. */
+    Type.MethodType attributedSignature() {
+      return (allocatedType != null
+              ? ((JCTree.JCNewClass) tree).constructorType
+              : castToNonNull(ASTHelpers.getType(((MethodInvocationTree) tree).getMethodSelect())))
+          .asMethodType();
+    }
+  }
+
+  /** Returns a shared syntax recipe, never a cached context-dependent signature. */
+  private CallSite callSite(ExpressionTree tree) {
+    return callSites.computeIfAbsent(tree, CallSite::new);
+  }
+
+  /**
+   * Context-resolved snapshots of all participating calls during constraint generation, including
+   * calls in lambda bodies. Publication completes owned symbols and checks external dependencies
+   * per target rather than excluding calls just because provisional lambda maps are active. Nested
+   * inference problems save and restore this map; {@code null} outside generation.
+   */
+  private @Nullable Map<Tree, InferenceCall> callTypesForPolyArguments = null;
+
   /** Maps each {@code var}-declared local to its inferred NullAway type */
-  private final Map<Symbol, Type> inferredVarLocalTypes = new LinkedHashMap<>();
+  private final Map<Symbol, Type> inferredVarLocalTypes = new VersionedMap<>();
 
   /** Maps each {@code var}-declared local to its declaration tree */
-  private final Map<Symbol, VariableTree> varLocalDeclarations = new LinkedHashMap<>();
+  private final Map<Symbol, VariableTree> varLocalDeclarations = new VersionedMap<>();
 
   /**
    * PolyNull results inferred separately from generic call inference, cached by invocation
@@ -174,14 +461,6 @@ public final class GenericsChecks {
    */
   private final IdentityHashMap<MethodInvocationTree, Nullness> separatelyInferredPolyNullness =
       new IdentityHashMap<>();
-
-  /**
-   * Tracks generic method invocations currently undergoing nested-nullability repair so re-entrant
-   * requests for the same invocation can use the already inferred call-site method type rather than
-   * recursing back through the same repair logic. See {@link
-   * #substituteTypeArgsInGenericMethodType(Tree, Type.ForAll, TreePath, VisitorState, boolean)}
-   */
-  private final Set<MethodInvocationTree> nestedNullabilityRepairInProgress = new LinkedHashSet<>();
 
   /**
    * Returns the stored NullAway-inferred type of a lambda or method reference when available,
@@ -345,7 +624,8 @@ public final class GenericsChecks {
       ErrorMessage errorMessage =
           new ErrorMessage(
               ErrorMessage.MessageTypes.UNRECOGNIZED_NULLNESS_ANNOTATION_LOCATION,
-              "illegal location for annotation: nullness annotations cannot be written directly on a wildcard; annotate the wildcard bound instead");
+              "illegal location for annotation: nullness annotations cannot be written directly on"
+                  + " a wildcard; annotate the wildcard bound instead");
       state.reportMatch(
           errorBuilder.createErrorDescription(
               errorMessage, analysis.buildDescription(annotation), state, null));
@@ -401,11 +681,12 @@ public final class GenericsChecks {
         }
       }
     }
-    Symbol.MethodSymbol methodSymbol =
-        castToNonNull((Symbol.MethodSymbol) ASTHelpers.getSymbol(tree));
+    Symbol.MethodSymbol methodSymbol = callSite((ExpressionTree) tree).symbol;
 
-    // check if type variables are allowed to be Nullable
-    Type baseType = methodSymbol.asType();
+    // Check the restored declaration, not bounds stripped by anonymous-class attribution.
+    Type baseType =
+        TypeSubstitutionUtils.restoreMemberDeclarationBounds(
+            state.getTypes(), methodSymbol, config);
     List<Type> baseTypeVariables = baseType.getTypeArguments();
     for (int i = 0; i < baseTypeVariables.size(); i++) {
       if (nullableTypeArguments.containsKey(i)) {
@@ -432,7 +713,8 @@ public final class GenericsChecks {
         new ErrorMessage(
             ErrorMessage.MessageTypes.TYPE_PARAMETER_CANNOT_BE_NULLABLE,
             String.format(
-                "Type argument cannot be @Nullable, as method %s's type variable %s is not @Nullable",
+                "Type argument cannot be @Nullable, as method %s's type variable %s is not"
+                    + " @Nullable",
                 methodSymbol, typeVariable.tsym.toString()));
     state.reportMatch(
         errorBuilder.createErrorDescription(
@@ -446,7 +728,8 @@ public final class GenericsChecks {
         new ErrorMessage(
             ErrorMessage.MessageTypes.TYPE_PARAMETER_CANNOT_BE_NULLABLE,
             String.format(
-                "Generic type parameter cannot be @Nullable, as type variable %s of type %s does not have a @Nullable upper bound",
+                "Generic type parameter cannot be @Nullable, as type variable %s of type %s does"
+                    + " not have a @Nullable upper bound",
                 baseTypeVariable.tsym.toString(), baseType.tsym.toString()));
     state.reportMatch(
         errorBuilder.createErrorDescription(
@@ -790,7 +1073,8 @@ public final class GenericsChecks {
     if (tree instanceof LambdaExpressionTree
         || tree instanceof MemberReferenceTree
         || tree instanceof ConditionalExpressionTree) {
-      Type result = inferredPolyExpressionTypes.get(tree);
+      Type result =
+          lambdaTargetTypesForInference.isEmpty() ? inferredPolyExpressionTypes.get(tree) : null;
       if (result == null) {
         // For lambda and method ref poly expressions, their nullness-enhanced type should have
         // already been cached via an inference call from a parent tree.  In contrast, the
@@ -804,7 +1088,7 @@ public final class GenericsChecks {
       return typeOrNullIfRawNonArray(result);
     }
     if (tree instanceof NewClassTree newClassTree) {
-      if (isDiamondConstructorCall(newClassTree)) {
+      if (isCallNeedingInference(newClassTree)) {
         TreePath currentPath = state.getPath();
         CallAndContext directContext =
             getDirectCallContextForInference(currentPath, state, calledFromDataflow);
@@ -900,10 +1184,9 @@ public final class GenericsChecks {
             // the receiver type of `bar()`, which can in turn affect the receiver type of `baz()`.
             // The resolved return type is used below to restore annotations on javac's invocation
             // type.
-            Symbol.MethodSymbol symbol = castToNonNull(ASTHelpers.getSymbol(invocationTree));
             Type.MethodType methodType =
                 getInvokedMethodTypeAtCall(
-                    symbol, invocationTree, state.getPath(), state, calledFromDataflow);
+                    invocationTree, state.getPath(), state, calledFromDataflow);
             // restore explicit annotations from the return type
             Type returnType = methodType.getReturnType();
             // If the return type is a wildcard, restore annotations from its upper bound
@@ -969,11 +1252,6 @@ public final class GenericsChecks {
     return formalParamTypeRef.get();
   }
 
-  /** Returns true for constructor calls using the diamond operator. */
-  private static boolean isDiamondConstructorCall(NewClassTree newClassTree) {
-    return TreeInfo.isDiamond((JCTree) newClassTree);
-  }
-
   /**
    * Returns the instantiated type named by a constructor call, excluding any synthetic anonymous
    * class type introduced by javac.
@@ -986,6 +1264,39 @@ public final class GenericsChecks {
     return castToNonNull(
         ASTHelpers.getType(
             newClassTree.getClassBody() == null ? newClassTree : newClassTree.getIdentifier()));
+  }
+
+  /** Resolves a lambda descriptor as a member of its ground functional target. */
+  private Type.MethodType getLambdaDescriptorType(
+      LambdaExpressionTree lambda, Type targetType, VisitorState state) {
+    Type groundTarget = GenericsUtils.groundTargetType(targetType, state, config, handler);
+    return TypeSubstitutionUtils.memberType(
+            state.getTypes(),
+            groundTarget,
+            NullabilityUtil.getFunctionalInterfaceMethod(lambda, state.getTypes()),
+            config)
+        .asMethodType();
+  }
+
+  /**
+   * Returns the lambda body's target from its owning inference problem or completed functional
+   * target. Reentrant inference must not replace either with javac's annotation-erased target.
+   */
+  private @Nullable Type getLambdaReturnTargetType(
+      LambdaExpressionTree lambda, VisitorState state) {
+    Type targetType = lambdaTargetTypesForInference.get(lambda);
+    if (targetType == null) {
+      targetType = inferredPolyExpressionTypes.get(lambda);
+    }
+    if (targetType == null) {
+      targetType = ASTHelpers.getType(lambda);
+    }
+    if (targetType == null || targetType.isRaw()) {
+      return null;
+    }
+    Type returnType = getLambdaDescriptorType(lambda, targetType, state).getReturnType();
+    // A void-compatible expression lambda discards the value of its statement expression.
+    return returnType.hasTag(TypeTag.VOID) ? null : returnType;
   }
 
   /**
@@ -1003,33 +1314,20 @@ public final class GenericsChecks {
     if (provisionalType != null) {
       return provisionalType;
     }
-    if (symbol.owner != null && symbol.owner.getKind() == ElementKind.METHOD) {
-      Symbol.MethodSymbol containingMethodSymbol = (Symbol.MethodSymbol) symbol.owner;
-      if (!containingMethodSymbol.getParameters().contains(symbol)) {
-        // we have a lambda parameter
-        LambdaExpressionTree lambdaTree =
-            ASTHelpers.findEnclosingNode(state.getPath(), LambdaExpressionTree.class);
-        if (lambdaTree != null) {
-          Type inferredLambdaType = inferredPolyExpressionTypes.get(lambdaTree);
-          if (inferredLambdaType != null) {
-            // type of lambda was inferred
-            var params = lambdaTree.getParameters();
-            for (int i = 0; i < params.size(); i++) {
-              VariableTree param = params.get(i);
-              Symbol paramSymbol = ASTHelpers.getSymbol(param);
-              if (paramSymbol != null && paramSymbol.equals(symbol)) {
-                // get the type of the functional interface method as a member of the inferred type
-                // of the lambda
-                Types types = state.getTypes();
-                var fiMethodType =
-                    TypeSubstitutionUtils.memberType(
-                        types,
-                        inferredLambdaType,
-                        NullabilityUtil.getFunctionalInterfaceMethod(lambdaTree, types),
-                        config);
-                return fiMethodType.getParameterTypes().get(i);
-              }
+    // A parameter captured by a nested lambda belongs to an outer lambda, not necessarily the
+    // nearest one. Match its declaration before selecting the completed functional target.
+    for (TreePath path = state.getPath(); path != null; path = path.getParentPath()) {
+      if (path.getLeaf() instanceof LambdaExpressionTree lambdaTree) {
+        var params = lambdaTree.getParameters();
+        for (int i = 0; i < params.size(); i++) {
+          if (symbol.equals(ASTHelpers.getSymbol(params.get(i)))) {
+            Type inferredLambdaType = inferredPolyExpressionTypes.get(lambdaTree);
+            if (inferredLambdaType != null) {
+              return getLambdaDescriptorType(lambdaTree, inferredLambdaType, state)
+                  .getParameterTypes()
+                  .get(i);
             }
+            return null;
           }
         }
       }
@@ -1085,7 +1383,7 @@ public final class GenericsChecks {
             ? getInferredTypeForVarLocalDeclaration(
                 (VariableTree) tree, rhsTree, pathToRhs, state, false)
             : getTypeForRhsOfAssignment(rhsTree, pathToRhs, lhsType, assignedToLocal, state, false);
-    if (rhsType != null) {
+    if (rhsType != null && !hasUnavailableLowerResult(rhsTree)) {
       if (varLocalDeclaration) {
         lhsType = rhsType;
       }
@@ -1127,15 +1425,17 @@ public final class GenericsChecks {
    * Returns whether a computed type or generic-call inference result can be cached.
    *
    * <p>Results computed during dataflow may depend on incomplete analysis results. Results computed
-   * while provisional lambda parameter types are available may depend on unsolved outer inference
-   * variables. Skip caching in either context so subsequent checks can recompute the result after
-   * dataflow or the enclosing generic inference completes.
+   * while provisional lambda parameter or target types are available may depend on unsolved outer
+   * inference variables. Skip caching in either context so subsequent checks can recompute the
+   * result after dataflow or the enclosing generic inference completes.
    *
    * @param calledFromDataflow whether the result was computed as part of dataflow analysis
    * @return whether the inference result can be cached in the current context
    */
   private boolean okToCacheInferenceResult(boolean calledFromDataflow) {
-    return !calledFromDataflow && lambdaParameterTypesForInference.isEmpty();
+    return !calledFromDataflow
+        && lambdaParameterTypesForInference.isEmpty()
+        && lambdaTargetTypesForInference.isEmpty();
   }
 
   /**
@@ -1148,6 +1448,17 @@ public final class GenericsChecks {
    */
   private @Nullable Type getInferredVarLocalType(
       Symbol symbol, VisitorState state, boolean calledFromDataflow) {
+    if (lambdaVarLocalInference != null) {
+      Type symbolicType = lambdaVarLocalInference.types().get(symbol);
+      if (symbolicType != null) {
+        return typeOrNullIfRawNonArray(symbolicType);
+      }
+      TreePath declarationPath = lambdaVarLocalInference.declarations().get(symbol);
+      if (declarationPath != null) {
+        return getSymbolicLambdaVarLocalType(
+            symbol, declarationPath, state, lambdaVarLocalInference);
+      }
+    }
     Type cachedType = inferredVarLocalTypes.get(symbol);
     if (cachedType != null) {
       return cachedType;
@@ -1293,6 +1604,10 @@ public final class GenericsChecks {
     return rhsType;
   }
 
+  /**
+   * Types an assignment source against its context, keeping functional poly expressions on the
+   * owning target rather than comparing javac's annotation-erased standalone type.
+   */
   private @Nullable Type getTypeForRhsOfAssignment(
       ExpressionTree rhsTree,
       TreePath pathToRhs,
@@ -1300,6 +1615,11 @@ public final class GenericsChecks {
       boolean assignedToLocal,
       VisitorState state,
       boolean calledFromDataflow) {
+    NullabilityUtil.ExprTreeAndState rhsAndState =
+        NullabilityUtil.stripParensAndUpdateTreePath(rhsTree, state.withPath(pathToRhs));
+    rhsTree = rhsAndState.expr();
+    state = rhsAndState.state();
+    pathToRhs = state.getPath();
     if (isCallNeedingInference(rhsTree)) {
       return inferCallType(
           state.withPath(pathToRhs),
@@ -1315,6 +1635,14 @@ public final class GenericsChecks {
           pathToRhs,
           typeFromAssignmentContext,
           calledFromDataflow);
+    } else if (typeFromAssignmentContext != null
+        && (rhsTree instanceof LambdaExpressionTree || rhsTree instanceof MemberReferenceTree)) {
+      // A poly arm has the conditional's target, not javac's annotation-erased functional type.
+      // Keep provisional owning-lambda targets local to this check rather than publishing them.
+      if (okToCacheInferenceResult(calledFromDataflow)) {
+        maybeStorePolyExpressionTypeFromTarget(rhsTree, typeFromAssignmentContext, state);
+      }
+      return GenericsUtils.groundTargetType(typeFromAssignmentContext, state, config, handler);
     } else {
       return getTreeType(rhsTree, state.withPath(pathToRhs), calledFromDataflow);
     }
@@ -1332,8 +1660,17 @@ public final class GenericsChecks {
     return treeSymbol != null && treeSymbol.getKind().equals(kind);
   }
 
+  /** Initializes foreign-symbol ownership from every enclosing active inference problem. */
   private ConstraintSolver makeSolver(VisitorState state, NullAway analysis) {
-    return new ConstraintSolverImpl(config, state, analysis);
+    ConstraintSolver solver =
+        new PolyNullInference.Solver(
+            new ConstraintSolverImpl(config, state, analysis), state, config, handler);
+    Set<Element> externalSymbols = new LinkedHashSet<>();
+    for (ConstraintSolver enclosing : activeInferenceSolvers) {
+      externalSymbols.addAll(enclosing.inferenceVariableSymbols());
+    }
+    solver.registerExternalInferenceSymbols(externalSymbols);
+    return solver;
   }
 
   /**
@@ -1358,49 +1695,248 @@ public final class GenericsChecks {
       @Nullable Type typeFromAssignmentContext,
       boolean assignedToLocal,
       boolean calledFromDataflow) {
+    return withDataflowInferenceInputs(
+        calledFromDataflow,
+        () ->
+            inferCallTypeWithInputs(
+                state,
+                callTree,
+                path,
+                typeFromAssignmentContext,
+                assignedToLocal,
+                calledFromDataflow));
+  }
+
+  /** Resolves and solves a call while its receiver observations belong to the same request. */
+  private Type inferCallTypeWithInputs(
+      VisitorState state,
+      ExpressionTree callTree,
+      @Nullable TreePath path,
+      @Nullable Type typeFromAssignmentContext,
+      boolean assignedToLocal,
+      boolean calledFromDataflow) {
     Verify.verify(isCallNeedingInference(callTree));
-    // Computing the executable type of a method invocation computes the type of its receiver,
-    // which may itself require inference, so compute it only once
-    Type.MethodType executableType =
-        getExecutableTypeForInference(callTree, path, state, calledFromDataflow);
-    Map<Element, ConstraintSolver.InferredNullability> typeVarNullability = null;
-    CallInferenceResult result = inferredTypeVarNullabilityForGenericCalls.get(callTree);
+    CallInferenceResult result = getDataflowInferenceOutcome(callTree, state, calledFromDataflow);
+    if (result == null) {
+      result = inferredTypeVarNullabilityForGenericCalls.get(callTree);
+    }
+    InferenceCall inferenceCall =
+        result instanceof InferenceSuccess complete ? complete.calls().get(callTree) : null;
+    // Computing the executable type also computes the receiver, which may require inference.
+    // A published success already retains the exact completed call, including fixed inputs.
+    if (inferenceCall == null) {
+      inferenceCall = getCallForInference(callTree, path, state, calledFromDataflow);
+    }
+    Map<Element, Type> typeVarNullability = null;
     if (result == null) { // have not yet attempted inference for this call
       result =
           runInferenceForCall(
               state,
               path,
-              callTree,
-              executableType,
+              inferenceCall,
               typeFromAssignmentContext,
               assignedToLocal,
               calledFromDataflow);
     }
-    if (result instanceof InferenceSuccess successResult) {
-      typeVarNullability = successResult.typeVarNullabilityForSite(callTree);
+    if (result instanceof InferenceWithTypes successResult) {
+      typeVarNullability = successResult.inferredTypesForSite(callTree);
     }
-    Type typeAtCallSite = castToNonNull(ASTHelpers.getType(callTree));
-    if (callTree instanceof MethodInvocationTree invocationTree) {
-      Type inferredCallType =
-          TypeSubstitutionUtils.updateTypeWithInferredNullability(
-              typeAtCallSite, executableType.getReturnType(), typeVarNullability, state, config);
-      if (result instanceof InferenceSuccess successResult) {
-        Nullness polyNullness = successResult.polyNullnessByInvocation.get(invocationTree);
-        if (polyNullness != null) {
-          inferredCallType =
-              PolyNullInference.applyToReturnType(
-                  inferredCallType,
-                  handler.onGetPolyNullLocations(ASTHelpers.getSymbol(invocationTree), state),
-                  polyNullAnnotationType(polyNullness, state));
-        }
+    if (result instanceof InferenceSuccess complete) {
+      InferenceCall completedCall = complete.calls().get(callTree);
+      if (completedCall != null) {
+        return completedCall.resultTemplate;
       }
-      return inferredCallType;
+      return TypeSubstitutionUtils.substituteTypeVariables(
+          inferenceCall.resultTemplate,
+          complete.inferredTypesForSite(callTree),
+          state.getTypes(),
+          config);
     }
-    Verify.verify(callTree instanceof NewClassTree);
-    Type constructedTypeAtCallSite = getConstructedTypeAtCallSite((NewClassTree) callTree);
-    Type constructedTypeWithTypeVars = constructedTypeAtCallSite.tsym.type;
-    return TypeSubstitutionUtils.updateTypeWithInferredNullability(
-        constructedTypeAtCallSite, constructedTypeWithTypeVars, typeVarNullability, state, config);
+    Type inferredType =
+        inferenceCall.site.fixedResult
+            ? inferenceCall.resultTemplate
+            : TypeSubstitutionUtils.updateTypeWithInferredNullability(
+                inferenceCall.site.attributedResult,
+                inferenceCall.resultTemplate,
+                typeVarNullability,
+                state,
+                config);
+    if (callTree instanceof MethodInvocationTree invocation
+        && result instanceof InferenceWithTypes withTypes) {
+      Nullness polyNullness = withTypes.polyNullnessByInvocation().get(invocation);
+      if (polyNullness != null) {
+        inferredType =
+            PolyNullInference.applyToReturnType(
+                inferredType,
+                handler.onGetPolyNullLocations(inferenceCall.site.symbol, state),
+                polyNullAnnotationType(polyNullness, state));
+      }
+    }
+    return inferredType;
+  }
+
+  /**
+   * Counts changes to the published inference state that a solve can read. A memoized root result
+   * is reused only while this version is unchanged.
+   */
+  private long inferenceStateVersion = 0;
+
+  /** A {@link LinkedHashMap} that advances {@link #inferenceStateVersion} on every change. */
+  private final class VersionedMap<K, V> extends LinkedHashMap<K, V> {
+    private static final long serialVersionUID = 1L;
+
+    private void changed() {
+      inferenceStateVersion++;
+    }
+
+    @Override
+    public @Nullable V put(K key, V value) {
+      changed();
+      return super.put(key, value);
+    }
+
+    @Override
+    public void putAll(Map<? extends K, ? extends V> m) {
+      if (!m.isEmpty()) {
+        changed();
+      }
+      super.putAll(m);
+    }
+
+    @Override
+    public @Nullable V putIfAbsent(K key, V value) {
+      changed();
+      return super.putIfAbsent(key, value);
+    }
+
+    @Override
+    public @Nullable V remove(@Nullable Object key) {
+      changed();
+      return super.remove(key);
+    }
+
+    @Override
+    public boolean remove(@Nullable Object key, @Nullable Object value) {
+      changed();
+      return super.remove(key, value);
+    }
+
+    @Override
+    public void clear() {
+      changed();
+      super.clear();
+    }
+
+    @Override
+    public V computeIfAbsent(K key, java.util.function.Function<? super K, ? extends V> fn) {
+      changed();
+      return super.computeIfAbsent(key, fn);
+    }
+
+    @Override
+    public @Nullable V computeIfPresent(
+        K key, java.util.function.BiFunction<? super K, ? super V, ? extends @Nullable V> fn) {
+      changed();
+      return super.computeIfPresent(key, fn);
+    }
+
+    @Override
+    public @Nullable V compute(
+        K key,
+        java.util.function.BiFunction<? super K, ? super @Nullable V, ? extends @Nullable V> fn) {
+      changed();
+      return super.compute(key, fn);
+    }
+
+    @Override
+    public @Nullable V merge(
+        K key,
+        V value,
+        java.util.function.BiFunction<? super V, ? super V, ? extends @Nullable V> fn) {
+      changed();
+      return super.merge(key, value, fn);
+    }
+
+    @Override
+    public @Nullable V replace(K key, V value) {
+      changed();
+      return super.replace(key, value);
+    }
+
+    @Override
+    public boolean replace(K key, V oldValue, V newValue) {
+      changed();
+      return super.replace(key, oldValue, newValue);
+    }
+
+    @Override
+    public void replaceAll(java.util.function.BiFunction<? super K, ? super V, ? extends V> fn) {
+      changed();
+      super.replaceAll(fn);
+    }
+  }
+
+  /**
+   * A complete, independent root solve with the inputs it was computed from. See {@link
+   * #rootSolveMemo}.
+   */
+  private record RootSolveMemo(
+      boolean hasPath,
+      boolean assignedToLocal,
+      @Nullable Type typeFromAssignmentContext,
+      Type.MethodType signature,
+      Type resultTemplate,
+      long version,
+      InferenceSuccess result) {
+
+    /**
+     * Checks whether a solve with these inputs would see the same inputs as this entry. Types are
+     * compared by identity first and otherwise by their annotated rendering, since javac often
+     * rebuilds equal types.
+     */
+    boolean matches(
+        @Nullable TreePath path,
+        InferenceCall inferenceCall,
+        @Nullable Type context,
+        boolean assigned) {
+      return hasPath == (path != null)
+          && assignedToLocal == assigned
+          && sameRendering(typeFromAssignmentContext, context)
+          && sameRendering(signature, inferenceCall.signature)
+          && sameRendering(resultTemplate, inferenceCall.resultTemplate);
+    }
+
+    /** Compares annotated renderings because javac can rebuild equivalent memoization inputs. */
+    @SuppressWarnings({"ReferenceEquality", "TypeEquals", "TypeToString"})
+    private static boolean sameRendering(@Nullable Type first, @Nullable Type second) {
+      if (first == second) {
+        return true;
+      }
+      return first != null && second != null && first.toString().equals(second.toString());
+    }
+  }
+
+  /**
+   * Root solves keyed by call tree. Ordinary checking can ask for the same call several times (once
+   * per argument, then for the call-level comparison, then for return nullness). Only complete,
+   * externally independent successes are retained; partial and failed solves must be recomputed. An
+   * entry is reused only for identical inputs and only while {@link #inferenceStateVersion} is
+   * unchanged, so a reuse returns what a new solve would compute.
+   */
+  private final IdentityHashMap<Tree, RootSolveMemo> rootSolveMemo = new IdentityHashMap<>();
+
+  /**
+   * A root solve can be memoized only when none of its inputs are provisional: it is not part of a
+   * dataflow analysis or an enclosing solve, and no lambda or method-reference context is active.
+   */
+  private boolean canMemoizeRootSolve(boolean calledFromDataflow) {
+    return okToCacheInferenceResult(calledFromDataflow)
+        && activeInferenceSolvers.isEmpty()
+        && dataflowInferenceScope == null
+        && lambdaVarLocalInference == null
+        && callTypesForPolyArguments == null
+        && methodReferenceInferenceInProgress.isEmpty()
+        && !DataflowRunState.isAnyAnalysisRunning();
   }
 
   /**
@@ -1410,106 +1946,824 @@ public final class GenericsChecks {
    * @param state the visitor state
    * @param path the tree path to the call tree if available and possibly distinct from {@code
    *     state.getPath()}
-   * @param callTree the method invocation tree or constructor call tree representing the call
-   * @param executableType the executable type of {@code callTree}, as computed by {@link
-   *     #getExecutableTypeForInference}
+   * @param inferenceCall the annotated call description in this inference context
    * @param typeFromAssignmentContext the type being "assigned to" in the assignment context, or
    *     {@code null} if the type is unavailable or the method result is not assigned anywhere
    * @param assignedToLocal true if the call result is assigned to a local variable, false otherwise
    * @param calledFromDataflow true if this inference is being done as part of dataflow analysis
-   * @return the inference result, either success with inferred type variable nullability or failure
+   * @return the inference result, either success with inferred nullness-annotated types or failure
    *     with an error message
    */
   private CallInferenceResult runInferenceForCall(
       VisitorState state,
       @Nullable TreePath path,
-      ExpressionTree callTree,
-      Type.MethodType executableType,
+      InferenceCall inferenceCall,
       @Nullable Type typeFromAssignmentContext,
       boolean assignedToLocal,
       boolean calledFromDataflow) {
-    ConstraintSolver solver = makeSolver(state, analysis);
-    // allCalls tracks the top-level call and any nested calls that also require inference
-    Set<Tree> allCalls = new LinkedHashSet<>();
-    allCalls.add(callTree);
-    IdentityHashMap<MethodInvocationTree, PolyNullInferenceContext> polyNullContexts =
-        new IdentityHashMap<>();
-    try {
-      generateConstraintsForCall(
-          state,
-          path,
-          typeFromAssignmentContext,
-          assignedToLocal,
-          solver,
-          callTree,
-          executableType,
-          allCalls,
-          polyNullContexts,
-          calledFromDataflow);
-      Map<ConstraintSolver.InferenceVariable, ConstraintSolver.InferredNullability> solution =
-          new LinkedHashMap<>(solver.solve());
-      // The solver only computes a solution for variables that appear in constraints. For
-      // unconstrained variables of the top-level call, treat them as NONNULL, consistent with
-      // solver behavior for unconstrained variables that do appear in the constraint graph.
-      for (Symbol.TypeVariableSymbol typeVar : getCallTypeParameters(callTree)) {
-        solution.putIfAbsent(
-            new ConstraintSolver.InferenceVariable(typeVar, callTree),
-            ConstraintSolver.InferredNullability.NONNULL);
+    ExpressionTree callTree = inferenceCall.site.tree;
+    boolean memoize = canMemoizeRootSolve(calledFromDataflow);
+    if (memoize) {
+      RootSolveMemo memo = rootSolveMemo.get(callTree);
+      if (memo != null
+          && memo.version() == inferenceStateVersion
+          && memo.matches(path, inferenceCall, typeFromAssignmentContext, assignedToLocal)) {
+        return memo.result();
       }
+    }
+    CallInferenceResult solved =
+        solveAndPublish(
+            state,
+            path,
+            inferenceCall,
+            typeFromAssignmentContext,
+            assignedToLocal,
+            calledFromDataflow);
+    if (memoize
+        && solved instanceof InferenceSuccess success
+        && success.solution().inputDependencies().variables().isEmpty()
+        && success.solution().inputDependencies().sites().isEmpty()) {
+      rootSolveMemo.put(
+          callTree,
+          new RootSolveMemo(
+              path != null,
+              assignedToLocal,
+              typeFromAssignmentContext,
+              inferenceCall.signature,
+              inferenceCall.resultTemplate,
+              inferenceStateVersion,
+              success));
+    }
+    return solved;
+  }
 
-      InferenceSuccess successResult =
-          new InferenceSuccess(
-              solution, PolyNullInference.resolveNullnessByInvocation(polyNullContexts, solution));
-      Map<Element, ConstraintSolver.InferredNullability> typeVarNullability =
-          successResult.typeVarNullabilityForSite(callTree);
-      if (okToCacheInferenceResult(calledFromDataflow)) {
-        for (Tree inferredCall : allCalls) {
+  /** Runs one solve for {@code inferenceCall} and publishes what the result allows. */
+  private CallInferenceResult solveAndPublish(
+      VisitorState state,
+      @Nullable TreePath path,
+      InferenceCall inferenceCall,
+      @Nullable Type typeFromAssignmentContext,
+      boolean assignedToLocal,
+      boolean calledFromDataflow) {
+    ExpressionTree callTree = inferenceCall.site.tree;
+    ConstraintSolver solver = makeSolver(state, analysis);
+    InferenceCacheState inferenceCacheState = new InferenceCacheState();
+    DataflowInferenceScope flowScope = calledFromDataflow ? dataflowInferenceScope : null;
+    // Resolution precedes solver creation and may itself infer a generic receiver.
+    Map<Tree, DataflowInferenceInput> flowInputs =
+        flowScope == null || flowScope.activeInputs.isEmpty()
+            ? new LinkedHashMap<>()
+            : new LinkedHashMap<>(flowScope.activeInputs.get(flowScope.activeInputs.size() - 1));
+    if (flowScope != null) {
+      flowScope.activeInputs.add(flowInputs);
+    }
+    // calls whose lambda and method reference arguments get published types on success
+    Map<Tree, InferenceCall> callTypesForPolyArgs = new LinkedHashMap<>();
+    activeInferenceSolvers.add(solver);
+    try {
+      Map<Tree, InferenceCall> enclosingCallTypesForPolyArgs = callTypesForPolyArguments;
+      callTypesForPolyArguments = callTypesForPolyArgs;
+      try {
+        generateConstraintsForCall(
+            state,
+            path,
+            typeFromAssignmentContext,
+            assignedToLocal,
+            solver,
+            inferenceCall,
+            inferenceCacheState,
+            callTree,
+            calledFromDataflow);
+      } finally {
+        callTypesForPolyArguments = enclosingCallTypesForPolyArgs;
+      }
+      Solution solution = solver.solve();
+
+      InferenceWithTypes result = completedInferenceOutcome(solution, inferenceCacheState, state);
+      if (flowScope != null && result instanceof InferenceSuccess success) {
+        DataflowInferenceOutcome outcome =
+            new DataflowInferenceOutcome(
+                success,
+                Map.copyOf(flowInputs),
+                Map.copyOf(lambdaParameterTypesForInference),
+                Map.copyOf(lambdaTargetTypesForInference));
+        success.calls().keySet().forEach(site -> flowScope.outcomes.put(site, outcome));
+      }
+      InferencePublicationDecision publication =
+          inferencePublicationDecision(
+              result,
+              inferenceCacheState,
+              solver,
+              calledFromDataflow,
+              path,
+              inferenceCall,
+              callTree,
+              state);
+      if (publication.types() == InferenceTypePublication.COMPLETE_SOLUTION
+          && result instanceof InferenceSuccess successResult) {
+        if (typeFromAssignmentContext != null && publication.reusableCalls().contains(callTree)) {
+          completedCallContexts.put(
+              callTree, new CallAndContext(callTree, typeFromAssignmentContext, assignedToLocal));
+        }
+        publication
+            .methodReferences()
+            .forEach(
+                methodReference ->
+                    inferredResultsForGenericMethodReferences.put(methodReference, successResult));
+        for (Tree inferredCall : publication.reusableCalls()) {
           inferredTypeVarNullabilityForGenericCalls.put(inferredCall, successResult);
         }
-        // Store inferred types for lambda or method reference arguments
-        Type.MethodType callMethodType;
-        PolyNullInferenceContext polyNullContext =
-            callTree instanceof MethodInvocationTree invocationTree
-                ? polyNullContexts.get(invocationTree)
-                : null;
-        if (polyNullContext != null) {
-          callMethodType = polyNullContext.inferenceMethodType();
-        } else {
-          callMethodType = executableType;
-        }
-        new InvocationArguments(callTree, callMethodType)
-            .forEach(
-                (argumentWithParentheses, argPos, formalParamType, unused) -> {
-                  ExpressionTree argument = ASTHelpers.stripParentheses(argumentWithParentheses);
-                  if (argument instanceof LambdaExpressionTree
-                      || argument instanceof MemberReferenceTree) {
-                    Type polyExprTreeType = ASTHelpers.getType(argument);
-                    if (polyExprTreeType != null) {
-                      Type formalParamGroundTargetType =
-                          GenericsUtils.groundTargetType(formalParamType, state, config, handler);
-                      Type typeWithInferredNullability =
-                          TypeSubstitutionUtils.updateTypeWithInferredNullability(
-                              polyExprTreeType,
-                              formalParamGroundTargetType,
-                              typeVarNullability,
-                              state,
-                              config);
-                      inferredPolyExpressionTypes.put(argument, typeWithInferredNullability);
-                    }
-                  }
-                });
+      } else if (publication.types() == InferenceTypePublication.CONTRADICTORY_ROOT) {
+        // Preserve the final root's target-derived evidence for ordinary parameter diagnostics.
+        // This is not a successful result and must not certify nested calls or poly expressions.
+        inferredTypeVarNullabilityForGenericCalls.put(callTree, result);
       }
-      return successResult;
-    } catch (UnsatisfiableConstraintsException e) {
-      String inferenceFailureMessage = inferenceFailureMessage(e, polyNullContexts);
-      reportInferenceFailure(callTree, inferenceFailureMessage, state);
-      InferenceFailure failureResult = new InferenceFailure(inferenceFailureMessage);
-      if (okToCacheInferenceResult(calledFromDataflow)) {
-        for (Tree inferredCall : allCalls) {
-          inferredTypeVarNullabilityForGenericCalls.put(inferredCall, failureResult);
-        }
+      inferredPolyExpressionTypes.putAll(publication.polyTargets());
+      publishDiagnosticInferenceOutcomes(publication.diagnosticSites(), result, state);
+      return result;
+    } catch (NestedUpperBoundViolationException e) {
+      String message =
+          errorMessageForIncompatibleTypesAtPseudoAssignment(
+              e.getUpperBound(), e.getLowerBound(), state);
+      ErrorMessage errorMessage =
+          new ErrorMessage(ErrorMessage.MessageTypes.PASS_NULLABLE_GENERIC, message);
+      if (reportedNestedUpperBoundViolations.add(e.getSite())) {
+        VisitorState reportingState = stateForInferenceDiagnostic(e.getSite(), state);
+        state.reportMatch(
+            analysis
+                .getErrorBuilder()
+                .createErrorDescription(
+                    errorMessage, analysis.buildDescription(e.getSite()), reportingState, null));
+      }
+      InferenceFailure failureResult = new InferenceFailure(message);
+      InferencePublicationDecision publication =
+          inferencePublicationDecision(
+              failureResult,
+              inferenceCacheState,
+              solver,
+              calledFromDataflow,
+              path,
+              inferenceCall,
+              e.getSite(),
+              state);
+      invalidateMethodReferenceResults(publication.methodReferences());
+      if (publication.types() == InferenceTypePublication.FAILURE_SITE) {
+        // Solving stopped at this site. Other participating calls still need independent checking.
+        inferredTypeVarNullabilityForGenericCalls.put(e.getSite(), failureResult);
+        diagnosticInferenceResults.remove(e.getSite());
       }
       return failureResult;
+    } catch (UnsatisfiableConstraintsException e) {
+      String inferenceFailureMessage =
+          inferenceFailureMessage(e, inferenceCacheState.polyNullContexts);
+      Tree inferenceSite = e.getInferenceSite() != null ? e.getInferenceSite() : callTree;
+      if (config.warnOnGenericInferenceFailure()
+          && callsWithReportedInferenceFailures.add(inferenceSite)) {
+        ErrorBuilder errorBuilder = analysis.getErrorBuilder();
+        ErrorMessage errorMessage =
+            new ErrorMessage(
+                ErrorMessage.MessageTypes.GENERIC_INFERENCE_FAILURE, inferenceFailureMessage);
+        VisitorState reportingState = stateForInferenceDiagnostic(inferenceSite, state);
+        state.reportMatch(
+            errorBuilder.createErrorDescription(
+                errorMessage, analysis.buildDescription(inferenceSite), reportingState, null));
+      }
+      InferenceFailure failureResult = new InferenceFailure(inferenceFailureMessage);
+      InferencePublicationDecision publication =
+          inferencePublicationDecision(
+              failureResult,
+              inferenceCacheState,
+              solver,
+              calledFromDataflow,
+              path,
+              inferenceCall,
+              callTree,
+              state);
+      invalidateMethodReferenceResults(publication.methodReferences());
+      if (publication.types() == InferenceTypePublication.FAILURE_SITE) {
+        // Contextual scalar contradictions complete only this root problem. Nested calls must
+        // still infer their own arguments and contexts independently.
+        inferredTypeVarNullabilityForGenericCalls.put(callTree, failureResult);
+        diagnosticInferenceResults.remove(callTree);
+      }
+      return failureResult;
+    } finally {
+      activeInferenceSolvers.remove(activeInferenceSolvers.size() - 1);
+      if (flowScope != null) {
+        flowScope.activeInputs.remove(flowScope.activeInputs.size() - 1);
+      }
+    }
+  }
+
+  /**
+   * Checks that contradictory root substitutions retain javac's complete Java instantiations.
+   * Contradictions can also be marked incomplete; that must not admit unshaped fallback sources.
+   */
+  private boolean hasShapedDiagnosticTypes(
+      ExpressionTree call,
+      Type.MethodType executableType,
+      InferenceWithTypes result,
+      VisitorState state) {
+    List<Symbol.TypeVariableSymbol> variables = getCallTypeParameters(call);
+    Map<Element, Type> shapes =
+        getJavacInstantiationsForCall(
+            call,
+            executableType,
+            variables,
+            getInstantiatedUpperBounds(executableType, variables),
+            state);
+    Map<Element, Type> diagnosticTypes = result.inferredTypesForSite(call);
+    for (Symbol.TypeVariableSymbol variable : variables) {
+      Type shape = shapes.get(variable);
+      Type diagnosticType = diagnosticTypes.get(variable);
+      if (shape == null
+          || diagnosticType == null
+          || !state.getTypes().isSameType(shape, diagnosticType)) {
+        return false;
+      }
+    }
+    return true;
+  }
+
+  /**
+   * Selects publication by ownership and site-local input dependencies, after lifecycle
+   * restoration. Fixed signature inputs can disqualify a whole call without disqualifying
+   * independent functional targets. Failure decisions use the solver's live dependencies even when
+   * no solution exists.
+   */
+  private InferencePublicationDecision inferencePublicationDecision(
+      CallInferenceResult result,
+      InferenceCacheState inputs,
+      ConstraintSolver solver,
+      boolean calledFromDataflow,
+      @Nullable TreePath path,
+      @Nullable InferenceCall inferenceCall,
+      Tree publicationSite,
+      VisitorState state) {
+    if (!okToCacheInferenceResult(calledFromDataflow)) {
+      return new InferencePublicationDecision(
+          InferenceTypePublication.NONE, Set.of(), Set.of(), Set.of(), Map.of());
+    }
+    InputDependencies dependencies =
+        result instanceof InferenceWithTypes withTypes
+            ? withTypes.solution().inputDependencies()
+            : solver.inputDependencies();
+    Set<MemberReferenceTree> references = new LinkedHashSet<>();
+    Set<Tree> independentSites = new LinkedHashSet<>();
+    Set<Element> dependentOwnedSymbols = new LinkedHashSet<>();
+    inputs.ownedVariables.forEach(
+        (symbol, variable) -> {
+          if (dependencies.variables().contains(variable)) {
+            dependentOwnedSymbols.add(symbol);
+          }
+        });
+    Map<Element, Type> completedVariables =
+        result instanceof InferenceWithTypes withTypes
+            ? completedVariableSubstitutions(inputs, withTypes.solution())
+            : Map.of();
+    for (Map.Entry<Tree, List<Type>> entry : inputs.inputsBySite.entrySet()) {
+      Tree site = entry.getKey();
+      List<Type> publicationInputs = entry.getValue();
+      if (result instanceof InferenceSuccess complete) {
+        InferenceCall completedCall = complete.calls().get(site);
+        if (completedCall != null) {
+          publicationInputs = new ArrayList<>();
+          publicationInputs.add(completedCall.signature);
+          publicationInputs.add(completedCall.resultTemplate);
+          publicationInputs.addAll(inputs.callContexts.getOrDefault(site, List.of()));
+        }
+      }
+      if (dependencies.isIndependentForSite(site)
+          && entry.getValue().stream()
+              .noneMatch(type -> usesAnyTypeVariable(type, dependentOwnedSymbols))
+          && (result instanceof InferenceFailure
+              || publicationInputs.stream()
+                  .map(type -> completeOwnedType(type, completedVariables, state))
+                  .noneMatch(
+                      type -> containsPendingInferenceVariables(type, new IdentityHashMap<>())))) {
+        independentSites.add(site);
+      }
+    }
+    for (MemberReferenceTree reference : inputs.methodReferences) {
+      if (independentSites.contains(reference)
+          && (!(result instanceof InferenceWithTypes withTypes)
+              || withTypes.inferredTypesForSite(reference).values().stream()
+                  .noneMatch(
+                      type -> containsPendingInferenceVariables(type, new IdentityHashMap<>())))) {
+        references.add(reference);
+      }
+    }
+    if (result instanceof InferenceFailure) {
+      boolean publishFailure = independentSites.contains(publicationSite);
+      return new InferencePublicationDecision(
+          publishFailure ? InferenceTypePublication.FAILURE_SITE : InferenceTypePublication.NONE,
+          publishFailure ? Set.of(publicationSite) : Set.of(),
+          references,
+          Set.of(),
+          Map.of());
+    }
+    InferenceWithTypes withTypes = (InferenceWithTypes) result;
+    Set<Tree> diagnosticSites = new LinkedHashSet<>();
+    Set<Tree> reusableCalls = new LinkedHashSet<>();
+    for (Tree call : inputs.calls.keySet()) {
+      if (independentSites.contains(call)
+          && withTypes.inferredTypesForSite(call).values().stream()
+              .noneMatch(
+                  type -> containsPendingInferenceVariables(type, new IdentityHashMap<>()))) {
+        diagnosticSites.add(call);
+        if (result instanceof InferenceSuccess) {
+          reusableCalls.add(call);
+        }
+      }
+    }
+    InferenceTypePublication types = InferenceTypePublication.NONE;
+    Map<Tree, Type> polyTargets = Map.of();
+    if (result instanceof InferenceSuccess) {
+      types = InferenceTypePublication.COMPLETE_SOLUTION;
+      polyTargets = certifiedPolyTargets(inputs, withTypes, solver, completedVariables, state);
+    } else if (withTypes.solution().inconsistentVariables().isEmpty()) {
+      types = InferenceTypePublication.CERTIFIED_PARTIAL_TARGETS;
+      polyTargets = certifiedPolyTargets(inputs, withTypes, solver, completedVariables, state);
+    } else if (diagnosticSites.contains(publicationSite)
+        && path != null
+        && inferenceCall != null
+        && withTypes
+            .solution()
+            .inconsistentVariables()
+            .containsAll(withTypes.solution().incompleteVariables())
+        && hasShapedDiagnosticTypes(
+            inferenceCall.site.tree, inferenceCall.signature, withTypes, state)) {
+      types = InferenceTypePublication.CONTRADICTORY_ROOT;
+      reusableCalls.add(publicationSite);
+    }
+    return new InferencePublicationDecision(
+        types, reusableCalls, references, diagnosticSites, polyTargets);
+  }
+
+  /** Checks symbol occurrences, including nested type positions and type-variable bounds. */
+  private boolean usesAnyTypeVariable(Type type, Set<Element> symbols) {
+    if (symbols.isEmpty()) {
+      return false;
+    }
+    TypeVarWithSymbolCollector occurrences = new TypeVarWithSymbolCollector(symbols);
+    type.accept(occurrences, null);
+    return !occurrences.getMatches().isEmpty();
+  }
+
+  /**
+   * Maps every owned fresh symbol to its site-specific solution, including enclosing local calls.
+   */
+  private Map<Element, Type> completedVariableSubstitutions(
+      InferenceCacheState inputs, Solution solution) {
+    Map<Element, Type> substitutions = new LinkedHashMap<>();
+    inputs.ownedVariables.forEach(
+        (symbol, variable) -> {
+          Type inferred = solution.inferredTypes().get(variable);
+          if (inferred != null) {
+            substitutions.put(symbol, inferred);
+          }
+        });
+    return substitutions;
+  }
+
+  /**
+   * Completes chains of owned fresh variables without replacing stable caller type parameters.
+   * Cyclic or opaque chains remain symbolic and are rejected by publication eligibility checks.
+   */
+  private Type completeOwnedType(Type type, Map<Element, Type> substitutions, VisitorState state) {
+    for (int i = 0; i < substitutions.size(); i++) {
+      TypeVarWithSymbolCollector remaining = new TypeVarWithSymbolCollector(substitutions.keySet());
+      type.accept(remaining, null);
+      if (remaining.getMatches().isEmpty()) {
+        break;
+      }
+      type =
+          TypeSubstitutionUtils.substituteTypeVariables(
+              type, substitutions, state.getTypes(), config);
+    }
+    return type;
+  }
+
+  /**
+   * Completes retained substitutions and exact signatures before creating a publishable snapshot.
+   */
+  private InferenceWithTypes completedInferenceOutcome(
+      Solution solution, InferenceCacheState inputs, VisitorState state) {
+    IdentityHashMap<MethodInvocationTree, Nullness> polyNullness =
+        PolyNullInference.resolveNullnessByInvocation(inputs.polyNullContexts, solution, config);
+    Map<Element, Type> substitutions = completedVariableSubstitutions(inputs, solution);
+    Map<Tree, Map<Element, Type>> bySite = new LinkedHashMap<>();
+    indexInferredTypesBySite(solution)
+        .forEach(
+            (site, inferred) -> {
+              Map<Element, Type> completed = new LinkedHashMap<>();
+              inferred.forEach(
+                  (variable, type) ->
+                      completed.put(variable, completeOwnedType(type, substitutions, state)));
+              bySite.put(site, Map.copyOf(completed));
+            });
+    if (!solution.isComplete()) {
+      // Availability checks need the original declared failed-variable positions, not fallback
+      // instantiations or substitutions that can obscure those positions.
+      return new InferencePartial(
+          solution, Map.copyOf(bySite), Map.copyOf(inputs.calls), Map.copyOf(polyNullness));
+    }
+    Map<Tree, InferenceCall> calls = new LinkedHashMap<>();
+    inputs.calls.forEach(
+        (site, call) -> {
+          Map<Element, Type> inferred = bySite.getOrDefault(site, Map.of());
+          InferenceCall completed =
+              new InferenceCall(
+                  call.site,
+                  (Type.MethodType)
+                      completeOwnedType(
+                          TypeSubstitutionUtils.substituteTypeVariables(
+                              call.signature, inferred, state.getTypes(), config),
+                          substitutions,
+                          state),
+                  completeOwnedType(
+                      TypeSubstitutionUtils.substituteTypeVariables(
+                          call.resultTemplate, inferred, state.getTypes(), config),
+                      substitutions,
+                      state));
+          if (site instanceof MethodInvocationTree invocation
+              && polyNullness.containsKey(invocation)) {
+            Type.MethodType signature =
+                PolyNullInference.applyToMethodType(
+                    completed.signature,
+                    handler.onGetPolyNullLocations(completed.site.symbol, state),
+                    polyNullAnnotationType(polyNullness.get(invocation), state));
+            completed = completed.withSignature(signature);
+          }
+          calls.put(site, completed);
+        });
+    return new InferenceSuccess(
+        solution, Map.copyOf(bySite), Map.copyOf(calls), Map.copyOf(polyNullness));
+  }
+
+  /**
+   * Replaces participating calls' diagnostic outcomes only after an eligible solve and its caching
+   * decisions finish. A retained cached result takes precedence over newly computed evidence, just
+   * as it does when supplying types. Reporting happens after the replacement, so reentrant checks
+   * cannot observe a mixture of the old and new availability snapshots.
+   */
+  @SuppressWarnings("ReferenceEquality") // availability must belong to this exact outcome
+  private void publishDiagnosticInferenceOutcomes(
+      Set<Tree> sites, InferenceWithTypes result, VisitorState state) {
+    Map<Tree, InferencePartial> outcomes = new LinkedHashMap<>();
+    for (Tree site : sites) {
+      CallInferenceResult cached = inferredTypeVarNullabilityForGenericCalls.get(site);
+      if (cached instanceof InferencePartial partial) {
+        outcomes.put(site, partial);
+      } else if (cached == null && result instanceof InferencePartial partial) {
+        outcomes.put(site, partial);
+      }
+    }
+    sites.forEach(diagnosticInferenceResults::remove);
+    diagnosticInferenceResults.putAll(outcomes);
+    for (InferencePartial partial : new LinkedHashSet<>(outcomes.values())) {
+      for (LowerBoundConflict conflict : partial.solution.lowerConflicts()) {
+        if (outcomes.get(conflict.variable().site()) == partial
+            && usesDirectConflictDiagnostic(conflict)) {
+          Optional<List<SourceOrigin>> firstSupport =
+              conflict
+                  .first()
+                  .availableSupport(
+                      origin ->
+                          isAvailableConflictSource(origin, conflict.variable().site(), outcomes));
+          Optional<List<SourceOrigin>> secondSupport =
+              conflict
+                  .second()
+                  .availableSupport(
+                      origin ->
+                          isAvailableConflictSource(origin, conflict.variable().site(), outcomes));
+          if (firstSupport.isPresent() && secondSupport.isPresent()) {
+            reportLowerBoundConflict(conflict, firstSupport.get(), secondSupport.get(), state);
+          }
+        }
+      }
+    }
+  }
+
+  /**
+   * Uses the same cached outcome that supplies checked types when one exists; otherwise uses the
+   * last eligible completed diagnostic outcome. Speculative inference never changes either source.
+   */
+  private @Nullable InferencePartial diagnosticInferenceOutcome(Tree site) {
+    CallInferenceResult cached = inferredTypeVarNullabilityForGenericCalls.get(site);
+    return cached instanceof InferencePartial partial
+        ? partial
+        : cached == null ? diagnosticInferenceResults.get(site) : null;
+  }
+
+  /** Keeps established ordinary same-nominal checking as presentation policy, not solver policy. */
+  private boolean usesDirectConflictDiagnostic(LowerBoundConflict conflict) {
+    if (!(conflict.variable().site() instanceof MethodInvocationTree)
+        && !(conflict.variable().site() instanceof NewClassTree)) {
+      return false;
+    }
+    Type first = conflict.first().type();
+    Type second = conflict.second().type();
+    while (first instanceof Type.ArrayType a && second instanceof Type.ArrayType b) {
+      first = a.elemtype;
+      second = b.elemtype;
+    }
+    return !(first instanceof Type.ClassType
+        && second instanceof Type.ClassType
+        && first.tsym.equals(second.tsym));
+  }
+
+  /**
+   * Tests one required premise using conflict facts and the original result template, independently
+   * of diagnostic history. Support alternatives, not flattened transitive context, determine which
+   * premises are required; a site's own conflict does not invalidate its originating evidence.
+   */
+  private boolean isAvailableConflictSource(
+      SourceOrigin origin, Tree receivingSite, Map<Tree, InferencePartial> outcomes) {
+    Tree sourceSite = origin.expression();
+    if (sourceSite.equals(receivingSite)) {
+      return true;
+    }
+    InferencePartial sourceOutcome = outcomes.get(sourceSite);
+    return sourceOutcome == null || !hasUnavailableLowerResult(sourceSite, sourceOutcome);
+  }
+
+  /** Selects a source only from the chosen proof, preferring the receiving call's argument. */
+  private @Nullable SourceOrigin sourceAtSite(List<SourceOrigin> support, Tree site) {
+    for (SourceOrigin origin : support) {
+      if (origin.ownerSite().equals(site)) {
+        return origin;
+      }
+    }
+    return support.isEmpty() ? null : support.get(0);
+  }
+
+  /**
+   * Reports the selected available proofs, retaining source-less fallback without consulting
+   * flattened context or recovering sources from the AST.
+   */
+  private void reportLowerBoundConflict(
+      LowerBoundConflict conflict,
+      List<SourceOrigin> firstSupport,
+      List<SourceOrigin> secondSupport,
+      VisitorState state) {
+    SourceOrigin first = sourceAtSite(firstSupport, conflict.variable().site());
+    SourceOrigin second = sourceAtSite(secondSupport, conflict.variable().site());
+    BoundEvidence firstEvidence = conflict.first();
+    BoundEvidence secondEvidence = conflict.second();
+    if (first != null
+        && second != null
+        && ASTHelpers.getStartPosition(first.expression())
+            > ASTHelpers.getStartPosition(second.expression())) {
+      SourceOrigin temporary = first;
+      first = second;
+      second = temporary;
+      firstEvidence = conflict.second();
+      secondEvidence = conflict.first();
+    }
+    String message =
+        String.format(
+            "incompatible types: arguments '%s' (%s) and '%s' (%s) have conflicting nullability"
+                + " for type variable %s",
+            second != null ? second.expression() : "lower source",
+            prettyTypeForError(
+                second != null ? second.originalType() : secondEvidence.type(), state),
+            first != null ? first.expression() : "lower source",
+            prettyTypeForError(first != null ? first.originalType() : firstEvidence.type(), state),
+            conflict.variable().typeVariable().getSimpleName());
+    if (reportedLowerConflicts.add(conflict.variable())) {
+      Tree site = second != null ? second.expression() : conflict.variable().site();
+      VisitorState reportingState = stateForInferenceDiagnostic(site, state);
+      ErrorMessage error =
+          new ErrorMessage(ErrorMessage.MessageTypes.PASS_NULLABLE_GENERIC, message);
+      state.reportMatch(
+          analysis
+              .getErrorBuilder()
+              .createErrorDescription(
+                  error, analysis.buildDescription(site), reportingState, null));
+    }
+  }
+
+  /** Reads unavailable variable positions from a completed outcome, independently of reporting. */
+  private boolean isOnlyFailedVariable(Type type, Element variable) {
+    return type instanceof Type.TypeVar
+        && type.asElement().equals(variable)
+        && type.getAnnotationMirrors().isEmpty();
+  }
+
+  /**
+   * Determines result availability from conflict facts and the exact signature used to infer it.
+   */
+  private boolean hasUnavailableLowerResult(ExpressionTree expression) {
+    Tree site = ASTHelpers.stripParentheses(expression);
+    InferencePartial outcome = diagnosticInferenceOutcome(site);
+    if (outcome == null) {
+      return false;
+    }
+    return hasUnavailableLowerResult(site, outcome);
+  }
+
+  /** Reads failed-result availability from the exact declared template and originating facts. */
+  private boolean hasUnavailableLowerResult(Tree site, InferencePartial outcome) {
+    InferenceCall call = outcome.diagnosticCalls.get(site);
+    return call != null
+        && outcome.solution.lowerConflicts().stream()
+            .anyMatch(
+                conflict ->
+                    conflict.variable().site().equals(site)
+                        && usesDirectConflictDiagnostic(conflict)
+                        && isOnlyFailedVariable(
+                            call.resultTemplate, conflict.variable().typeVariable()));
+  }
+
+  /**
+   * Keeps fixed annotations, array dimensions, and unrelated parameters independently checkable.
+   */
+  private boolean hasUnavailableLowerArgument(Tree site, ExpressionTree argument) {
+    InferencePartial outcome = diagnosticInferenceOutcome(site);
+    if (outcome == null) {
+      return false;
+    }
+    InferenceCall call = outcome.diagnosticCalls.get(site);
+    if (call == null) {
+      return false;
+    }
+    AtomicReference<Boolean> unavailable = new AtomicReference<>(false);
+    new InvocationArguments(site, call.signature)
+        .forEach(
+            (actual, position, formal, unused) -> {
+              if (ASTHelpers.stripParentheses(actual)
+                  .equals(ASTHelpers.stripParentheses(argument))) {
+                unavailable.set(
+                    outcome.solution.lowerConflicts().stream()
+                        .anyMatch(
+                            conflict ->
+                                conflict.variable().site().equals(site)
+                                    && usesDirectConflictDiagnostic(conflict)
+                                    && isOnlyFailedVariable(
+                                        formal, conflict.variable().typeVariable())));
+              }
+            });
+    return unavailable.get();
+  }
+
+  /** Recovers the diagnostic site's real ancestors, including local-variable suppressions. */
+  private VisitorState stateForInferenceDiagnostic(Tree site, VisitorState state) {
+    TreePath sitePath = TreePath.getPath(state.getPath().getCompilationUnit(), site);
+    return state.withPath(sitePath != null ? sitePath : pathWithLeaf(state.getPath(), site));
+  }
+
+  /** Invalidates completed reference results only when a publishable inference problem fails. */
+  private void invalidateMethodReferenceResults(Set<MemberReferenceTree> references) {
+    for (MemberReferenceTree reference : references) {
+      inferredResultsForGenericMethodReferences.remove(reference);
+      inferredPolyExpressionTypes.remove(reference);
+    }
+  }
+
+  /**
+   * Selects targets independently of fixed inputs elsewhere in their call's signature. Each target
+   * must use only certified, externally independent variables and contain no escaping fresh symbols
+   * after applying the full solution's owned substitutions.
+   */
+  private Map<Tree, Type> certifiedPolyTargets(
+      InferenceCacheState inputs,
+      InferenceWithTypes result,
+      ConstraintSolver solver,
+      Map<Element, Type> completedVariables,
+      VisitorState state) {
+    Map<Tree, Type> targets = new LinkedHashMap<>();
+    Set<InferenceVariable> unavailable =
+        new LinkedHashSet<>(result.solution().incompleteVariables());
+    unavailable.addAll(result.solution().inconsistentVariables());
+    unavailable.addAll(result.solution().inputDependencies().variables());
+    for (Map.Entry<Tree, InferenceCall> entry : inputs.calls.entrySet()) {
+      Tree call = entry.getKey();
+      Set<Element> unavailableSymbols = new LinkedHashSet<>();
+      unavailable.forEach(
+          variable -> {
+            if (variable.site().equals(call)) {
+              unavailableSymbols.add(variable.typeVariable());
+            }
+          });
+      inputs.ownedVariables.forEach(
+          (symbol, variable) -> {
+            if (unavailable.contains(variable)) {
+              unavailableSymbols.add(symbol);
+            }
+          });
+      Map<Element, Type> inferred = result.inferredTypesForSite(call);
+      Type.MethodType signature = entry.getValue().signature;
+      if (call instanceof MethodInvocationTree invocation
+          && inputs.polyNullContexts.containsKey(invocation)) {
+        Nullness polyNullness = result.polyNullnessByInvocation().get(invocation);
+        if (polyNullness == null) {
+          continue;
+        }
+        signature =
+            PolyNullInference.applyToMethodType(
+                signature,
+                handler.onGetPolyNullLocations(entry.getValue().site.symbol, state),
+                polyNullAnnotationType(polyNullness, state));
+      }
+      new InvocationArguments(call, signature)
+          .forEach(
+              (argumentWithParentheses, argPos, formalParamType, unused) -> {
+                ExpressionTree argument = ASTHelpers.stripParentheses(argumentWithParentheses);
+                if (!(argument instanceof LambdaExpressionTree
+                        || argument instanceof MemberReferenceTree)
+                    || solver.hasExternalInputDependency(formalParamType)) {
+                  return;
+                }
+                if (usesAnyTypeVariable(formalParamType, unavailableSymbols)) {
+                  return;
+                }
+                Type attributed = ASTHelpers.getType(argument);
+                if (attributed == null) {
+                  return;
+                }
+                // Complete the annotated formal before grounding it. Javac's attributed lambda
+                // type can erase nested annotations in fixed inputs; it is not the target template.
+                Type completedFormal =
+                    completeOwnedType(
+                        TypeSubstitutionUtils.substituteTypeVariables(
+                            formalParamType, inferred, state.getTypes(), config),
+                        completedVariables,
+                        state);
+                Type completedTarget =
+                    GenericsUtils.groundTargetType(completedFormal, state, config, handler);
+                if (!solver.hasExternalInputDependency(completedTarget)
+                    && !containsPendingInferenceVariables(
+                        completedTarget, new IdentityHashMap<>())) {
+                  targets.put(argument, completedTarget);
+                }
+              });
+    }
+    return targets;
+  }
+
+  /** Rejects solver-private fresh symbols in a target while retaining genuine fixed variables. */
+  private boolean containsPendingInferenceVariables(
+      @Nullable Type type, IdentityHashMap<Type, Boolean> visiting) {
+    if (type == null || visiting.put(type, Boolean.TRUE) != null) {
+      return false;
+    }
+    try {
+      if (type instanceof Type.CapturedType capture) {
+        return containsPendingInferenceVariables(capture.getUpperBound(), visiting)
+            || containsPendingInferenceVariables(capture.getLowerBound(), visiting)
+            || containsPendingInferenceVariables(capture.wildcard, visiting);
+      }
+      if (type instanceof Type.MethodType method) {
+        for (Type parameter : method.getParameterTypes()) {
+          if (containsPendingInferenceVariables(parameter, visiting)) {
+            return true;
+          }
+        }
+        for (Type thrown : method.getThrownTypes()) {
+          if (containsPendingInferenceVariables(thrown, visiting)) {
+            return true;
+          }
+        }
+        return containsPendingInferenceVariables(method.getReturnType(), visiting);
+      }
+      if (type instanceof Type.TypeVar variable) {
+        Symbol owner = variable.tsym.owner;
+        if (owner instanceof Symbol.MethodSymbol method
+            && !method.getTypeParameters().contains(variable.tsym)) {
+          return true;
+        }
+        if (owner instanceof Symbol.ClassSymbol clazz
+            && !clazz.getTypeParameters().contains(variable.tsym)) {
+          return true;
+        }
+        return containsPendingInferenceVariables(variable.getUpperBound(), visiting)
+            || containsPendingInferenceVariables(variable.getLowerBound(), visiting);
+      }
+      if (type instanceof Type.ArrayType array) {
+        return containsPendingInferenceVariables(array.elemtype, visiting);
+      }
+      if (type instanceof Type.WildcardType wildcard) {
+        return wildcard.type != null && containsPendingInferenceVariables(wildcard.type, visiting);
+      }
+      if (type instanceof Type.ClassType clazz) {
+        if (clazz instanceof Type.IntersectionClassType intersection) {
+          for (TypeMirror bound : intersection.getBounds()) {
+            if (containsPendingInferenceVariables((Type) bound, visiting)) {
+              return true;
+            }
+          }
+        }
+        for (Type argument : clazz.getTypeArguments()) {
+          if (containsPendingInferenceVariables(argument, visiting)) {
+            return true;
+          }
+        }
+        return containsPendingInferenceVariables(clazz.getEnclosingType(), visiting);
+      }
+      return false;
+    } finally {
+      visiting.remove(type);
     }
   }
 
@@ -1525,7 +2779,8 @@ public final class GenericsChecks {
     }
     if (e.isCausedByNonNullUpperBound()) {
       return String.format(
-          "inference failure: type variable %s is constrained to be @Nullable, but its upper bound requires it to be @NonNull",
+          "inference failure: type variable %s is constrained to be @Nullable, but its upper bound"
+              + " requires it to be @NonNull",
           typeVariable);
     }
     return String.format(
@@ -1535,22 +2790,92 @@ public final class GenericsChecks {
 
   /** Returns the type parameters whose nullability is inferred for {@code callTree}. */
   private List<Symbol.TypeVariableSymbol> getCallTypeParameters(ExpressionTree callTree) {
-    if (callTree instanceof MethodInvocationTree invocationTree) {
-      return ASTHelpers.getSymbol(invocationTree).getTypeParameters();
+    return callSite(callTree).variables;
+  }
+
+  /** Returns variables whose owning declaration is in a nullness-marked context. */
+  private Set<Element> variablesWithNullnessMarkedBounds(
+      List<? extends Element> typeVariables, VisitorState state) {
+    Set<Element> result = new LinkedHashSet<>();
+    for (Element typeVariable : typeVariables) {
+      Symbol owner = ((Symbol) typeVariable).owner;
+      if (!CodeAnnotationInfo.instance(state.context).isSymbolUnannotated(owner, config, handler)) {
+        result.add(typeVariable);
+      }
     }
-    Verify.verify(callTree instanceof NewClassTree);
-    NewClassTree newClassTree = (NewClassTree) callTree;
-    List<Symbol.TypeVariableSymbol> typeParameters =
-        new ArrayList<>(getConstructedTypeAtCallSite(newClassTree).tsym.getTypeParameters());
-    if (newClassTree.getTypeArguments().isEmpty()) {
-      typeParameters.addAll(getMethodSymbolForCall(newClassTree).getTypeParameters());
-    }
-    return typeParameters;
+    return result;
   }
 
   /**
-   * Returns the executable type used to generate inference constraints for {@code callTree}, after
-   * applying handler-provided models.
+   * Recovers Java type shapes from javac attribution independently of NullAway's annotated
+   * evidence. Diamond class variables also occur in the constructed type, even when absent from
+   * parameters. Bound-only fallback uses the current request's unfiltered instantiated bounds,
+   * including variables whose declarations are not nullness-marked.
+   */
+  private Map<Element, Type> getJavacInstantiationsForCall(
+      ExpressionTree call,
+      Type.MethodType declaration,
+      List<Symbol.TypeVariableSymbol> variables,
+      Map<Element, Type> instantiatedBounds,
+      VisitorState state) {
+    Map<Element, Type> result = callSite(call).javacInstantiations(declaration, state);
+    for (Symbol.TypeVariableSymbol variable : variables) {
+      if (result.containsKey(variable)) {
+        continue;
+      }
+      if (InferenceTypeShapes.containsVariable(declaration, variable, state, config)) {
+        continue;
+      }
+      Type bound =
+          instantiatedBounds.getOrDefault(variable, ((Type.TypeVar) variable.type).getUpperBound());
+      Type substitutedBound =
+          TypeSubstitutionUtils.substituteTypeVariables(bound, result, state.getTypes(), config);
+      TypeVarWithSymbolCollector references = new TypeVarWithSymbolCollector(Set.copyOf(variables));
+      substitutedBound.accept(references, null);
+      if (references.getMatches().isEmpty() && !(substitutedBound instanceof Type.TypeVar)) {
+        // A variable absent from the executable signature cannot affect observable call types.
+        // Its non-recursive bound is a valid representative instantiation; root defaults remain
+        // the solver's responsibility. Recursive or unresolved bounds remain explicitly incomplete.
+        result.put(variable, substitutedBound);
+      }
+    }
+    return result;
+  }
+
+  /**
+   * Finds receiver/class-substituted upper bounds for inferred variables occurring in an executable
+   * type in one traversal, retaining each symbol's first occurrence and the requested variable
+   * order. Variables absent from the executable type use their declaration bounds in the solver.
+   * All state belongs to this request, so changed receiver and peer bounds are observed anew.
+   */
+  private Map<Element, Type> getInstantiatedUpperBounds(
+      Type.MethodType executableType, List<Symbol.TypeVariableSymbol> typeVariables) {
+    Map<Element, Type> result = new LinkedHashMap<>();
+    if (typeVariables.isEmpty()) {
+      return result;
+    }
+    TypeVarWithSymbolCollector collector =
+        new TypeVarWithSymbolCollector(Set.copyOf(typeVariables));
+    executableType.accept(collector, null);
+    Map<Element, Type.TypeVar> firstOccurrences = new LinkedHashMap<>();
+    for (Type.TypeVar occurrence : collector.getMatches()) {
+      firstOccurrences.putIfAbsent(occurrence.asElement(), occurrence);
+    }
+    for (Symbol.TypeVariableSymbol typeVariable : typeVariables) {
+      Type.TypeVar instantiatedUse = firstOccurrences.get(typeVariable);
+      if (instantiatedUse != null) {
+        Type declaredUpperBound = ((Type.TypeVar) typeVariable.type).getUpperBound();
+        Type instantiatedUpperBound =
+            TypeSubstitutionUtils.restoreExplicitNullabilityAnnotations(
+                declaredUpperBound, instantiatedUse.getUpperBound(), config);
+        result.put(typeVariable, instantiatedUpperBound);
+      }
+    }
+    return result;
+  }
+
+  /**
+   * Resolves the shared call description for inference, then applies handler-provided models.
    *
    * <p>Type variables whose values are fixed by a method invocation's receiver are substituted. For
    * example, for a method returning class type variable {@code T} (for class {@code Foo<T>}) on a
@@ -1558,39 +2883,47 @@ public final class GenericsChecks {
    *
    * <p>Type variables being inferred for this call remain unsubstituted so constraints can be
    * generated for them. These are method type variables for a generic method invocation, and class
-   * and constructor type variables for a diamond constructor. Unlike {@link
+   * and constructor type variables for a diamond constructor. Without a diamond, only omitted
+   * constructor type variables are inferred, while class arguments remain fixed. Unlike {@link
    * #getInvokedMethodTypeAtCall}, this method does not resolve those variables using an
    * already-computed inference result.
    */
-  private Type.MethodType getExecutableTypeForInference(
+  private InferenceCall getCallForInference(
       ExpressionTree callTree,
       @Nullable TreePath path,
       VisitorState state,
       boolean calledFromDataflow) {
-    Symbol.MethodSymbol methodSymbol = getMethodSymbolForCall(callTree);
-    Type executableType = methodSymbol.type;
-    if (callTree instanceof MethodInvocationTree invocationTree) {
-      Type enclosingType =
-          getEnclosingTypeForCallExpression(
-              methodSymbol, invocationTree, path, state, calledFromDataflow);
-      if (enclosingType != null) {
-        executableType =
-            TypeSubstitutionUtils.memberType(state.getTypes(), enclosingType, methodSymbol, config);
-      }
-    }
-    return handler.onOverrideMethodType(
-        methodSymbol,
-        executableType.asMethodType(),
-        state,
-        callTree instanceof MethodInvocationTree invocationTree ? invocationTree : null);
+    InferenceCall call = callSite(callTree).resolve(path, state, calledFromDataflow);
+    return call.withSignature(
+        handler.onOverrideMethodType(
+            call.site.symbol,
+            call.signature,
+            state,
+            callTree instanceof MethodInvocationTree invocationTree ? invocationTree : null));
   }
 
-  /** Returns the method or constructor symbol for {@code callTree}. */
-  private Symbol.MethodSymbol getMethodSymbolForCall(ExpressionTree callTree) {
-    Verify.verify(
-        callTree instanceof MethodInvocationTree || callTree instanceof NewClassTree,
-        "Expected a MethodInvocationTree or a NewClassTree");
-    return (Symbol.MethodSymbol) castToNonNull(ASTHelpers.getSymbol(callTree));
+  /** Resolves an anonymous allocation's synthetic constructor to its forwarding declaration. */
+  private static Symbol.MethodSymbol resolveConstructorSymbol(NewClassTree construction) {
+    Symbol.MethodSymbol symbol =
+        (Symbol.MethodSymbol) castToNonNull(ASTHelpers.getSymbol(construction));
+    if (construction.getClassBody() != null) {
+      for (Tree member : construction.getClassBody().getMembers()) {
+        if (member instanceof MethodTree constructor
+            && symbol.equals(ASTHelpers.getSymbol(constructor))
+            && constructor.getBody() != null) {
+          for (Tree statement : constructor.getBody().getStatements()) {
+            if (statement instanceof ExpressionStatementTree expressionStatement
+                && expressionStatement.getExpression() instanceof MethodInvocationTree invocation) {
+              Symbol.MethodSymbol invoked = ASTHelpers.getSymbol(invocation);
+              if (invoked != null && invoked.isConstructor()) {
+                return invoked;
+              }
+            }
+          }
+        }
+      }
+    }
+    return symbol;
   }
 
   /**
@@ -1605,59 +2938,77 @@ public final class GenericsChecks {
    *     anywhere
    * @param assignedToLocal whether the call result is assigned to a local variable
    * @param solver the constraint solver
-   * @param callTree the call tree representing the generic method call or diamond constructor call
-   * @param methodType the executable type of {@code callTree}, as computed by {@link
-   *     #getExecutableTypeForInference}
-   * @param allCalls a set of all calls that require inference, including nested ones. This is an
-   *     output parameter that gets mutated while generating the constraints to add nested calls.
-   * @param polyNullContexts PolyNull inference contexts for calls in this inference session. This
-   *     is an output parameter mutated during constraint generation to add contexts for modeled
-   *     calls.
+   * @param inferenceCall the annotated signature and result template resolved for this context
+   * @param inferenceCacheState tracks whether results from this inference problem can be persisted
    * @param calledFromDataflow whether this method is being called from dataflow analysis
+   * @return the call's symbolic result type in this solver
    * @throws UnsatisfiableConstraintsException if the constraints are determined to be unsatisfiable
    */
-  private void generateConstraintsForCall(
+  private Type generateConstraintsForCall(
       VisitorState state,
       @Nullable TreePath path,
       @Nullable Type typeFromAssignmentContext,
       boolean assignedToLocal,
       ConstraintSolver solver,
-      ExpressionTree callTree,
-      Type.MethodType methodType,
-      Set<Tree> allCalls,
-      IdentityHashMap<MethodInvocationTree, PolyNullInferenceContext> polyNullContexts,
+      InferenceCall inferenceCall,
+      InferenceCacheState inferenceCacheState,
+      Tree resultOwner,
       boolean calledFromDataflow)
       throws UnsatisfiableConstraintsException {
+    ExpressionTree callTree = inferenceCall.site.tree;
+    Type.MethodType methodType = inferenceCall.signature;
+    inferenceCacheState.calls.put(callTree, inferenceCall);
+    inferenceCacheState.recordInput(solver, callTree, methodType);
+    inferenceCacheState.recordInput(solver, callTree, inferenceCall.resultTemplate);
+    if (typeFromAssignmentContext != null) {
+      inferenceCacheState.recordCallContext(solver, callTree, typeFromAssignmentContext);
+    }
     PolyNullInferenceContext polyNullContext = null;
-    ImmutableSet<PolyNullLocation> polyNullLocations = ImmutableSet.of();
-    if (callTree instanceof MethodInvocationTree invocationTree) {
-      Symbol.MethodSymbol methodSymbol = ASTHelpers.getSymbol(invocationTree);
-      polyNullLocations = handler.onGetPolyNullLocations(methodSymbol, state);
-      if (!polyNullLocations.isEmpty()) {
-        ImmutableSet<PolyNullLocation> locations = polyNullLocations;
+    if (callTree instanceof MethodInvocationTree invocation) {
+      ImmutableSet<PolyNullLocation> locations =
+          handler.onGetPolyNullLocations(inferenceCall.site.symbol, state);
+      if (!locations.isEmpty()) {
         polyNullContext =
-            polyNullContexts.computeIfAbsent(
-                invocationTree,
+            inferenceCacheState.polyNullContexts.computeIfAbsent(
+                invocation,
                 unused ->
                     PolyNullInference.createContext(
-                        methodSymbol,
-                        invocationTree,
+                        inferenceCall.site.symbol,
+                        invocation,
                         methodType,
                         locations,
                         getSyntheticNullableAnnotType(state),
                         state));
       }
     }
-    // Register all type variables whose nullability is inferred for this call (including the shared
-    // polynull variable), and use the call-specific inference variables returned by the solver in
-    // place of the declared type variables. This keeps the constraints for different calls to the
-    // same generic method separate; see https://github.com/uber/NullAway/issues/1291
-    List<Element> typeParameters = new ArrayList<>(getCallTypeParameters(callTree));
+    // Register all type variables whose nullability is inferred for this call, and use the
+    // call-specific inference variables returned by the solver in place of the declared type
+    // variables. This keeps the constraints for different calls to the same generic method
+    // separate; see https://github.com/uber/NullAway/issues/1291
+    List<Symbol.TypeVariableSymbol> callTypeParameters = getCallTypeParameters(callTree);
+    Set<Element> variablesWithNullnessMarkedBounds =
+        variablesWithNullnessMarkedBounds(callTypeParameters, state);
+    Map<Element, Type> instantiatedUpperBounds =
+        getInstantiatedUpperBounds(methodType, callTypeParameters);
+    Map<Element, Type> markedUpperBounds = new LinkedHashMap<>(instantiatedUpperBounds);
+    markedUpperBounds.keySet().retainAll(variablesWithNullnessMarkedBounds);
+    List<Element> typeParameters = new ArrayList<>(callTypeParameters);
     if (polyNullContext != null) {
       typeParameters.add(polyNullContext.inferenceVariable().asElement());
     }
     Map<Element, Type.TypeVar> inferenceVariables =
-        solver.registerInferenceVariables(callTree, typeParameters);
+        solver.registerInferenceVariables(
+            callTree,
+            typeParameters,
+            markedUpperBounds,
+            variablesWithNullnessMarkedBounds,
+            getJavacInstantiationsForCall(
+                callTree, methodType, callTypeParameters, instantiatedUpperBounds, state));
+    inferenceCacheState.recordVariables(callTree, inferenceVariables);
+    Map<Tree, InferenceCall> callTypesForPolyArgs = callTypesForPolyArguments;
+    if (callTypesForPolyArgs != null) {
+      callTypesForPolyArgs.put(callTree, inferenceCall);
+    }
     Type.MethodType methodTypeForSite =
         (Type.MethodType)
             TypeSubstitutionUtils.substituteTypeVariables(
@@ -1666,47 +3017,39 @@ public final class GenericsChecks {
       polyNullContext =
           PolyNullInference.substituteInferenceVariables(
               polyNullContext, inferenceVariables, state, config);
+      inferenceCacheState.recordInput(solver, callTree, polyNullContext.inferenceMethodType());
     }
-    // First, handle the call result flow. A TypeKind.VOID type can arise here due to
-    // void-compatible expression lambda; do not generate constraints for that case
+    // First handle result flow, excluding void-compatible expression-lambda targets.
+    Type callResultType =
+        TypeSubstitutionUtils.substituteTypeVariables(
+            inferenceCall.resultTemplate, inferenceVariables, state.getTypes(), config);
     if (typeFromAssignmentContext != null && typeFromAssignmentContext.getKind() != TypeKind.VOID) {
-      Type callResultType =
-          (callTree instanceof MethodInvocationTree)
-              ? methodTypeForSite.getReturnType()
-              : TypeSubstitutionUtils.substituteTypeVariables(
-                  getConstructedTypeAtCallSite((NewClassTree) callTree).tsym.type,
-                  inferenceVariables,
-                  state.getTypes(),
-                  config);
-      solver.addSubtypeConstraint(callResultType, typeFromAssignmentContext, assignedToLocal);
-      if (polyNullContext != null) {
-        PolyNullInference.addResultConstraints(
-            solver, polyNullContext, typeFromAssignmentContext, assignedToLocal);
+      solver.addSubtypeConstraint(
+          callResultType,
+          typeFromAssignmentContext,
+          assignedToLocal,
+          new SourceOrigin(callTree, resultOwner, inferenceCall.site.attributedResult));
+      if (polyNullContext != null && polyNullContext.hasReturnLocations()) {
+        solver.addSubtypeConstraint(
+            polyNullContext.inferenceMethodType().restype,
+            typeFromAssignmentContext,
+            assignedToLocal,
+            new SourceOrigin(callTree, resultOwner, inferenceCall.site.attributedResult));
       }
     }
-    // then, handle parameters
     generateArgumentConstraintsForCall(
-        state,
-        path,
-        solver,
-        callTree,
-        methodTypeForSite,
-        allCalls,
-        polyNullContexts,
-        calledFromDataflow);
-    if (callTree instanceof MethodInvocationTree invocationTree
-        && polyNullContext != null
-        && polyNullContext.hasInputLocations()) {
+        state, path, solver, callTree, methodTypeForSite, inferenceCacheState, calledFromDataflow);
+    if (polyNullContext != null && polyNullContext.hasInputLocations()) {
       generateArgumentConstraintsForCall(
           state,
           path,
           solver,
-          invocationTree,
+          callTree,
           polyNullContext.inferenceMethodType(),
-          allCalls,
-          polyNullContexts,
+          inferenceCacheState,
           calledFromDataflow);
     }
+    return callResultType;
   }
 
   /**
@@ -1715,22 +3058,18 @@ public final class GenericsChecks {
    *
    * @param state the visitor state
    * @param solver the constraint solver
-   * @param allCalls a set of all calls that require inference, including nested ones. This is an
-   *     output parameter that gets mutated while generating the constraints to add nested calls.
+   * @param inferenceCacheState tracks whether results from this inference problem can be persisted
    * @param rhsExpr the right-hand side expression of the pseudo-assignment
    * @param lhsType the left-hand side type of the pseudo-assignment
-   * @param polyNullContexts PolyNull inference contexts for calls in this inference session. This
-   *     is an output parameter mutated during constraint generation to add contexts for modeled
-   *     calls.
    * @param calledFromDataflow whether this method is being called from dataflow analysis
    */
   private void generateConstraintsForPseudoAssignment(
       VisitorState state,
       ConstraintSolver solver,
-      Set<Tree> allCalls,
+      InferenceCacheState inferenceCacheState,
       ExpressionTree rhsExpr,
       Type lhsType,
-      IdentityHashMap<MethodInvocationTree, PolyNullInferenceContext> polyNullContexts,
+      Tree ownerSite,
       boolean calledFromDataflow) {
     NullabilityUtil.ExprTreeAndState exprTreeAndState =
         NullabilityUtil.stripParensAndUpdateTreePath(rhsExpr, state);
@@ -1739,17 +3078,15 @@ public final class GenericsChecks {
     // if the parameter is itself a generic call requiring inference, generate constraints for
     // that call
     if (isCallNeedingInference(rhsExpr)) {
-      allCalls.add(rhsExpr);
       generateConstraintsForCall(
           state,
           state.getPath(),
           lhsType,
           false,
           solver,
-          rhsExpr,
-          getExecutableTypeForInference(rhsExpr, state.getPath(), state, calledFromDataflow),
-          allCalls,
-          polyNullContexts,
+          getCallForInference(rhsExpr, state.getPath(), state, calledFromDataflow),
+          inferenceCacheState,
+          ownerSite,
           calledFromDataflow);
     } else if (rhsExpr instanceof ConditionalExpressionTree conditionalExpressionTree) {
       // generate constraints for both the true and false sub-expressions of the conditional
@@ -1759,33 +3096,34 @@ public final class GenericsChecks {
       generateConstraintsForPseudoAssignment(
           state.withPath(pathToTrueExpression),
           solver,
-          allCalls,
+          inferenceCacheState,
           trueExpression,
           lhsType,
-          polyNullContexts,
+          ownerSite,
           calledFromDataflow);
       ExpressionTree falseExpression = conditionalExpressionTree.getFalseExpression();
       TreePath pathToFalseExpression = new TreePath(state.getPath(), falseExpression);
       generateConstraintsForPseudoAssignment(
           state.withPath(pathToFalseExpression),
           solver,
-          allCalls,
+          inferenceCacheState,
           falseExpression,
           lhsType,
-          polyNullContexts,
+          ownerSite,
           calledFromDataflow);
     } else if (rhsExpr instanceof LambdaExpressionTree lambda) {
       handleLambdaInGenericMethodInference(
           state,
           state.getPath(),
           solver,
-          allCalls,
+          inferenceCacheState,
           lhsType,
           lambda,
-          polyNullContexts,
+          ownerSite,
           calledFromDataflow);
     } else if (rhsExpr instanceof MemberReferenceTree memberReferenceTree) {
-      handleMethodRefInGenericMethodInference(state, solver, lhsType, memberReferenceTree);
+      handleMethodRefInGenericMethodInference(
+          state, solver, inferenceCacheState, lhsType, memberReferenceTree, ownerSite);
     } else { // all other cases
       Type argumentType = getTreeType(rhsExpr, state, calledFromDataflow);
       if (argumentType == null) {
@@ -1794,7 +3132,8 @@ public final class GenericsChecks {
         return;
       }
       argumentType = refineArgumentTypeWithDataflow(argumentType, rhsExpr, state, state.getPath());
-      solver.addSubtypeConstraint(argumentType, lhsType, false);
+      solver.addSubtypeConstraint(
+          argumentType, lhsType, false, new SourceOrigin(rhsExpr, ownerSite, argumentType));
     }
   }
 
@@ -1813,23 +3152,20 @@ public final class GenericsChecks {
    * @param path the tree path to the enclosing call if available and possibly distinct from {@code
    *     state.getPath()}
    * @param solver the constraint solver
-   * @param allCalls a set of all calls that require inference, including nested ones. This is an
-   *     output parameter that gets mutated while generating the constraints to add nested calls.
+   * @param inferenceCacheState tracks whether results from this inference problem can be persisted
    * @param lhsType the type to which the lambda is being assigned
    * @param lambda The lambda argument
-   * @param polyNullContexts PolyNull inference contexts for calls in this inference session. This
-   *     is an output parameter mutated during constraint generation to add contexts for modeled
-   *     calls.
    * @param calledFromDataflow whether this method is being called from dataflow analysis
    */
+  @SuppressWarnings("ReferenceEquality") // solver identity defines inference ownership
   private void handleLambdaInGenericMethodInference(
       VisitorState state,
       @Nullable TreePath path,
       ConstraintSolver solver,
-      Set<Tree> allCalls,
+      InferenceCacheState inferenceCacheState,
       Type lhsType,
       LambdaExpressionTree lambda,
-      IdentityHashMap<MethodInvocationTree, PolyNullInferenceContext> polyNullContexts,
+      Tree ownerSite,
       boolean calledFromDataflow) {
     Symbol.MethodSymbol fiMethod =
         NullabilityUtil.getFunctionalInterfaceMethod(lambda, state.getTypes());
@@ -1844,6 +3180,22 @@ public final class GenericsChecks {
     // save the previous lambdaParameterTypesForInference map so we can restore it after handling
     // the lambda body
     Map<Symbol, Type> previousParameterTypes = lambdaParameterTypesForInference;
+    Map<LambdaExpressionTree, Type> previousTargetTypes = lambdaTargetTypesForInference;
+    LambdaVarLocalInference previousVarLocals = lambdaVarLocalInference;
+    Map<Symbol, Type> localTypes =
+        previousVarLocals != null && previousVarLocals.solver() == solver
+            ? new LinkedHashMap<>(previousVarLocals.types())
+            : new LinkedHashMap<>();
+    Map<Symbol, TreePath> localDeclarations =
+        previousVarLocals != null && previousVarLocals.solver() == solver
+            ? new LinkedHashMap<>(previousVarLocals.declarations())
+            : new LinkedHashMap<>();
+    lambdaVarLocalInference =
+        new LambdaVarLocalInference(
+            solver, inferenceCacheState, localTypes, localDeclarations, calledFromDataflow);
+    Map<LambdaExpressionTree, Type> targetTypes = new LinkedHashMap<>(previousTargetTypes);
+    targetTypes.put(lambda, groundTargetType);
+    lambdaTargetTypesForInference = targetTypes;
     try {
       if (((JCTree.JCLambda) lambda).paramKind == JCTree.JCLambda.ParameterKind.IMPLICIT) {
         // If we have implicitly-typed lambda parameters, update the
@@ -1880,37 +3232,148 @@ public final class GenericsChecks {
       if (body instanceof ExpressionTree returnedExpression) {
         // Case 1: Expression body, e.g., () -> null
         TreePath returnedExpressionPath = new TreePath(lambdaPath, returnedExpression);
-        generateConstraintsForPseudoAssignment(
-            state.withPath(returnedExpressionPath),
-            solver,
-            allCalls,
-            returnedExpression,
-            fiReturnType,
-            polyNullContexts,
-            calledFromDataflow);
+        if (fiReturnType.hasTag(TypeTag.VOID)) {
+          // Infer statement-call arguments in their owning solver without a return constraint.
+          if (isCallNeedingInference(returnedExpression)) {
+            generateConstraintsForCall(
+                state.withPath(returnedExpressionPath),
+                returnedExpressionPath,
+                null,
+                false,
+                solver,
+                getCallForInference(
+                    returnedExpression, returnedExpressionPath, state, calledFromDataflow),
+                inferenceCacheState,
+                ownerSite,
+                calledFromDataflow);
+          }
+        } else {
+          generateConstraintsForPseudoAssignment(
+              state.withPath(returnedExpressionPath),
+              solver,
+              inferenceCacheState,
+              returnedExpression,
+              fiReturnType,
+              ownerSite,
+              calledFromDataflow);
+        }
       } else if (body instanceof BlockTree) {
         // Case 2: Block body, e.g., () -> { return null; }
         TreePath bodyPath = new TreePath(lambdaPath, body);
-        List<TreePath> returnPaths =
-            ReturnAndVarLocalFinder.findReturnPathsAndRegisterVarLocals(bodyPath, this);
-        for (TreePath returnPath : returnPaths) {
+        ReturnAndVarLocalFinder finder = new ReturnAndVarLocalFinder(this);
+        finder.scan(bodyPath, null);
+        for (TreePath declarationPath : finder.varLocalPaths) {
+          localDeclarations.put(
+              castToNonNull(ASTHelpers.getSymbol(declarationPath.getLeaf())), declarationPath);
+        }
+        for (TreePath returnPath : finder.getReturnPaths()) {
           ReturnTree returnTree = (ReturnTree) returnPath.getLeaf();
-          ExpressionTree returnExpr = castToNonNull(returnTree.getExpression());
+          ExpressionTree returnExpr = returnTree.getExpression();
+          if (returnExpr == null || fiReturnType.hasTag(TypeTag.VOID)) {
+            continue;
+          }
           TreePath returnExprPath = new TreePath(returnPath, returnExpr);
           generateConstraintsForPseudoAssignment(
               state.withPath(returnExprPath),
               solver,
-              allCalls,
+              inferenceCacheState,
               returnExpr,
               fiReturnType,
-              polyNullContexts,
+              ownerSite,
               calledFromDataflow);
         }
       }
     } finally {
       // Restore even if constraint generation fails or re-enters inference for a nested lambda.
       lambdaParameterTypesForInference = previousParameterTypes;
+      lambdaTargetTypesForInference = previousTargetTypes;
+      lambdaVarLocalInference = previousVarLocals;
     }
+  }
+
+  /**
+   * Resolves a block-lambda var initializer on demand in the solver owning the local read.
+   *
+   * <p>Generic initializers retain symbolic result types, keeping dependencies on provisional
+   * lambda parameters in the same constraint graph. Seed the declaration type for reentrant
+   * dataflow reads; the completed symbolic type remains lambda-scoped and is never published.
+   * Scalar nullness is refined at each use rather than taken from the initializer.
+   */
+  private @Nullable Type getSymbolicLambdaVarLocalType(
+      Symbol symbol,
+      TreePath declarationPath,
+      VisitorState state,
+      LambdaVarLocalInference context) {
+    context.types().put(symbol, symbol.type);
+    VariableTree declaration = (VariableTree) declarationPath.getLeaf();
+    ExpressionTree initializer = castToNonNull(declaration.getInitializer());
+    TreePath initializerPath = new TreePath(declarationPath, initializer);
+    NullabilityUtil.ExprTreeAndState initializerAndState =
+        NullabilityUtil.stripParensAndUpdateTreePath(initializer, state.withPath(initializerPath));
+    initializer = initializerAndState.expr();
+    VisitorState initializerState = initializerAndState.state();
+    Type initializerType =
+        isCallNeedingInference(initializer)
+            ? generateConstraintsForCall(
+                initializerState,
+                initializerState.getPath(),
+                null,
+                true,
+                context.solver(),
+                getCallForInference(
+                    initializer,
+                    initializerState.getPath(),
+                    initializerState,
+                    context.calledFromDataflow()),
+                context.cacheState(),
+                declarationPath.getLeaf(),
+                context.calledFromDataflow())
+            : getTreeType(initializer, initializerState, context.calledFromDataflow());
+
+    if (initializerType != null) {
+      context.types().put(symbol, initializerType);
+    } else {
+      context.types().remove(symbol);
+    }
+    return initializerType;
+  }
+
+  /** Recovers a generic reference's Java instantiations from its attributed functional target. */
+  private Map<Element, Type> getJavacInstantiationsForReference(
+      MemberReferenceTree reference, Symbol.MethodSymbol method, VisitorState state) {
+    Map<Element, Type> result = new LinkedHashMap<>();
+    Set<Element> conflicting = new LinkedHashSet<>();
+    Type attributedTarget = ASTHelpers.getType(reference);
+    if (attributedTarget == null || attributedTarget.isRaw()) {
+      return result;
+    }
+    Type groundTarget = GenericsUtils.groundTargetType(attributedTarget, state, config, handler);
+    GenericsUtils.processMethodRefTypeRelations(
+        this,
+        groundTarget,
+        reference,
+        state,
+        (subtype, supertype, relationKind) -> {
+          boolean returned = relationKind == MethodRefTypeRelationKind.RETURN;
+          Map<Element, Type> relationShapes =
+              InferenceTypeShapes.inferInstantiations(
+                  returned ? subtype : supertype,
+                  returned ? supertype : subtype,
+                  method.getTypeParameters(),
+                  state,
+                  config);
+          relationShapes.forEach(
+              (variable, shape) -> {
+                Type previous = result.get(variable);
+                if (previous != null && !state.getTypes().isSameType(previous, shape)) {
+                  conflicting.add(variable);
+                } else {
+                  result.put(variable, shape);
+                }
+              });
+        });
+    conflicting.forEach(result::remove);
+    return result;
   }
 
   /**
@@ -1919,29 +3382,59 @@ public final class GenericsChecks {
    *
    * @param state the visitor state
    * @param solver the constraint solver
+   * @param inferenceCacheState cache and method-reference sites for the enclosing inference problem
    * @param lhsType the type to which the method reference is being assigned
    * @param memberReferenceTree the method reference argument
+   * @param ownerSite the call receiving the reference, or the independently inferred reference
    */
   private void handleMethodRefInGenericMethodInference(
       VisitorState state,
       ConstraintSolver solver,
+      InferenceCacheState inferenceCacheState,
       Type lhsType,
-      MemberReferenceTree memberReferenceTree) {
+      MemberReferenceTree memberReferenceTree,
+      Tree ownerSite) {
+    inferenceCacheState.methodReferences.add(memberReferenceTree);
     // if we have a reference to a generic method, and the call site does not pass explicit type
     // arguments, register the referenced method's type variables as inference variables
     Symbol.MethodSymbol referencedMethod = ASTHelpers.getSymbol(memberReferenceTree);
     List<? extends ExpressionTree> explicitTypeArguments = memberReferenceTree.getTypeArguments();
+    Type groundTargetType = GenericsUtils.groundTargetType(lhsType, state, config, handler);
+    inferenceCacheState.recordInput(solver, memberReferenceTree, lhsType);
+    ResolvedMethodReference resolvedReference =
+        referencedMethod != null
+            ? resolveMemberReference(memberReferenceTree, referencedMethod, groundTargetType, state)
+            : null;
+    if (resolvedReference != null) {
+      inferenceCacheState.recordInput(solver, memberReferenceTree, resolvedReference.methodType());
+      if (resolvedReference.qualifierType() != null) {
+        inferenceCacheState.recordInput(
+            solver, memberReferenceTree, resolvedReference.qualifierType());
+      }
+    }
     Map<Element, Type.TypeVar> inferenceVariables;
     if (referencedMethod != null
         && !referencedMethod.getTypeParameters().isEmpty()
         && (explicitTypeArguments == null || explicitTypeArguments.isEmpty())) {
+      Set<Element> variablesWithNullnessMarkedBounds =
+          variablesWithNullnessMarkedBounds(referencedMethod.getTypeParameters(), state);
+      Map<Element, Type> instantiatedUpperBounds =
+          resolvedReference != null
+              ? getInstantiatedUpperBounds(
+                  resolvedReference.methodType(), referencedMethod.getTypeParameters())
+              : new LinkedHashMap<>();
+      instantiatedUpperBounds.keySet().retainAll(variablesWithNullnessMarkedBounds);
       inferenceVariables =
           solver.registerInferenceVariables(
-              memberReferenceTree, referencedMethod.getTypeParameters());
+              memberReferenceTree,
+              referencedMethod.getTypeParameters(),
+              instantiatedUpperBounds,
+              variablesWithNullnessMarkedBounds,
+              getJavacInstantiationsForReference(memberReferenceTree, referencedMethod, state));
     } else {
       inferenceVariables = Map.of();
     }
-    Type groundTargetType = GenericsUtils.groundTargetType(lhsType, state, config, handler);
+    inferenceCacheState.recordVariables(memberReferenceTree, inferenceVariables);
     GenericsUtils.processMethodRefTypeRelations(
         this,
         groundTargetType,
@@ -1953,8 +3446,9 @@ public final class GenericsChecks {
           // method can mention those type variables as inference variables; the other side comes
           // from the functional interface type, which may mention the same type variables as
           // fixed types (e.g., in a recursive reference to an enclosing generic method).
-          boolean referencedMethodTypeIsSubtype =
-              relationKind == GenericsUtils.MethodRefTypeRelationKind.RETURN;
+          boolean referencedMethodTypeIsSubtype = relationKind == MethodRefTypeRelationKind.RETURN;
+          inferenceCacheState.recordInput(solver, memberReferenceTree, subtype);
+          inferenceCacheState.recordInput(solver, memberReferenceTree, supertype);
           Type subtypeForReference =
               referencedMethodTypeIsSubtype
                   ? TypeSubstitutionUtils.substituteTypeVariables(
@@ -1965,7 +3459,14 @@ public final class GenericsChecks {
                   ? supertype
                   : TypeSubstitutionUtils.substituteTypeVariables(
                       supertype, inferenceVariables, state.getTypes(), config);
-          solver.addSubtypeConstraint(subtypeForReference, supertypeForReference, false);
+          solver.addSubtypeConstraint(
+              subtypeForReference,
+              supertypeForReference,
+              false,
+              new SourceOrigin(
+                  memberReferenceTree,
+                  ownerSite,
+                  referencedMethodTypeIsSubtype ? subtype : supertype));
         });
   }
 
@@ -2201,6 +3702,7 @@ public final class GenericsChecks {
   static class ReturnAndVarLocalFinder extends TreePathScanner<@Nullable Void, @Nullable Void> {
 
     private final List<TreePath> returnPaths = new ArrayList<>();
+    private final List<TreePath> varLocalPaths = new ArrayList<>();
     private final GenericsChecks genericsChecks;
 
     ReturnAndVarLocalFinder(GenericsChecks genericsChecks) {
@@ -2235,6 +3737,9 @@ public final class GenericsChecks {
     @Override
     public @Nullable Void visitVariable(VariableTree tree, @Nullable Void unused) {
       genericsChecks.registerVarLocalDeclaration(tree);
+      if (isVarLocalVariableDeclaration(tree) && tree.getInitializer() != null) {
+        varLocalPaths.add(getCurrentPath());
+      }
       return super.visitVariable(tree, null);
     }
 
@@ -2310,12 +3815,112 @@ public final class GenericsChecks {
       // argument
       refinedNullness = nullnessAnalysis.getNullnessFromRunning(exprPath, state.context);
     } else {
-      refinedNullness = nullnessAnalysis.getNullness(exprPath, state.context);
+      refinedNullness =
+          withDataflowInferenceScope(
+              enclosingPath.getLeaf(), () -> nullnessAnalysis.getNullness(exprPath, state.context));
+    }
+    if (dataflowInferenceScope != null) {
+      DataflowInferenceInput input =
+          new DataflowInferenceInput(
+              exprPath, exprType, dataflowInferenceInputNullness(exprType, refinedNullness));
+      for (Map<Tree, DataflowInferenceInput> inputs : dataflowInferenceScope.activeInputs) {
+        inputs.put(expr, input);
+      }
     }
     if (refinedNullness == null) {
       return exprType;
     }
+    if (exprType instanceof Type.TypeVar
+        && expr instanceof IdentifierTree
+        && lambdaVarLocalInference != null
+        && lambdaVarLocalInference.types().containsKey(ASTHelpers.getSymbol(expr))) {
+      // A local read's scalar nullness must not constrain its initializer's symbolic root variable.
+      // Keep structural ownership, but override root nullness with the dataflow value at this use.
+      return TypeSubstitutionUtils.typeWithAnnot(
+          exprType,
+          NullabilityUtil.nullnessToBool(refinedNullness)
+              ? getSyntheticNullableAnnotType(state)
+              : getSyntheticNonNullAnnotType(state));
+    }
     return updateTypeWithNullness(state, exprType, refinedNullness);
+  }
+
+  /**
+   * Retains completed inference only for the dynamic extent of one dataflow analysis. Nested
+   * analyses have their own scopes; neither their outcomes nor provisional caller symbols escape.
+   */
+  private <T extends @Nullable Object> T withDataflowInferenceScope(
+      Tree enclosingTree, java.util.function.Supplier<T> action) {
+    DataflowInferenceScope previous = dataflowInferenceScope;
+    dataflowInferenceScope = new DataflowInferenceScope(enclosingTree);
+    try {
+      return action.get();
+    } finally {
+      dataflowInferenceScope = previous;
+    }
+  }
+
+  /**
+   * Collects inputs before receiver and target resolution, composing nested observations with the
+   * existing parent collectors. The solve copies this request's observations into its snapshot.
+   */
+  private <T extends @Nullable Object> T withDataflowInferenceInputs(
+      boolean calledFromDataflow, java.util.function.Supplier<T> action) {
+    DataflowInferenceScope scope = calledFromDataflow ? dataflowInferenceScope : null;
+    if (scope == null) {
+      return action.get();
+    }
+    scope.activeInputs.add(new LinkedHashMap<>());
+    try {
+      return action.get();
+    } finally {
+      scope.activeInputs.remove(scope.activeInputs.size() - 1);
+    }
+  }
+
+  /** Normalizes an unavailable flow fact to the same declared-root fallback used by refinement. */
+  private Nullness dataflowInferenceInputNullness(Type type, @Nullable Nullness flowNullness) {
+    return flowNullness == null
+        ? getTypeNullness(type, config)
+        : (NullabilityUtil.nullnessToBool(flowNullness) ? Nullness.NULLABLE : Nullness.NONNULL);
+  }
+
+  /**
+   * Reuses a completed local solve only while all its scalar observations and lambda inputs still
+   * agree with the running analysis. In particular, a newly visited leaf or a changed loop store
+   * invalidates an outcome when it changes the nullness actually supplied to its constraints.
+   */
+  private @Nullable InferenceSuccess getDataflowInferenceOutcome(
+      Tree tree, VisitorState state, boolean calledFromDataflow) {
+    DataflowInferenceScope scope = dataflowInferenceScope;
+    if (!calledFromDataflow || scope == null) {
+      return null;
+    }
+    DataflowInferenceOutcome outcome = scope.outcomes.get(tree);
+    if (outcome == null
+        || !outcome.lambdaParameters().equals(lambdaParameterTypesForInference)
+        || !outcome.lambdaTargets().equals(lambdaTargetTypesForInference)) {
+      return null;
+    }
+    AccessPathNullnessAnalysis nullnessAnalysis = analysis.getNullnessAnalysis(state);
+    for (DataflowInferenceInput input : outcome.inputs().values()) {
+      TreePath enclosingPath =
+          NullabilityUtil.findEnclosingMethodOrLambdaOrInitializer(input.path());
+      if (enclosingPath == null
+          || !enclosingPath.getLeaf().equals(scope.enclosingTree)
+          || !nullnessAnalysis.isRunning(enclosingPath, state.context)) {
+        return null;
+      }
+      Nullness current = nullnessAnalysis.getNullnessFromRunning(input.path(), state.context);
+      if (dataflowInferenceInputNullness(input.type(), current) != input.nullness()) {
+        return null;
+      }
+    }
+    // A receiver solved by a nested request is also an input of every suspended enclosing solve.
+    for (Map<Tree, DataflowInferenceInput> inputs : scope.activeInputs) {
+      inputs.putAll(outcome.inputs());
+    }
+    return outcome.result();
   }
 
   /**
@@ -2346,7 +3951,11 @@ public final class GenericsChecks {
               lambdaPath, state, handler);
     } else {
       storeBeforeLambda =
-          nullnessAnalysis.getNullnessInfoBeforeNestedMethodNode(lambdaPath, state, handler);
+          withDataflowInferenceScope(
+              enclosingForLambda.getLeaf(),
+              () ->
+                  nullnessAnalysis.getNullnessInfoBeforeNestedMethodNode(
+                      lambdaPath, state, handler));
     }
     EnclosingEnvironmentNullness.instance(state.context)
         .addEnvironmentMapping(lambdaPath.getLeaf(), storeBeforeLambda);
@@ -2406,17 +4015,13 @@ public final class GenericsChecks {
    * Returns whether a call requires generic nullability inference.
    *
    * <p>This includes generic method invocations without explicit type arguments and constructor
-   * calls using the diamond operator, including anonymous-class constructor calls.
+   * calls using the diamond operator or omitting generic constructor type arguments, including
+   * anonymous-class constructor calls.
    */
-  private static boolean isCallNeedingInference(ExpressionTree argument) {
-    if (argument instanceof MethodInvocationTree methodInvocation) {
-      Symbol.MethodSymbol methodSymbol = ASTHelpers.getSymbol(methodInvocation);
-      // true for generic method calls with no explicit type arguments
-      return methodSymbol != null
-          && methodSymbol.type instanceof Type.ForAll
-          && methodInvocation.getTypeArguments().isEmpty();
-    }
-    return argument instanceof NewClassTree newClassTree && isDiamondConstructorCall(newClassTree);
+  private boolean isCallNeedingInference(ExpressionTree argument) {
+    return (argument instanceof MethodInvocationTree || argument instanceof NewClassTree)
+        && ASTHelpers.getSymbol(argument) != null
+        && !callSite(argument).variables.isEmpty();
   }
 
   /**
@@ -2435,34 +4040,26 @@ public final class GenericsChecks {
     }
 
     Type formalReturnType = methodSymbol.getReturnType();
+    TreePath pathToRetExpr = pathWithLeaf(state.getPath(), retExpr);
+    TreePath enclosingFunction =
+        NullabilityUtil.findEnclosingMethodOrLambdaOrInitializer(pathToRetExpr);
+    if (enclosingFunction != null
+        && enclosingFunction.getLeaf() instanceof LambdaExpressionTree lambda
+        && inferredPolyExpressionTypes.containsKey(lambda)) {
+      Type targetReturnType = getLambdaReturnTargetType(lambda, state);
+
+      if (targetReturnType != null) {
+        formalReturnType = targetReturnType;
+      }
+    }
     if (formalReturnType.isRaw()) {
       // bail out of any checking involving raw types for now
       return;
     }
-    TreePath pathToRetExpr = new TreePath(state.getPath(), retExpr);
-    Type returnExpressionType = getTreeType(retExpr, state.withPath(pathToRetExpr));
-    if (returnExpressionType != null) {
-      if (isCallNeedingInference(retExpr)) {
-        returnExpressionType =
-            inferCallType(
-                state.withPath(pathToRetExpr),
-                retExpr,
-                pathToRetExpr,
-                formalReturnType,
-                false,
-                false);
-      } else if (retExpr instanceof ConditionalExpressionTree conditionalExpressionTree) {
-        returnExpressionType =
-            inferConditionalExpressionType(
-                state.withPath(pathToRetExpr),
-                conditionalExpressionTree,
-                pathToRetExpr,
-                formalReturnType,
-                false);
-      }
-      if (returnExpressionType == null) {
-        return;
-      }
+    checkTargetTypedMethodReference(retExpr, formalReturnType, pathToRetExpr, state);
+    Type returnExpressionType =
+        getTypeForRhsOfAssignment(retExpr, pathToRetExpr, formalReturnType, false, state, false);
+    if (returnExpressionType != null && !hasUnavailableLowerResult(retExpr)) {
       boolean isReturnTypeValid =
           subtypeParameterNullability(formalReturnType, returnExpressionType, state);
       if (!isReturnTypeValid) {
@@ -2561,38 +4158,44 @@ public final class GenericsChecks {
   }
 
   /**
-   * For a {@code NewClassTree} with a qualifying enclosing-instance expression, e.g. {@code
-   * (someExpr).new Inner<T>() { ... }}, replaces {@code type}'s enclosing type (which, coming from
-   * {@code baseType.getEnclosingType()} in {@link PreservedAnnotationTreeVisitor}, is just {@code
-   * Inner}'s statically-declared enclosing type, unrelated to the actual enclosing instance the
-   * qualifier expression evaluates to) with the properly-annotated, substituted type of the
-   * qualifier expression itself. If there is no qualifying expression, or we cannot determine its
-   * type, {@code type} is returned unchanged.
-   *
-   * @param type the type computed for the {@code NewClassTree}'s identifier, to be given the
-   *     correct enclosing type
-   * @param newClassTree the {@code NewClassTree}, possibly qualified by an enclosing-instance
-   *     expression
-   * @param state the visitor state
-   * @param calledFromDataflow true if the type is being computed as part of dataflow analysis
-   * @return {@code type} with its enclosing type corrected, or {@code type} unchanged if there is
-   *     no qualifying expression or its type could not be determined
+   * Replaces an inner allocation's declaration enclosing type with the annotated instance view.
+   * Explicit qualifiers use their enhanced type. Without a qualifier, the nearest lexical class
+   * supplying an outer instance is viewed as the enclosing owner, preserving inherited arguments.
+   * Static allocations and unavailable views leave the original type unchanged.
    */
-  private @Nullable Type withEnclosingTypeFromQualifier(
+  private Type withEnclosingTypeFromQualifier(
       Type type, NewClassTree newClassTree, VisitorState state, boolean calledFromDataflow) {
+    if (!(type instanceof Type.ClassType classType)
+        || !(classType.getEnclosingType().tsym instanceof Symbol.ClassSymbol enclosingOwner)) {
+      return type;
+    }
     ExpressionTree enclosingExpr = newClassTree.getEnclosingExpression();
-    if (enclosingExpr == null) {
+    Type enclosingInstanceType = null;
+    if (enclosingExpr != null) {
+      TreePath qualifierPath = pathWithLeaf(state.getPath(), enclosingExpr);
+      enclosingInstanceType =
+          getTreeType(enclosingExpr, state.withPath(qualifierPath), calledFromDataflow);
+    } else {
+      for (TreePath path = state.getPath(); path != null; path = path.getParentPath()) {
+        if (path.getLeaf() instanceof ClassTree enclosingClass) {
+          Type lexicalType = ASTHelpers.getType(enclosingClass);
+          if (lexicalType == null) {
+            continue;
+          }
+          Type view =
+              TypeSubstitutionUtils.asSuper(state.getTypes(), lexicalType, enclosingOwner, config);
+          if (view != null) {
+            enclosingInstanceType = view;
+            break;
+          }
+        }
+      }
+    }
+    if (enclosingInstanceType == null) {
       return type;
     }
-    TreePath pathToEnclosingExpr = new TreePath(state.getPath(), enclosingExpr);
-    Type enclosingExprType =
-        getTreeType(enclosingExpr, state.withPath(pathToEnclosingExpr), calledFromDataflow);
-    if (enclosingExprType == null) {
-      return type;
-    }
-    Type.ClassType classType = (Type.ClassType) type;
     return TYPE_METADATA_BUILDER.createClassType(
-        classType, enclosingExprType, classType.getTypeArguments());
+        classType, enclosingInstanceType, classType.getTypeArguments());
   }
 
   /**
@@ -2658,6 +4261,9 @@ public final class GenericsChecks {
     // The condExpr type should be the least-upper bound of the true and false part types.  To check
     // the nullability annotations, we check that the true and false parts are assignable to the
     // type of the whole expression
+    checkTargetTypedMethodReference(tree.getTrueExpression(), condExprType, pathToTruePart, state);
+    checkTargetTypedMethodReference(
+        tree.getFalseExpression(), condExprType, pathToFalsePart, state);
     if (truePartType != null) {
       if (!subtypeParameterNullability(condExprType, truePartType, state)) {
         reportMismatchedTypeForTernaryOperator(truePartTree, condExprType, truePartType, state);
@@ -2667,6 +4273,31 @@ public final class GenericsChecks {
       if (!subtypeParameterNullability(condExprType, falsePartType, state)) {
         reportMismatchedTypeForTernaryOperator(falsePartTree, condExprType, falsePartType, state);
       }
+    }
+  }
+
+  /** Checks nested parameter and return contracts of a target-typed method reference. */
+  private void checkTargetTypedMethodReference(
+      ExpressionTree arm, Type target, TreePath path, VisitorState state) {
+    NullabilityUtil.ExprTreeAndState armAndState =
+        NullabilityUtil.stripParensAndUpdateTreePath(arm, state.withPath(path));
+    if (armAndState.expr() instanceof MemberReferenceTree reference) {
+      Type groundTarget = GenericsUtils.groundTargetType(target, state, config, handler);
+      GenericsUtils.processMethodRefTypeRelations(
+          this,
+          groundTarget,
+          reference,
+          armAndState.state(),
+          (subtype, supertype, relationKind) -> {
+            if (!subtypeParameterNullability(supertype, subtype, state)) {
+              if (relationKind == MethodRefTypeRelationKind.RETURN) {
+                reportInvalidMethodReferenceReturnTypeError(reference, supertype, subtype, state);
+              } else {
+                reportInvalidMethodReferenceParameterTypeError(
+                    reference, subtype, supertype, state);
+              }
+            }
+          });
     }
   }
 
@@ -2680,7 +4311,8 @@ public final class GenericsChecks {
    */
   private @Nullable Type getConditionalExpressionType(
       ConditionalExpressionTree tree, VisitorState state, boolean calledFromDataflow) {
-    Type cachedType = inferredPolyExpressionTypes.get(tree);
+    Type cachedType =
+        lambdaTargetTypesForInference.isEmpty() ? inferredPolyExpressionTypes.get(tree) : null;
     if (cachedType != null) {
       return cachedType;
     }
@@ -2711,7 +4343,8 @@ public final class GenericsChecks {
       TreePath path,
       @Nullable Type typeFromAssignmentContext,
       boolean calledFromDataflow) {
-    Type cachedType = inferredPolyExpressionTypes.get(tree);
+    Type cachedType =
+        lambdaTargetTypesForInference.isEmpty() ? inferredPolyExpressionTypes.get(tree) : null;
     if (cachedType != null) {
       return cachedType;
     }
@@ -2787,10 +4420,17 @@ public final class GenericsChecks {
     if (parent instanceof AssignmentTree || parent instanceof VariableTree) {
       return getTargetTypeForAssignmentContext(parent, parentState, calledFromDataflow);
     }
-    // 2b. `return [expr];` => target is containing method's formal return type
+    if (parent instanceof LambdaExpressionTree lambda) {
+      return new TargetTypeAndAssignmentKind(getLambdaReturnTargetType(lambda, state), false);
+    }
+    // 2b. `return [expr];` => target is containing method's or lambda's formal return type
     if (parent instanceof ReturnTree) {
       TreePath enclosingMethodOrLambda =
           NullabilityUtil.findEnclosingMethodOrLambdaOrInitializer(parentPath);
+      if (enclosingMethodOrLambda != null
+          && enclosingMethodOrLambda.getLeaf() instanceof LambdaExpressionTree lambda) {
+        return new TargetTypeAndAssignmentKind(getLambdaReturnTargetType(lambda, state), false);
+      }
       if (enclosingMethodOrLambda != null
           && enclosingMethodOrLambda.getLeaf() instanceof MethodTree enclosingMethod) {
         Symbol.MethodSymbol methodSymbol = ASTHelpers.getSymbol(enclosingMethod);
@@ -2802,9 +4442,16 @@ public final class GenericsChecks {
     // 2c. `foo(..., [expr]);` => target is called method's formal argument type
     if (parent instanceof MethodInvocationTree parentInvocation) {
       if (isCallNeedingInference(parentInvocation)) {
-        // The parent invocation's formal parameter type is still part of the inference problem, not
-        // a solved target type. Generic method inference will handle this expression from the
-        // parent call side.
+        if (inferredTypeVarNullabilityForGenericCalls.get(parentInvocation)
+            instanceof InferenceWithTypes) {
+          Type.MethodType methodType =
+              getInvokedMethodTypeAtCall(
+                  parentInvocation, parentPath, parentState, calledFromDataflow);
+          return new TargetTypeAndAssignmentKind(
+              getFormalParameterTypeForArgument(parentInvocation, methodType, expressionTree),
+              false);
+        }
+        // An unsolved parent supplies inference variables, not an independent final target.
         return new TargetTypeAndAssignmentKind(null, false);
       }
       Type methodType = ASTHelpers.getType(parentInvocation.getMethodSelect());
@@ -2894,8 +4541,7 @@ public final class GenericsChecks {
     if (!config.isJSpecifyMode()) {
       return;
     }
-    Type.MethodType finalMethodType =
-        getInvokedMethodTypeAtCall(methodSymbol, tree, null, state, false);
+    Type.MethodType finalMethodType = getInvokedMethodTypeAtCall(tree, null, state, false);
     new InvocationArguments(tree, finalMethodType)
         .forEach(
             (currentActualParam, argPos, formalParameter, unused) -> {
@@ -2904,6 +4550,9 @@ public final class GenericsChecks {
                 return;
               }
 
+              if (hasUnavailableLowerArgument(tree, currentActualParam)) {
+                return;
+              }
               TreePath pathToParam = pathWithLeaf(state.getPath(), currentActualParam);
               NullabilityUtil.ExprTreeAndState actualParameterAndState =
                   NullabilityUtil.stripParensAndUpdateTreePath(
@@ -2911,6 +4560,8 @@ public final class GenericsChecks {
               ExpressionTree actualParameterWithoutParentheses = actualParameterAndState.expr();
               if (actualParameterWithoutParentheses
                   instanceof MemberReferenceTree memberReferenceTree) {
+                maybeStorePolyExpressionTypeFromTarget(
+                    actualParameterWithoutParentheses, formalParameter, state);
                 // the type of the method reference tree provided by javac may not capture
                 // nullability of nested types. So, do explicit type checks based on the return
                 // and parameter types of the referenced method. Type arguments of an unmarked
@@ -2941,8 +4592,6 @@ public final class GenericsChecks {
                         }
                       });
                 }
-                maybeStorePolyExpressionTypeFromTarget(
-                    actualParameterWithoutParentheses, formalParameter, state);
                 return;
               }
 
@@ -2959,6 +4608,9 @@ public final class GenericsChecks {
                 actualParameterType = getTreeType(currentActualParam, state.withPath(pathToParam));
               }
               if (actualParameterType != null) {
+                if (hasUnavailableLowerResult(actualParameterWithoutParentheses)) {
+                  return;
+                }
                 if (isCallNeedingInference(currentActualParam)) {
                   // infer the type of the method call based on the assignment context
                   // and the formal parameter type
@@ -2992,9 +4644,10 @@ public final class GenericsChecks {
   }
 
   /**
-   * For a generic method reference, if it is being called in a context that requires type argument
-   * nullability inference, return the method type with inferred nullability for type parameters.
-   * Otherwise, return the original method type.
+   * Returns a generic method reference's method type with inferred type arguments. Reuses a
+   * completed enclosing solution when available; otherwise solves the reference independently
+   * against its final target type. During constraint generation or re-entrant reference resolution,
+   * returns the declaration type.
    *
    * @param methodType the original method type
    * @param state the visitor state (generic method reference should be leaf of {@code
@@ -3004,27 +4657,112 @@ public final class GenericsChecks {
    */
   private Type.MethodType getInferredMethodTypeForGenericMethodReference(
       Type.MethodType methodType, VisitorState state) {
-    TreePath parentPath = state.getPath().getParentPath();
-    while (parentPath != null && parentPath.getLeaf() instanceof ParenthesizedTree) {
-      parentPath = parentPath.getParentPath();
+    if (callTypesForPolyArguments != null) {
+      // Constraint generation must use the declaration, not a previous completed solution.
+      return methodType;
     }
-    Tree parentTree = parentPath != null ? parentPath.getLeaf() : null;
-    if (parentTree instanceof MethodInvocationTree methodInvocationTree
-        && isCallNeedingInference(methodInvocationTree)) {
-      CallInferenceResult inferenceResult =
-          inferredTypeVarNullabilityForGenericCalls.get(methodInvocationTree);
-      if (inferenceResult instanceof InferenceSuccess successResult) {
-        // the referenced method's type variables are inferred at the method reference itself
-        Tree memberReferenceTree = state.getPath().getLeaf();
-        return TypeSubstitutionUtils.updateMethodTypeWithInferredNullability(
-            methodType,
-            methodType,
-            successResult.typeVarNullabilityForSite(memberReferenceTree),
-            state,
-            config);
+    Tree referenceTree = state.getPath().getLeaf();
+    if (referenceTree instanceof MemberReferenceTree memberReferenceTree) {
+      Symbol.MethodSymbol referencedMethod = ASTHelpers.getSymbol(memberReferenceTree);
+      List<? extends ExpressionTree> explicitTypeArguments = memberReferenceTree.getTypeArguments();
+      if (referencedMethod == null
+          || referencedMethod.isConstructor()
+          || (explicitTypeArguments != null && !explicitTypeArguments.isEmpty())
+          || methodReferenceInferenceInProgress.contains(memberReferenceTree)) {
+        return methodType;
+      }
+      InferenceWithTypes siteResult =
+          inferredResultsForGenericMethodReferences.get(memberReferenceTree);
+      if (siteResult != null) {
+        return TypeSubstitutionUtils.substituteInferredTypesForGenericMethodReference(
+            methodType, siteResult.inferredTypesForSite(memberReferenceTree), state, config);
+      }
+    }
+
+    if (referenceTree instanceof MemberReferenceTree memberReferenceTree) {
+      InferenceWithTypes result =
+          inferGenericMethodReferenceIndependently(memberReferenceTree, state);
+      if (result != null) {
+        return TypeSubstitutionUtils.substituteInferredTypesForGenericMethodReference(
+            methodType, result.inferredTypesForSite(memberReferenceTree), state, config);
       }
     }
     return methodType;
+  }
+
+  /**
+   * Solves an unresolved generic method reference without publishing or invalidating call results.
+   * This allows siblings of a failed enclosing inference problem to check their declaration bounds
+   * independently. Only completed reference solutions from a cacheable context are persisted.
+   *
+   * @param reference the generic method reference without explicit type arguments
+   * @param state visitor state whose path ends at the reference
+   * @return the completed solution, or {@code null} if no final target is available or inference
+   *     fails
+   */
+  private @Nullable InferenceWithTypes inferGenericMethodReferenceIndependently(
+      MemberReferenceTree reference, VisitorState state) {
+    if (callTypesForPolyArguments != null || !methodReferenceInferenceInProgress.add(reference)) {
+      return null;
+    }
+    ConstraintSolver solver = makeSolver(state, analysis);
+    activeInferenceSolvers.add(solver);
+    try {
+      Type targetType =
+          okToCacheInferenceResult(false) ? inferredPolyExpressionTypes.get(reference) : null;
+      if (targetType == null) {
+        targetType = ASTHelpers.getType(reference);
+      }
+      if (targetType == null || targetType.isRaw()) {
+        return null;
+      }
+      InferenceCacheState inferenceCacheState = new InferenceCacheState();
+      handleMethodRefInGenericMethodInference(
+          state, solver, inferenceCacheState, targetType, reference, reference);
+      Solution solution = solver.solve();
+      InferenceWithTypes result = completedInferenceOutcome(solution, inferenceCacheState, state);
+      InferencePublicationDecision publication =
+          inferencePublicationDecision(
+              result, inferenceCacheState, solver, false, null, null, reference, state);
+      if (result instanceof InferenceSuccess successResult
+          && publication.methodReferences().contains(reference)) {
+        inferredResultsForGenericMethodReferences.put(reference, successResult);
+      }
+      return result;
+    } catch (NestedUpperBoundViolationException e) {
+      if (reportedNestedUpperBoundViolations.add(e.getSite())) {
+        VisitorState reportingState = stateForInferenceDiagnostic(e.getSite(), state);
+        ErrorMessage errorMessage =
+            new ErrorMessage(
+                ErrorMessage.MessageTypes.PASS_NULLABLE_GENERIC,
+                errorMessageForIncompatibleTypesAtPseudoAssignment(
+                    e.getUpperBound(), e.getLowerBound(), reportingState));
+        state.reportMatch(
+            analysis
+                .getErrorBuilder()
+                .createErrorDescription(
+                    errorMessage, analysis.buildDescription(e.getSite()), reportingState, null));
+      }
+      return null;
+    } catch (UnsatisfiableConstraintsException e) {
+      Tree site = e.getInferenceSite() != null ? e.getInferenceSite() : reference;
+      if (config.warnOnGenericInferenceFailure() && callsWithReportedInferenceFailures.add(site)) {
+        VisitorState reportingState = stateForInferenceDiagnostic(site, state);
+        ErrorMessage errorMessage =
+            new ErrorMessage(
+                ErrorMessage.MessageTypes.GENERIC_INFERENCE_FAILURE,
+                inferenceFailureMessage(e, new IdentityHashMap<>()));
+        state.reportMatch(
+            analysis
+                .getErrorBuilder()
+                .createErrorDescription(
+                    errorMessage, analysis.buildDescription(site), reportingState, null));
+      }
+      return null;
+    } finally {
+      activeInferenceSolvers.remove(activeInferenceSolvers.size() - 1);
+      methodReferenceInferenceInProgress.remove(reference);
+    }
   }
 
   /**
@@ -3487,7 +5225,7 @@ public final class GenericsChecks {
       return Nullness.NONNULL;
     }
     Type.MethodType invokedMethodType =
-        getInvokedMethodTypeAtCall(invokedMethodSymbol, tree, path, state, calledFromDataflow);
+        getInvokedMethodTypeAtCall(tree, path, state, calledFromDataflow);
     return getTypeNullnessForRead(invokedMethodType.getReturnType(), state);
   }
 
@@ -3502,150 +5240,126 @@ public final class GenericsChecks {
     return com.sun.tools.javac.util.List.from(types);
   }
 
+  /** Resolves a signature with receiver observations owned before any scoped cache lookup. */
+  private Type.MethodType getResolvedCallSignature(
+      ExpressionTree tree,
+      @Nullable TreePath path,
+      VisitorState state,
+      boolean calledFromDataflow) {
+    return withDataflowInferenceInputs(
+        calledFromDataflow,
+        () ->
+            getResolvedCallSignature(
+                callSite(tree).resolve(path, state, calledFromDataflow),
+                path,
+                state,
+                calledFromDataflow));
+  }
+
   /**
-   * Substitutes the type arguments from a generic method invocation into the method's type.
+   * Substitutes site-scoped inferred arguments into a receiver- and witness-resolved signature.
+   * Method and class inference variables use the same path without inventing a quantified
+   * constructor signature. Existing partial and failed-result fallback policies are retained.
    *
-   * @param tree the method invocation tree
-   * @param forAllType the generic method type
+   * @param call the context-resolved executable description
    * @param path the path to the invocation tree, or null if not available
    * @param state the visitor state
    * @param calledFromDataflow whether this method is being called from dataflow analysis
    * @return the substituted method type with library models applied
    */
-  private Type.MethodType substituteTypeArgsInGenericMethodType(
-      Tree tree,
-      Type.ForAll forAllType,
-      @Nullable TreePath path,
-      VisitorState state,
-      boolean calledFromDataflow) {
-    Type.MethodType methodType = forAllType.asMethodType();
-    MethodInvocationTree invocationTree =
-        tree instanceof MethodInvocationTree methodInvocationTree ? methodInvocationTree : null;
-    Symbol.MethodSymbol methodSymbol =
-        (Symbol.MethodSymbol) castToNonNull(ASTHelpers.getSymbol(tree));
-
-    List<? extends Tree> typeArgumentTrees =
-        invocationTree != null
-            ? invocationTree.getTypeArguments()
-            : ((NewClassTree) tree).getTypeArguments();
-    com.sun.tools.javac.util.List<Type> explicitTypeArgs = convertTreesToTypes(typeArgumentTrees);
-    Type.MethodType substitutedMethodType;
-    Nullness jointlyInferredPolyNullness = null;
-    boolean genericInferenceFailed = false;
-
-    // There are no explicit type arguments, so use the inferred types
-    if (explicitTypeArgs.isEmpty() && invocationTree != null) {
-      CallInferenceResult result = inferredTypeVarNullabilityForGenericCalls.get(tree);
+  private Type.MethodType getResolvedCallSignature(
+      InferenceCall call, @Nullable TreePath path, VisitorState state, boolean calledFromDataflow) {
+    ExpressionTree invocationTree = call.site.tree;
+    CallInferenceResult cached =
+        getDataflowInferenceOutcome(invocationTree, state, calledFromDataflow);
+    if (cached == null) {
+      cached = inferredTypeVarNullabilityForGenericCalls.get(invocationTree);
+    }
+    if (cached instanceof InferenceSuccess complete) {
+      InferenceCall completedCall = complete.calls().get(invocationTree);
+      if (completedCall != null) {
+        return modelResolvedSignature(
+            call, completedCall.signature, cached, path, state, calledFromDataflow);
+      }
+    }
+    Type.MethodType methodType = call.signature;
+    if (!call.site.variables.isEmpty()) {
+      CallInferenceResult result = cached;
       if (result == null) {
         // have not yet attempted inference for this call
         CallAndContext invocationAndType =
             path == null
-                ? new CallAndContext(invocationTree, null, false)
+                ? completedCallContexts.getOrDefault(
+                    invocationTree, new CallAndContext(invocationTree, null, false))
                 : getCallAndContextForInference(path, state, calledFromDataflow);
+        // The selected root may be an ancestor of the original invocation. Constraint generation
+        // and lambda ownership must use that root's source path, not the nested call's path.
+        TreePath inferencePath = path;
+        while (inferencePath != null && !inferencePath.getLeaf().equals(invocationAndType.call)) {
+          inferencePath = inferencePath.getParentPath();
+        }
+        VisitorState inferenceState = inferencePath != null ? state.withPath(inferencePath) : state;
         result =
             runInferenceForCall(
-                state,
-                path,
-                invocationAndType.call,
-                getExecutableTypeForInference(
-                    invocationAndType.call, path, state, calledFromDataflow),
+                inferenceState,
+                inferencePath,
+                getCallForInference(
+                    invocationAndType.call, inferencePath, inferenceState, calledFromDataflow),
                 invocationAndType.typeFromAssignmentContext,
                 invocationAndType.assignedToLocal,
                 calledFromDataflow);
       }
-      Type.MethodType methodTypeAtCallSite =
-          castToNonNull(ASTHelpers.getType(invocationTree.getMethodSelect())).asMethodType();
-      if (result instanceof InferenceSuccess successResult) {
-        // Repairing dropped nested nullability annotations can itself inspect actual argument
-        // types. For diamond constructor arguments, that can re-enter method-type computation for
-        // this same invocation while we are still repairing it. In that case, use the already
-        // inferred method type and skip the repair on the recursive call.
-        if (!nestedNullabilityRepairInProgress.contains(invocationTree)) {
-          nestedNullabilityRepairInProgress.add(invocationTree);
-          try {
-            methodTypeAtCallSite =
-                restoreNestedNullabilityForTypeVarArguments(
-                    invocationTree,
-                    methodType,
-                    methodTypeAtCallSite,
-                    path,
-                    state,
-                    calledFromDataflow);
-          } finally {
-            nestedNullabilityRepairInProgress.remove(invocationTree);
-          }
+      if (result instanceof InferenceSuccess complete) {
+        InferenceCall completedCall = complete.calls().get(invocationTree);
+        if (completedCall != null) {
+          return modelResolvedSignature(
+              call, completedCall.signature, result, path, state, calledFromDataflow);
         }
-        substitutedMethodType =
-            TypeSubstitutionUtils.updateMethodTypeWithInferredNullability(
-                methodTypeAtCallSite,
-                methodType,
-                successResult.typeVarNullabilityForSite(invocationTree),
-                state,
-                config);
-        jointlyInferredPolyNullness = successResult.polyNullnessByInvocation.get(invocationTree);
-      } else {
-        // Inference failed; use the call-site type without inferred nullability substitutions.
-        // Still apply onOverrideMethodType below. Skip the PolyNull step when reporting the
-        // inference failure; otherwise, infer PolyNull separately to preserve ordinary nullness
-        // errors.
-        substitutedMethodType = methodTypeAtCallSite;
-        genericInferenceFailed = true;
       }
-    } else {
-      substitutedMethodType =
-          TypeSubstitutionUtils.subst(
-                  state.getTypes(), methodType, forAllType.tvars, explicitTypeArgs, config)
-              .asMethodType();
-    }
-    Type.MethodType modeledMethodType =
-        handler.onOverrideMethodType(methodSymbol, substitutedMethodType, state, invocationTree);
-    return invocationTree == null
-            || (genericInferenceFailed && config.warnOnGenericInferenceFailure())
-        ? modeledMethodType
-        : applyPolyNullModel(
-            methodSymbol,
-            invocationTree,
-            modeledMethodType,
-            jointlyInferredPolyNullness,
+      Type.MethodType methodTypeAtCallSite = call.site.attributedSignature();
+      if (result instanceof InferenceWithTypes inferred
+          && (result instanceof InferenceSuccess || call.site.returnsAllocation())) {
+        return modelResolvedSignature(
+            call,
+            (Type.MethodType)
+                TypeSubstitutionUtils.substituteTypeVariables(
+                    methodType,
+                    inferred.inferredTypesForSite(invocationTree),
+                    state.getTypes(),
+                    config),
+            result,
             path,
             state,
             calledFromDataflow);
-  }
-
-  /**
-   * In narrow cases, javac drops or misplaces nested type-use nullability annotations on type
-   * variables in its inferred type for a generic method at a call site. See <a
-   * href="https://github.com/uber/NullAway/issues/1455">issue 1455</a>. This method repairs those
-   * annotations based on the types of actual parameters. It does not attempt to be a very general
-   * fix, as we do not fully understand the scenarios where this can arise.
-   *
-   * @param invocationTree the method invocation tree for the generic method call
-   * @param origMethodType the declared method type for the generic method (to identify formal
-   *     parameters whose type is a type variable of the method)
-   * @param methodTypeAtCallSite the method type for the generic method as inferred by javac at the
-   *     call site
-   * @param invocationPath the path to the invocation tree, or null if not available
-   * @param state the visitor state
-   * @return a method type based on {@code methodTypeAtCallSite} but with some nested nullability
-   *     annotations on type variables restored to match those on actual parameters passed at the
-   *     call site
-   */
-  private Type.MethodType restoreNestedNullabilityForTypeVarArguments(
-      MethodInvocationTree invocationTree,
-      Type.MethodType origMethodType,
-      Type.MethodType methodTypeAtCallSite,
-      @Nullable TreePath invocationPath,
-      VisitorState state,
-      boolean calledFromDataflow) {
-    return NestedTypeVarSubstitutionRepairVisitor.repairMethodType(
-        this,
-        invocationTree,
-        origMethodType,
-        methodTypeAtCallSite,
-        invocationPath,
-        state,
-        config,
-        calledFromDataflow);
+      }
+      if (result instanceof InferenceWithTypes successResult) {
+        // Retain the javac call-site shape with a diagnostic overlay for uncertified inference.
+        return modelResolvedSignature(
+            call,
+            TypeSubstitutionUtils.updateMethodTypeWithInferredNullability(
+                methodTypeAtCallSite,
+                methodType,
+                successResult.inferredTypesForSite(invocationTree),
+                state,
+                config),
+            result,
+            path,
+            state,
+            calledFromDataflow);
+      } else {
+        // A failed solution must not erase explicit annotations on declared variable uses.
+        return modelResolvedSignature(
+            call,
+            TypeSubstitutionUtils.restoreExplicitNullabilityAnnotations(
+                    methodType, methodTypeAtCallSite, config)
+                .asMethodType(),
+            result,
+            path,
+            state,
+            calledFromDataflow);
+      }
+    }
+    return modelResolvedSignature(call, methodType, cached, path, state, calledFromDataflow);
   }
 
   /**
@@ -3675,6 +5389,10 @@ public final class GenericsChecks {
    */
   private CallAndContext getCallAndContextForInference(
       TreePath path, VisitorState state, boolean calledFromDataflow) {
+    CallAndContext completedContext = completedCallContexts.get(path.getLeaf());
+    if (completedContext != null) {
+      return completedContext;
+    }
     TreePath parentPath = path.getParentPath();
     Tree parent = parentPath.getLeaf();
     while (parent instanceof ParenthesizedTree) {
@@ -3715,7 +5433,10 @@ public final class GenericsChecks {
       // find the enclosing method and return its return type
       TreePath enclosingMethodOrLambda =
           NullabilityUtil.findEnclosingMethodOrLambdaOrInitializer(parentPath);
-      // TODO handle lambdas; https://github.com/uber/NullAway/issues/1288
+      if (enclosingMethodOrLambda != null
+          && enclosingMethodOrLambda.getLeaf() instanceof LambdaExpressionTree lambda) {
+        return new CallAndContext(call, getLambdaReturnTargetType(lambda, state), false);
+      }
       if (enclosingMethodOrLambda != null
           && enclosingMethodOrLambda.getLeaf() instanceof MethodTree enclosingMethod) {
         Symbol.MethodSymbol methodSymbol = ASTHelpers.getSymbol(enclosingMethod);
@@ -3723,6 +5444,8 @@ public final class GenericsChecks {
           return new CallAndContext(call, methodSymbol.getReturnType(), false);
         }
       }
+    } else if (parent instanceof LambdaExpressionTree lambda) {
+      return new CallAndContext(call, getLambdaReturnTargetType(lambda, state), false);
     } else if (parent instanceof ExpressionTree exprParent) {
       // could be a parameter to another method call, or part of a conditional expression, etc.
       // in any case, just return the type of the parent expression
@@ -3730,11 +5453,7 @@ public final class GenericsChecks {
         // the call is either a regular parameter to the parent call, or the receiver expression
         Type.MethodType parentMethodType =
             getInvokedMethodTypeAtCall(
-                ASTHelpers.getSymbol(parentInvocation),
-                parentInvocation,
-                parentPath,
-                state.withPath(parentPath),
-                calledFromDataflow);
+                parentInvocation, parentPath, state.withPath(parentPath), calledFromDataflow);
         Type formalParamType =
             getFormalParameterTypeForArgument(parentInvocation, parentMethodType, call);
         if (formalParamType == null) {
@@ -3813,37 +5532,36 @@ public final class GenericsChecks {
   /**
    * Returns the resolved method type at a call site after receiver and inferred type-argument
    * substitutions and handler-provided models have been applied. Unlike {@link
-   * #getExecutableTypeForInference}, this method substitutes the method type variables with
-   * inferred type arguments.
+   * #getCallForInference}, this method substitutes the omitted type variables with inferred type
+   * arguments.
    */
   private Type.MethodType getInvokedMethodTypeAtCall(
-      Symbol.MethodSymbol methodSymbol,
-      Tree tree,
+      Tree tree, @Nullable TreePath path, VisitorState state, boolean calledFromDataflow) {
+    return getResolvedCallSignature((ExpressionTree) tree, path, state, calledFromDataflow);
+  }
+
+  /** Applies ordinary models and then the site-owned PolyNull qualifier, without publishing it. */
+  private Type.MethodType modelResolvedSignature(
+      InferenceCall call,
+      Type.MethodType signature,
+      @Nullable CallInferenceResult result,
       @Nullable TreePath path,
       VisitorState state,
       boolean calledFromDataflow) {
-    Type invokedMethodType = methodSymbol.type;
-    Type enclosingType =
-        getEnclosingTypeForCallExpression(methodSymbol, tree, path, state, calledFromDataflow);
-    if (enclosingType != null) {
-      invokedMethodType =
-          TypeSubstitutionUtils.memberType(state.getTypes(), enclosingType, methodSymbol, config);
+    MethodInvocationTree invocation =
+        call.site.tree instanceof MethodInvocationTree methodInvocation ? methodInvocation : null;
+    Type.MethodType modeled =
+        handler.onOverrideMethodType(call.site.symbol, signature, state, invocation);
+    if (invocation == null
+        || (result instanceof InferenceFailure && config.warnOnGenericInferenceFailure())) {
+      return modeled;
     }
-    if (tree instanceof MethodInvocationTree
-        && invokedMethodType instanceof Type.ForAll forAllType) {
-      return substituteTypeArgsInGenericMethodType(
-          tree, forAllType, path, state, calledFromDataflow);
-    }
-    Type.MethodType modeledMethodType =
-        handler.onOverrideMethodType(
-            methodSymbol,
-            invokedMethodType.asMethodType(),
-            state,
-            tree instanceof MethodInvocationTree invocationTree ? invocationTree : null);
-    return tree instanceof MethodInvocationTree invocationTree
-        ? applyPolyNullModel(
-            methodSymbol, invocationTree, modeledMethodType, null, path, state, calledFromDataflow)
-        : modeledMethodType;
+    Nullness jointlyInferred =
+        result instanceof InferenceWithTypes withTypes
+            ? withTypes.polyNullnessByInvocation().get(invocation)
+            : null;
+    return applyPolyNullModel(
+        call.site.symbol, invocation, modeled, jointlyInferred, path, state, calledFromDataflow);
   }
 
   /** Returns whether {@code methodSymbol} has a polymorphic-nullness library model. */
@@ -3907,7 +5625,10 @@ public final class GenericsChecks {
       @Nullable TreePath path,
       VisitorState state,
       boolean calledFromDataflow) {
-    Nullness cached = separatelyInferredPolyNullness.get(invocationTree);
+    Nullness cached =
+        okToCacheInferenceResult(calledFromDataflow)
+            ? separatelyInferredPolyNullness.get(invocationTree)
+            : null;
     if (cached != null) {
       return cached;
     }
@@ -3925,11 +5646,22 @@ public final class GenericsChecks {
     ConstraintSolver solver = makeSolver(state, analysis);
     Map<Element, Type.TypeVar> inferenceVariables =
         solver.registerInferenceVariables(
-            invocationTree, List.of(inferenceContext.inferenceVariable().asElement()));
+            invocationTree,
+            List.of(inferenceContext.inferenceVariable().asElement()),
+            Map.of(),
+            Set.of(),
+            Map.of());
     inferenceContext =
         PolyNullInference.substituteInferenceVariables(
             inferenceContext, inferenceVariables, state, config);
-    Set<Tree> nestedCalls = new LinkedHashSet<>();
+    InferenceCacheState inferenceCacheState = new InferenceCacheState();
+    inferenceCacheState.recordVariables(invocationTree, inferenceVariables);
+    inferenceCacheState.polyNullContexts.put(invocationTree, inferenceContext);
+    inferenceCacheState.recordInput(solver, invocationTree, substitutedMethodType);
+    inferenceCacheState.recordInput(solver, invocationTree, inferenceContext.inferenceMethodType());
+    Map<Tree, InferenceCall> enclosingCallTypesForPolyArgs = callTypesForPolyArguments;
+    callTypesForPolyArguments = new LinkedHashMap<>();
+    activeInferenceSolvers.add(solver);
     try {
       addPolyNullResultConstraintsFromDirectAssignmentContext(
           invocationTree, inferenceContext, path, solver, state, calledFromDataflow);
@@ -3939,15 +5671,18 @@ public final class GenericsChecks {
           solver,
           invocationTree,
           inferenceContext.inferenceMethodType(),
-          nestedCalls,
-          new IdentityHashMap<>(),
+          inferenceCacheState,
           calledFromDataflow);
-      Map<ConstraintSolver.InferenceVariable, ConstraintSolver.InferredNullability> solution =
-          solver.solve();
+      Solution solution = solver.solve();
       Nullness resolved =
-          PolyNullInference.resolveContext(invocationTree, inferenceContext, solution);
-      if (!calledFromDataflow) {
+          PolyNullInference.resolveContext(invocationTree, inferenceContext, solution, config);
+      if (resolved != null
+          && solution.isComplete()
+          && solution.inputDependencies().isIndependentForSite(invocationTree)
+          && okToCacheInferenceResult(calledFromDataflow)) {
         separatelyInferredPolyNullness.put(invocationTree, resolved);
+        // This identity-keyed cache is also observable by subsequent root solves.
+        inferenceStateVersion++;
       }
       return resolved;
     } catch (UnsatisfiableConstraintsException e) {
@@ -3956,6 +5691,9 @@ public final class GenericsChecks {
           PolyNullInference.inferenceFailureMessage(ASTHelpers.getSymbol(invocationTree)),
           state);
       return config.warnOnGenericInferenceFailure() ? null : Nullness.NULLABLE;
+    } finally {
+      callTypesForPolyArguments = enclosingCallTypesForPolyArgs;
+      activeInferenceSolvers.remove(activeInferenceSolvers.size() - 1);
     }
   }
 
@@ -4010,8 +5748,7 @@ public final class GenericsChecks {
       ConstraintSolver solver,
       ExpressionTree callTree,
       Type.MethodType methodType,
-      Set<Tree> allCalls,
-      IdentityHashMap<MethodInvocationTree, PolyNullInferenceContext> polyNullContexts,
+      InferenceCacheState inferenceCacheState,
       boolean calledFromDataflow) {
     TreePath pathToCall = path != null ? path : pathWithLeaf(state.getPath(), callTree);
     new InvocationArguments(callTree, methodType)
@@ -4021,10 +5758,10 @@ public final class GenericsChecks {
               generateConstraintsForPseudoAssignment(
                   state.withPath(pathToArgument),
                   solver,
-                  allCalls,
+                  inferenceCacheState,
                   argument,
                   formalParamType,
-                  polyNullContexts,
+                  callTree,
                   calledFromDataflow);
             });
   }
@@ -4092,10 +5829,8 @@ public final class GenericsChecks {
     // If generic method invocation
     if (!invokedMethodSymbol.getTypeParameters().isEmpty()) {
       // Substitute the argument types within the MethodType
-      Type.ForAll forAllType = (Type.ForAll) invokedMethodSymbol.type;
       List<Type> substitutedParamTypes =
-          substituteTypeArgsInGenericMethodType(tree, forAllType, null, state, false)
-              .getParameterTypes();
+          getInvokedMethodTypeAtCall(tree, null, state, false).getParameterTypes();
       // If this condition evaluates to false, we fall through to the subsequent logic, to handle
       // type variables declared on the enclosing class
       if (substitutedParamTypes != null
@@ -4141,8 +5876,7 @@ public final class GenericsChecks {
   private boolean isClassTypeVariableWithoutNonNull(Type declaredParamType) {
     return declaredParamType instanceof Type.TypeVar typeVar
         && typeVar.tsym.owner instanceof Symbol.ClassSymbol
-        && !Nullness.hasNonNullAnnotation(
-            declaredParamType.getAnnotationMirrors().stream(), config);
+        && !GenericsUtils.isAnnotatedAsNonNull(declaredParamType, config);
   }
 
   /**
@@ -4425,6 +6159,12 @@ public final class GenericsChecks {
       return getParameterTypeNullness(componentType, false, state);
     } else {
       if (config.handleWildcardGenerics()) {
+        if (type instanceof Type.CapturedType captured
+            && captured.getUpperBound().getAnnotationMirrors().stream()
+                .anyMatch(annotation -> isSyntheticNullnessAnnotation(annotation.type))) {
+          // Substitution stores solved capture nullness on its structural upper bound.
+          return getTypeNullness(captured.getUpperBound(), config);
+        }
         Type.WildcardType wildcardType = GenericsUtils.asWildcard(type);
         if (wildcardType != null && wildcardType.kind == BoundKind.SUPER) {
           return getTypeNullness(castToNonNull(wildcardType.getSuperBound()), config);
@@ -4451,7 +6191,9 @@ public final class GenericsChecks {
    * Returns the nullness of a value read from {@code type}. For wildcard and javac captured
    * wildcard types, uses the effective upper bound: a read from {@code Foo<? extends @Nullable
    * Object>} or {@code Foo<? super String>} can produce any value permitted by the capture's upper
-   * bound.
+   * bound when wildcard handling is enabled. With wildcard handling disabled, only root annotations
+   * on the type or its explicit {@code extends} bound qualify the read; implicit formal bounds are
+   * not followed. Nested structure remains available for compatibility checks.
    *
    * @param type type from which a value is read
    * @param state visitor state
@@ -4465,8 +6207,9 @@ public final class GenericsChecks {
   /**
    * Determines whether a substituted input type guarantees a non-null value. When wildcard support
    * is enabled, wildcards and captured wildcards use the nullness of their effective upper bound.
-   * An unsubstituted type variable with a nullable upper bound leaves its nullness unresolved
-   * unless its use is explicitly non-null.
+   * With wildcard support disabled, an explicit {@code extends} bound's root annotation still
+   * applies, but implicit formal bounds are ignored. An unsubstituted type variable with a nullable
+   * upper bound leaves its nullness unresolved unless its use is explicitly non-null.
    *
    * @param type substituted input type
    * @param state visitor state
@@ -4483,7 +6226,7 @@ public final class GenericsChecks {
       return NullnessHint.HINT_NULLABLE;
     }
     if (type instanceof Type.TypeVar typeVar
-        && !Nullness.hasNonNullAnnotation(type.getAnnotationMirrors().stream(), config)
+        && !GenericsUtils.isAnnotatedAsNonNull(type, config)
         && GenericsUtils.upperBoundIsNullable(typeVar.asElement(), config, handler, state)) {
       return NullnessHint.UNKNOWN;
     }
@@ -4513,10 +6256,16 @@ public final class GenericsChecks {
     }
     // An explicit @NonNull takes precedence over a wildcard or capture's nullable upper bound.
     // PolyNull inference is one source of such an annotation on a call's return type.
-    if (Nullness.hasNonNullAnnotation(type.getAnnotationMirrors().stream(), config)) {
+    if (GenericsUtils.isAnnotatedAsNonNull(type, config)) {
       return Nullness.NONNULL;
     }
-    if (config.handleWildcardGenerics() && GenericsUtils.asWildcard(type) != null) {
+    Type.WildcardType wildcard = GenericsUtils.asWildcard(type);
+    if (wildcard != null) {
+      if (!config.handleWildcardGenerics()) {
+        return wildcard.kind == BoundKind.EXTENDS
+            ? getTypeNullness(castToNonNull(wildcard.getExtendsBound()), config)
+            : Nullness.NONNULL;
+      }
       Type effectiveUpperBound =
           GenericsUtils.effectiveWildcardUpperBound(type, state, config, handler);
       return getTypeNullnessForRead(
@@ -4618,13 +6367,20 @@ public final class GenericsChecks {
    * alive and leak memory.
    */
   public void clearCache() {
+    rootSolveMemo.clear();
     inferredTypeVarNullabilityForGenericCalls.clear();
+    callSites.clear();
+    completedCallContexts.clear();
+    inferredResultsForGenericMethodReferences.clear();
+    methodReferenceInferenceInProgress.clear();
     separatelyInferredPolyNullness.clear();
     callsWithReportedInferenceFailures.clear();
+    reportedNestedUpperBoundViolations.clear();
+    reportedLowerConflicts.clear();
+    diagnosticInferenceResults.clear();
     inferredPolyExpressionTypes.clear();
     inferredVarLocalTypes.clear();
     varLocalDeclarations.clear();
-    nestedNullabilityRepairInProgress.clear();
   }
 
   public boolean isNullableAnnotated(Type type) {

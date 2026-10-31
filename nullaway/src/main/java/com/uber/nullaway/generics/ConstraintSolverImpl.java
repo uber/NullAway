@@ -1,6 +1,7 @@
 package com.uber.nullaway.generics;
 
 import static com.uber.nullaway.NullabilityUtil.castToNonNull;
+import static com.uber.nullaway.generics.TypeMetadataBuilder.TYPE_METADATA_BUILDER;
 
 import com.google.common.base.Verify;
 import com.google.errorprone.VisitorState;
@@ -12,13 +13,19 @@ import com.sun.tools.javac.code.Type.CapturedType;
 import com.sun.tools.javac.code.Type.ClassType;
 import com.sun.tools.javac.code.Type.TypeVar;
 import com.sun.tools.javac.code.Type.WildcardType;
+import com.sun.tools.javac.code.TypeTag;
 import com.sun.tools.javac.code.Types;
+import com.sun.tools.javac.util.Name;
+import com.uber.nullaway.CodeAnnotationInfo;
 import com.uber.nullaway.Config;
 import com.uber.nullaway.NullAway;
 import com.uber.nullaway.Nullness;
 import com.uber.nullaway.handlers.Handler;
 import java.util.ArrayDeque;
+import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collections;
+import java.util.Comparator;
 import java.util.Deque;
 import java.util.IdentityHashMap;
 import java.util.LinkedHashMap;
@@ -26,8 +33,10 @@ import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import javax.lang.model.element.AnnotationMirror;
 import javax.lang.model.element.Element;
 import javax.lang.model.type.NullType;
+import javax.lang.model.type.TypeMirror;
 import javax.lang.model.type.TypeVariable;
 import org.jspecify.annotations.Nullable;
 
@@ -40,13 +49,83 @@ public final class ConstraintSolverImpl implements ConstraintSolver {
   private final Handler handler;
   private final VisitorState state;
 
+  /** Explicit source context, scoped around direct and derived constraint generation. */
+  private List<SourceOrigin> currentOrigins = List.of();
+
+  /** One canonical proof scope for all direct, derived, and cyclic evidence in this solver. */
+  private final SourceSupport.Factory sourceSupports = new SourceSupport.Factory();
+
+  private SourceSupport currentSupport = sourceSupports.conjunction(List.of());
+
+  /** Flattened diagnostic context and finite alternative proofs on the existing graph edges. */
+  private record SourceEvidence(List<SourceOrigin> origins, SourceSupport support) {
+    /** Merges independently sufficient edge/path proofs without conjoining their origins. */
+    SourceEvidence or(SourceEvidence other) {
+      return new SourceEvidence(combinedOrigins(origins, other.origins), support.or(other.support));
+    }
+
+    /** Combines the required premises of a path while retaining all diagnostic context. */
+    SourceEvidence and(SourceEvidence other) {
+      return new SourceEvidence(
+          combinedOrigins(origins, other.origins), support.and(other.support));
+    }
+  }
+
+  /** Counts solver-scoped decision nodes for provenance growth and lazy-conflict proof tests. */
+  int sourceSupportNodeCount() {
+    return sourceSupports.allocatedNodeCount();
+  }
+
+  /** Per-solve facts, collected independently of diagnostic annotation-source selection. */
+  private final List<LowerBoundConflict> lowerConflicts = new ArrayList<>();
+
+  private final Set<LowerConflictKey> lowerConflictKeys = new LinkedHashSet<>();
+
+  /** Deduplicates semantic proofs without using projected types as diagnostic source identities. */
+  private record LowerConflictKey(
+      InferenceVariable variable, String first, String second, String shape) {}
+
   /**
    * Maps the symbol of each fresh type variable created by {@link #registerInferenceVariables(Tree,
-   * List)} to the inference variable it represents. Only type variables with these symbols are
-   * treated as inference variables; all other type variables are fixed.
+   * List, Map, Set)} to the inference variable it represents. Only type variables with these
+   * symbols are treated as inference variables; all other type variables are fixed.
    */
   private final IdentityHashMap<Element, InferenceVariable> inferenceVariables =
       new IdentityHashMap<>();
+
+  /** Explicit foreign unresolved symbols, never generic caller type parameters by default. */
+  private final Set<Element> externalInferenceSymbols = new LinkedHashSet<>();
+
+  /** Seeds retained before scalar reduction or structural deduplication can discard evidence. */
+  private final Set<InferenceVariable> externalInputVariables = new LinkedHashSet<>();
+
+  private final Set<Tree> externalInputSites = new LinkedHashSet<>();
+
+  /** Per-variable registration inputs, retaining bounds and shapes across repeated registration. */
+  private final Map<InferenceVariable, List<Type>> registrationInputs = new LinkedHashMap<>();
+
+  /**
+   * Fresh type variables created for each site, keyed by declared type variable. Repeated
+   * registration must preserve their symbols so existing structural bounds and the reverse mapping
+   * in {@link #freshTypeVariableForInferenceVariable} refer to the same fresh variables, while
+   * allowing later registration to supply javac instantiations.
+   */
+  private final Map<Tree, Map<Element, Type.TypeVar>> freshTypeVariablesForSite =
+      new LinkedHashMap<>();
+
+  /** Fresh type variable corresponding to each inference variable. */
+  private final Map<InferenceVariable, Type.TypeVar> freshTypeVariableForInferenceVariable =
+      new LinkedHashMap<>();
+
+  /** Authoritative Java shapes supplied by attribution, never inferred from nullness bounds. */
+  private final Map<InferenceVariable, Type> javacInstantiations = new LinkedHashMap<>();
+
+  /** Effective upper-bound nullability after receiver/class substitution. */
+  private final Map<InferenceVariable, Boolean> nullableAllowedForInferenceVariable =
+      new LinkedHashMap<>();
+
+  /** Variables whose declaration upper bounds are authoritative nullness contracts. */
+  private final Set<InferenceVariable> nullnessMarkedDeclarationBounds = new LinkedHashSet<>();
 
   public ConstraintSolverImpl(Config config, VisitorState state, NullAway analysis) {
     this.config = config;
@@ -80,6 +159,37 @@ public final class ConstraintSolverImpl implements ConstraintSolver {
     /** Important to use a LinkedHashSet here for determinism in error messages. */
     final Set<InferenceVariable> subtypes = new LinkedHashSet<>();
 
+    /** Structural relationships survive explicit occurrence-level root nullness overrides. */
+    final Set<InferenceVariable> structuralSupertypes = new LinkedHashSet<>();
+
+    final Set<InferenceVariable> structuralSubtypes = new LinkedHashSet<>();
+
+    /** Alternative proofs on directed structural edges, shared by both endpoints. */
+    final Map<InferenceVariable, SourceEvidence> structuralSupertypeOrigins = new LinkedHashMap<>();
+
+    final Map<InferenceVariable, SourceEvidence> structuralSubtypeOrigins = new LinkedHashMap<>();
+
+    /**
+     * Structured evidence {@code S} with a constraint {@code S <: var}, including arrays, non-raw
+     * classes, and symbolic fixed type variables. Non-generic subclasses are kept because alignment
+     * to a generic supertype can expose nested nullability.
+     */
+    final Map<String, BoundEvidence> lowerBoundEvidence = new LinkedHashMap<>();
+
+    /** Fixed type-variable lower uses retained as declaration-diagnostic provenance. */
+    final List<Type> fixedTypeVariableLowerBounds = new ArrayList<>();
+
+    /** Structural fingerprints used to deduplicate fixed type-variable provenance. */
+    final Set<String> fixedTypeVariableLowerBoundKeys = new LinkedHashSet<>();
+
+    /**
+     * Structured types {@code S} with a constraint {@code var <: S}, in the order the constraints
+     * were added. A type appearing in both this map and {@link #lowerBoundEvidence} arises from an
+     * equality constraint, e.g., between invariant type arguments. Fingerprint keys deduplicate
+     * semantic bounds while the values retain their first type and merged provenance.
+     */
+    final Map<String, BoundEvidence> upperBoundEvidence = new LinkedHashMap<>();
+
     VarState(boolean nullableAllowed) {
       this.nullableAllowed = nullableAllowed;
     }
@@ -91,12 +201,74 @@ public final class ConstraintSolverImpl implements ConstraintSolver {
    */
   private final Map<InferenceVariable, VarState> vars = new LinkedHashMap<>();
 
+  /** Incremented whenever a variable, structured bound, or variable edge is added. */
+  private int structuredConstraintVersion = 0;
+
+  /**
+   * Solver-local bound snapshots; preparation invalidates them when the structural version changes.
+   */
+  private final Map<InferenceVariable, StructuredBounds> structuredBoundsMemo =
+      new LinkedHashMap<>();
+
+  private int structuredBoundsMemoVersion = -1;
+
+  /** Raw path evidence, kept separate from enriched diagnostic context and solved values. */
+  private final Map<ReachableEvidenceKey, List<BoundEvidence>> reachableEvidenceMemo =
+      new LinkedHashMap<>();
+
+  private int reachableEvidenceMemoVersion = -1;
+
+  /** Distinguishes lower and upper traversals of the same structural variable graph. */
+  private record ReachableEvidenceKey(InferenceVariable variable, boolean lower) {}
+
+  /**
+   * Only structural evidence is memoized after preparation, never nullness or validation outcomes.
+   */
+  private final Map<InferenceVariable, Set<InferenceVariable>> structuredDependenciesMemo =
+      new LinkedHashMap<>();
+
+  private int preparedStructuredConstraintVersion = -1;
+
+  /** Keeps batched source resolution in the previous registered-symbol order. */
+  private final Map<Element, Integer> inferenceSymbolOrder = new LinkedHashMap<>();
+
+  /** Variables currently being structurally resolved for invariant comparison. */
+  private final Set<InferenceVariable> invariantResolutionInProgress = new LinkedHashSet<>();
+
+  /** Diagnostic annotation sources selected independently of structured candidate construction. */
+  private final Map<InferenceVariable, Type> declarationBoundFallbacks = new LinkedHashMap<>();
+
+  /** Active directed type pairs; empty mode maps retain their storage, never completed pairs. */
+  private final Map<String, IdentityHashMap<Type, Set<Type>>> activeBoundComparisons =
+      new LinkedHashMap<>();
+
+  /** Empty identity sets recycled across comparisons, bounded by peak active first-type entries. */
+  private final Deque<Set<Type>> unusedBoundComparisonSets = new ArrayDeque<>();
+
+  /** Stable per-run IDs for symbols appearing in structural fingerprints. */
+  private final IdentityHashMap<Symbol, Integer> fingerprintSymbolIds = new IdentityHashMap<>();
+
+  /**
+   * Stable per-run IDs for annotation type names in structural fingerprints. javac interns names,
+   * so identity matches string equality within a compilation.
+   */
+  private final IdentityHashMap<Name, Integer> fingerprintNameIds = new IdentityHashMap<>();
+
   /* ───────────────────── public API ───────────────────── */
 
   @Override
   public Map<Element, Type.TypeVar> registerInferenceVariables(
-      Tree site, List<? extends Element> typeVariables) {
-
+      Tree site,
+      List<? extends Element> typeVariables,
+      Map<? extends Element, ? extends Type> instantiatedUpperBounds,
+      Set<? extends Element> variablesWithNullnessMarkedBounds,
+      Map<? extends Element, ? extends Type> javacInstantiations) {
+    Map<Element, Type.TypeVar> existing = freshTypeVariablesForSite.get(site);
+    if (existing != null) {
+      recordRegistrationInputs(site, existing, instantiatedUpperBounds, javacInstantiations);
+      recordJavacInstantiations(site, existing.keySet(), javacInstantiations);
+      return existing;
+    }
     // First create all the fresh type variables, since the upper bound of one type variable can
     // refer to others, e.g., <T extends Comparable<T>> or <T, U extends T>.
     Map<Element, Type.TypeVar> fresh = new LinkedHashMap<>();
@@ -108,29 +280,276 @@ public final class ConstraintSolverImpl implements ConstraintSolver {
     // Rebind references in upper bounds as well: following a bound such as V extends Box<T>
     // must lead to this site's fresh T, not back to the fixed declaration variable.
     Types types = state.getTypes();
+    Set<Element> receiverInstantiatedBounds = new LinkedHashSet<>();
     for (Map.Entry<Element, Type.TypeVar> entry : fresh.entrySet()) {
       Type.TypeVar declared = (Type.TypeVar) ((Symbol) entry.getKey()).type;
+      Type instantiatedUpperBound = instantiatedUpperBounds.get(entry.getKey());
+      Type upperBound =
+          instantiatedUpperBound != null ? instantiatedUpperBound : declared.getUpperBound();
+      Symbol.TypeVariableSymbol declaredSymbol = (Symbol.TypeVariableSymbol) entry.getKey();
+      boolean ownerIsUnannotated =
+          CodeAnnotationInfo.instance(state.context)
+              .isSymbolUnannotated(declaredSymbol.owner, config, handler);
+      if (instantiatedUpperBound != null
+          && !ownerIsUnannotated
+          && hasSuppliedBoundChange(instantiatedUpperBound, declared.getUpperBound())) {
+        receiverInstantiatedBounds.add(entry.getKey());
+      }
+
       entry
           .getValue()
           .setUpperBound(
-              TypeSubstitutionUtils.substituteTypeVariables(
-                  declared.getUpperBound(), fresh, types, config));
+              TypeSubstitutionUtils.substituteTypeVariables(upperBound, fresh, types, config));
     }
     for (Map.Entry<Element, Type.TypeVar> entry : fresh.entrySet()) {
-      inferenceVariables.put(entry.getValue().tsym, new InferenceVariable(entry.getKey(), site));
+      Type.TypeVar freshVar = entry.getValue();
+      boolean modeledNullable = hasNullableUpperBoundOverride(entry.getKey());
+      InferenceVariable inferenceVariable = new InferenceVariable(entry.getKey(), site);
+      inferenceSymbolOrder.put(freshVar.tsym, inferenceVariables.size());
+      inferenceVariables.put(freshVar.tsym, inferenceVariable);
+      freshTypeVariableForInferenceVariable.put(inferenceVariable, freshVar);
+      if (variablesWithNullnessMarkedBounds.contains(entry.getKey())) {
+        nullnessMarkedDeclarationBounds.add(inferenceVariable);
+      }
+      Type effectiveBound = freshVar.getUpperBound();
+      boolean inferredDependency =
+          effectiveBound instanceof TypeVar
+              && !GenericsUtils.isAnnotatedAsNullable(effectiveBound, config)
+              && !GenericsUtils.isAnnotatedAsNonNull(effectiveBound, config)
+              && fresh.values().stream()
+                  .anyMatch(variable -> variable.tsym.equals(effectiveBound.tsym));
+      if (variablesWithNullnessMarkedBounds.contains(entry.getKey())
+          && receiverInstantiatedBounds.contains(entry.getKey())
+          && !inferredDependency) {
+        nullableAllowedForInferenceVariable.put(
+            inferenceVariable, modeledNullable || upperBoundAllowsNullable(effectiveBound));
+      }
     }
-
+    freshTypeVariablesForSite.put(site, fresh);
+    recordRegistrationInputs(site, fresh, instantiatedUpperBounds, javacInstantiations);
+    recordJavacInstantiations(site, fresh.keySet(), javacInstantiations);
+    for (Element variable : fresh.keySet()) {
+      getState(new InferenceVariable(variable, site));
+    }
     return fresh;
+  }
+
+  /**
+   * Detects authoritative supplied-bound changes, including annotations that javac's nominal
+   * isSameType comparison ignores. Detached peer variables can also carry restored root contracts
+   * under unchanged symbols. Neither nested nullable positions nor unknown shapes establish root
+   * permissiveness; the same root-bound reader used for validation decides that comparison.
+   */
+  private boolean hasSuppliedBoundChange(Type supplied, Type declared) {
+    return !state.getTypes().isSameType(supplied, declared)
+        || !structuredTypeKey(supplied).equals(structuredTypeKey(declared))
+        || upperBoundAllowsNullable(supplied) != upperBoundAllowsNullable(declared);
+  }
+
+  /** Retains raw and substituted registration inputs under their specific variable owner. */
+  private void recordRegistrationInputs(
+      Tree site,
+      Map<Element, Type.TypeVar> fresh,
+      Map<? extends Element, ? extends Type> bounds,
+      Map<? extends Element, ? extends Type> shapes) {
+    for (Map.Entry<Element, Type.TypeVar> entry : fresh.entrySet()) {
+      InferenceVariable variable = new InferenceVariable(entry.getKey(), site);
+      List<Type> inputs = registrationInputs.computeIfAbsent(variable, unused -> new ArrayList<>());
+      inputs.add(entry.getValue().getUpperBound());
+      Type bound = bounds.get(entry.getKey());
+      if (bound != null) {
+        inputs.add(bound);
+        inputs.add(
+            TypeSubstitutionUtils.substituteTypeVariables(bound, fresh, state.getTypes(), config));
+      }
+      Type shape = shapes.get(entry.getKey());
+      if (shape != null) {
+        inputs.add(shape);
+      }
+      if (inputs.stream().anyMatch(this::hasExternalInputDependency)) {
+        externalInputVariables.add(variable);
+      }
+    }
+  }
+
+  @Override
+  public Set<Element> inferenceVariableSymbols() {
+    return Collections.unmodifiableSet(new LinkedHashSet<>(inferenceVariables.keySet()));
+  }
+
+  @Override
+  public void registerExternalInferenceSymbols(Set<? extends Element> symbols) {
+    externalInferenceSymbols.addAll(symbols);
+  }
+
+  @Override
+  public boolean hasExternalInputDependency(Type type) {
+    if (externalInferenceSymbols.isEmpty()) {
+      return false;
+    }
+    Set<Element> foreign = new LinkedHashSet<>(externalInferenceSymbols);
+    foreign.removeAll(inferenceVariables.keySet());
+    if (foreign.isEmpty()) {
+      return false;
+    }
+    TypeVarWithSymbolCollector collector = new TypeVarWithSymbolCollector(foreign);
+    type.accept(collector, null);
+    return !collector.getMatches().isEmpty();
+  }
+
+  @Override
+  public void recordInferenceSiteInput(Tree site, Type type) {
+    if (hasExternalInputDependency(type)) {
+      externalInputSites.add(site);
+    }
+  }
+
+  /**
+   * Closes retained seeds over the current root, structural, and nested dependencies without
+   * preparing constraints or changing certification. Repeated snapshots also see registration
+   * inputs supplied after the first registration, even when semantic bounds remain unchanged.
+   */
+  @Override
+  public InputDependencies inputDependencies() {
+    if (externalInferenceSymbols.isEmpty()) {
+      return new InputDependencies(Set.of(), Set.of());
+    }
+    Set<InferenceVariable> dependent = new LinkedHashSet<>(externalInputVariables);
+    boolean changed;
+    do {
+      changed = false;
+      for (Map.Entry<InferenceVariable, VarState> entry : vars.entrySet()) {
+        InferenceVariable variable = entry.getKey();
+        List<Type> inputs = registrationInputs.getOrDefault(variable, List.of());
+        if (inputs.stream().anyMatch(this::hasExternalInputDependency)) {
+          changed |= dependent.add(variable);
+        }
+        Set<InferenceVariable> dependencies =
+            new LinkedHashSet<>(directStructuredDependencies(variable));
+        for (Element symbol : referencedInferenceSymbols(inputs)) {
+          dependencies.add(castToNonNull(inferenceVariables.get(symbol)));
+        }
+        VarState st = entry.getValue();
+        dependencies.addAll(st.subtypes);
+        dependencies.addAll(st.supertypes);
+        dependencies.addAll(st.structuralSubtypes);
+        dependencies.addAll(st.structuralSupertypes);
+        // Nested owner/slot relationships are conservatively bidirectional. No second graph is
+        // maintained, and this also preserves dependencies before preparation or after failure.
+        for (InferenceVariable dependency : dependencies) {
+          if (dependent.contains(dependency)) {
+            changed |= dependent.add(variable);
+          }
+          if (dependent.contains(variable)) {
+            changed |= dependent.add(dependency);
+          }
+        }
+      }
+    } while (changed);
+    return new InputDependencies(dependent, externalInputSites);
+  }
+
+  /**
+   * Records fixed/no-variable site inputs, then reduces the relation using the existing visitor.
+   * Variable dependencies are seeded only at reduced pairs and bound registration, so unrelated
+   * container slots do not share foreign-input provenance.
+   */
+  private void constrainSubtype(Type subtype, Type supertype, boolean localVariableType) {
+    if (hasExternalInputDependency(subtype) || hasExternalInputDependency(supertype)) {
+      List<Element> local = referencedInferenceSymbols(List.of(subtype, supertype));
+      if (local.isEmpty()) {
+        for (SourceOrigin origin : currentOrigins) {
+          externalInputSites.add(origin.ownerSite());
+        }
+      }
+    }
+    subtype.accept(new AddSubtypeConstraintsVisitor(localVariableType), supertype);
+  }
+
+  /**
+   * Seeds only owned endpoints of a reduced pair before scalar changes, bound deduplication, or
+   * failure. Foreign fixed-bound expansion can carry provenance even when the reduced types no
+   * longer contain the foreign symbol. Origins identify fixed-input owners, not dependency proof.
+   */
+  private void recordReducedPairInputDependencies(
+      Type subtype, Type supertype, boolean foreignBoundInput) {
+    if (!foreignBoundInput
+        && !hasExternalInputDependency(subtype)
+        && !hasExternalInputDependency(supertype)) {
+      return;
+    }
+    InferenceVariable subtypeVariable = inferenceVariableForStructure(subtype);
+    InferenceVariable supertypeVariable = inferenceVariableForStructure(supertype);
+    if (subtypeVariable != null) {
+      externalInputVariables.add(subtypeVariable);
+    }
+    if (supertypeVariable != null) {
+      externalInputVariables.add(supertypeVariable);
+    }
+    if (subtypeVariable == null
+        && supertypeVariable == null
+        && referencedInferenceSymbols(List.of(subtype, supertype)).isEmpty()) {
+      for (SourceOrigin origin : currentOrigins) {
+        externalInputSites.add(origin.ownerSite());
+      }
+    }
+  }
+
+  /** Records supplied shapes without discarding earlier shapes on repeated registration. */
+  private void recordJavacInstantiations(
+      Tree site, Set<Element> variables, Map<? extends Element, ? extends Type> instantiations) {
+    for (Element variable : variables) {
+      Type shape = instantiations.get(variable);
+      if (shape != null) {
+        javacInstantiations.put(new InferenceVariable(variable, site), shape);
+      }
+    }
   }
 
   @Override
   public void addSubtypeConstraint(Type subtype, Type supertype, boolean localVariableType)
       throws UnsatisfiableConstraintsException {
-    subtype.accept(new AddSubtypeConstraintsVisitor(localVariableType), supertype);
+    withOrigins(List.of(), () -> constrainSubtype(subtype, supertype, localVariableType));
+  }
+
+  @Override
+  public void addSubtypeConstraint(
+      Type subtype, Type supertype, boolean localVariableType, SourceOrigin origin) {
+    withOrigins(List.of(origin), () -> constrainSubtype(subtype, supertype, localVariableType));
+  }
+
+  /** Restores source context even when scalar or declaration constraint generation throws. */
+  private void withOrigins(List<SourceOrigin> origins, Runnable action) {
+    withSources(origins, sourceSupports.conjunction(origins), action);
+  }
+
+  /** Scopes both flattened context and supporting alternatives through derived constraints. */
+  private void withSources(List<SourceOrigin> origins, SourceSupport support, Runnable action) {
+    List<SourceOrigin> previous = currentOrigins;
+    SourceSupport previousSupport = currentSupport;
+    currentOrigins = origins;
+    currentSupport = support;
+    try {
+      action.run();
+    } finally {
+      currentOrigins = previous;
+      currentSupport = previousSupport;
+    }
+  }
+
+  /** Combines independent derivation premises without losing origin order or ownership. */
+  private static List<SourceOrigin> combinedOrigins(
+      List<SourceOrigin> first, List<SourceOrigin> second) {
+    Set<SourceOrigin> origins = new LinkedHashSet<>(first);
+    origins.addAll(second);
+    return List.copyOf(origins);
   }
 
   class AddSubtypeConstraintsVisitor extends Types.DefaultTypeVisitor<@Nullable Void, Type> {
     private boolean localVariableType;
+
+    /** Scoped provenance while reducing an explicitly foreign fixed variable's upper bound. */
+    private boolean foreignBoundInput;
 
     /**
      * Wildcard containment checks currently in progress, keyed by the formal wildcard. Used to stop
@@ -153,7 +572,7 @@ public final class ConstraintSolverImpl implements ConstraintSolver {
       // handle flow into a type variable. The check for !(subtype instanceof TypeVar) is a
       // small optimization, as that case should be handled in visitTypeVar.
       if (!localVariableType && (supertype instanceof TypeVar) && !(subtype instanceof TypeVar)) {
-        directlyConstrainTypePair(subtype, supertype);
+        directlyConstrainTypePair(subtype, supertype, foreignBoundInput);
       }
       return null;
     }
@@ -194,7 +613,22 @@ public final class ConstraintSolverImpl implements ConstraintSolver {
     @Override
     public @Nullable Void visitTypeVar(TypeVar subtype, Type supertype) {
       if (!localVariableType) {
-        directlyConstrainTypePair(subtype, supertype);
+        directlyConstrainTypePair(subtype, supertype, foreignBoundInput);
+        if (inferenceVariableForStructure(subtype) == null
+            && !(subtype instanceof CapturedType)
+            && isStructuredType(supertype)
+            && beginBoundComparison("fixed-constraints", subtype, supertype)) {
+          boolean previousForeignBoundInput = foreignBoundInput;
+          foreignBoundInput |= hasExternalInputDependency(subtype);
+          try {
+            // A fixed caller variable can constrain nested inference through its declaration
+            // contract, without ever using that contract as its replacement shape.
+            subtype.getUpperBound().accept(this, supertype);
+          } finally {
+            foreignBoundInput = previousForeignBoundInput;
+            endBoundComparison("fixed-constraints", subtype, supertype);
+          }
+        }
       }
       return visitType(subtype, supertype);
     }
@@ -352,8 +786,11 @@ public final class ConstraintSolverImpl implements ConstraintSolver {
   }
 
   @Override
-  public Map<InferenceVariable, InferredNullability> solve()
-      throws UnsatisfiableConstraintsException {
+  public Solution solve() throws UnsatisfiableConstraintsException {
+    lowerConflicts.clear();
+    lowerConflictKeys.clear();
+    prepareStructuredConstraints();
+
     /* ---------- work-list propagation of nullability ---------- */
     Deque<InferenceVariable> work = new ArrayDeque<>();
     vars.forEach(
@@ -391,32 +828,2282 @@ public final class ConstraintSolverImpl implements ConstraintSolver {
       }
     }
 
-    /* ---------- build final solution map ---------- */
-    Map<InferenceVariable, InferredNullability> result = new LinkedHashMap<>();
-    vars.forEach(
-        (inferenceVar, st) -> {
-          // Note: if the nullness state is UNKNOWN, we infer NONNULL arbitrarily
-          // TODO does this matter?  should we use NULLABLE instead?
-          result.put(
-              inferenceVar,
-              st.nullness == NullnessState.NULLABLE
-                  ? InferredNullability.NULLABLE
-                  : InferredNullability.NONNULL);
+    // Validation must not depend on whether candidate construction can unfold a cycle or merge
+    // the lower bounds into a single annotation source.
+    declarationBoundFallbacks.clear();
+
+    Map<InferenceVariable, Type> validatedFallbacks = new LinkedHashMap<>();
+    for (InferenceVariable inferenceVar : vars.keySet()) {
+      Type fallback = validateDeclarationBounds(inferenceVar);
+      if (fallback != null) {
+        validatedFallbacks.put(inferenceVar, fallback);
+      }
+    }
+    // Publish only after validating every variable, so diagnostic fallbacks cannot hide lower
+    // evidence during validation of a dependent variable.
+    declarationBoundFallbacks.putAll(validatedFallbacks);
+
+    /* ---------- build and certify the final solution ---------- */
+    Map<InferenceVariable, Type> result = new LinkedHashMap<>();
+    Map<InferenceVariable, Type> inferredTypes = new LinkedHashMap<>();
+    Set<InferenceVariable> incomplete = new LinkedHashSet<>();
+    Set<InferenceVariable> inconsistent = new LinkedHashSet<>();
+    for (InferenceVariable inferenceVar : vars.keySet()) {
+      result.put(
+          inferenceVar,
+          inferredType(inferenceVar, inferredTypes, new LinkedHashSet<>(), incomplete));
+      if (declarationBoundFallbacks.containsKey(inferenceVar)) {
+        inconsistent.add(inferenceVar);
+      }
+    }
+    validateSolution(result, incomplete, inconsistent);
+    propagateUncertifiedDependencies(incomplete, inconsistent);
+    collectLowerConflicts(result, incomplete, inconsistent);
+    for (LowerBoundConflict conflict : lowerConflicts) {
+      inconsistent.add(conflict.variable());
+    }
+    propagateUncertifiedDependencies(incomplete, inconsistent);
+
+    return new Solution(result, incomplete, inconsistent, lowerConflicts, inputDependencies());
+  }
+
+  /**
+   * Computes the nullness-annotated type inferred for {@code inferenceVar}, after nullability
+   * propagation has reached a fixed point.
+   *
+   * <p>With an attributed Java shape, each resolved lower-bound source (or upper-bound source when
+   * there are no lowers, with declaration bounds preceding contextual bounds) is projected onto
+   * that shape before merging annotations. This permits distinct nominal lower types to share
+   * javac's chosen supertype without inventing a Java shape. Covariant array components merge
+   * nullness; invariant conflicts retain diagnostic evidence and are rejected by independent
+   * validation. Without a shape, the legacy annotation source remains available, but the variable
+   * is incomplete. Unconstrained fixed caller variables stay symbolic.
+   *
+   * @param inferenceVar the inference variable
+   * @param memo already computed inferred types
+   * @param inProgress variables whose inferred types are currently being computed, to guard against
+   *     cycles, e.g., from a constraint {@code List<T> <: T}
+   * @param incomplete variables whose structure cannot be certified
+   * @return the inferred type or diagnostic annotation source
+   */
+  private Type inferredType(
+      InferenceVariable inferenceVar,
+      Map<InferenceVariable, Type> memo,
+      Set<InferenceVariable> inProgress,
+      Set<InferenceVariable> incomplete) {
+    return castToNonNull(resolveTypeEvidence(inferenceVar, memo, inProgress, incomplete, false));
+  }
+
+  /**
+   * Resolves evidence at javac's shape for both candidates and invariant comparisons. Comparisons
+   * cannot use a recursive seed, an unconstrained root default, or an incomplete projection as
+   * proof. Their local memo is populated only after all sources have resolved successfully.
+   */
+  private @Nullable Type resolveTypeEvidence(
+      InferenceVariable inferenceVar,
+      Map<InferenceVariable, Type> memo,
+      Set<InferenceVariable> inProgress,
+      Set<InferenceVariable> incomplete,
+      boolean comparisonEvidence) {
+    Type memoized = memo.get(inferenceVar);
+    if (memoized != null) {
+      return memoized;
+    }
+    VarState st = castToNonNull(vars.get(inferenceVar));
+    Type declaredTypeVariable = (Type) inferenceVar.typeVariable().asType();
+    Type shape = javacInstantiations.get(inferenceVar);
+    if (shape == null || !hasCertifiedJavaStructure(shape, new IdentityHashMap<>())) {
+      incomplete.add(inferenceVar);
+      if (comparisonEvidence) {
+        return null;
+      }
+    }
+    Type scalarSource =
+        shape == null
+            ? TypeSubstitutionUtils.typeWithAnnot(
+                declaredTypeVariable,
+                st.nullness == NullnessState.NULLABLE
+                    ? GenericsChecks.getSyntheticNullableAnnotType(state)
+                    : GenericsChecks.getSyntheticNonNullAnnotType(state))
+            : comparisonEvidence && st.nullness == NullnessState.UNKNOWN
+                ? shape
+                : inferredRoot(shape, st);
+    if (shape == null && hasStructuredDependencyCycle(inferenceVar)) {
+      incomplete.add(inferenceVar);
+      return scalarSource;
+    }
+    if (!inProgress.add(inferenceVar)) {
+      // Attributed shapes can break structural recursion. The seed is not certification: every
+      // substituted bound is still checked against the final solution below.
+      return comparisonEvidence ? null : scalarSource;
+    }
+    try {
+      StructuredBounds bounds = structuredBounds(inferenceVar);
+      List<Type> sources;
+      Type declarationFallback = declarationBoundFallbacks.get(inferenceVar);
+      if (comparisonEvidence && declarationFallback != null) {
+        return null;
+      }
+      if (declarationFallback != null) {
+        sources = List.of(declarationFallback);
+      } else if (shape == null) {
+        Type legacySource = structuredBound(inferenceVar);
+        sources = legacySource == null ? List.of() : List.of(legacySource);
+      } else if (bounds.lower().isEmpty()) {
+        // Preserve the declaration contract as the diagnostic source when a contextual upper
+        // conflicts with it. Every upper still participates in independent solution validation.
+        sources = new ArrayList<>(bounds.declaredUpper());
+        for (Type upper : bounds.upper()) {
+          addIfNotIdentical(sources, upper);
+        }
+      } else {
+        sources = bounds.lower();
+      }
+      List<Type> resolvedSources = new ArrayList<>();
+      for (Type source : sources) {
+        Type resolved =
+            resolveEvidenceSource(source, memo, inProgress, incomplete, comparisonEvidence);
+        if (resolved == null) {
+          return null;
+        }
+        resolvedSources.add(resolved);
+      }
+      if (declarationFallback == null && bounds.lower().isEmpty()) {
+        // A broad upper bound supplies no nested positions in a more specific Java shape.
+        // Select compatible upper evidence before projection so Object cannot invent nested
+        // non-null defaults that conflict with a contextual bound. Validate all bounds below.
+        Type mostSpecificUpper = validatedUpperBoundFallback(resolvedSources);
+        if (mostSpecificUpper != null) {
+          resolvedSources = List.of(mostSpecificUpper);
+        }
+      }
+
+      if (comparisonEvidence && resolvedSources.isEmpty() && st.nullness == NullnessState.UNKNOWN) {
+        return null;
+      }
+      Type candidate = null;
+      Type projectionShape = null;
+      for (Type resolved : resolvedSources) {
+        Type evidence =
+            comparisonEvidence && st.nullness == NullnessState.UNKNOWN
+                ? markNestedTypesNonNull(resolved)
+                : inferredRoot(resolved, st);
+        Type projected;
+        if (shape == null) {
+          projected = evidence;
+        } else if (shape instanceof TypeVar && st.nullness == NullnessState.UNKNOWN) {
+          // The projection helper interprets absent root annotations as non-null. Preserve a
+          // symbolic caller variable instead; it has no nested positions to overlay.
+          projected = shape;
+        } else {
+          if (projectionShape == null) {
+            projectionShape = markNestedTypesNonNull(shape);
+          }
+          projected =
+              TypeSubstitutionUtils.updateTypeWithInferredNullability(
+                  projectionShape,
+                  declaredTypeVariable,
+                  Map.of(inferenceVar.typeVariable(), evidence),
+                  state,
+                  config);
+        }
+        if (candidate == null) {
+          candidate = projected;
+        } else {
+          Type merged = mergeProjectedLowerBounds(candidate, projected, false);
+          if (merged == null) {
+            // A failed merge is not a conflict proof. Independent certification and pairwise
+            // lower checks still visit every source, including later siblings.
+            incomplete.add(inferenceVar);
+            if (comparisonEvidence) {
+              return null;
+            }
+          } else {
+            candidate = merged;
+          }
+        }
+      }
+      Type result =
+          candidate == null
+              ? scalarSource
+              : comparisonEvidence && st.nullness == NullnessState.UNKNOWN
+                  ? candidate
+                  : inferredRoot(candidate, st);
+      if (shape != null && !canOverlayBound(result, shape)) {
+        // Annotation copying must not certify a flattened intersection or another changed shape.
+        incomplete.add(inferenceVar);
+        if (comparisonEvidence) {
+          return null;
+        }
+      }
+      if (comparisonEvidence) {
+        for (Type source : resolvedSources) {
+          BoundRelation relation =
+              bounds.lower().isEmpty()
+                  ? nullabilitySubtype(result, source, false)
+                  : nullabilitySubtype(source, result, false);
+          if (relation != BoundRelation.SATISFIED) {
+            return null;
+          }
+        }
+        // A projection onto a broad supplied shape can satisfy all lowers while violating an
+        // invariant upper/equality constraint. Such a candidate is not comparison evidence: using
+        // it could manufacture a declaration violation in a dependent variable.
+        for (Type upper : bounds.upper()) {
+          Type resolvedUpper = resolveEvidenceSource(upper, memo, inProgress, incomplete, true);
+          if (resolvedUpper == null
+              || nullabilitySubtype(result, resolvedUpper, false) != BoundRelation.SATISFIED) {
+            return null;
+          }
+        }
+      }
+      memo.put(inferenceVar, result);
+      return result;
+    } finally {
+      inProgress.remove(inferenceVar);
+    }
+  }
+
+  /**
+   * Resolves one bound with the caller's recursion guard, without defaulting unknown dependencies.
+   */
+  private @Nullable Type resolveEvidenceSource(
+      Type source,
+      Map<InferenceVariable, Type> memo,
+      Set<InferenceVariable> inProgress,
+      Set<InferenceVariable> incomplete,
+      boolean comparisonEvidence) {
+    Map<Element, Type> replacements = new LinkedHashMap<>();
+    for (Element symbol : referencedInferenceSymbols(List.of(source))) {
+      Type replacement =
+          resolveTypeEvidence(
+              castToNonNull(inferenceVariables.get(symbol)),
+              memo,
+              inProgress,
+              incomplete,
+              comparisonEvidence);
+      if (replacement == null) {
+        return null;
+      }
+      replacements.put(symbol, replacement);
+    }
+    return TypeSubstitutionUtils.substituteTypeVariables(
+        source, replacements, state.getTypes(), config);
+  }
+
+  /**
+   * Checks every substituted lower pair after candidate construction, retaining original sources.
+   */
+  private void collectLowerConflicts(
+      Map<InferenceVariable, Type> result,
+      Set<InferenceVariable> incomplete,
+      Set<InferenceVariable> inconsistent) {
+    Map<Element, Type> replacements = new LinkedHashMap<>();
+    inferenceVariables.forEach(
+        (symbol, variable) -> {
+          if (!incomplete.contains(variable) && !inconsistent.contains(variable)) {
+            replacements.put(symbol, castToNonNull(result.get(variable)));
+          }
         });
+    IdentityHashMap<Type, Type> substitutedBounds = new IdentityHashMap<>();
+    for (InferenceVariable variable : vars.keySet()) {
+      Type shape = javacInstantiations.get(variable);
+      if (shape != null) {
+        StructuredBounds bounds = structuredBounds(variable);
+        validateLowerAnnotationsAtShape(
+            variable,
+            bounds.lowerEvidence(),
+            substituteBounds(bounds.lower(), replacements, substitutedBounds),
+            shape);
+      }
+    }
+  }
+
+  /**
+   * Compares lower annotations at javac's authoritative common shape before projection can erase
+   * evidence. Every pair participates: an opaque first bound must not hide a conflict between later
+   * bounds. This check does not supply a Java shape or certify an otherwise incomplete solution.
+   */
+  private void validateLowerAnnotationsAtShape(
+      InferenceVariable variable, List<BoundEvidence> sources, List<Type> lowers, Type shape) {
+    for (int i = 0; i < lowers.size(); i++) {
+      for (int j = i + 1; j < lowers.size(); j++) {
+        validateLowerAnnotationsAtShape(
+            variable, lowers.get(i), lowers.get(j), shape, sources.get(i), sources.get(j));
+      }
+    }
+  }
+
+  /**
+   * Checks corresponding invariant slots in a common Java shape. Arrays descend covariantly, so
+   * differing component-root nullness is not a conflict. An intersection supplies independent
+   * nominal views of both lowers, not a synthetic class whose empty argument list can hide their
+   * annotations. A concrete disagreement at a real component becomes a fact; annotation projection
+   * cannot supply missing evidence about an unresolved slot. Raw, unresolved, and otherwise unknown
+   * evidence remains for conservative solution validation. Same-nominal and aligned sources use
+   * identical rules; reporting location is frontend policy.
+   */
+  private void validateLowerAnnotationsAtShape(
+      InferenceVariable variable,
+      Type first,
+      Type second,
+      Type shape,
+      BoundEvidence firstSource,
+      BoundEvidence secondSource) {
+    if (!beginBoundComparison("lower-at-shape", first, shape)) {
+      return;
+    }
+    try {
+      if (shape instanceof Type.ArrayType array) {
+        if (first instanceof Type.ArrayType firstArray
+            && second instanceof Type.ArrayType secondArray) {
+          validateLowerAnnotationsAtShape(
+              variable,
+              firstArray.elemtype,
+              secondArray.elemtype,
+              array.elemtype,
+              firstSource,
+              secondSource);
+        }
+        return;
+      }
+      if (shape instanceof Type.IntersectionClassType intersection) {
+        for (Type component : intersection.getExplicitComponents()) {
+          validateLowerAnnotationsAtShape(
+              variable, first, second, component, firstSource, secondSource);
+        }
+        return;
+      }
+      if (!(shape instanceof ClassType shapeClass)
+          || shapeClass.isRaw()
+          || !(shape.tsym instanceof Symbol.ClassSymbol symbol)) {
+        return;
+      }
+      Type firstAligned = TypeSubstitutionUtils.asSuper(state.getTypes(), first, symbol, config);
+      Type secondAligned = TypeSubstitutionUtils.asSuper(state.getTypes(), second, symbol, config);
+      if (!(firstAligned instanceof ClassType firstClass)
+          || !(secondAligned instanceof ClassType secondClass)
+          || firstClass.isRaw()
+          || secondClass.isRaw()) {
+        return;
+      }
+      if (compatibleLowerSlotAtShape(
+              new LowerSlot(firstAligned, secondAligned, shape, LowerVariance.COVARIANT, false))
+          == BoundRelation.VIOLATED) {
+        LowerConflictKey key =
+            new LowerConflictKey(
+                variable,
+                structuredTypeKey(firstSource.type()),
+                structuredTypeKey(secondSource.type()),
+                structuredTypeKey(shape));
+        if (lowerConflictKeys.add(key)) {
+          // Resolving value premises can combine many independent alternatives. Do it only for
+          // a proven conflict, never for successful pairs or variables with a single lower.
+          lowerConflicts.add(
+              new LowerBoundConflict(
+                  variable,
+                  withReferencedValueSupport(firstSource),
+                  withReferencedValueSupport(secondSource),
+                  shape));
+        }
+      }
+    } finally {
+      endBoundComparison("lower-at-shape", first, shape);
+    }
+  }
+
+  /** Applies solved root nullness without imposing a default on symbolic fixed variables. */
+  private Type inferredRoot(Type source, VarState st) {
+    Type annotated = markNestedTypesNonNull(source);
+    if (source instanceof TypeVar
+        && inferenceVariableForStructure(source) == null
+        && st.nullness == NullnessState.UNKNOWN) {
+      return annotated;
+    }
+    return TypeSubstitutionUtils.typeWithAnnot(
+        annotated,
+        st.nullness == NullnessState.NULLABLE
+            ? GenericsChecks.getSyntheticNullableAnnotType(state)
+            : GenericsChecks.getSyntheticNonNullAnnotType(state));
+  }
+
+  /**
+   * Checks whether a supplied Java shape contains only resolved structure. Fixed type variables are
+   * symbolic leaves: their upper bounds are contracts, not replacement shapes. Raw types, captures,
+   * errors, fresh inference variables, and recursive structural objects are uncertified.
+   */
+  private boolean hasCertifiedJavaStructure(Type type, IdentityHashMap<Type, Boolean> visiting) {
+    if (type.isErroneous() || type instanceof CapturedType || visiting.put(type, true) != null) {
+      return false;
+    }
+    try {
+      if (type instanceof TypeVar) {
+        return inferenceVariableForStructure(type) == null;
+      }
+      if (type instanceof Type.ArrayType array) {
+        return hasCertifiedJavaStructure(array.elemtype, visiting);
+      }
+      if (type instanceof WildcardType wildcard) {
+        if (!config.handleWildcardGenerics()) {
+          return false;
+        }
+        Type bound =
+            wildcard.kind == BoundKind.UNBOUND
+                ? GenericsUtils.wildcardUpperBound(wildcard, state, config, handler)
+                : wildcard.type;
+        return bound != null && hasCertifiedJavaStructure(bound, visiting);
+      }
+      if (type instanceof ClassType classType) {
+        if (classType.isRaw()) {
+          return false;
+        }
+        if (classType instanceof Type.IntersectionClassType intersection) {
+          for (TypeMirror bound : intersection.getBounds()) {
+            if (!hasCertifiedJavaStructure((Type) bound, visiting)) {
+              return false;
+            }
+          }
+        }
+        for (Type argument : classType.getTypeArguments()) {
+          if (!hasCertifiedJavaStructure(argument, visiting)) {
+            return false;
+          }
+        }
+        return hasCertifiedJavaStructure(classType.getEnclosingType(), visiting);
+      }
+      return type.isPrimitive() || type.hasTag(TypeTag.NONE);
+    } finally {
+      visiting.remove(type);
+    }
+  }
+
+  /**
+   * Validates every structured lower, upper, and declaration bound after substitution. Pairwise
+   * validation remains independent of candidate construction, so a failed merge or unknown sibling
+   * cannot hide a concrete conflict. Root occurrence checks stay with ordinary compatibility
+   * checks.
+   */
+  private void validateSolution(
+      Map<InferenceVariable, Type> result,
+      Set<InferenceVariable> incomplete,
+      Set<InferenceVariable> inconsistent) {
+    Map<Element, Type> substitutions = new LinkedHashMap<>();
+    inferenceVariables.forEach(
+        (symbol, variable) -> substitutions.put(symbol, castToNonNull(result.get(variable))));
+    IdentityHashMap<Type, Type> substitutedBounds = new IdentityHashMap<>();
+    for (InferenceVariable variable : result.keySet()) {
+      StructuredBounds bounds = structuredBounds(variable);
+      Type candidate = result.get(variable);
+      List<Type> lowerBounds = substituteBounds(bounds.lower(), substitutions, substitutedBounds);
+      List<Type> upperBounds = substituteBounds(bounds.upper(), substitutions, substitutedBounds);
+      for (Type lower : lowerBounds) {
+        recordBoundRelation(
+            variable, nullabilitySubtype(lower, candidate, false), incomplete, inconsistent);
+        for (Type upper : upperBounds) {
+          recordBoundRelation(
+              variable, nullabilitySubtype(lower, upper, false), incomplete, inconsistent);
+        }
+      }
+      for (Type upper : upperBounds) {
+        recordBoundRelation(
+            variable, nullabilitySubtype(candidate, upper, false), incomplete, inconsistent);
+      }
+      for (Type upper :
+          substituteBounds(bounds.declaredUpper(), substitutions, substitutedBounds)) {
+        recordBoundRelation(
+            variable, nullabilitySubtype(candidate, upper, false), incomplete, inconsistent);
+      }
+      for (InferenceVariable supertype : castToNonNull(vars.get(variable)).structuralSupertypes) {
+        recordBoundRelation(
+            variable,
+            nullabilitySubtype(candidate, castToNonNull(result.get(supertype)), false),
+            incomplete,
+            inconsistent);
+      }
+    }
+  }
+
+  /**
+   * Substitutes each shared bound once for a fixed replacement map. The memo belongs to one
+   * validation phase: conflict collection excludes uncertified replacements and uses a separate
+   * memo. Identity keys preserve annotation-distinct occurrences and never outlive bound repair.
+   */
+  private List<Type> substituteBounds(
+      List<Type> bounds, Map<Element, Type> substitutions, IdentityHashMap<Type, Type> memo) {
+    List<Type> result = new ArrayList<>(bounds.size());
+    for (Type bound : bounds) {
+      result.add(
+          memo.computeIfAbsent(
+              bound,
+              type ->
+                  TypeSubstitutionUtils.substituteTypeVariables(
+                      type, substitutions, state.getTypes(), config)));
+    }
+    return result;
+  }
+
+  /** Records uncertified relations without discarding annotation evidence used for diagnostics. */
+  private static void recordBoundRelation(
+      InferenceVariable variable,
+      BoundRelation relation,
+      Set<InferenceVariable> incomplete,
+      Set<InferenceVariable> inconsistent) {
+    if (relation == BoundRelation.UNKNOWN) {
+      incomplete.add(variable);
+    } else if (relation == BoundRelation.VIOLATED) {
+      inconsistent.add(variable);
+    }
+  }
+
+  /** Propagates uncertified evidence through structural dependencies to a fixed point. */
+  private void propagateUncertifiedDependencies(
+      Set<InferenceVariable> incomplete, Set<InferenceVariable> inconsistent) {
+    boolean changed;
+    do {
+      changed = false;
+      for (Map.Entry<InferenceVariable, VarState> entry : vars.entrySet()) {
+        Set<InferenceVariable> dependencies =
+            new LinkedHashSet<>(directStructuredDependencies(entry.getKey()));
+        dependencies.addAll(entry.getValue().structuralSubtypes);
+        dependencies.addAll(entry.getValue().structuralSupertypes);
+        for (InferenceVariable dependency : dependencies) {
+          if (incomplete.contains(dependency)) {
+            changed |= incomplete.add(entry.getKey());
+          }
+          if (inconsistent.contains(dependency)) {
+            changed |= inconsistent.add(entry.getKey());
+          }
+        }
+      }
+    } while (changed);
+  }
+
+  /**
+   * Returns whether structured evidence reachable from {@code start} contains a dependency cycle.
+   * Without authoritative Java shapes, cyclic components cannot supply a certified unfolding.
+   * Independent bound validation still visits concrete positions within cyclic declarations.
+   */
+  private boolean hasStructuredDependencyCycle(InferenceVariable start) {
+    return hasStructuredDependencyCycle(start, new LinkedHashSet<>(), new LinkedHashSet<>());
+  }
+
+  /** Performs depth-first cycle detection over direct structured-bound dependencies. */
+  private boolean hasStructuredDependencyCycle(
+      InferenceVariable current,
+      Set<InferenceVariable> visiting,
+      Set<InferenceVariable> completed) {
+    if (completed.contains(current)) {
+      return false;
+    }
+    if (!visiting.add(current)) {
+      return true;
+    }
+    for (InferenceVariable dependency : directStructuredDependencies(current)) {
+      if (hasStructuredDependencyCycle(dependency, visiting, completed)) {
+        return true;
+      }
+    }
+    visiting.remove(current);
+    completed.add(current);
+    return false;
+  }
+
+  /**
+   * Returns immutable direct dependencies. Preparation can still add bounds or edges, so only the
+   * frozen structural version permits memoization; scalar propagation does not invalidate it.
+   */
+  private Set<InferenceVariable> directStructuredDependencies(InferenceVariable inferenceVar) {
+    boolean prepared = preparedStructuredConstraintVersion == structuredConstraintVersion;
+    if (prepared) {
+      Set<InferenceVariable> memoized = structuredDependenciesMemo.get(inferenceVar);
+      if (memoized != null) {
+        return memoized;
+      }
+    }
+    Set<InferenceVariable> dependencies = new LinkedHashSet<>();
+    List<Type> evidence = new ArrayList<>();
+    VarState st = vars.get(inferenceVar);
+    if (st != null) {
+      for (BoundEvidence bound : st.lowerBoundEvidence.values()) {
+        evidence.add(bound.type());
+      }
+      for (BoundEvidence bound : st.upperBoundEvidence.values()) {
+        evidence.add(bound.type());
+      }
+    }
+    Type.TypeVar freshTypeVariable = freshTypeVariableForInferenceVariable.get(inferenceVar);
+    if (freshTypeVariable != null && nullnessMarkedDeclarationBounds.contains(inferenceVar)) {
+      evidence.add(freshTypeVariable.getUpperBound());
+    }
+    for (Element symbol : referencedInferenceSymbols(evidence)) {
+      dependencies.add(castToNonNull(inferenceVariables.get(symbol)));
+    }
+    Set<InferenceVariable> result = Collections.unmodifiableSet(dependencies);
+    if (prepared) {
+      structuredDependenciesMemo.put(inferenceVar, result);
+    }
     return result;
   }
 
   /**
-   * Adds the top-level nullability constraints implied by {@code s <: t}.
+   * Collects registered symbols with one traversal per evidence root, including variable bounds and
+   * intersections. Only symbol-level resolution is deduplicated here; substitution still collects
+   * every annotation-distinct occurrence. Registration order preserves recursive resolution and
+   * diagnostic ordering without scanning every registered symbol for every source.
+   */
+  private List<Element> referencedInferenceSymbols(List<Type> evidence) {
+    if (inferenceVariables.isEmpty()) {
+      return List.of();
+    }
+    Set<Element> symbols = new LinkedHashSet<>();
+    for (Type type : evidence) {
+      TypeVarWithSymbolCollector collector =
+          new TypeVarWithSymbolCollector(inferenceVariables.keySet());
+      type.accept(collector, null);
+      for (Type.TypeVar occurrence : collector.getMatches()) {
+        symbols.add(occurrence.asElement());
+      }
+    }
+    List<Element> ordered = new ArrayList<>(symbols);
+    ordered.sort(
+        Comparator.comparingInt(symbol -> castToNonNull(inferenceSymbolOrder.get(symbol))));
+    return ordered;
+  }
+
+  private enum BoundRelation {
+    SATISFIED,
+    VIOLATED,
+    UNKNOWN
+  }
+
+  private enum BoundNullness {
+    NONNULL,
+    NULLABLE,
+    UNKNOWN
+  }
+
+  /**
+   * Structured bounds relevant to one inference variable. {@code declaredUpper} is a subset of
+   * {@code upper} retained separately so declaration violations can use a conservative diagnostic
+   * fallback without changing the established reporting site for contextual constraints.
+   */
+  private record StructuredBounds(
+      List<Type> lower,
+      List<Type> upper,
+      List<Type> declaredUpper,
+      List<BoundEvidence> lowerEvidence,
+      List<BoundEvidence> upperEvidence) {
+    /** Keeps semantic type lists and their provenance snapshots in corresponding order. */
+    StructuredBounds(
+        List<BoundEvidence> lowerEvidence,
+        List<BoundEvidence> upperEvidence,
+        List<Type> declaredUpper) {
+      this(
+          lowerEvidence.stream().map(BoundEvidence::type).toList(),
+          upperEvidence.stream().map(BoundEvidence::type).toList(),
+          declaredUpper,
+          lowerEvidence,
+          upperEvidence);
+    }
+  }
+
+  /**
+   * Adds constraints implied by declared upper bounds and by every structured lower/upper pair.
    *
-   * <p>Only a registered inference variable with no explicit nullness annotation takes a
-   * constraint; see {@link #inferenceVariableForUse(Type)}. For other types, including enclosing
-   * type parameters and explicitly annotated type-variable uses, no constraint is introduced, and
-   * the normal type compatibility checks report any incompatibility.
+   * <p>The latter constraints are transitive consequences of {@code lower <: variable <: upper}.
+   * Generating them before nullness propagation lets dependent bounds such as {@code U extends
+   * Box<T>} constrain {@code T}, rather than defaulting {@code T} before the structured candidate
+   * is checked.
+   */
+  private void prepareStructuredConstraints() {
+    // No dependency snapshot is reusable while preparation is extending the graph. Bounds use
+    // their versioned memo during these passes; afterward both structural snapshots are stable.
+    preparedStructuredConstraintVersion = -1;
+    structuredDependenciesMemo.clear();
+    int versionBeforePass;
+    do {
+      versionBeforePass = structuredConstraintVersion;
+      for (InferenceVariable inferenceVar : new ArrayList<>(vars.keySet())) {
+        addDeclaredUpperBoundEdge(inferenceVar);
+        VarState st = castToNonNull(vars.get(inferenceVar));
+        // Both comparison loops require lower evidence. Recheck on every pass: another
+        // variable can add bounds or subtype edges after this variable has been visited.
+        if (st.lowerBoundEvidence.isEmpty() && st.structuralSubtypes.isEmpty()) {
+          continue;
+        }
+        StructuredBounds bounds = structuredBounds(inferenceVar);
+        Type shape = javacInstantiations.get(inferenceVar);
+        if (shape != null) {
+          for (int i = 0; i < bounds.lower().size(); i++) {
+            for (int j = i + 1; j < bounds.lower().size(); j++) {
+              BoundEvidence first = bounds.lowerEvidence().get(i);
+              BoundEvidence second = bounds.lowerEvidence().get(j);
+              constrainSharedLowerSlots(
+                  new LowerSlot(first.type(), second.type(), shape, LowerVariance.COVARIANT, false),
+                  first,
+                  second);
+            }
+          }
+        }
+        for (BoundEvidence lower : bounds.lowerEvidence()) {
+          for (BoundEvidence upper : bounds.upperEvidence()) {
+            withSources(
+                combinedOrigins(lower.origins(), upper.origins()),
+                lower.support().and(upper.support()),
+                () -> constrainSubtype(lower.type(), upper.type(), false));
+          }
+        }
+      }
+    } while (structuredConstraintVersion != versionBeforePass);
+    preparedStructuredConstraintVersion = structuredConstraintVersion;
+  }
+
+  /** Variance of one position in an already attributed lower-bound shape. */
+  private enum LowerVariance {
+    INVARIANT,
+    COVARIANT,
+    CONTRAVARIANT;
+
+    LowerVariance reversed() {
+      return this == COVARIANT ? CONTRAVARIANT : this == CONTRAVARIANT ? COVARIANT : INVARIANT;
+    }
+  }
+
+  /** Corresponding evidence at one child position; the shape is never nullness evidence. */
+  private record LowerSlot(
+      Type first, Type second, Type shape, LowerVariance variance, boolean compareRoot) {}
+
+  /**
+   * Decomposes only positions supplied by javac. Class arguments and enclosing types reset variance
+   * to invariant, except existing wildcard arguments, whose bounds retain or reverse the enclosing
+   * variance. Arrays retain variance. A concrete argument can supply evidence for a wildcard bound,
+   * but this traversal never creates a wildcard or replaces a fixed variable with its contract.
+   * Returns null for structure that cannot be aligned to the supplied shape.
+   */
+  private @Nullable List<LowerSlot> lowerShapeSlots(
+      Type first, Type second, Type shape, LowerVariance variance) {
+    List<LowerSlot> slots = new ArrayList<>();
+    if (shape instanceof Type.IntersectionClassType intersection) {
+      List<Type> components = intersection.getComponents();
+      for (int i = 0; i < components.size(); i++) {
+        Type firstComponent =
+            first instanceof Type.IntersectionClassType firstIntersection
+                    && firstIntersection.getComponents().size() == components.size()
+                    && firstIntersection.getComponents().get(i).tsym.equals(components.get(i).tsym)
+                ? firstIntersection.getComponents().get(i)
+                : first;
+        Type secondComponent =
+            second instanceof Type.IntersectionClassType secondIntersection
+                    && secondIntersection.getComponents().size() == components.size()
+                    && secondIntersection.getComponents().get(i).tsym.equals(components.get(i).tsym)
+                ? secondIntersection.getComponents().get(i)
+                : second;
+        slots.add(
+            new LowerSlot(firstComponent, secondComponent, components.get(i), variance, false));
+      }
+    } else if (shape instanceof Type.ArrayType array) {
+      if (!(first instanceof Type.ArrayType firstArray)
+          || !(second instanceof Type.ArrayType secondArray)) {
+        return null;
+      }
+      slots.add(
+          new LowerSlot(firstArray.elemtype, secondArray.elemtype, array.elemtype, variance, true));
+    } else if (shape instanceof WildcardType wildcard) {
+      if (!config.handleWildcardGenerics()) {
+        return null;
+      }
+      if (wildcard.kind != BoundKind.UNBOUND) {
+        Type firstBound = lowerEvidenceBound(first, wildcard.kind);
+        Type secondBound = lowerEvidenceBound(second, wildcard.kind);
+        if (firstBound == null || secondBound == null || wildcard.type == null) {
+          return null;
+        }
+        slots.add(
+            new LowerSlot(
+                firstBound,
+                secondBound,
+                wildcard.type,
+                wildcard.kind == BoundKind.SUPER ? variance.reversed() : variance,
+                true));
+      }
+    } else if (shape instanceof ClassType shapeClass) {
+      if (shapeClass.isRaw() || !(shape.tsym instanceof Symbol.ClassSymbol symbol)) {
+        return null;
+      }
+      Type firstAligned = TypeSubstitutionUtils.asSuper(state.getTypes(), first, symbol, config);
+      Type secondAligned = TypeSubstitutionUtils.asSuper(state.getTypes(), second, symbol, config);
+      if (!(firstAligned instanceof ClassType firstClass)
+          || !(secondAligned instanceof ClassType secondClass)
+          || firstClass.isRaw()
+          || secondClass.isRaw()
+          || firstClass.getTypeArguments().size() != shapeClass.getTypeArguments().size()
+          || secondClass.getTypeArguments().size() != shapeClass.getTypeArguments().size()) {
+        return null;
+      }
+      for (int i = 0; i < shapeClass.getTypeArguments().size(); i++) {
+        Type argumentShape = shapeClass.getTypeArguments().get(i);
+        slots.add(
+            new LowerSlot(
+                firstClass.getTypeArguments().get(i),
+                secondClass.getTypeArguments().get(i),
+                argumentShape,
+                argumentShape instanceof WildcardType ? variance : LowerVariance.INVARIANT,
+                true));
+      }
+      slots.add(
+          new LowerSlot(
+              firstClass.getEnclosingType(),
+              secondClass.getEnclosingType(),
+              shapeClass.getEnclosingType(),
+              LowerVariance.INVARIANT,
+              true));
+    }
+    return slots;
+  }
+
+  /** Extracts corresponding wildcard-bound evidence without inventing a missing lower bound. */
+  private @Nullable Type lowerEvidenceBound(Type evidence, BoundKind kind) {
+    WildcardType wildcard = GenericsUtils.asWildcard(evidence);
+    if (kind == BoundKind.SUPER) {
+      return wildcard == null
+          ? evidence
+          : wildcard.kind == BoundKind.SUPER ? wildcard.getSuperBound() : null;
+    }
+    return GenericsUtils.effectiveWildcardUpperBound(evidence, state, config, handler);
+  }
+
+  /** Traverses variant roots without equating them; equality retains both source premises. */
+  private void constrainSharedLowerSlots(
+      LowerSlot slot, BoundEvidence firstSource, BoundEvidence secondSource) {
+    String mode = "shared-lower-slots-" + slot.variance();
+    if (!beginBoundComparison(mode, slot.first(), slot.shape())) {
+      return;
+    }
+    try {
+      if (slot.variance() == LowerVariance.INVARIANT) {
+        if (!referencedInferenceSymbols(List.of(slot.first(), slot.second())).isEmpty()) {
+          List<SourceOrigin> premises =
+              combinedOrigins(firstSource.origins(), secondSource.origins());
+          withSources(
+              premises,
+              firstSource.support().and(secondSource.support()),
+              () -> {
+                constrainSubtype(slot.first(), slot.second(), false);
+                constrainSubtype(slot.second(), slot.first(), false);
+              });
+        }
+        return;
+      }
+      List<LowerSlot> children =
+          lowerShapeSlots(slot.first(), slot.second(), slot.shape(), slot.variance());
+      if (children != null) {
+        for (LowerSlot child : children) {
+          constrainSharedLowerSlots(child, firstSource, secondSource);
+        }
+      }
+    } finally {
+      endBoundComparison(mode, slot.first(), slot.shape());
+    }
+  }
+
+  /** Adds a variable edge for a declared dependent upper bound such as {@code U extends T}. */
+  private void addDeclaredUpperBoundEdge(InferenceVariable inferenceVar) {
+    if (!nullnessMarkedDeclarationBounds.contains(inferenceVar)) {
+      return;
+    }
+    Type.TypeVar freshTypeVariable = freshTypeVariableForInferenceVariable.get(inferenceVar);
+    if (freshTypeVariable == null) {
+      return;
+    }
+    Type upperBound = freshTypeVariable.getUpperBound();
+    InferenceVariable structuralUpper = inferenceVariableForStructure(upperBound);
+    if (structuralUpper != null) {
+      addStructuralVariableEdge(inferenceVar, structuralUpper);
+    }
+    InferenceVariable upperVariable = inferenceVariableForUse(upperBound);
+    // A nullable model overrides the bound's root nullness, not its structural dependency.
+    if (upperVariable != null && !hasNullableUpperBoundOverride(inferenceVar.typeVariable())) {
+      addInferenceVariableEdge(inferenceVar, upperVariable);
+    }
+  }
+
+  /** Adds {@code subtype <: supertype}, recording whether the structural graph changed. */
+  private void addInferenceVariableEdge(InferenceVariable subtype, InferenceVariable supertype) {
+    addStructuralVariableEdge(subtype, supertype);
+    boolean changed = getState(subtype).supertypes.add(supertype);
+    changed |= getState(supertype).subtypes.add(subtype);
+    if (changed) {
+      structuredConstraintVersion++;
+    }
+  }
+
+  /** Adds structural subtype evidence without constraining occurrence-overridden root nullness. */
+  private void addStructuralVariableEdge(InferenceVariable subtype, InferenceVariable supertype) {
+    VarState subtypeState = getState(subtype);
+    VarState supertypeState = getState(supertype);
+    boolean changed = subtypeState.structuralSupertypes.add(supertype);
+    changed |= supertypeState.structuralSubtypes.add(subtype);
+    SourceEvidence previous = subtypeState.structuralSupertypeOrigins.get(supertype);
+    SourceEvidence sources = new SourceEvidence(currentOrigins, currentSupport);
+    SourceEvidence merged = previous == null ? sources : previous.or(sources);
+    subtypeState.structuralSupertypeOrigins.put(supertype, merged);
+    supertypeState.structuralSubtypeOrigins.put(subtype, merged);
+    changed |= !merged.equals(previous);
+    if (changed) {
+      structuredConstraintVersion++;
+    }
+  }
+
+  /**
+   * Returns a deterministic structured annotation source for comparison and legacy diagnostics, or
+   * {@code null} when the evidence cannot be reconciled. This is not a completion certificate.
+   *
+   * <p>All reachable lower and upper bounds participate. Lower bounds are merged only through
+   * covariant positions; generic type arguments remain invariant. If there are no lower bounds, the
+   * most specific compatible upper bound is used. Unknown structure remains uncertified. A
+   * contextual upper-bound mismatch is retained as lower-bound annotation evidence so the
+   * established ordinary argument or method-reference check reports the incompatibility.
+   */
+  private @Nullable Type structuredBound(InferenceVariable inferenceVar) {
+    Type declarationFallback = declarationBoundFallbacks.get(inferenceVar);
+    if (declarationFallback != null) {
+      return declarationFallback;
+    }
+    StructuredBounds bounds = structuredBounds(inferenceVar);
+    Type candidate = null;
+    for (Type lower : bounds.lower()) {
+      if (candidate == null) {
+        candidate = lower;
+        continue;
+      }
+      Type merged = mergeCovariantLowerBounds(candidate, lower, false);
+      if (merged == null) {
+        return null;
+      }
+      candidate = merged;
+    }
+    if (candidate == null) {
+      for (Type upper : bounds.upper()) {
+        candidate = candidate == null ? upper : moreSpecificUpperBound(candidate, upper);
+        if (candidate == null) {
+          return null;
+        }
+      }
+    }
+    if (candidate == null) {
+      return null;
+    }
+    for (Type lower : bounds.lower()) {
+      BoundRelation relation = nullabilitySubtype(lower, candidate, false);
+      if (relation == BoundRelation.VIOLATED) {
+        return null;
+      }
+      if (relation == BoundRelation.UNKNOWN) {
+        return null;
+      }
+    }
+    for (Type upper : bounds.upper()) {
+      BoundRelation relation = nullabilitySubtype(candidate, upper, false);
+      if (relation == BoundRelation.VIOLATED) {
+        // Declaration violations are handled independently before constructing any candidate.
+        // Keep lower evidence for contextual mismatches so ordinary compatibility checks report it.
+        return candidate;
+      }
+      if (relation == BoundRelation.UNKNOWN) {
+        return null;
+      }
+    }
+    return candidate;
+  }
+
+  /**
+   * Validates every known lower against every declaration bound, independently of candidate merging
+   * and cycle fallback. A representable upper-bound source preserves ordinary argument diagnostics;
+   * otherwise the existing exception lets GenericsChecks report the proven violation. Returns the
+   * diagnostic annotation source, or {@code null} when no violation is proven.
+   */
+  private @Nullable Type validateDeclarationBounds(InferenceVariable inferenceVar) {
+    StructuredBounds bounds = structuredBounds(inferenceVar);
+    Type offendingLower = null;
+    Type offendingUpper = null;
+    for (Type lower : bounds.lower()) {
+      for (Type upper : bounds.declaredUpper()) {
+        if (nullabilitySubtype(lower, upper, false) == BoundRelation.VIOLATED
+            && offendingLower == null) {
+          offendingLower = lower;
+          offendingUpper = upper;
+        }
+      }
+    }
+    if (offendingLower == null) {
+      return null;
+    }
+    Type fallback = validatedUpperBoundFallback(bounds.upper());
+    VarState st = vars.get(inferenceVar);
+    boolean representable =
+        fallback != null
+            && !hasStructuredDependencyCycle(inferenceVar)
+            && (st == null || st.fixedTypeVariableLowerBounds.isEmpty());
+    if (fallback != null) {
+      for (Type lower : bounds.lower()) {
+        representable &= canOverlayBound(lower, fallback);
+      }
+    }
+    if (!representable) {
+      throw new NestedUpperBoundViolationException(
+          inferenceVar.typeVariable(),
+          inferenceVar.site(),
+          declarationViolationSource(inferenceVar, offendingLower),
+          castToNonNull(offendingUpper));
+    }
+    return castToNonNull(fallback);
+  }
+
+  /**
+   * Checks recursively whether annotation overlay preserves corresponding nominal positions. In
+   * particular, array covariance must not permit positional copying between unrelated generic
+   * component shapes, even when their argument counts happen to match.
+   */
+  private boolean canOverlayBound(Type target, Type source) {
+    if (!beginBoundComparison("overlay", target, source)) {
+      return false;
+    }
+    try {
+      return hasCorrespondingOverlayStructure(target, source);
+    } finally {
+      endBoundComparison("overlay", target, source);
+    }
+  }
+
+  /** Checks array components, class arguments, and enclosing types for safe positional overlay. */
+  private boolean hasCorrespondingOverlayStructure(Type target, Type source) {
+    if (target instanceof Type.IntersectionClassType
+        || source instanceof Type.IntersectionClassType) {
+      if (!(target instanceof Type.IntersectionClassType targetIntersection)
+          || !(source instanceof Type.IntersectionClassType sourceIntersection)
+          || targetIntersection.allInterfaces != sourceIntersection.allInterfaces) {
+        return false;
+      }
+      List<Type> targetComponents = targetIntersection.getExplicitComponents();
+      List<Type> sourceComponents = sourceIntersection.getExplicitComponents();
+      if (targetComponents.size() != sourceComponents.size()) {
+        return false;
+      }
+      for (int i = 0; i < targetComponents.size(); i++) {
+        if (!canOverlayBound(targetComponents.get(i), sourceComponents.get(i))) {
+          return false;
+        }
+      }
+      return true;
+    }
+    if (target instanceof Type.ArrayType targetArray
+        && source instanceof Type.ArrayType sourceArray) {
+      return canOverlayBound(targetArray.elemtype, sourceArray.elemtype);
+    }
+    if (target instanceof ClassType targetClass && source instanceof ClassType sourceClass) {
+      if (!targetClass.tsym.equals(sourceClass.tsym)
+          || targetClass.isRaw()
+          || sourceClass.isRaw()
+          || targetClass.getTypeArguments().size() != sourceClass.getTypeArguments().size()) {
+        return false;
+      }
+      for (int i = 0; i < targetClass.getTypeArguments().size(); i++) {
+        if (!canOverlayBound(
+            targetClass.getTypeArguments().get(i), sourceClass.getTypeArguments().get(i))) {
+          return false;
+        }
+      }
+      return canOverlayBound(targetClass.getEnclosingType(), sourceClass.getEnclosingType());
+    }
+    if (target instanceof TypeVar targetVariable && source instanceof TypeVar sourceVariable) {
+      return inferenceVariableForStructure(target) == null
+          && inferenceVariableForStructure(source) == null
+          && !(target instanceof CapturedType)
+          && !(source instanceof CapturedType)
+          && targetVariable.tsym.equals(sourceVariable.tsym);
+    }
+    if (target instanceof WildcardType targetWildcard
+        && source instanceof WildcardType sourceWildcard) {
+      return config.handleWildcardGenerics()
+          && targetWildcard.kind == sourceWildcard.kind
+          && (targetWildcard.kind == BoundKind.UNBOUND
+              || (targetWildcard.type != null
+                  && sourceWildcard.type != null
+                  && canOverlayBound(targetWildcard.type, sourceWildcard.type)));
+    }
+    // Unresolved variables and differing wildcard forms cannot be copied positionally.
+    if (target instanceof TypeVar
+        || source instanceof TypeVar
+        || target instanceof WildcardType
+        || source instanceof WildcardType) {
+      return false;
+    }
+    return !(target instanceof ClassType)
+        && !(source instanceof ClassType)
+        && !(target instanceof Type.ArrayType)
+        && !(source instanceof Type.ArrayType)
+        && state.getTypes().isSameType(target, source);
+  }
+
+  /** Returns the source-level lower type to display for a declaration-bound violation. */
+  private Type declarationViolationSource(InferenceVariable inferenceVar, Type candidate) {
+    VarState st = vars.get(inferenceVar);
+    return st != null && !st.fixedTypeVariableLowerBounds.isEmpty()
+        ? st.fixedTypeVariableLowerBounds.get(0)
+        : candidate;
+  }
+
+  /**
+   * Returns a structured upper bound satisfying every upper bound, for use as a diagnostic fallback
+   * when lower bounds violate a declaration bound. This fallback causes ordinary argument
+   * compatibility checking to report the offending lower bound; it is never selected merely by
+   * lower-bound order.
+   */
+  private @Nullable Type validatedUpperBoundFallback(List<Type> upperBounds) {
+    Type fallback = null;
+    for (Type upper : upperBounds) {
+      fallback = fallback == null ? upper : moreSpecificUpperBound(fallback, upper);
+      if (fallback == null) {
+        return null;
+      }
+    }
+    if (fallback == null) {
+      return null;
+    }
+    Type validatedFallback = fallback;
+    for (Type upper : upperBounds) {
+      if (nullabilitySubtype(validatedFallback, upper, false) != BoundRelation.SATISFIED) {
+        return null;
+      }
+    }
+    return validatedFallback;
+  }
+
+  /**
+   * Collects all structured bounds flowing to and from {@code inferenceVar} in breadth-first order.
+   * Snapshots are keyed solely by structural version: preparation's graph additions invalidate the
+   * memo, while later nullness propagation and diagnostic fallback selection do not affect these
+   * lists. No annotation comparison or solved outcome is cached.
+   */
+  private StructuredBounds structuredBounds(InferenceVariable inferenceVar) {
+    if (structuredBoundsMemoVersion != structuredConstraintVersion) {
+      structuredBoundsMemo.clear();
+      structuredBoundsMemoVersion = structuredConstraintVersion;
+    }
+    return structuredBoundsMemo.computeIfAbsent(
+        inferenceVar,
+        variable ->
+            new StructuredBounds(
+                collectStructuredEvidence(variable, true),
+                collectStructuredEvidence(variable, false),
+                List.copyOf(collectDeclaredUpperBounds(variable))));
+  }
+
+  /** Collects declaration/model structured upper bounds reachable through supertype edges. */
+  private List<Type> collectDeclaredUpperBounds(InferenceVariable start) {
+    List<Type> result = new ArrayList<>();
+    Deque<InferenceVariable> worklist = new ArrayDeque<>();
+    Set<InferenceVariable> visited = new LinkedHashSet<>();
+    worklist.add(start);
+    visited.add(start);
+    while (!worklist.isEmpty()) {
+      InferenceVariable current = worklist.removeFirst();
+      Type.TypeVar freshTypeVariable = freshTypeVariableForInferenceVariable.get(current);
+      if (freshTypeVariable != null && nullnessMarkedDeclarationBounds.contains(current)) {
+        addStructuredDeclaredUpperBounds(result, freshTypeVariable.getUpperBound());
+      }
+      VarState st = vars.get(current);
+      if (st != null) {
+        for (InferenceVariable supertype : st.structuralSupertypes) {
+          if (visited.add(supertype)) {
+            worklist.add(supertype);
+          }
+        }
+      }
+    }
+    return result;
+  }
+
+  /**
+   * Collects structured lower bounds through subtype edges or upper bounds through supertype edges.
+   * Declared structured upper bounds, including each component of an intersection bound, are added
+   * while collecting upper bounds. Alternative paths and conjunctive edge premises propagate to a
+   * canonical Boolean fixed point, including across cycles. Diagnostic context propagates
+   * separately. Both semantic and provenance additions invalidate snapshots.
+   */
+  private List<BoundEvidence> collectStructuredEvidence(InferenceVariable start, boolean lower) {
+    List<BoundEvidence> reachable = collectReachableEvidence(start, lower);
+    if (reachable.isEmpty()) {
+      return List.of();
+    }
+    List<BoundEvidence> result = new ArrayList<>(reachable.size());
+    for (BoundEvidence bound : reachable) {
+      result.add(withReferencedOrigins(bound));
+    }
+    return List.copyOf(result);
+  }
+
+  /**
+   * Collects origins of nested generic-call evidence without unfolding its type. Each referenced
+   * variable is visited once, including cyclic dependencies; only provenance, never a resolved
+   * nullness outcome or a recursive default, is collected here. These transitive sources are
+   * diagnostic context, not additional premises of the original constraint.
+   */
+  private BoundEvidence withReferencedOrigins(BoundEvidence bound) {
+    Set<SourceOrigin> origins = new LinkedHashSet<>(bound.origins());
+    Deque<Element> worklist = new ArrayDeque<>(referencedInferenceSymbols(List.of(bound.type())));
+    Set<Element> visited = new LinkedHashSet<>();
+    while (!worklist.isEmpty()) {
+      Element symbol = worklist.removeFirst();
+      if (!visited.add(symbol)) {
+        continue;
+      }
+      InferenceVariable dependency = castToNonNull(inferenceVariables.get(symbol));
+      for (BoundEvidence source : collectReachableEvidence(dependency, true)) {
+        origins.addAll(source.origins());
+        worklist.addAll(referencedInferenceSymbols(List.of(source.type())));
+      }
+    }
+    return new BoundEvidence(bound.type(), List.copyOf(origins), bound.support());
+  }
+
+  /**
+   * Adds premises used to resolve symbolic positions when a bound becomes a conflict source. Unlike
+   * diagnostic context collection, only evidence for actual referenced values participates. Each
+   * distinct bound used by value resolution is required; deduplicated proofs for that bound remain
+   * alternatives. Visiting each symbol once closes cyclic value dependencies without a proof DAG.
+   * Constraint preparation deliberately uses the original relation support instead: deriving a
+   * constraint on a slot does not require first solving that slot's value.
+   */
+  private BoundEvidence withReferencedValueSupport(BoundEvidence bound) {
+    SourceSupport support = bound.support();
+    Deque<Element> worklist = new ArrayDeque<>(referencedInferenceSymbols(List.of(bound.type())));
+    Set<Element> visited = new LinkedHashSet<>();
+    while (!worklist.isEmpty()) {
+      Element symbol = worklist.removeFirst();
+      if (!visited.add(symbol)) {
+        continue;
+      }
+      StructuredBounds values = structuredBounds(castToNonNull(inferenceVariables.get(symbol)));
+      List<BoundEvidence> sources =
+          values.lowerEvidence().isEmpty() ? values.upperEvidence() : values.lowerEvidence();
+      for (BoundEvidence source : sources) {
+        support = support.and(source.support());
+        worklist.addAll(referencedInferenceSymbols(List.of(source.type())));
+      }
+    }
+    return new BoundEvidence(bound.type(), bound.origins(), support);
+  }
+
+  /**
+   * Reuses completed root-edge evidence at one structural version. Provenance-only additions also
+   * change the version; enriched origins and resolved values are deliberately not cached here.
+   */
+  private List<BoundEvidence> collectReachableEvidence(InferenceVariable start, boolean lower) {
+    if (lower) {
+      VarState st = vars.get(start);
+      // Declaration bounds contribute only upper evidence; without subtype edges there is
+      // nowhere else to find lower evidence. Do not cache this across graph changes.
+      if (st == null || (st.lowerBoundEvidence.isEmpty() && st.structuralSubtypes.isEmpty())) {
+        return List.of();
+      }
+    }
+    if (reachableEvidenceMemoVersion != structuredConstraintVersion) {
+      reachableEvidenceMemo.clear();
+      reachableEvidenceMemoVersion = structuredConstraintVersion;
+    }
+    return reachableEvidenceMemo.computeIfAbsent(
+        new ReachableEvidenceKey(start, lower),
+        key -> computeReachableEvidence(key.variable(), key.lower()));
+  }
+
+  /**
+   * Collects alternative path proofs to a finite, cycle-safe fixed point before publishing them.
+   */
+  private List<BoundEvidence> computeReachableEvidence(InferenceVariable start, boolean lower) {
+    Map<String, BoundEvidence> result = new LinkedHashMap<>();
+    Deque<InferenceVariable> worklist = new ArrayDeque<>();
+    Map<InferenceVariable, SourceEvidence> pathOrigins = new LinkedHashMap<>();
+    worklist.add(start);
+    pathOrigins.put(start, new SourceEvidence(List.of(), sourceSupports.conjunction(List.of())));
+    while (!worklist.isEmpty()) {
+      InferenceVariable current = worklist.removeFirst();
+      VarState st = vars.get(current);
+      if (st == null) {
+        continue;
+      }
+      SourceEvidence path = castToNonNull(pathOrigins.get(current));
+      Map<String, BoundEvidence> bounds = lower ? st.lowerBoundEvidence : st.upperBoundEvidence;
+      for (BoundEvidence bound : bounds.values()) {
+        mergeBoundEvidence(
+            result,
+            new BoundEvidence(
+                bound.type(),
+                combinedOrigins(bound.origins(), path.origins()),
+                bound.support().and(path.support())));
+      }
+      if (!lower) {
+        Type.TypeVar freshTypeVariable = freshTypeVariableForInferenceVariable.get(current);
+        if (freshTypeVariable != null && nullnessMarkedDeclarationBounds.contains(current)) {
+          List<Type> declared = new ArrayList<>();
+          addStructuredDeclaredUpperBounds(declared, freshTypeVariable.getUpperBound());
+          for (Type bound : declared) {
+            mergeBoundEvidence(result, new BoundEvidence(bound, path.origins(), path.support()));
+          }
+        }
+      }
+      Map<InferenceVariable, SourceEvidence> edges =
+          lower ? st.structuralSubtypeOrigins : st.structuralSupertypeOrigins;
+      for (InferenceVariable next : lower ? st.structuralSubtypes : st.structuralSupertypes) {
+        SourceEvidence propagated = path.and(castToNonNull(edges.get(next)));
+        SourceEvidence previous = pathOrigins.get(next);
+        SourceEvidence merged = previous == null ? propagated : previous.or(propagated);
+        if (!merged.equals(previous)) {
+          pathOrigins.put(next, merged);
+          worklist.add(next);
+        }
+      }
+    }
+    return List.copyOf(result.values());
+  }
+
+  /** Merges equivalent bound evidence without replacing its original type with an aligned view. */
+  private void mergeBoundEvidence(Map<String, BoundEvidence> result, BoundEvidence bound) {
+    String key = structuredTypeKey(bound.type());
+    BoundEvidence previous = result.get(key);
+    result.put(
+        key,
+        previous == null
+            ? bound
+            : new BoundEvidence(
+                previous.type(),
+                combinedOrigins(previous.origins(), bound.origins()),
+                previous.support().or(bound.support())));
+  }
+
+  /** Adds the structured components of a declared upper bound to {@code result}. */
+  private void addStructuredDeclaredUpperBounds(List<Type> result, Type upperBound) {
+    if (upperBound instanceof Type.IntersectionClassType intersectionType) {
+      for (TypeMirror component : intersectionType.getBounds()) {
+        addStructuredDeclaredUpperBounds(result, (Type) component);
+      }
+    } else if (isStructuredType(upperBound)
+        || (upperBound instanceof TypeVar && inferenceVariableForStructure(upperBound) == null)) {
+      addIfNotIdentical(result, upperBound);
+    }
+  }
+
+  /** Returns whether {@code boundType} can expose nested nullability during alignment. */
+  private static boolean isStructuredType(Type boundType) {
+    return boundType instanceof Type.ArrayType
+        || (boundType instanceof ClassType classType && !classType.isRaw());
+  }
+
+  /** Adds {@code type} unless the same javac type object is already present. */
+  private static void addIfNotIdentical(List<Type> types, Type type) {
+    if (!containsIdentical(types, type)) {
+      types.add(type);
+    }
+  }
+
+  /**
+   * Merges annotations already projected onto the same attributed Java shape, including independent
+   * intersection components. Component symbols must correspond; this cannot manufacture a new
+   * nominal common type. Existing wildcard slots merge extends bounds covariantly and super bounds
+   * contravariantly; concrete generic slots remain invariant. The legacy unshaped lower-bound merge
+   * is deliberately left unchanged.
+   */
+  private @Nullable Type mergeProjectedLowerBounds(Type first, Type second, boolean mergeTopLevel) {
+    return mergeProjectedBounds(first, second, mergeTopLevel, true);
+  }
+
+  /**
+   * Merges aligned annotation evidence with the supplied variance. Arrays preserve that variance,
+   * wildcard super bounds reverse it, and concrete generic arguments always require equality. This
+   * also computes a meet for incomparable super-bound array annotations without choosing an
+   * argument-order-dependent bound or inventing new Java structure.
+   */
+  private @Nullable Type mergeProjectedBounds(
+      Type first, Type second, boolean mergeTopLevel, boolean covariant) {
+    return mergeProjectedSlot(
+        new LowerSlot(
+            first,
+            second,
+            first,
+            covariant ? LowerVariance.COVARIANT : LowerVariance.CONTRAVARIANT,
+            mergeTopLevel));
+  }
+
+  /** Rebuilds an existing shape from the shared decomposition, never from nominal lower merging. */
+  private @Nullable Type mergeProjectedSlot(LowerSlot slot) {
+    Type first = slot.first();
+    Type second = slot.second();
+    if (slot.variance() == LowerVariance.INVARIANT) {
+      return sameInvariantStructure(first, second, slot.compareRoot()) == BoundRelation.SATISFIED
+          ? first
+          : null;
+    }
+    String mode = "projected-merge-" + slot.variance();
+    if (!beginBoundComparison(mode, first, second)) {
+      return null;
+    }
+    try {
+      return mergeProjectedSlotStructure(slot);
+    } finally {
+      endBoundComparison(mode, first, second);
+    }
+  }
+
+  /** Copies merged child annotations into the authoritative shape, retaining its wildcard kinds. */
+  private @Nullable Type mergeProjectedSlotStructure(LowerSlot slot) {
+    Type first = slot.first();
+    Type second = slot.second();
+    boolean covariant = slot.variance() == LowerVariance.COVARIANT;
+    boolean mergeTopLevel = slot.compareRoot();
+    if (!canOverlayBound(first, second)) {
+      return null;
+    }
+    List<LowerSlot> slots = lowerShapeSlots(first, second, slot.shape(), slot.variance());
+    if (slots == null) {
+      return null;
+    }
+    List<Type> children = new ArrayList<>();
+    for (LowerSlot child : slots) {
+      Type mergedChild = mergeProjectedSlot(child);
+      if (mergedChild == null) {
+        return null;
+      }
+      children.add(mergedChild);
+    }
+    if (first instanceof Type.IntersectionClassType firstIntersection) {
+      Type merged =
+          new Type.IntersectionClassType(
+              com.sun.tools.javac.util.List.from(children),
+              (Symbol.ClassSymbol) firstIntersection.tsym,
+              firstIntersection.allInterfaces);
+      return mergeTopLevel ? mergeProjectedBoundRoot(merged, first, second, covariant) : merged;
+    }
+    if (first instanceof Type.ArrayType firstArray) {
+      Type component = children.get(0);
+      Type merged = TYPE_METADATA_BUILDER.createArrayType(firstArray, component);
+      return mergeTopLevel ? mergeProjectedBoundRoot(merged, first, second, covariant) : merged;
+    }
+    if (first instanceof WildcardType firstWildcard) {
+      if (firstWildcard.kind == BoundKind.UNBOUND) {
+        return first;
+      }
+      Type bound = children.get(0);
+      WildcardType merged = TYPE_METADATA_BUILDER.createWildcardType(firstWildcard, bound);
+      merged.bound = firstWildcard.bound;
+      return merged;
+    }
+    if (first instanceof ClassType firstClass) {
+      List<Type> arguments = children.subList(0, firstClass.getTypeArguments().size());
+      Type merged =
+          TYPE_METADATA_BUILDER.createClassType(
+              firstClass,
+              children.get(children.size() - 1),
+              com.sun.tools.javac.util.List.from(arguments));
+      return mergeTopLevel ? mergeProjectedBoundRoot(merged, first, second, covariant) : merged;
+    }
+    Type merged =
+        sameInvariantStructure(first, second, false) == BoundRelation.SATISFIED ? first : null;
+    return merged == null || !mergeTopLevel
+        ? merged
+        : mergeProjectedBoundRoot(merged, first, second, covariant);
+  }
+
+  /** Applies the join or meet of known bound roots without changing the projected Java shape. */
+  private @Nullable Type mergeProjectedBoundRoot(
+      Type base, Type first, Type second, boolean covariant) {
+    if (covariant) {
+      return mergeLowerBoundTopLevel(base, first, second);
+    }
+    BoundNullness firstNullness = boundNullness(first);
+    BoundNullness secondNullness = boundNullness(second);
+    if (firstNullness == BoundNullness.UNKNOWN || secondNullness == BoundNullness.UNKNOWN) {
+      return sameInferenceVariable(first, second) ? base : null;
+    }
+    return TypeSubstitutionUtils.typeWithAnnot(
+        base,
+        firstNullness == BoundNullness.NULLABLE && secondNullness == BoundNullness.NULLABLE
+            ? GenericsChecks.getSyntheticNullableAnnotType(state)
+            : GenericsChecks.getSyntheticNonNullAnnotType(state));
+  }
+
+  /**
+   * Checks the same positions used by preparation and merge without equating variant roots. Actual
+   * bounds are aligned to the supplied shape rather than projected with defaults: unknown slots
+   * cannot prove a conflict or hide a concrete disagreement in an independent sibling.
+   */
+  private BoundRelation compatibleLowerSlotAtShape(LowerSlot slot) {
+    if (slot.variance() == LowerVariance.INVARIANT) {
+      return sameInvariantStructure(slot.first(), slot.second(), slot.compareRoot());
+    }
+    String mode = "projected-lower-compatibility-" + slot.variance();
+    if (!beginBoundComparison(mode, slot.first(), slot.second())) {
+      return BoundRelation.UNKNOWN;
+    }
+    try {
+      if (slot.first() instanceof ClassType firstClass
+          && slot.second() instanceof ClassType secondClass
+          && !(slot.shape() instanceof Type.IntersectionClassType)) {
+        if (firstClass.isRaw() || secondClass.isRaw()) {
+          return BoundRelation.UNKNOWN;
+        }
+      }
+      List<LowerSlot> children =
+          lowerShapeSlots(slot.first(), slot.second(), slot.shape(), slot.variance());
+      if (children == null) {
+        return BoundRelation.UNKNOWN;
+      }
+      BoundRelation relation = BoundRelation.SATISFIED;
+      for (LowerSlot child : children) {
+        relation = combineBoundRelations(relation, compatibleLowerSlotAtShape(child));
+      }
+      return children.isEmpty() && !(slot.shape() instanceof WildcardType)
+          ? sameInvariantStructure(slot.first(), slot.second(), false)
+          : relation;
+    } finally {
+      endBoundComparison(mode, slot.first(), slot.second());
+    }
+  }
+
+  /**
+   * Merges two lower bounds at a covariant position. Arrays recurse covariantly into their
+   * components; class type arguments must have identical nullability because Java generics are
+   * invariant. Returns {@code null} when no safe, order-independent annotation source is known.
+   */
+  private @Nullable Type mergeCovariantLowerBounds(Type first, Type second, boolean mergeTopLevel) {
+    if (first instanceof Type.ArrayType firstArray
+        && second instanceof Type.ArrayType secondArray) {
+      Type component =
+          mergeCovariantLowerBounds(
+              firstArray.getComponentType(), secondArray.getComponentType(), true);
+      if (component == null) {
+        return null;
+      }
+      Type merged = TYPE_METADATA_BUILDER.createArrayType(firstArray, component);
+      return mergeTopLevel ? mergeLowerBoundTopLevel(merged, first, second) : merged;
+    }
+    Type firstAsSecond = alignSubtypeWithSupertype(first, second);
+    Type secondAsFirst = alignSubtypeWithSupertype(second, first);
+    Type chosen;
+    Type otherAligned;
+    if (firstAsSecond != null) {
+      chosen = second;
+      otherAligned = firstAsSecond;
+    } else if (secondAsFirst != null) {
+      chosen = first;
+      otherAligned = secondAsFirst;
+    } else {
+      return null;
+    }
+    // Align a subtype before comparing generic slots; covariant array leaves may have different
+    // nominal classes while sharing the chosen supertype's structure.
+    if (!canOverlayBound(otherAligned, chosen)
+        || sameInvariantStructure(chosen, otherAligned, false) != BoundRelation.SATISFIED) {
+      return null;
+    }
+    return mergeTopLevel ? mergeLowerBoundTopLevel(chosen, first, second) : chosen;
+  }
+
+  /**
+   * Returns {@code subtype} viewed as the base type of {@code supertype}, or {@code null} if javac
+   * does not establish that relationship.
+   */
+  private @Nullable Type alignSubtypeWithSupertype(Type subtype, Type supertype) {
+    if (!state.getTypes().isSubtype(subtype, supertype)) {
+      return null;
+    }
+    if (subtype instanceof ClassType
+        && supertype instanceof ClassType
+        && supertype.tsym instanceof Symbol.ClassSymbol superSymbol) {
+      return TypeSubstitutionUtils.asSuper(state.getTypes(), subtype, superSymbol, config);
+    }
+    return subtype;
+  }
+
+  /** Applies the least upper nullness of two lower bounds to {@code base}. */
+  private @Nullable Type mergeLowerBoundTopLevel(Type base, Type first, Type second) {
+    BoundNullness firstNullness = boundNullness(first);
+    BoundNullness secondNullness = boundNullness(second);
+    if (firstNullness == BoundNullness.UNKNOWN || secondNullness == BoundNullness.UNKNOWN) {
+      return sameInferenceVariable(first, second) ? base : null;
+    }
+    boolean nullable =
+        firstNullness == BoundNullness.NULLABLE || secondNullness == BoundNullness.NULLABLE;
+    Type annotationSource =
+        nullable
+            ? firstNullness == BoundNullness.NULLABLE ? first : second
+            : firstNullness == BoundNullness.NONNULL ? first : second;
+    for (AnnotationMirror annotation : annotationSource.getAnnotationMirrors()) {
+      String annotationName = annotation.getAnnotationType().toString();
+      if ((nullable && Nullness.isNullableAnnotation(annotationName, config))
+          || (!nullable && Nullness.isNonNullAnnotation(annotationName, config))) {
+        return TypeSubstitutionUtils.typeWithAnnot(base, (Type) annotation.getAnnotationType());
+      }
+    }
+    Type syntheticAnnotation =
+        nullable
+            ? GenericsChecks.getSyntheticNullableAnnotType(state)
+            : GenericsChecks.getSyntheticNonNullAnnotType(state);
+    return TypeSubstitutionUtils.typeWithAnnot(base, syntheticAnnotation);
+  }
+
+  /** Returns the more specific of two compatible upper bounds, with deterministic tie-breaking. */
+  private @Nullable Type moreSpecificUpperBound(Type first, Type second) {
+    if (nullabilitySubtype(first, second, false) == BoundRelation.SATISFIED) {
+      return first;
+    }
+    if (nullabilitySubtype(second, first, false) == BoundRelation.SATISFIED) {
+      return second;
+    }
+    return null;
+  }
+
+  /**
+   * Checks the nullability-aware subtype relation needed for structured bounds. Generic arguments
+   * are compared invariantly, while array components are compared covariantly.
+   */
+  private BoundRelation nullabilitySubtype(Type subtype, Type supertype, boolean compareTopLevel) {
+    String mode = compareTopLevel ? "subtype-top" : "subtype-nested";
+    if (!beginBoundComparison(mode, subtype, supertype)) {
+      return BoundRelation.UNKNOWN;
+    }
+    try {
+      BoundRelation topLevel =
+          compareTopLevel
+              ? topLevelNullabilitySubtype(subtype, supertype)
+              : BoundRelation.SATISFIED;
+      return combineBoundRelations(topLevel, nestedNullabilitySubtype(subtype, supertype));
+    } finally {
+      endBoundComparison(mode, subtype, supertype);
+    }
+  }
+
+  /**
+   * Checks nested subtype structure without allowing unknown top-level nullness to hide a
+   * violation.
+   */
+  private BoundRelation nestedNullabilitySubtype(Type subtype, Type supertype) {
+    WildcardType formalWildcard = GenericsUtils.asWildcard(supertype);
+    WildcardType actualWildcard = GenericsUtils.asWildcard(subtype);
+    if (formalWildcard != null || actualWildcard != null) {
+      return config.handleWildcardGenerics()
+          ? typeArgumentContainment(subtype, supertype)
+          : BoundRelation.UNKNOWN;
+    }
+    if (subtype instanceof TypeVar || supertype instanceof TypeVar) {
+      InferenceVariable subtypeVariable = inferenceVariableForStructure(subtype);
+      InferenceVariable supertypeVariable = inferenceVariableForStructure(supertype);
+      if (subtypeVariable != null && subtypeVariable.equals(supertypeVariable)) {
+        return BoundRelation.SATISFIED;
+      }
+      Type resolvedSubtype = resolveInvariantOccurrence(subtype);
+      Type resolvedSupertype = resolveInvariantOccurrence(supertype);
+      if (resolvedSubtype == null && resolvedSupertype == null) {
+        if (subtype instanceof TypeVar fixedSubtype
+            && inferenceVariableForStructure(subtype) == null
+            && !(subtype instanceof CapturedType)) {
+          if (supertype instanceof TypeVar) {
+            return state.getTypes().isSubtype(subtype, supertype)
+                ? BoundRelation.SATISFIED
+                : BoundRelation.UNKNOWN;
+          }
+          // Inspect a fixed variable's contract only for checking, never as an inferred shape.
+          return nullabilitySubtype(fixedSubtype.getUpperBound(), supertype, false);
+        }
+        return BoundRelation.UNKNOWN;
+      }
+      // The caller already checked occurrence roots. A structural candidate's root default is
+      // not additional evidence about an UNKNOWN inference-variable occurrence.
+      return nullabilitySubtype(
+          resolvedSubtype != null ? resolvedSubtype : subtype,
+          resolvedSupertype != null ? resolvedSupertype : supertype,
+          false);
+    }
+    if (supertype instanceof Type.IntersectionClassType intersection) {
+      BoundRelation result = BoundRelation.SATISFIED;
+      for (Type component : intersection.getExplicitComponents()) {
+        result = combineBoundRelations(result, nullabilitySubtype(subtype, component, false));
+      }
+      return result;
+    }
+    if (subtype instanceof Type.ArrayType subtypeArray
+        && supertype instanceof Type.ArrayType supertypeArray) {
+      return nullabilitySubtype(subtypeArray.elemtype, supertypeArray.elemtype, true);
+    }
+    if (subtype instanceof ClassType && supertype instanceof ClassType supertypeClass) {
+      if (!(supertypeClass.tsym instanceof Symbol.ClassSymbol superSymbol)) {
+        return BoundRelation.UNKNOWN;
+      }
+      Type aligned = TypeSubstitutionUtils.asSuper(state.getTypes(), subtype, superSymbol, config);
+      if (!(aligned instanceof ClassType alignedClass)) {
+        return BoundRelation.VIOLATED;
+      }
+      if (alignedClass.isRaw() || supertypeClass.isRaw()) {
+        return BoundRelation.UNKNOWN;
+      }
+      if (alignedClass.getTypeArguments().size() != supertypeClass.getTypeArguments().size()) {
+        return BoundRelation.VIOLATED;
+      }
+      BoundRelation result = BoundRelation.SATISFIED;
+      for (int i = 0; i < alignedClass.getTypeArguments().size(); i++) {
+        result =
+            combineBoundRelations(
+                result,
+                typeArgumentContainment(
+                    alignedClass.getTypeArguments().get(i),
+                    supertypeClass.getTypeArguments().get(i)));
+      }
+      return combineBoundRelations(
+          result,
+          sameInvariantStructure(
+              alignedClass.getEnclosingType(), supertypeClass.getEnclosingType(), true));
+    }
+    return state.getTypes().isSubtype(subtype, supertype)
+        ? BoundRelation.SATISFIED
+        : BoundRelation.VIOLATED;
+  }
+
+  /** Combines independent positions; a concrete violation dominates any unknown sibling. */
+  private static BoundRelation combineBoundRelations(BoundRelation first, BoundRelation second) {
+    if (first == BoundRelation.VIOLATED || second == BoundRelation.VIOLATED) {
+      return BoundRelation.VIOLATED;
+    }
+    return first == BoundRelation.UNKNOWN || second == BoundRelation.UNKNOWN
+        ? BoundRelation.UNKNOWN
+        : BoundRelation.SATISFIED;
+  }
+
+  /**
+   * Starts a directed identity comparison unless the same pair and mode is already active. Reuses
+   * empty guard storage without retaining any previous comparison's types or outcome.
+   */
+  private boolean beginBoundComparison(String mode, Type first, Type second) {
+    IdentityHashMap<Type, Set<Type>> pairs =
+        activeBoundComparisons.computeIfAbsent(mode, unused -> new IdentityHashMap<>(4));
+    Set<Type> seconds = pairs.get(first);
+    if (seconds == null) {
+      seconds = unusedBoundComparisonSets.pollFirst();
+      if (seconds == null) {
+        seconds = Collections.newSetFromMap(new IdentityHashMap<>(2));
+      }
+      pairs.put(first, seconds);
+    }
+    return seconds.add(second);
+  }
+
+  /**
+   * Removes a comparison on unwind, recycling a set only after its last active pair is gone. Empty
+   * mode maps retain capacity; neither these maps nor pooled sets retain references to prior types.
+   */
+  private void endBoundComparison(String mode, Type first, Type second) {
+    IdentityHashMap<Type, Set<Type>> pairs = castToNonNull(activeBoundComparisons.get(mode));
+    Set<Type> seconds = castToNonNull(pairs.get(first));
+    seconds.remove(second);
+    if (seconds.isEmpty()) {
+      pairs.remove(first);
+      unusedBoundComparisonSets.addFirst(seconds);
+    }
+  }
+
+  /**
+   * Checks directed type-argument containment using the same effective wildcard bounds as
+   * constraint generation. Extends bounds are covariant and super bounds contravariant; concrete
+   * arguments remain invariant. Wildcard checking is unknown when its feature gate is disabled.
+   */
+  private BoundRelation typeArgumentContainment(Type actual, Type formal) {
+    WildcardType formalWildcard = GenericsUtils.asWildcard(formal);
+    WildcardType actualWildcard = GenericsUtils.asWildcard(actual);
+    if (formalWildcard == null && actualWildcard == null) {
+      return sameInvariantStructure(actual, formal, true);
+    }
+    if (!config.handleWildcardGenerics() || !beginBoundComparison("containment", actual, formal)) {
+      return BoundRelation.UNKNOWN;
+    }
+    try {
+      if (formalWildcard == null) {
+        return BoundRelation.UNKNOWN;
+      }
+      if (formalWildcard.kind == BoundKind.SUPER) {
+        Type formalLower = castToNonNull(formalWildcard.getSuperBound());
+        if (actualWildcard == null) {
+          return nullabilitySubtype(formalLower, actual, true);
+        }
+        return actualWildcard.kind == BoundKind.SUPER
+            ? nullabilitySubtype(formalLower, castToNonNull(actualWildcard.getSuperBound()), true)
+            : BoundRelation.UNKNOWN;
+      }
+      return nullabilitySubtype(
+          GenericsUtils.effectiveWildcardUpperBound(actual, state, config, handler),
+          GenericsUtils.wildcardUpperBound(formalWildcard, state, config, handler),
+          true);
+    } finally {
+      endBoundComparison("containment", actual, formal);
+    }
+  }
+
+  /** Checks identical nullability and nested structure for an invariant generic position. */
+  private BoundRelation sameInvariantStructure(Type first, Type second, boolean compareTopLevel) {
+    String mode = compareTopLevel ? "invariant-top" : "invariant-nested";
+    if (!beginBoundComparison(mode, first, second)) {
+      return BoundRelation.UNKNOWN;
+    }
+    try {
+      return compareInvariantStructure(first, second, compareTopLevel);
+    } finally {
+      endBoundComparison(mode, first, second);
+    }
+  }
+
+  /**
+   * Compares all invariant positions, retaining concrete violations alongside unresolved positions.
+   */
+  private BoundRelation compareInvariantStructure(
+      Type first, Type second, boolean compareTopLevel) {
+    if (GenericsUtils.asWildcard(first) != null || GenericsUtils.asWildcard(second) != null) {
+      return combineBoundRelations(
+          typeArgumentContainment(first, second), typeArgumentContainment(second, first));
+    }
+    BoundRelation result = BoundRelation.SATISFIED;
+    if (compareTopLevel) {
+      BoundNullness firstNullness = boundNullness(first);
+      BoundNullness secondNullness = boundNullness(second);
+      if (firstNullness == BoundNullness.UNKNOWN || secondNullness == BoundNullness.UNKNOWN) {
+        if (!sameInferenceVariable(first, second)
+            && !(first instanceof TypeVar firstVariable
+                && second instanceof TypeVar secondVariable
+                && firstVariable.tsym.equals(secondVariable.tsym)
+                && firstNullness == secondNullness)) {
+          result = BoundRelation.UNKNOWN;
+        }
+      } else if (firstNullness != secondNullness) {
+        result = BoundRelation.VIOLATED;
+      }
+    }
+    if (first instanceof TypeVar || second instanceof TypeVar) {
+      return combineBoundRelations(result, compareTypeVariableStructure(first, second));
+    }
+    if (first instanceof Type.IntersectionClassType
+        || second instanceof Type.IntersectionClassType) {
+      if (!(first instanceof Type.IntersectionClassType firstIntersection)
+          || !(second instanceof Type.IntersectionClassType secondIntersection)
+          || firstIntersection.allInterfaces != secondIntersection.allInterfaces) {
+        return combineBoundRelations(result, BoundRelation.VIOLATED);
+      }
+      List<Type> firstComponents = firstIntersection.getExplicitComponents();
+      List<Type> secondComponents = secondIntersection.getExplicitComponents();
+      if (firstComponents.size() != secondComponents.size()) {
+        return combineBoundRelations(result, BoundRelation.VIOLATED);
+      }
+      for (int i = 0; i < firstComponents.size(); i++) {
+        result =
+            combineBoundRelations(
+                result,
+                sameInvariantStructure(firstComponents.get(i), secondComponents.get(i), false));
+      }
+      return result;
+    }
+    if (first instanceof Type.ArrayType firstArray
+        && second instanceof Type.ArrayType secondArray) {
+      return combineBoundRelations(
+          result,
+          sameInvariantStructure(
+              firstArray.getComponentType(), secondArray.getComponentType(), true));
+    }
+    if (first instanceof ClassType firstClass && second instanceof ClassType secondClass) {
+      if (firstClass.isRaw() || secondClass.isRaw()) {
+        return combineBoundRelations(result, BoundRelation.UNKNOWN);
+      }
+      if (!firstClass.tsym.equals(secondClass.tsym)
+          || firstClass.getTypeArguments().size() != secondClass.getTypeArguments().size()) {
+        return BoundRelation.VIOLATED;
+      }
+      for (int i = 0; i < firstClass.getTypeArguments().size(); i++) {
+        result =
+            combineBoundRelations(
+                result,
+                sameInvariantStructure(
+                    firstClass.getTypeArguments().get(i),
+                    secondClass.getTypeArguments().get(i),
+                    true));
+      }
+      return combineBoundRelations(
+          result,
+          sameInvariantStructure(
+              firstClass.getEnclosingType(), secondClass.getEnclosingType(), true));
+    }
+    return combineBoundRelations(
+        result,
+        state.getTypes().isSameType(first, second)
+            ? BoundRelation.SATISFIED
+            : BoundRelation.VIOLATED);
+  }
+
+  /**
+   * Compares invariant structure involving type variables. Acyclic inference variables are replaced
+   * by their reconciled structured evidence; unresolved, distinct, or cyclic variables remain
+   * unknown rather than being treated as equal.
+   */
+  private BoundRelation compareTypeVariableStructure(Type first, Type second) {
+    InferenceVariable firstVariable = inferenceVariableForStructure(first);
+    InferenceVariable secondVariable = inferenceVariableForStructure(second);
+    if (firstVariable != null && firstVariable.equals(secondVariable)) {
+      return BoundRelation.SATISFIED;
+    }
+    Type resolvedFirst = resolveInvariantOccurrence(first);
+    Type resolvedSecond = resolveInvariantOccurrence(second);
+    if (resolvedFirst == null && resolvedSecond == null) {
+      return first instanceof TypeVar firstTypeVar
+              && second instanceof TypeVar secondTypeVar
+              && firstTypeVar.tsym.equals(secondTypeVar.tsym)
+          ? BoundRelation.SATISFIED
+          : BoundRelation.UNKNOWN;
+    }
+    // Occurrence nullness was compared before resolution; compare only the resolved structure.
+    return sameInvariantStructure(
+        resolvedFirst != null ? resolvedFirst : first,
+        resolvedSecond != null ? resolvedSecond : second,
+        false);
+  }
+
+  /** Resolves structural ownership while retaining explicit root annotations on the occurrence. */
+  private @Nullable Type resolveInvariantOccurrence(Type occurrence) {
+    InferenceVariable variable = inferenceVariableForStructure(occurrence);
+    Type resolved = resolveInvariantVariable(variable);
+    return resolved == null
+        ? null
+        : TypeSubstitutionUtils.substituteTypeVariables(
+            occurrence, Map.of(occurrence.tsym, resolved), state.getTypes(), config);
+  }
+
+  /**
+   * Resolves acyclic comparison evidence using the same shaped resolver as final candidates. The
+   * legacy nominal annotation source is an explicitly uncertified fallback only when attribution
+   * supplied no shape; recursive or otherwise unknown evidence is never cached as a default.
+   */
+  private @Nullable Type resolveInvariantVariable(@Nullable InferenceVariable variable) {
+    if (variable == null
+        || hasStructuredDependencyCycle(variable)
+        || !invariantResolutionInProgress.add(variable)) {
+      return null;
+    }
+    try {
+      if (!javacInstantiations.containsKey(variable)) {
+        return structuredBound(variable);
+      }
+      return resolveTypeEvidence(
+          variable, new LinkedHashMap<>(), new LinkedHashSet<>(), new LinkedHashSet<>(), true);
+    } finally {
+      invariantResolutionInProgress.remove(variable);
+    }
+  }
+
+  /**
+   * Returns whether the top-level nullness of {@code subtype} is a subtype of {@code supertype}.
+   */
+  private BoundRelation topLevelNullabilitySubtype(Type subtype, Type supertype) {
+    BoundNullness subtypeNullness = boundNullness(subtype);
+    BoundNullness supertypeNullness = boundNullness(supertype);
+    if (supertypeNullness == BoundNullness.NULLABLE) {
+      return BoundRelation.SATISFIED;
+    }
+    if (subtypeNullness == BoundNullness.UNKNOWN || supertypeNullness == BoundNullness.UNKNOWN) {
+      return sameInferenceVariable(subtype, supertype)
+          ? BoundRelation.SATISFIED
+          : BoundRelation.UNKNOWN;
+    }
+    return subtypeNullness == BoundNullness.NULLABLE && supertypeNullness == BoundNullness.NONNULL
+        ? BoundRelation.VIOLATED
+        : BoundRelation.SATISFIED;
+  }
+
+  /** Returns the known top-level nullness of a bound type, consulting solved variable state. */
+  private BoundNullness boundNullness(Type type) {
+    if (isKnownNullable(type)) {
+      return BoundNullness.NULLABLE;
+    }
+    if (GenericsUtils.isAnnotatedAsNonNull(type, config)) {
+      return BoundNullness.NONNULL;
+    }
+    InferenceVariable inferenceVariable = inferenceVariableForUse(type);
+    if (inferenceVariable != null) {
+      VarState st = vars.get(inferenceVariable);
+      if (st == null || st.nullness == NullnessState.UNKNOWN) {
+        return BoundNullness.UNKNOWN;
+      }
+      return st.nullness == NullnessState.NULLABLE ? BoundNullness.NULLABLE : BoundNullness.NONNULL;
+    }
+    return type instanceof TypeVar && !isKnownNonNull(type)
+        ? BoundNullness.UNKNOWN
+        : BoundNullness.NONNULL;
+  }
+
+  /** Returns whether both types denote the same unannotated inference variable. */
+  private boolean sameInferenceVariable(Type first, Type second) {
+    InferenceVariable firstVariable = inferenceVariableForUse(first);
+    return firstVariable != null && firstVariable.equals(inferenceVariableForUse(second));
+  }
+
+  /** Returns whether {@code types} contains {@code type} itself (by reference). */
+  @SuppressWarnings({"ReferenceEquality", "TypeEquals"})
+  private static boolean containsIdentical(List<Type> types, Type type) {
+    for (Type t : types) {
+      if (t == type) {
+        return true;
+      }
+    }
+    return false;
+  }
+
+  /**
+   * Records structured evidence for a lower or upper bound. Fixed variables remain symbolic;
+   * checking may inspect their bounds, but candidate construction must not replace them with those
+   * bounds. Their original uses also provide provenance for declaration-bound diagnostics. Arrays
+   * and non-raw classes retain nested annotations and supertype-alignment evidence.
+   */
+  private void recordStructuredBound(
+      InferenceVariable inferenceVar, Type boundType, boolean lower) {
+    if (hasExternalInputDependency(boundType)) {
+      externalInputVariables.add(inferenceVar);
+    }
+    VarState st = getState(inferenceVar);
+    if (lower && boundType instanceof TypeVar && inferenceVariableForStructure(boundType) == null) {
+      if (st.fixedTypeVariableLowerBoundKeys.add(structuredTypeKey(boundType))) {
+        st.fixedTypeVariableLowerBounds.add(boundType);
+        structuredConstraintVersion++;
+      }
+    }
+    if (!isStructuredType(boundType)
+        && !(boundType instanceof TypeVar)
+        && !(boundType instanceof ClassType)) {
+      return;
+    }
+    String key = structuredTypeKey(boundType);
+    Map<String, BoundEvidence> evidence = lower ? st.lowerBoundEvidence : st.upperBoundEvidence;
+    BoundEvidence previous = evidence.get(key);
+    boolean changed = previous == null;
+    List<SourceOrigin> origins =
+        previous == null ? currentOrigins : combinedOrigins(previous.origins(), currentOrigins);
+    SourceSupport support =
+        previous == null ? currentSupport : previous.support().or(currentSupport);
+    BoundEvidence merged =
+        new BoundEvidence(previous == null ? boundType : previous.type(), origins, support);
+    if (!merged.equals(previous)) {
+      evidence.put(key, merged);
+      changed = true;
+    }
+    if (changed) {
+      structuredConstraintVersion++;
+    }
+  }
+
+  /**
+   * Returns a deterministic fingerprint including nested nullness and inference-variable identity.
+   */
+  private String structuredTypeKey(Type type) {
+    StringBuilder result = new StringBuilder();
+    appendStructuredTypeKey(type, result, new ArrayList<>(4));
+    return result.toString();
+  }
+
+  /**
+   * Appends one type node to a structured-bound fingerprint, guarding recursive javac types. Class
+   * and variable symbols are named by their per-run ID. Annotation types are named by the per-run
+   * ID of their interned qualified name, so annotations with the same name are equal, as before,
+   * without rendering javac names. {@code active} is the identity stack of enclosing type nodes.
+   */
+  @SuppressWarnings({"ReferenceEquality", "TypeEquals"})
+  private void appendStructuredTypeKey(Type type, StringBuilder result, List<Type> active) {
+    for (Type enclosing : active) {
+      if (enclosing == type) {
+        result.append("cycle@").append(symbolFingerprint(type.tsym));
+        return;
+      }
+    }
+    active.add(type);
+    try {
+      result.append(type.getKind()).append('[');
+      List<? extends AnnotationMirror> mirrors = type.getAnnotationMirrors();
+      if (!mirrors.isEmpty()) {
+        int[] annotations = new int[mirrors.size()];
+        for (int i = 0; i < annotations.length; i++) {
+          annotations[i] =
+              nameFingerprint(
+                  ((Symbol) mirrors.get(i).getAnnotationType().asElement()).getQualifiedName());
+        }
+        Arrays.sort(annotations);
+        for (int annotation : annotations) {
+          result.append('@').append(annotation).append(';');
+        }
+      }
+      result.append(']');
+      if (type instanceof Type.ArrayType arrayType) {
+        result.append("array(");
+        appendStructuredTypeKey(arrayType.getComponentType(), result, active);
+        result.append(')');
+      } else if (type instanceof Type.IntersectionClassType intersectionType) {
+        result.append("intersection(");
+        for (TypeMirror bound : intersectionType.getBounds()) {
+          appendStructuredTypeKey((Type) bound, result, active);
+          result.append('&');
+        }
+        result.append(')');
+      } else if (type instanceof ClassType classType) {
+        result.append("class@").append(symbolFingerprint(classType.tsym)).append('<');
+        for (Type argument : classType.getTypeArguments()) {
+          appendStructuredTypeKey(argument, result, active);
+          result.append(',');
+        }
+        result.append('>');
+        if (classType.getEnclosingType() instanceof ClassType) {
+          result.append(" enclosing(");
+          appendStructuredTypeKey(classType.getEnclosingType(), result, active);
+          result.append(')');
+        }
+      } else if (type instanceof WildcardType wildcardType) {
+        result.append("wildcard:").append(wildcardType.kind).append('(');
+        Type bound =
+            wildcardType.kind == BoundKind.SUPER
+                ? wildcardType.getSuperBound()
+                : wildcardType.getExtendsBound();
+        if (bound != null) {
+          appendStructuredTypeKey(bound, result, active);
+        }
+        result.append(')');
+      } else if (type instanceof TypeVar typeVariable) {
+        result.append("var@").append(symbolFingerprint(typeVariable.tsym));
+      } else {
+        result.append(type);
+      }
+    } finally {
+      active.remove(active.size() - 1);
+    }
+  }
+
+  /** Returns a collision-free ID for an interned name during this solver run. */
+  private int nameFingerprint(Name name) {
+    Integer existing = fingerprintNameIds.get(name);
+    if (existing != null) {
+      return existing;
+    }
+    int created = fingerprintNameIds.size() + 1;
+    fingerprintNameIds.put(name, created);
+    return created;
+  }
+
+  /** Returns a collision-free identity ID for a symbol during this solver run. */
+  private int symbolFingerprint(@Nullable Symbol symbol) {
+    if (symbol == null) {
+      return 0;
+    }
+    Integer existing = fingerprintSymbolIds.get(symbol);
+    if (existing != null) {
+      return existing;
+    }
+    int created = fingerprintSymbolIds.size() + 1;
+    fingerprintSymbolIds.put(symbol, created);
+    return created;
+  }
+
+  /**
+   * Returns {@code type} with each nested class or array type that has no explicit nullability
+   * annotation marked with a synthetic {@code @NonNull} annotation. The top-level type itself is
+   * not changed. Type variables, wildcards, and captured types are left as is, since no annotation
+   * on them does not mean non-null.
+   */
+  @SuppressWarnings({"ReferenceEquality", "TypeEquals"})
+  private Type markNestedTypesNonNull(Type type) {
+    if (type instanceof Type.IntersectionClassType intersection) {
+      List<Type> components = new ArrayList<>();
+      boolean changed = false;
+      for (Type component : intersection.getComponents()) {
+        Type updated = markNestedTypesNonNull(component);
+        components.add(updated);
+        changed |= updated != component;
+      }
+      return changed
+          ? new Type.IntersectionClassType(
+              com.sun.tools.javac.util.List.from(components),
+              (Symbol.ClassSymbol) intersection.tsym,
+              intersection.allInterfaces)
+          : type;
+    }
+    if (type instanceof WildcardType wildcard
+        && wildcard.kind != BoundKind.UNBOUND
+        && wildcard.type != null) {
+      Type bound = markNonNullIfUnannotated(wildcard.type);
+      if (bound == wildcard.type) {
+        return type;
+      }
+      WildcardType result = TYPE_METADATA_BUILDER.createWildcardType(wildcard, bound);
+      result.bound = wildcard.bound;
+      return result;
+    }
+    if (type instanceof Type.ArrayType arrayType) {
+      Type elemType = arrayType.getComponentType();
+      Type newElemType = markNonNullIfUnannotated(elemType);
+      return newElemType == elemType
+          ? type
+          : TYPE_METADATA_BUILDER.createArrayType(arrayType, newElemType);
+    }
+    if (type instanceof ClassType classType && !classType.isRaw()) {
+      boolean changed = false;
+      List<Type> newTypeArgs = new ArrayList<>();
+      for (Type typeArg : classType.getTypeArguments()) {
+        Type newTypeArg = markNonNullIfUnannotated(typeArg);
+        changed |= newTypeArg != typeArg;
+        newTypeArgs.add(newTypeArg);
+      }
+      Type enclosingType = classType.getEnclosingType();
+      Type newEnclosingType = markNonNullIfUnannotated(enclosingType);
+      changed |= newEnclosingType != enclosingType;
+      return changed
+          ? TYPE_METADATA_BUILDER.createClassType(classType, newEnclosingType, newTypeArgs)
+          : type;
+    }
+    return type;
+  }
+
+  /**
+   * Like {@link #markNestedTypesNonNull(Type)}, but also marks {@code type} itself if it is an
+   * unannotated class or array type.
+   */
+  private Type markNonNullIfUnannotated(Type type) {
+    if (type instanceof WildcardType) {
+      return markNestedTypesNonNull(type);
+    }
+    if (!(type instanceof ClassType) && !(type instanceof Type.ArrayType)) {
+      return type;
+    }
+    Type result = type;
+    if (!GenericsUtils.isAnnotatedAsNullable(type, config)
+        && !GenericsUtils.isAnnotatedAsNonNull(type, config)) {
+      result =
+          TypeSubstitutionUtils.typeWithAnnot(
+              type, GenericsChecks.getSyntheticNonNullAnnotType(state));
+    }
+    return markNestedTypesNonNull(result);
+  }
+
+  /**
+   * Adds the scalar and structural constraints implied by {@code s <: t}.
+   *
+   * <p>Only a registered inference variable with no explicit root nullness annotation takes a
+   * scalar constraint; see {@link #inferenceVariableForUse(Type)}. Explicitly annotated occurrences
+   * still retain structural ownership through {@link #inferenceVariableForStructure(Type)}, so
+   * their nested declaration contracts and structural bounds are constrained independently of the
+   * root annotation. Other type variables, including enclosing type parameters, remain fixed
+   * evidence rather than inference variables; normal type compatibility checks report any
+   * incompatibility not handled by inference.
    *
    * @throws UnsatisfiableConstraintsException if the constraint leads to a contradiction
    */
-  private void directlyConstrainTypePair(Type s, Type t) throws UnsatisfiableConstraintsException {
+  private void directlyConstrainTypePair(Type s, Type t, boolean foreignBoundInput)
+      throws UnsatisfiableConstraintsException {
+    recordReducedPairInputDependencies(s, t, foreignBoundInput);
     Verify.verify(
         s instanceof TypeVariable || t instanceof TypeVariable,
         "At least one argument must be a type variable but got %s and %s",
@@ -426,8 +3113,20 @@ public final class ConstraintSolverImpl implements ConstraintSolver {
     InferenceVariable sVar = inferenceVariableForUse(s);
     InferenceVariable tVar = inferenceVariableForUse(t);
     if (sVar != null && tVar != null) {
-      getState(sVar).supertypes.add(tVar);
-      getState(tVar).subtypes.add(sVar);
+      addInferenceVariableEdge(sVar, tVar);
+    }
+
+    // Root use-site annotations affect scalar constraints, not the variable's nested contract.
+    InferenceVariable sStructure = inferenceVariableForStructure(s);
+    InferenceVariable tStructure = inferenceVariableForStructure(t);
+    if (tStructure != null) {
+      if (sStructure != null) {
+        addStructuralVariableEdge(sStructure, tStructure);
+      } else {
+        recordStructuredBound(tStructure, s, true);
+      }
+    } else if (sStructure != null) {
+      recordStructuredBound(sStructure, t, false);
     }
 
     /* top-level nullability rules */
@@ -454,10 +3153,12 @@ public final class ConstraintSolverImpl implements ConstraintSolver {
       return false;
     }
     if (n == NullnessState.NULLABLE && !st.nullableAllowed) {
-      throw new UnsatisfiableConstraintsException(inferenceVar.typeVariable(), true);
+      throw new UnsatisfiableConstraintsException(
+          inferenceVar.typeVariable(), true, inferenceVar.site());
     }
     if (st.nullness != NullnessState.UNKNOWN) {
-      throw new UnsatisfiableConstraintsException(inferenceVar.typeVariable());
+      throw new UnsatisfiableConstraintsException(
+          inferenceVar.typeVariable(), false, inferenceVar.site());
     }
     st.nullness = n;
     return true;
@@ -465,21 +3166,92 @@ public final class ConstraintSolverImpl implements ConstraintSolver {
 
   /* ───────────────────── helpers & stubs ───────────────────── */
 
-  private VarState getState(InferenceVariable inferenceVar) {
-    return vars.computeIfAbsent(
-        inferenceVar,
-        v ->
-            new VarState(
-                GenericsUtils.upperBoundIsNullable(v.typeVariable(), config, handler, state)));
+  /**
+   * Returns whether a handler explicitly models the bound of this variable's declaration as
+   * nullable, including when another solver supplied the fresh symbol.
+   */
+  private boolean hasNullableUpperBoundOverride(Element typeVariable) {
+    Symbol.TypeVariableSymbol symbol = (Symbol.TypeVariableSymbol) typeVariable;
+    while (symbol instanceof FreshTypeVariableSymbol freshSymbol) {
+      symbol = freshSymbol.declaredSymbol;
+    }
+    if (symbol.owner instanceof Symbol.MethodSymbol method) {
+      int index = method.getTypeParameters().indexOf(symbol);
+      return index >= 0 && handler.onOverrideMethodTypeVariableUpperBound(method, index, state);
+    }
+    if (symbol.owner instanceof Symbol.ClassSymbol clazz) {
+      int index = clazz.getTypeParameters().indexOf(symbol);
+      return index >= 0 && handler.onOverrideClassTypeVariableUpperBound(clazz.toString(), index);
+    }
+    return false;
+  }
+
+  /** Returns whether an instantiated upper bound permits a nullable inference result. */
+  private boolean upperBoundAllowsNullable(Type upperBound) {
+    return upperBoundAllowsNullable(upperBound, new IdentityHashMap<>());
   }
 
   /**
-   * If {@code t} is a use of an inference variable without a nullness override, returns that
-   * inference variable. Otherwise, returns {@code null}.
-   *
-   * @param t the type
-   * @return the inference variable used by {@code t}, or {@code null} if {@code t} should be
-   *     treated as a fixed type for inference
+   * Reads actual detached bound roots without consulting stale symbol-owned bounds exclusively.
+   * Declaration handlers and unannotated-code policy retain their existing precedence for symbolic
+   * variables. An unresolved cycle cannot supply a nullable contract.
+   */
+  private boolean upperBoundAllowsNullable(
+      Type upperBound, IdentityHashMap<Type, Boolean> visiting) {
+    if (visiting.put(upperBound, Boolean.TRUE) != null) {
+      return false;
+    }
+    if (GenericsUtils.isAnnotatedAsNonNull(upperBound, config)) {
+      return false;
+    }
+    if (GenericsUtils.isAnnotatedAsNullable(upperBound, config)) {
+      return true;
+    }
+    if (upperBound instanceof WildcardType || upperBound instanceof CapturedType) {
+      Type effective =
+          GenericsUtils.effectiveWildcardUpperBound(upperBound, state, config, handler);
+      return !(effective instanceof WildcardType)
+          && !(effective instanceof CapturedType)
+          && upperBoundAllowsNullable(effective, visiting);
+    }
+    return upperBound instanceof TypeVar typeVariable
+        && (GenericsUtils.upperBoundIsNullable(typeVariable.asElement(), config, handler, state)
+            || upperBoundAllowsNullable(typeVariable.getUpperBound(), visiting));
+  }
+
+  /** Creates scalar state once, including for registered variables without constraints. */
+  private VarState getState(InferenceVariable inferenceVar) {
+    VarState existing = vars.get(inferenceVar);
+    if (existing != null) {
+      return existing;
+    }
+    Type.TypeVar fresh = freshTypeVariableForInferenceVariable.get(inferenceVar);
+    boolean declarationAllowsNullable =
+        GenericsUtils.upperBoundIsNullable(inferenceVar.typeVariable(), config, handler, state)
+            || (fresh != null && upperBoundAllowsNullable(fresh.getUpperBound()));
+
+    // An explicit receiver-bound restriction still wins. Otherwise use the actual fresh contract,
+    // including structurally annotated intersections and restored detached peer bounds.
+    VarState created =
+        new VarState(
+            nullableAllowedForInferenceVariable.getOrDefault(
+                inferenceVar, declarationAllowsNullable));
+    vars.put(inferenceVar, created);
+    structuredConstraintVersion++;
+    return created;
+  }
+
+  /** Returns structural variable ownership independently of an occurrence's root annotation. */
+  private @Nullable InferenceVariable inferenceVariableForStructure(Type type) {
+    return type instanceof TypeVar variable && !(type instanceof CapturedType)
+        ? inferenceVariables.get(variable.asElement())
+        : null;
+  }
+
+  /**
+   * Returns an inference variable only when its use has no explicit root nullness override.
+   * Annotated occurrences still retain structural ownership through {@link
+   * #inferenceVariableForStructure(Type)}.
    */
   private @Nullable InferenceVariable inferenceVariableForUse(Type t) {
     if (!(t instanceof TypeVar tv)) {
@@ -489,8 +3261,8 @@ public final class ConstraintSolverImpl implements ConstraintSolver {
     // Only treat as an inference variable if the use _doesn't_ have an explicit @Nullable or
     // @NonNull annotation.
     if (inferenceVar == null
-        || Nullness.hasNullableAnnotation(tv.getAnnotationMirrors().stream(), config)
-        || Nullness.hasNonNullAnnotation(tv.getAnnotationMirrors().stream(), config)) {
+        || GenericsUtils.isAnnotatedAsNullable(tv, config)
+        || GenericsUtils.isAnnotatedAsNonNull(tv, config)) {
       return null;
     }
     return inferenceVar;
@@ -520,7 +3292,8 @@ public final class ConstraintSolverImpl implements ConstraintSolver {
     return !isKnownNullable(t)
         && !treatAsTypeVariableForInference(t)
         && (!(t instanceof TypeVar tv)
-            || Nullness.hasNonNullAnnotation(t.getAnnotationMirrors().stream(), config)
-            || !GenericsUtils.upperBoundIsNullable(tv.asElement(), config, handler, state));
+            || GenericsUtils.isAnnotatedAsNonNull(t, config)
+            || (!GenericsUtils.upperBoundIsNullable(tv.asElement(), config, handler, state)
+                && !upperBoundAllowsNullable(tv.getUpperBound())));
   }
 }

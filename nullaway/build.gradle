@@ -156,6 +156,13 @@ tasks.withType(JavaCompile).configureEach {
     ]
 }
 
+// Keep large nested-source profiling opt-in without reducing the solver graph regression sizes.
+// Forward the property to every compatibility test JVM and track it as a Gradle test input.
+tasks.withType(Test).configureEach {
+    systemProperty 'nullaway.balancedInferenceStress',
+            providers.gradleProperty('balancedInferenceStress').orElse('false').get()
+}
+
 // Create a task to test with the oldest supported version of Error Prone
 // (while still building against the latest supported version)
 def epOldestTest = tasks.register("testErrorProneOldest", Test) {

@@ -53,7 +53,7 @@ public class GenericsUtils {
       }
       return true;
     }
-    return Nullness.hasNullableAnnotation(type.getAnnotationMirrors().stream(), config);
+    return Nullness.hasNullableAnnotation(type.getAnnotationMirrors(), config);
   }
 
   /**
