@@ -18,11 +18,6 @@ plugins {
     id 'nullaway.java-test-conventions'
 }
 
-configurations {
-    // A configuration holding the jars for the oldest supported version of Error Prone, to use with tests
-    errorProneOldest
-}
-
 // We need this separate build target to test newer versions of Guava
 // (e.g. 31+) than that which NullAway currently depends on.
 
@@ -34,18 +29,12 @@ dependencies {
     }
     testImplementation libs.jsr305
     testImplementation libs.guava.latest
-
-    errorProneOldest "com.google.errorprone:error_prone_check_api:${oldestErrorProneVersion}"
-    errorProneOldest("com.google.errorprone:error_prone_test_helpers:${oldestErrorProneVersion}") {
-        exclude group: "junit", module: "junit"
-    }
-    errorProneOldest libs.guava.latest
-
-    errorProneJdk17 libs.guava.latest
 }
 
+def errorProneOldestTestClasspath = errorProneTestRuntimeClasspath(
+        "errorProneOldestTestRuntimeClasspath", libs.error.prone.core.oldest)
+
 // Create a task to test with the oldest supported version of Error Prone
-// (while still building against the latest supported version)
 def epOldestTest = tasks.register("testErrorProneOldest", Test) {
 
     javaLauncher = javaToolchains.launcherFor {
@@ -57,10 +46,7 @@ def epOldestTest = tasks.register("testErrorProneOldest", Test) {
 
     // Copy inputs from normal Test task.
     def testTask = tasks.getByName("test")
-    // A bit of a hack: we add the dependencies of the oldest supported Error Prone version to the _beginning_ of the
-    // classpath, so that they are used instead of the latest version.  This exercises the scenario of building
-    // NullAway against the latest supported Error Prone version but then running on the oldest supported version.
-    classpath = configurations.errorProneOldest + testTask.classpath
+    classpath = errorProneOldestTestClasspath
     testClassesDirs = testTask.testClassesDirs
 
     jvmArgs += [

@@ -37,23 +37,23 @@ spotless {
 }
 
 configurations {
-    // A configuration holding the jars for the oldest supported version of Error Prone, to use with tests
-    errorProneOldest
-
-    // A configuration holding the jars for the latest snapshot version of Error Prone, to use with tests
-    errorProneLatestSnapshot {
-        resolutionStrategy.cacheChangingModulesFor 0, 'seconds'
-        resolutionStrategy.eachDependency { details ->
-            if (details.requested.group == "com.google.errorprone") {
-                details.useVersion "1.0-HEAD-SNAPSHOT"
-            }
-        }
+    compileClasspath {
+        extendsFrom oldestErrorProne
     }
 
     // To resolve the errorprone dependencies for the buildWithNullAway task
     errorproneExtended {
         extendsFrom errorprone
         canBeResolved = true
+    }
+
+    // The main compile classpath with the newest Error Prone in place of the oldest, for the buildWithNullAway task,
+    // which runs the newest Error Prone and checks NullAway against the Guava version that release brings in
+    newestErrorProneCompileClasspath {
+        canBeConsumed = false
+        canBeResolved = true
+        extendsFrom compileOnly, implementation, errorprone
+        attributes.addAllLater(configurations.compileClasspath.attributes)
     }
 }
 
@@ -67,7 +67,7 @@ dependencies {
     compileOnly libs.javax.inject
 
 
-    compileOnly libs.error.prone.check.api
+    compileOnly libs.error.prone.check.api.oldest
     implementation libs.checker.dataflow
     implementation libs.guava
 
@@ -104,22 +104,6 @@ dependencies {
     testImplementation libs.assertj
     testImplementation libs.amazon.utils
     testImplementation libs.jakarta.annotations
-    errorProneOldest "com.google.errorprone:error_prone_check_api:${oldestErrorProneVersion}"
-    errorProneOldest "com.google.errorprone:error_prone_core:${oldestErrorProneVersion}"
-    errorProneOldest("com.google.errorprone:error_prone_test_helpers:${oldestErrorProneVersion}") {
-        exclude group: "junit", module: "junit"
-    }
-    errorProneOldest libs.guava
-
-    errorProneLatestSnapshot "com.google.errorprone:error_prone_check_api:1.0-HEAD-SNAPSHOT"
-    errorProneLatestSnapshot "com.google.errorprone:error_prone_core:1.0-HEAD-SNAPSHOT"
-    errorProneLatestSnapshot("com.google.errorprone:error_prone_test_helpers:1.0-HEAD-SNAPSHOT") {
-        exclude group: "junit", module: "junit"
-    }
-
-    // without this, some other version of the JetBrains annotations gets pulled in via transitive dependencies
-    errorProneJdk17 libs.jetbrains.annotations
-    errorProneOldest libs.jetbrains.annotations
 }
 
 repositories {
@@ -156,8 +140,15 @@ tasks.withType(JavaCompile).configureEach {
     ]
 }
 
+def errorProneOldestTestClasspath = errorProneTestRuntimeClasspath(
+        "errorProneOldestTestRuntimeClasspath", libs.error.prone.core.oldest)
+def errorProneLatestSnapshotTestClasspath = errorProneTestRuntimeClasspath(
+        "errorProneLatestSnapshotTestRuntimeClasspath", "com.google.errorprone:error_prone_core:1.0-HEAD-SNAPSHOT")
+configurations.named("errorProneLatestSnapshotTestRuntimeClasspath") {
+    resolutionStrategy.cacheChangingModulesFor 0, 'seconds'
+}
+
 // Create a task to test with the oldest supported version of Error Prone
-// (while still building against the latest supported version)
 def epOldestTest = tasks.register("testErrorProneOldest", Test) {
     javaLauncher = javaToolchains.launcherFor {
         languageVersion = JavaLanguageVersion.of(17)
@@ -168,11 +159,7 @@ def epOldestTest = tasks.register("testErrorProneOldest", Test) {
 
     // Copy inputs from normal Test task.
     def testTask = tasks.getByName("test")
-    // A bit of a hack: we add the dependencies of the oldest supported Error Prone version to the _beginning_ of the
-    // classpath, so that they are used instead of the latest version.  This exercises the scenario of building
-    // NullAway against the latest supported Error Prone version but then running on the oldest supported version.
-    classpath = configurations.errorProneOldest + testTask.classpath
-
+    classpath = errorProneOldestTestClasspath
     testClassesDirs = testTask.testClassesDirs
 
     jvmArgs += [
@@ -192,7 +179,6 @@ def epOldestTest = tasks.register("testErrorProneOldest", Test) {
 }
 
 // Create a task to test with the latest snapshot version of Error Prone
-// (while still building against the latest supported version)
 tasks.register("testErrorProneLatestSnapshot", Test) {
     javaLauncher = javaToolchains.launcherFor {
         languageVersion = JavaLanguageVersion.of(25)
@@ -203,10 +189,7 @@ tasks.register("testErrorProneLatestSnapshot", Test) {
 
     // Copy inputs from normal Test task.
     def testTask = tasks.getByName("test")
-    // We add the dependencies of the latest snapshot Error Prone version to the _beginning_ of the
-    // classpath, so that they are used instead of the latest supported version.
-    classpath = configurations.errorProneLatestSnapshot + testTask.classpath
-
+    classpath = errorProneLatestSnapshotTestClasspath
     testClassesDirs = testTask.testClassesDirs
 
     jvmArgs += [
@@ -248,14 +231,14 @@ tasks.register('buildWithNullAway', JavaCompile) {
     // Configure compilation to run with Error Prone, NullAway, and the JSpecify
     // annotation-location check
     source = sourceSets.main.java
-    classpath = sourceSets.main.compileClasspath
+    classpath = configurations.newestErrorProneCompileClasspath
     destinationDirectory.set(layout.buildDirectory.dir('ignoredClasses'))
     options.annotationProcessorPath = files(
             configurations.errorproneExtended.asCollection(),
             sourceSets.main.annotationProcessorPath,
             // This refers to the NullAway jar built from the current source
             jar.archiveFile.get(),
-            sourceSets.main.compileClasspath)
+            configurations.newestErrorProneCompileClasspath)
     options.errorprone.enabled = true
     options.errorprone {
         disableAllChecks = true
