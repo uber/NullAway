@@ -9,6 +9,141 @@ import org.junit.Test;
 public class GenericLambdaTests extends NullAwayTestsBase {
 
   @Test
+  public void methodReferencesReturnedFromLambdasPreserveNestedTargets() {
+    makeHelper()
+        .addSourceLines(
+            "Test.java",
+            """
+            package com.uber;
+            import java.util.List;
+            import java.util.function.Consumer;
+            import java.util.function.Supplier;
+            import org.jspecify.annotations.NullMarked;
+            import org.jspecify.annotations.Nullable;
+            @NullMarked
+            class Test {
+              interface Factory<E> { Consumer<List<@Nullable E>> create(); }
+              static void nullableElements(List<@Nullable String> values) {}
+              static void nonNullElements(List<String> values) {}
+              static <E extends @Nullable Object> void genericNullableElements(
+                  List<@Nullable E> values) {}
+              static <E> void genericNonNullElements(List<E> values) {}
+              Factory<String> compatibleExpression() {
+                return () -> Test::nullableElements;
+              }
+              Factory<String> compatibleBlock() {
+                return () -> { return Test::nullableElements; };
+              }
+              Factory<String> compatibleParenthesizedExpression() {
+                return () -> ((Test::nullableElements));
+              }
+              Factory<String> compatibleParenthesizedBlock() {
+                return () -> { return ((Test::nullableElements)); };
+              }
+              Factory<String> incompatibleExpression() {
+                // BUG: Diagnostic contains: parameter type of referenced method
+                return () -> Test::nonNullElements;
+              }
+              Factory<String> incompatibleBlock() {
+                // BUG: Diagnostic contains: parameter type of referenced method
+                return () -> { return Test::nonNullElements; };
+              }
+              Factory<String> compatibleGenericExpression() {
+                return () -> Test::genericNullableElements;
+              }
+              Factory<String> compatibleGenericBlock() {
+                return () -> { return Test::genericNullableElements; };
+              }
+              Factory<String> incompatibleGenericExpression() {
+                // BUG: Diagnostic contains: inference failure
+                return () -> Test::genericNonNullElements;
+              }
+              Factory<String> incompatibleGenericBlock() {
+                // BUG: Diagnostic contains: inference failure
+                return () -> { return Test::genericNonNullElements; };
+              }
+              Supplier<Consumer<List<@Nullable String>>> compatibleSupplierExpression() {
+                return () -> Test::nullableElements;
+              }
+              Supplier<Consumer<List<@Nullable String>>> compatibleSupplierBlock() {
+                return () -> { return Test::nullableElements; };
+              }
+              Supplier<Consumer<List<@Nullable String>>> incompatibleSupplierExpression() {
+                // BUG: Diagnostic contains: parameter type of referenced method
+                return () -> Test::nonNullElements;
+              }
+              Supplier<Consumer<List<@Nullable String>>> incompatibleSupplierBlock() {
+                // BUG: Diagnostic contains: parameter type of referenced method
+                return () -> { return Test::nonNullElements; };
+              }
+            }
+            """)
+        .doTest();
+  }
+
+  @Test
+  public void returnedPolyExpressionsPreserveNullableTypeVariableTargets() {
+    makeHelper()
+        .addSourceLines(
+            "Test.java",
+            """
+            package com.uber;
+            import java.util.List;
+            import java.util.function.Consumer;
+            import java.util.function.Function;
+            import org.jspecify.annotations.NullMarked;
+            import org.jspecify.annotations.Nullable;
+            @NullMarked
+            class Test<T extends CharSequence> {
+              void nonNullElements(List<T> values) {}
+              void nullableElements(List<@Nullable T> values) {}
+              Consumer<List<T>> nonNullLambda() {
+                return values -> values.get(0).length();
+              }
+              Consumer<List<@Nullable T>> nullableLambda() {
+                // BUG: Diagnostic contains: dereferenced expression
+                return values -> values.get(0).length();
+              }
+              Consumer<List<@Nullable T>> parenthesizedNullableLambda() {
+                // BUG: Diagnostic contains: dereferenced expression
+                return ((values -> values.get(0).length()));
+              }
+              Consumer<? super List<@Nullable T>> wildcardNullableLambda() {
+                // BUG: Diagnostic contains: dereferenced expression
+                return values -> values.get(0).length();
+              }
+              Consumer<List<@Nullable T>> compatibleExplicitLambda() {
+                return (List<@Nullable T> values) -> {};
+              }
+              Consumer<List<@Nullable T>> incompatibleExplicitLambda() {
+                // BUG: Diagnostic contains: Parameter has type
+                return (List<T> values) -> {};
+              }
+              Function<? super @Nullable T, ? extends String> wildcardNullableParameter() {
+                // BUG: Diagnostic contains: dereferenced expression
+                return value -> value.toString();
+              }
+              Consumer<List<@Nullable T>> compatibleReference() {
+                return this::nullableElements;
+              }
+              Consumer<List<@Nullable T>> incompatibleReference() {
+                // BUG: Diagnostic contains: parameter type of referenced method
+                return this::nonNullElements;
+              }
+              Consumer<List<@Nullable T>> parenthesizedIncompatibleReference() {
+                // BUG: Diagnostic contains: parameter type of referenced method
+                return ((this::nonNullElements));
+              }
+              Consumer<? super List<@Nullable T>> wildcardIncompatibleReference() {
+                // BUG: Diagnostic contains: parameter type of referenced method
+                return this::nonNullElements;
+              }
+            }
+            """)
+        .doTest();
+  }
+
+  @Test
   public void explicitLambdaParameterAnnotationsControlBodyNullness() {
     makeHelper()
         .addSourceLines(
@@ -659,6 +794,18 @@ public class GenericLambdaTests extends NullAwayTestsBase {
               }
               void unmarkedGenericParameter() {
                 useUnmarkedFn(Test::takeNullableElements);
+              }
+              void assignUnmarkedParameter() {
+                UnmarkedConsumer c = Test::takeNullableElements;
+              }
+              void assignUnmarkedReturn() {
+                UnmarkedSupplier s = Test::returnNullableElements;
+              }
+              UnmarkedConsumer returnUnmarkedParameter() {
+                return Test::takeNullableElements;
+              }
+              UnmarkedSupplier returnUnmarkedReturn() {
+                return Test::returnNullableElements;
               }
               void markedParameter() {
                 // BUG: Diagnostic contains: parameter type of referenced method is List<@Nullable String>, but parameter in functional interface method has type List<String>
