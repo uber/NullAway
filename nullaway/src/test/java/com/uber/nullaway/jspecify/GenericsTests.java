@@ -1744,6 +1744,80 @@ public class GenericsTests extends NullAwayTestsBase {
   }
 
   @Test
+  public void subclassEnclosingNullabilityWithWildcardHandlingDisabled() {
+    checkSubclassEnclosingNullability(false);
+  }
+
+  @Test
+  public void subclassEnclosingNullabilityWithWildcardHandlingEnabled() {
+    checkSubclassEnclosingNullability(true);
+  }
+
+  /** Checks the enclosing nullability of a subclass's supertype rather than its lexical owner. */
+  private void checkSubclassEnclosingNullability(boolean handleWildcards) {
+    makeTestHelperWithArgs(
+            JSpecifyJavacConfig.withJSpecifyModeArgs(
+                Arrays.asList(
+                    "-XepOpt:NullAway:OnlyNullMarked=true",
+                    "-XepOpt:NullAway:HandleWildcardGenerics=" + handleWildcards)))
+        .addSourceLines(
+            "Test.java",
+            """
+            import org.jspecify.annotations.NullMarked;
+            import org.jspecify.annotations.Nullable;
+            @NullMarked
+            class Test {
+              static class Outer<T extends @Nullable Object> { class Inner {} }
+              static class NullableInner extends Outer<@Nullable String>.Inner {
+                NullableInner(Outer<@Nullable String> outer) { outer.super(); }
+              }
+              static class NonNullInner extends Outer<String>.Inner {
+                NonNullInner(Outer<String> outer) { outer.super(); }
+              }
+              static class Unrelated<T extends @Nullable Object> {
+                class Derived extends Outer<@Nullable String>.Inner {
+                  Derived(Outer<@Nullable String> outer) { outer.super(); }
+                }
+              }
+              static class Cross<T extends @Nullable Object> extends Outer<T> {
+                class Derived extends Outer<@Nullable String>.Inner {
+                  Derived(Outer<@Nullable String> outer) { outer.super(); }
+                }
+              }
+              void staticSubclassWithNullableOuterMatches(NullableInner input) {
+                Outer<@Nullable String>.Inner result = input;
+              }
+              void staticSubclassWithNullableOuterMismatches(NullableInner input) {
+                // BUG: Diagnostic contains: incompatible types:
+                Outer<String>.Inner result = input;
+              }
+              void staticSubclassWithNonNullOuterMatches(NonNullInner input) {
+                Outer<String>.Inner result = input;
+              }
+              void staticSubclassWithNonNullOuterMismatches(NonNullInner input) {
+                // BUG: Diagnostic contains: incompatible types:
+                Outer<@Nullable String>.Inner result = input;
+              }
+              void unrelatedEnclosingTypeMatches(Unrelated<String>.Derived input) {
+                Outer<@Nullable String>.Inner result = input;
+              }
+              void unrelatedEnclosingTypeMismatches(Unrelated<String>.Derived input) {
+                // BUG: Diagnostic contains: incompatible types:
+                Outer<String>.Inner result = input;
+              }
+              void lexicalOuterMismatchDoesNotRejectMatchingSupertype(Cross<String>.Derived input) {
+                Outer<@Nullable String>.Inner result = input;
+              }
+              void lexicalOuterMatchDoesNotAcceptMismatchingSupertype(Cross<String>.Derived input) {
+                // BUG: Diagnostic contains: incompatible types:
+                Outer<String>.Inner result = input;
+              }
+            }
+            """)
+        .doTest();
+  }
+
+  @Test
   public void otherTypeUseNullableAnnotation() {
     makeHelper()
         .addSourceLines(
