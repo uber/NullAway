@@ -32,6 +32,8 @@ else
     exit "$gradle_status"
 fi
 
-# Restage every selected Java file, including any previously unstaged edits.
+# Restage every selected Java file
+# NOTE: this includes any previously unstaged edits; this script assumes
+# files are staged in their entirety
 git_clean_pathspecs --literal-pathspecs add \
     --pathspec-from-file="$java_files" --pathspec-file-nul
