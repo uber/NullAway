@@ -20,7 +20,8 @@ import org.junit.rules.TemporaryFolder;
  * A crash signature the known findings do not list fails the run, appears under the new crashes of
  * the summary, and is written to {@code new-findings.tsv} as a line that parses once its verdict is
  * filled in; a listed signature does none of these. A NullAway run that outlives the timeout is
- * reported as a new crash and stops the run.
+ * reported as a new crash and stops the run. A growth finding is reported, written, and fails the
+ * run in the same way.
  */
 public class OracleRunnerReportTest {
 
@@ -149,6 +150,66 @@ public class OracleRunnerReportTest {
         afterATimeout(KnownFindings.parse(List.of("crash\t" + TIMEOUT_SIGNATURE + "\t#1")));
     assertThat(runner.foundNewCrash()).isFalse();
     assertThat(runner.failed()).isTrue();
+  }
+
+  private static final BoundGraphGenerator.Family FAMILY =
+      new BoundGraphGenerator.Family(
+          BoundGraphGenerator.Shape.BACK_EDGE,
+          BoundGraphGenerator.Nullness.NONE,
+          BoundGraphGenerator.Use.ASSIGNMENT);
+
+  /**
+   * Returns a runner that has checked {@link #FAMILY} with a checker that turns slow at depth 3, so
+   * that its one finding is a growth finding.
+   */
+  private static OracleRunner afterSlowGrowth(KnownFindings known) {
+    OracleRunner runner = new OracleRunner(known, new Compiler(SlowFromDepthThreeChecker.class));
+    runner.checkGrowth(FAMILY, "jspecify-experimental");
+    return runner;
+  }
+
+  @Test
+  public void anUnlistedGrowthFindingIsNewInTheSummaryAndFailsTheRun() throws Exception {
+    OracleRunner runner = afterSlowGrowth(KnownFindings.parse(List.of()));
+    String summary = runner.writeReport(temporaryFolder.getRoot().toPath(), 0, 0, Duration.ZERO);
+    assertThat(runner.failed()).isTrue();
+    assertThat(summary)
+        .containsMatch(
+            "### New growth findings\n\n- `back-edge none assignment` under `jspecify-experimental`:"
+                + " depth 3 took ");
+  }
+
+  @Test
+  public void anUnlistedGrowthFindingIsWrittenAsALineForTheKnownFindings() throws Exception {
+    Path out = temporaryFolder.getRoot().toPath();
+    afterSlowGrowth(KnownFindings.parse(List.of())).writeReport(out, 0, 0, Duration.ZERO);
+    String line = Files.readString(out.resolve("new-findings.tsv"));
+    assertThat(line).isEqualTo("growth\tback-edge\tnone\tassignment\tTODO\n");
+    assertThat(
+            KnownFindings.parse(List.of(line.strip().replace("TODO", "#1"))).growth(FAMILY.name()))
+        .isPresent();
+  }
+
+  @Test
+  public void aFamilySlowUnderTwoConfigurationsIsReportedUnderEachAndTakesOneLine()
+      throws Exception {
+    Path out = temporaryFolder.getRoot().toPath();
+    OracleRunner runner = afterSlowGrowth(KnownFindings.parse(List.of()));
+    runner.checkGrowth(FAMILY, "jspecify-nullmarked");
+    String summary = runner.writeReport(out, 0, 0, Duration.ZERO);
+    assertThat(summary).contains("`back-edge none assignment` under `jspecify-nullmarked`");
+    assertThat(summary).contains("`back-edge none assignment` under `jspecify-experimental`");
+    assertThat(Files.readString(out.resolve("new-findings.tsv")))
+        .isEqualTo("growth\tback-edge\tnone\tassignment\tTODO\n");
+  }
+
+  @Test
+  public void aListedGrowthFindingIsKnownAndDoesNotFailTheRun() throws Exception {
+    OracleRunner runner =
+        afterSlowGrowth(KnownFindings.parse(List.of("growth\tback-edge\t*\t*\t#1")));
+    String summary = runner.writeReport(temporaryFolder.getRoot().toPath(), 0, 0, Duration.ZERO);
+    assertThat(runner.failed()).isFalse();
+    assertThat(summary).contains("### New growth findings\n\nNone.");
   }
 
   @Test

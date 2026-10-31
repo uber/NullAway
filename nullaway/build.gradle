@@ -281,7 +281,7 @@ project.tasks.named('check').configure {
     dependsOn 'buildWithNullAway'
 }
 
-// The crash and metamorphic oracles: a harness that runs NullAway over sources taken from its own tests and over
+// The crash, metamorphic, and growth oracles: a harness that runs NullAway over sources taken from its own tests and over
 // variants of them (see com.uber.nullaway.oracles.OracleRunner).  The harness and its unit tests live in source sets
 // of their own, so that `test`, diffCoverage, and pitestDiff never see them.  The harness compiles seeds against the
 // classpath it runs with, which therefore holds every jar the NullAway tests reference.
@@ -338,7 +338,7 @@ tasks.named('check').configure {
 // The javac of the JDK it runs on decides which sources are valid, and the known findings were recorded on JDK 21;
 // -PoraclesJdk=<version> picks another one.
 tasks.register('runOracles', JavaExec) {
-    description = "Runs NullAway's crash and metamorphic oracles over seeds taken from its tests"
+    description = "Runs NullAway's crash, metamorphic, and growth oracles over seeds taken from its tests"
     group = LifecycleBasePlugin.VERIFICATION_GROUP
     def oraclesJdk = providers.gradleProperty("oraclesJdk").getOrElse("21") as int
     javaLauncher = javaToolchains.launcherFor {

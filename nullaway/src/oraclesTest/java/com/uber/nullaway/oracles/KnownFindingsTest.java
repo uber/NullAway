@@ -11,7 +11,8 @@ import org.junit.Test;
 
 /**
  * A finding is known when an entry of the known-findings file has its exact key, or, for a
- * divergence, the same key with {@code *} for the seed; every other finding is new.
+ * divergence, the same key with {@code *} for the seed, or, for a growth finding, the key with
+ * {@code *} for any word of the family; every other finding is new.
  */
 public class KnownFindingsTest {
 
@@ -60,6 +61,34 @@ public class KnownFindingsTest {
             "divergence\tcast\tA.java#f\tright\t" + TEMPLATE + "\t#1993");
     assertThat(known.divergence("cast", "A.java#f", "right", TEMPLATE))
         .hasValue(new Verdict("#1993", ""));
+  }
+
+  @Test
+  public void aGrowthEntryMatchesOnlyItsFamily() {
+    KnownFindings known = of("growth\tback-edge\tnone\tassignment\t#2093");
+    assertThat(known.growth("back-edge none assignment")).hasValue(new Verdict("#2093", ""));
+    assertThat(known.growth("back-edge none argument")).isEmpty();
+  }
+
+  @Test
+  public void aWildcardWordOfAGrowthEntryMatchesEveryValueOfThatWord() {
+    KnownFindings known = of("growth\tback-edge\t*\t*\tpending\tone cause");
+    assertThat(known.growth("back-edge mixed lambda"))
+        .hasValue(new Verdict("pending", "one cause"));
+    assertThat(known.growth("subtype mixed lambda")).isEmpty();
+  }
+
+  @Test
+  public void theFirstGrowthEntryThatMatchesAFamilyWins() {
+    KnownFindings known =
+        of("growth\tback-edge\tnone\tassignment\t#1", "growth\tback-edge\t*\t*\t#2");
+    assertThat(known.growth("back-edge none assignment")).hasValue(new Verdict("#1", ""));
+    assertThat(known.growth("back-edge none argument")).hasValue(new Verdict("#2", ""));
+  }
+
+  @Test
+  public void aGrowthEntryWithoutItsUseIsRejected() {
+    assertThrows(IllegalArgumentException.class, () -> of("growth\tback-edge\tnone\t#2093"));
   }
 
   @Test

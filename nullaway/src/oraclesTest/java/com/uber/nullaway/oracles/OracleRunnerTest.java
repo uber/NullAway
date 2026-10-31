@@ -13,7 +13,7 @@ import org.junit.Test;
  * The mutants of a seed depend on the seed's name, the configuration, and the run's random seed
  * alone, so a test added before a seed leaves that seed's mutants as they were. They draw on the
  * candidates of the mutators the run names, and a generated program runs under its own
- * configuration.
+ * configuration. The families of the growth oracle are not seeds.
  */
 public class OracleRunnerTest {
 
@@ -80,6 +80,22 @@ public class OracleRunnerTest {
     OracleRunner.Input input = OracleRunner.inputs(List.of("generated"), List.of("1")).get(0);
     assertThat(input.config()).isEqualTo(row.config());
     assertThat(input.seed().sources()).containsExactly(row.source());
+  }
+
+  @Test
+  public void theBoundGraphsSourceSelectsTheFamiliesTheFilterMatches() {
+    assertThat(OracleRunner.families(List.of("tests", "bound-graphs"), "back-edge none ass"))
+        .containsExactly(
+            new BoundGraphGenerator.Family(
+                BoundGraphGenerator.Shape.BACK_EDGE,
+                BoundGraphGenerator.Nullness.NONE,
+                BoundGraphGenerator.Use.ASSIGNMENT));
+    assertThat(OracleRunner.families(List.of("tests"), "back-edge none ass")).isEmpty();
+  }
+
+  @Test
+  public void theBoundGraphsSourceAddsNoSeed() throws IOException {
+    assertThat(OracleRunner.inputs(List.of("bound-graphs"), List.of("1"))).isEmpty();
   }
 
   @Test

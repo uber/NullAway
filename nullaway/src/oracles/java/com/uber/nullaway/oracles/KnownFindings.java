@@ -22,15 +22,18 @@ import java.util.regex.Pattern;
  * <pre>
  * crash       SIGNATURE                          VERDICT  [NOTE]
  * divergence  RELATION  SEED  SIDE  TEMPLATE     VERDICT  [NOTE]
+ * growth      SHAPE  NULLNESS  USE               VERDICT  [NOTE]
  * </pre>
  *
  * <p>{@code SIGNATURE} is a {@link CrashSignature}. A divergence group is keyed by the relation
  * name, the seed name or {@code *} for every seed, the side that reported the warning ({@code left}
  * for the seed, {@code right} for the rewrite), and the warning's message template: the message
- * with the parts a rewrite may change masked, as {@code new-findings.tsv} prints it. {@code
- * VERDICT} is an issue number such as {@code #1993}, {@code pending} for a defect not filed yet, or
- * {@code noise} for a crash or a divergence the harness or a test fixture causes rather than
- * NullAway. {@code NOTE} is free text, and {@code pending} and {@code noise} require one.
+ * with the parts a rewrite may change masked, as {@code new-findings.tsv} prints it. A growth
+ * finding is keyed by the three words of a {@link BoundGraphGenerator.Family#name()}, any of which
+ * may be {@code *} to match every value, and the first entry that matches wins. {@code VERDICT} is
+ * an issue number such as {@code #1993}, {@code pending} for a defect not filed yet, or {@code
+ * noise} for a finding the harness or a test fixture causes rather than NullAway. {@code NOTE} is
+ * free text, and {@code pending} and {@code noise} require one.
  */
 final class KnownFindings {
 
@@ -94,6 +97,7 @@ final class KnownFindings {
           switch (fields.get(0)) {
             case "crash" -> 2;
             case "divergence" -> 5;
+            case "growth" -> 4;
             default -> throw invalid(number, "unknown kind '" + fields.get(0) + "'");
           };
       if (fields.size() < keyFields + 1 || fields.size() > keyFields + 2) {
@@ -150,6 +154,37 @@ final class KnownFindings {
     return exact.isPresent()
         ? exact
         : find(String.join("\t", "divergence", relation, "*", side, template));
+  }
+
+  /**
+   * Returns the verdict for a family whose time grew too fast, or empty if it is new.
+   *
+   * @param family the words of a {@link BoundGraphGenerator.Family#name()}: shape, nullness, and
+   *     use
+   */
+  Optional<Verdict> growth(String family) {
+    List<String> words = List.of(family.split(" "));
+    for (Entry entry : entries) {
+      List<String> fields = List.of(entry.key().split("\t"));
+      if (fields.get(0).equals("growth") && matches(fields.subList(1, fields.size()), words)) {
+        matched.add(entry);
+        return Optional.of(entry.verdict());
+      }
+    }
+    return Optional.empty();
+  }
+
+  /** Returns whether each of {@code patterns} is {@code *} or the word at its position. */
+  private static boolean matches(List<String> patterns, List<String> words) {
+    if (patterns.size() != words.size()) {
+      return false;
+    }
+    for (int i = 0; i < patterns.size(); i++) {
+      if (!patterns.get(i).equals("*") && !patterns.get(i).equals(words.get(i))) {
+        return false;
+      }
+    }
+    return true;
   }
 
   private Optional<Verdict> find(String key) {

@@ -25,6 +25,7 @@ import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Random;
@@ -43,7 +44,7 @@ import org.jspecify.annotations.Nullable;
 
 /**
  * Runs NullAway over seeds taken from its own tests and over variants of them, and reports where
- * one of two oracles fails.
+ * one of three oracles fails.
  *
  * <ul>
  *   <li><b>Crash.</b> NullAway must not throw on any source javac accepts. Inputs are the seeds and
@@ -55,6 +56,10 @@ import org.jspecify.annotations.Nullable;
  *       rewrite of it, and one unit compiled with the rest of its seed as source against the same
  *       unit compiled with the rest as class files. Warnings compare by unit, line, and message,
  *       with the parts of the message a rewrite may change masked out.
+ *   <li><b>Growth.</b> The time of one NullAway run must grow slowly with the size of its input.
+ *       Inputs are the families of {@link BoundGraphGenerator}, each compiled at increasing depths
+ *       under each of {@link #GROWTH_CONFIGS} that the run selects, by {@link GrowthOracle}, which
+ *       stops a family at the first slow run.
  * </ul>
  *
  * <p>A crash is deduplicated by its {@link CrashSignature}, and the reproduction kept is the
@@ -63,8 +68,9 @@ import org.jspecify.annotations.Nullable;
  * #KNOWN} lists it. The run writes {@code report.md}, a shorter {@code summary.md}, the new
  * findings as {@code new-findings.tsv} lines to triage into {@value #KNOWN}, and one directory per
  * finding with the sources that reproduce it under {@value #OUT}, and exits with status 1 if it saw
- * a new crash signature. A new divergence never fails the run, since telling a NullAway defect from
- * an artifact of the rewrite takes a person.
+ * a new crash signature or a new growth finding. A growth finding is keyed by its family. A new
+ * divergence never fails the run, since telling a NullAway defect from an artifact of the rewrite
+ * takes a person.
  *
  * <p>A NullAway run that takes longer than {@link #RUN_TIMEOUT} is recorded as a crash whose stack
  * trace is that of the compiling thread, and ends the run: the report is written, and the run exits
@@ -84,8 +90,9 @@ import org.jspecify.annotations.Nullable;
  * {@code generated}, the programs of {@link CombinationGenerator#generate(long)}, one covering
  * array per generator seed, each program run only under its own configuration; {@code
  * samples:<dir>}, a directory laid out as the JSpecify samples are; {@code files:<dir>}, every Java
- * file under a directory as one seed, such as the javac tests; or {@code files-marked:<dir>}, the
- * same with a null-marked variant of each file.
+ * file under a directory as one seed, such as the javac tests; {@code files-marked:<dir>}, the same
+ * with a null-marked variant of each file; or {@code bound-graphs}, the families the growth oracle
+ * checks after every other seed, whose names {@code --filter} matches as well.
  */
 public final class OracleRunner {
 
@@ -110,6 +117,17 @@ public final class OracleRunner {
               "-XepOpt:NullAway:JSpecifyMode=true",
               "-XepOpt:NullAway:JSpecifyExperimental=true"));
 
+  /**
+   * The configurations the growth oracle compiles each family under, where {@code --configs}
+   * selects them: JSpecify mode on code that {@code @NullMarked} marks, without and with the
+   * experimental checks. {@code legacy} does not check generics.
+   */
+  static final ImmutableList<String> GROWTH_CONFIGS =
+      ImmutableList.of("jspecify-nullmarked", "jspecify-experimental");
+
+  /** The seed source that selects the families of the growth oracle. */
+  private static final String BOUND_GRAPHS = "bound-graphs";
+
   /** The test sources seeds come from, relative to the working directory. */
   private static final String TESTS = "src/test/java";
 
@@ -123,8 +141,8 @@ public final class OracleRunner {
 
   /**
    * The longest one NullAway run may take. It is well under the time the workflow leaves between
-   * the run's {@code --max-minutes} budget and the job timeout, so a run that hangs in the last
-   * seed still leaves time to write the report.
+   * the run's {@code --max-minutes} budget and the job timeout, so a run that hangs as the last one
+   * still leaves time to write the report.
    */
   static final Duration RUN_TIMEOUT = Duration.ofMinutes(5);
 
@@ -184,6 +202,14 @@ public final class OracleRunner {
   private final KnownFindings known;
   private final Map<String, Crash> crashes = new TreeMap<>();
   private final List<Divergence> divergences = new ArrayList<>();
+  private final Map<String, GrowthOracle.Finding> growth = new TreeMap<>();
+
+  /** How many families the growth oracle has checked. */
+  private int growthFamilies;
+
+  /** How many families the arguments selected for the growth oracle. */
+  private int growthSelected;
+
   private final Map<GroupKey, Group> groups = new TreeMap<>();
   private final Map<String, Integer> counters = new TreeMap<>();
 
@@ -393,6 +419,10 @@ public final class OracleRunner {
                 + runner.divergences.size());
       }
     }
+    runner.checkGrowth(
+        families(List.of(args.getOrDefault("--seeds", "tests").split(",")), filter),
+        GROWTH_CONFIGS.stream().filter(configs::contains).toList(),
+        deadline);
     Duration elapsed = Duration.between(started, Instant.now());
     Path out = Path.of(OUT);
     String summary = runner.writeReport(out, done, seeds.size(), elapsed);
@@ -432,6 +462,10 @@ public final class OracleRunner {
         }
         continue;
       }
+      if (source.equals(BOUND_GRAPHS)) {
+        // main hands these to the growth oracle, which checks families rather than seeds.
+        continue;
+      }
       ImmutableList<Seed> seeds;
       if (source.equals("tests")) {
         seeds = SeedExtractor.extract(Path.of(TESTS));
@@ -445,7 +479,8 @@ public final class OracleRunner {
         throw new IllegalArgumentException(
             "Unknown seed source '"
                 + source
-                + "'; known: tests, generated, samples:<dir>, files:<dir>, files-marked:<dir>");
+                + "'; known: tests, generated, samples:<dir>, files:<dir>, files-marked:<dir>, "
+                + BOUND_GRAPHS);
       }
       seeds.forEach(s -> result.add(new Input(s, null)));
     }
@@ -719,6 +754,26 @@ public final class OracleRunner {
       ImmutableList<Source> sources,
       @Nullable Path classes,
       ImmutableList<Source> reproduction) {
+    return timedRun(kind, origin, config, options, sources, classes, reproduction).outcome();
+  }
+
+  /**
+   * The outcome of one NullAway run and its wall-clock time.
+   *
+   * @param outcome how the run ended
+   * @param elapsed the time from submitting the run to its outcome
+   */
+  private record TimedOutcome(Outcome outcome, Duration elapsed) {}
+
+  /** Like {@link #run}, and also returns the time the run took. */
+  private TimedOutcome timedRun(
+      String kind,
+      String origin,
+      String config,
+      List<String> options,
+      ImmutableList<Source> sources,
+      @Nullable Path classes,
+      ImmutableList<Source> reproduction) {
     long started = System.nanoTime();
     Future<Outcome> run = runs.submit(() -> compiler.runNullAway(sources, options, classes));
     Outcome outcome;
@@ -739,12 +794,90 @@ public final class OracleRunner {
       Thread.currentThread().interrupt();
       throw new IllegalStateException(e);
     }
-    millis.merge(kind, (System.nanoTime() - started) / 1_000_000, Long::sum);
+    long nanos = System.nanoTime() - started;
+    millis.merge(kind, nanos / 1_000_000, Long::sum);
     count(kind + ": " + outcome.status());
     if (outcome.status() == Status.CRASH) {
       recordCrash(config, origin, reproduction, outcome.detail());
     }
-    return outcome;
+    return new TimedOutcome(outcome, Duration.ofNanos(nanos));
+  }
+
+  /**
+   * Returns the families of the growth oracle that {@code sources} select, all of them where they
+   * name {@value #BOUND_GRAPHS} and none otherwise, keeping those whose name contains {@code
+   * filter}.
+   */
+  static ImmutableList<BoundGraphGenerator.Family> families(List<String> sources, String filter) {
+    if (!sources.contains(BOUND_GRAPHS)) {
+      return ImmutableList.of();
+    }
+    return BoundGraphGenerator.families().stream()
+        .filter(f -> f.name().contains(filter))
+        .collect(ImmutableList.toImmutableList());
+  }
+
+  /**
+   * Checks each of {@code families} under each of {@code configs} in turn until {@code deadline}
+   * passes, unless a run of the seeds already took longer than the timeout. A family run that does
+   * stops the remaining families.
+   */
+  void checkGrowth(
+      List<BoundGraphGenerator.Family> families, List<String> configs, Instant deadline) {
+    growthSelected = configs.isEmpty() ? 0 : families.size();
+    if (timedOut != null || configs.isEmpty()) {
+      return;
+    }
+    for (BoundGraphGenerator.Family family : families) {
+      if (Instant.now().isAfter(deadline)) {
+        System.out.println("Stopped at the time budget after " + growthFamilies + " families");
+        return;
+      }
+      try {
+        for (String config : configs) {
+          checkGrowth(family, config);
+        }
+      } catch (RunTimedOutException e) {
+        System.out.println(e.getMessage());
+        return;
+      }
+      growthFamilies++;
+    }
+  }
+
+  /**
+   * Checks {@code family} with {@link GrowthOracle} under {@code config}, a key of {@link
+   * #CONFIGS}, and records a finding if its time grew too fast.
+   *
+   * @throws RunTimedOutException if one run took longer than the timeout, after recording it as a
+   *     crash
+   */
+  void checkGrowth(BoundGraphGenerator.Family family, String config) {
+    ImmutableList<String> options = CONFIGS.get(config);
+    GrowthOracle.Finding finding =
+        GrowthOracle.check(
+            family,
+            config,
+            (depth, source) -> {
+              TimedOutcome run =
+                  timedRun(
+                      BOUND_GRAPHS,
+                      family.name() + " at depth " + depth,
+                      config,
+                      options,
+                      ImmutableList.of(source),
+                      null,
+                      ImmutableList.of(source));
+              return run.outcome().status() == Status.OK ? run.elapsed() : null;
+            });
+    if (finding != null) {
+      growth.put(growthKey(finding), finding);
+    }
+  }
+
+  /** Returns the key of {@code finding} in {@link #growth}, which orders by configuration first. */
+  private static String growthKey(GrowthOracle.Finding finding) {
+    return finding.config() + "\t" + finding.family().name();
   }
 
   /**
@@ -870,11 +1003,16 @@ public final class OracleRunner {
   }
 
   /**
-   * Returns whether the run fails: it saw a new crash signature, or a NullAway run took longer than
-   * the timeout, known or not, which left the remaining seeds unchecked.
+   * Returns whether the run fails: it saw a new crash signature or a new growth finding, or a
+   * NullAway run took longer than the timeout, known or not, which left the remaining seeds
+   * unchecked.
    */
   boolean failed() {
-    return foundNewCrash() || timedOut != null;
+    return foundNewCrash() || newGrowth().findAny().isPresent() || timedOut != null;
+  }
+
+  private Stream<GrowthOracle.Finding> newGrowth() {
+    return growth.values().stream().filter(f -> known.growth(f.family().name()).isEmpty());
   }
 
   private Stream<Crash> newCrashes() {
@@ -939,6 +1077,33 @@ public final class OracleRunner {
               + "\nOnly in `right`:\n\n"
               + bullets(d.onlyRight()));
     }
+    for (GrowthOracle.Finding finding : growth.values()) {
+      Path dir = out.resolve(growthDirectory(finding));
+      writeSources(dir.resolve("src"), List.of(finding.source()));
+      StringBuilder table = new StringBuilder("| Depth | Seconds |\n| --- | --- |\n");
+      for (GrowthOracle.Measurement m : finding.measurements()) {
+        table
+            .append("| ")
+            .append(m.depth())
+            .append(" | ")
+            .append(seconds(m.elapsed()))
+            .append(" |\n");
+      }
+      Files.writeString(
+          dir.resolve("README.md"),
+          "# "
+              + finding.family().name()
+              + "\n\nKnown: "
+              + known.growth(finding.family().name()).map(Verdict::toString).orElse("no, new")
+              + "\n\nConfiguration: `"
+              + finding.config()
+              + "` "
+              + CONFIGS.get(finding.config())
+              + "\n\nThe run at depth "
+              + finding.slow().depth()
+              + " was slow; `src` holds its program.\n\n"
+              + table);
+    }
     String summary = summary(done, selected, elapsed);
     Files.writeString(out.resolve("summary.md"), summary);
     Files.writeString(out.resolve("report.md"), report(done, selected, elapsed));
@@ -954,6 +1119,11 @@ public final class OracleRunner {
   private String newFindings() {
     StringBuilder lines = new StringBuilder();
     newCrashes().forEach(c -> lines.append("crash\t").append(c.signature()).append("\tTODO\n"));
+    // A family slow under two configurations takes one entry, which matches it under both.
+    newGrowth()
+        .map(f -> "growth\t" + f.family().name().replace(' ', '\t') + "\tTODO\n")
+        .distinct()
+        .forEach(lines::append);
     groups.forEach(
         (k, g) -> {
           if (g.verdict() == null) {
@@ -964,6 +1134,40 @@ public final class OracleRunner {
           }
         });
     return lines.toString();
+  }
+
+  private String growthDirectory(GrowthOracle.Finding finding) {
+    return "growth-" + (new ArrayList<>(growth.keySet()).indexOf(growthKey(finding)) + 1);
+  }
+
+  /** Returns {@code elapsed} in seconds with two decimals, such as {@code 1.90 s}. */
+  private static String seconds(Duration elapsed) {
+    return String.format(Locale.ROOT, "%.2f s", elapsed.toMillis() / 1000.0);
+  }
+
+  /**
+   * Returns a line for one growth finding: the family, the configuration, the slow depth, and the
+   * depth before it.
+   */
+  private String growthLine(GrowthOracle.Finding finding) {
+    ImmutableList<GrowthOracle.Measurement> m = finding.measurements();
+    GrowthOracle.Measurement slow = finding.slow();
+    return code(finding.family().name())
+        + " under `"
+        + finding.config()
+        + "`: depth "
+        + slow.depth()
+        + " took "
+        + seconds(slow.elapsed())
+        + (m.size() > 1
+            ? ", depth "
+                + m.get(m.size() - 2).depth()
+                + " took "
+                + seconds(m.get(m.size() - 2).elapsed())
+            : "")
+        + " ("
+        + growthDirectory(finding)
+        + ")";
   }
 
   private String crashDirectory(Crash crash) {
@@ -986,6 +1190,12 @@ public final class OracleRunner {
         .append(newGroups)
         .append(" | ")
         .append(groups.size() - newGroups)
+        .append(" |\n");
+    long newGrowth = newGrowth().count();
+    s.append("| Growth findings | ")
+        .append(newGrowth)
+        .append(" | ")
+        .append(growth.size() - newGrowth)
         .append(" |\n\n");
     s.append(compilations()).append('\n');
     int rewriteFailures =
@@ -1015,6 +1225,11 @@ public final class OracleRunner {
           .append(crashDirectory(crash))
           .append(")\n");
     }
+    s.append("\n### New growth findings\n\n");
+    if (newGrowth == 0) {
+      s.append("None.\n");
+    }
+    newGrowth().forEach(f -> s.append("- ").append(growthLine(f)).append('\n'));
     s.append("\n### New divergence groups\n\n");
     int shown = 0;
     for (Map.Entry<GroupKey, Group> e : groups.entrySet()) {
@@ -1059,6 +1274,13 @@ public final class OracleRunner {
     crashList(
         r, crashes.values().stream().filter(c -> known.crash(c.signature()).isPresent()).toList());
 
+    r.append("\n## New growth findings\n\n");
+    growthList(r, newGrowth().toList());
+    r.append("\n## Known growth findings\n\n");
+    growthList(
+        r,
+        growth.values().stream().filter(f -> known.growth(f.family().name()).isPresent()).toList());
+
     r.append("\n## New divergence groups\n\n");
     groupTable(r, false);
     r.append("\n## Known divergence groups\n\n");
@@ -1098,6 +1320,9 @@ public final class OracleRunner {
         + " of "
         + selected
         + " seeds"
+        + (growthSelected > 0
+            ? " and " + growthFamilies + " of " + growthSelected + " growth families"
+            : "")
         + (timedOut != null
             ? " (stopped after a NullAway run took longer than "
                 + runTimeout.toSeconds()
@@ -1147,6 +1372,18 @@ public final class OracleRunner {
           .append(" inputs, config `")
           .append(crash.config())
           .append("`\n");
+    }
+  }
+
+  private void growthList(StringBuilder r, List<GrowthOracle.Finding> list) {
+    if (list.isEmpty()) {
+      r.append("None.\n");
+    }
+    for (GrowthOracle.Finding finding : list) {
+      r.append("- ")
+          .append(growthLine(finding))
+          .append(known.growth(finding.family().name()).map(v -> ", " + v).orElse(""))
+          .append('\n');
     }
   }
 
