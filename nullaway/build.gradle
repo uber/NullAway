@@ -156,6 +156,16 @@ tasks.withType(JavaCompile).configureEach {
     ]
 }
 
+// BalancedInferenceCallsTests consumes this opt-in property; keep it forwarded to every
+// compatibility JVM and tracked as a test input when selecting compiler-stress workloads.
+def balancedInferenceStress = providers.gradleProperty('balancedInferenceStress')
+        .map { it.isEmpty() || Boolean.parseBoolean(it) }
+        .orElse(false)
+tasks.withType(Test).configureEach {
+    systemProperty 'nullaway.balancedInferenceStress', balancedInferenceStress.get()
+    inputs.property('balancedInferenceStress', balancedInferenceStress)
+}
+
 // Create a task to test with the oldest supported version of Error Prone
 // (while still building against the latest supported version)
 def epOldestTest = tasks.register("testErrorProneOldest", Test) {
