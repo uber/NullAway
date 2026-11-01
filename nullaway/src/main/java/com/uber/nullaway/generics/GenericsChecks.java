@@ -3003,7 +3003,7 @@ public final class GenericsChecks {
    * @param tree the method reference
    * @param state visitor state whose path ends at the reference
    */
-  public void inferAndCheckMethodReferenceNullability(
+  public boolean inferAndCheckMethodReferenceNullability(
       MemberReferenceTree tree, VisitorState state) {
     Type targetType = getMethodReferenceType(tree, state, false);
     inferredPolyExpressionTypes.putIfAbsent(tree, targetType);
@@ -3016,9 +3016,15 @@ public final class GenericsChecks {
                 NullabilityUtil.getFunctionalInterfaceMethod(tree, state.getTypes()),
                 config,
                 handler);
-    inferMethodReferenceTypeArguments(tree, groundTargetType, !unannotatedTarget, state);
+    CallInferenceResult inferenceResult =
+        inferMethodReferenceTypeArguments(tree, groundTargetType, !unannotatedTarget, state);
+    boolean warnedAboutInferenceFailure =
+        inferenceResult instanceof InferenceFailure && config.warnOnGenericInferenceFailure();
     if (unannotatedTarget) {
-      return;
+      return false;
+    }
+    if (warnedAboutInferenceFailure) {
+      return true;
     }
     GenericsUtils.processMethodRefTypeRelations(
         this,
@@ -3034,6 +3040,7 @@ public final class GenericsChecks {
             }
           }
         });
+    return false;
   }
 
   /**
@@ -3086,18 +3093,19 @@ public final class GenericsChecks {
    *     nested nullability is unspecified
    * @param state visitor state whose path ends at the reference
    */
-  private void inferMethodReferenceTypeArguments(
+  private @Nullable CallInferenceResult inferMethodReferenceTypeArguments(
       MemberReferenceTree tree, Type targetType, boolean reportFailure, VisitorState state) {
     Symbol.MethodSymbol referencedMethod = castToNonNull(ASTHelpers.getSymbol(tree));
     // return if the reference is to a non-generic method, has explicit type arguments, or if we
     // already ran inference for the reference
-    if (!(referencedMethod.type instanceof Type.ForAll)
-        || tree.getTypeArguments() != null
-        || inferredTypeVarNullabilityForGenericCalls.containsKey(tree)) {
-      return;
+    if (!(referencedMethod.type instanceof Type.ForAll) || tree.getTypeArguments() != null) {
+      return null;
+    }
+    CallInferenceResult result = inferredTypeVarNullabilityForGenericCalls.get(tree);
+    if (result != null) {
+      return result;
     }
     ConstraintSolver solver = makeSolver(state, analysis);
-    CallInferenceResult result;
     try {
       handleMethodRefInGenericMethodInference(state, solver, targetType, tree);
       result = new InferenceSuccess(solver.solve(), new IdentityHashMap<>());
@@ -3109,6 +3117,7 @@ public final class GenericsChecks {
       result = new InferenceFailure(message);
     }
     inferredTypeVarNullabilityForGenericCalls.put(tree, result);
+    return result;
   }
 
   /**
