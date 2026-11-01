@@ -268,6 +268,302 @@ public class GenericMethodLambdaOrMethodRefArgTests extends NullAwayTestsBase {
   }
 
   @Test
+  public void nestedGenericLambdaCallPublishesInnerPolyType() {
+    makeHelper()
+        .addSourceLines(
+            "Test.java",
+            """
+            package com.uber;
+            import org.jspecify.annotations.NullMarked;
+            import org.jspecify.annotations.Nullable;
+            @NullMarked
+            class Test {
+              static class Box<T extends @Nullable Object> {
+                <R extends @Nullable Object> Box<R> flatMap(
+                    Mapper<? super T, ? extends Box<R>> mapper) {
+                  throw new AssertionError();
+                }
+              }
+              interface Mapper<P extends @Nullable Object, R extends @Nullable Object> {
+                R apply(P value);
+              }
+              interface Factory<R extends @Nullable Object> {
+                R get();
+              }
+              static <T extends @Nullable Object, R extends @Nullable Object> R map(
+                  T value, Mapper<T, R> mapper) {
+                throw new AssertionError();
+              }
+              static <T extends @Nullable Object, R extends @Nullable Object> R mapOrElse(
+                  T value, Mapper<T, R> mapper, R fallback) {
+                throw new AssertionError();
+              }
+              static <T extends @Nullable Object, R extends @Nullable Object> R mapOrSupply(
+                  T value, Mapper<T, R> mapper, Factory<R> fallback) {
+                throw new AssertionError();
+              }
+              static <U extends @Nullable Object> U id(U value) {
+                return value;
+              }
+              static <U extends @Nullable Object> U make() {
+                throw new AssertionError();
+              }
+              static void acceptsNested(Box<Box<@Nullable String>> value) {}
+              static void test(Box<Box<Box<@Nullable String>>> nested) {
+                acceptsNested(map(nested, n -> n.flatMap(box -> box)));
+              }
+              static void laterSiblingCall(
+                  Box<Box<Box<@Nullable String>>> nested,
+                  Box<Box<@Nullable String>> fallback) {
+                acceptsNested(
+                    mapOrElse(nested, n -> n.flatMap(box -> box), id(fallback)));
+              }
+              static void laterMethodReference(
+                  Box<Box<Box<@Nullable String>>> nested) {
+                acceptsNested(
+                    mapOrSupply(nested, n -> n.flatMap(box -> box), Test::make));
+              }
+            }
+            """)
+        .doTest();
+  }
+
+  @Test
+  public void ownedNestedLambdaSymbolsAreCompletedBeforePublication() {
+    makeHelper()
+        .addSourceLines(
+            "Test.java",
+            """
+            import org.jspecify.annotations.NullMarked;
+            import org.jspecify.annotations.Nullable;
+            @NullMarked
+            class Test {
+              static class Box<T extends @Nullable Object> {
+                <R extends @Nullable Object> Box<R> flatMap(
+                    Mapper<? super T, ? extends Box<R>> mapper) {
+                  throw new AssertionError();
+                }
+                T get() { throw new AssertionError(); }
+              }
+              interface Mapper<P extends @Nullable Object, R extends @Nullable Object> {
+                R apply(P value);
+              }
+              static <A extends @Nullable Object, R extends @Nullable Object> R map(
+                  A value, Mapper<A, R> mapper) {
+                return mapper.apply(value);
+              }
+              static <T extends @Nullable Object> T id(T value) { return value; }
+              void nullable(Box<Box<Box<@Nullable String>>> nested) {
+                Box<Box<@Nullable String>> result =
+                    map(nested, n -> n.flatMap(box -> map(box, Test::id)));
+                // BUG: Diagnostic contains: dereferenced expression
+                result.get().get().length();
+              }
+              void nonNull(Box<Box<Box<String>>> nested) {
+                Box<Box<String>> result =
+                    map(nested, n -> n.flatMap(box -> map(box, Test::id)));
+                result.get().get().length();
+              }
+            }
+            """)
+        .doTest();
+  }
+
+  @Test
+  public void enclosingInferenceInputsAreRecheckedForVarLocals() {
+    makeHelper()
+        .addSourceLines(
+            "Test.java",
+            """
+            import java.util.List;
+            import java.util.function.Function;
+            import org.jspecify.annotations.NullMarked;
+            import org.jspecify.annotations.Nullable;
+            @NullMarked
+            class Test {
+              static <A extends @Nullable Object, R extends @Nullable Object> R map(
+                  A value, Function<A, R> mapper) {
+                return mapper.apply(value);
+              }
+              static <T extends @Nullable Object> T id(T value) { return value; }
+              void nullable(List<@Nullable String> input) {
+                List<@Nullable String> result = map(input, value -> {
+                  var copy = id(value);
+                  // BUG: Diagnostic contains: dereferenced expression
+                  copy.get(0).length();
+                  return copy;
+                });
+                // BUG: Diagnostic contains: dereferenced expression
+                result.get(0).length();
+              }
+              void nonNull(List<String> input) {
+                List<String> result = map(input, value -> {
+                  var copy = id(value);
+                  copy.get(0).length();
+                  return copy;
+                });
+                result.get(0).length();
+              }
+            }
+            """)
+        .doTest();
+  }
+
+  @Test
+  public void fixedReceiverInputsDoNotBlockIndependentFunctionalTargets() {
+    makeHelper()
+        .addSourceLines(
+            "Test.java",
+            """
+            import org.jspecify.annotations.NullMarked;
+            import org.jspecify.annotations.Nullable;
+            @NullMarked
+            class Test {
+              interface Factory<R extends @Nullable Object> { R get(); }
+              interface Mapper<A extends @Nullable Object, R extends @Nullable Object> {
+                R apply(A value);
+              }
+              static class Box<T extends @Nullable Object> {
+                T get() { throw new AssertionError(); }
+                <R extends @Nullable Object> R withFixedInput(T fixed, Factory<R> factory) {
+                  return factory.get();
+                }
+              }
+              static <A extends @Nullable Object, R extends @Nullable Object> R map(
+                  A value, Mapper<A, R> mapper) {
+                return mapper.apply(value);
+              }
+              void nullable(Box<@Nullable String> input) {
+                String result = map(input, box -> {
+                  var local = box.withFixedInput(box.get(), () -> {
+                    // BUG: Diagnostic contains: dereferenced expression
+                    box.get().length();
+                    return "text";
+                  });
+                  return local;
+                });
+                result.length();
+              }
+              void nonNull(Box<String> input) {
+                String result = map(input, box -> {
+                  var local = box.withFixedInput(box.get(), () -> {
+                    box.get().length();
+                    return "text";
+                  });
+                  return local;
+                });
+                result.length();
+              }
+            }
+            """)
+        .doTest();
+  }
+
+  @Test
+  public void stableCallerTypeParametersAreNotExternalInputs() {
+    makeHelper()
+        .addSourceLines(
+            "Test.java",
+            """
+            import java.util.List;
+            import java.util.function.Function;
+            import org.jspecify.annotations.NullMarked;
+            import org.jspecify.annotations.Nullable;
+            @NullMarked
+            class Test {
+              static <A extends @Nullable Object, R extends @Nullable Object> R map(
+                  A value, Function<A, R> mapper) {
+                return mapper.apply(value);
+              }
+              static <T extends @Nullable Object> T id(T value) { return value; }
+              static <T extends @Nullable Object> List<T> reference(List<T> input) {
+                return map(input, Test::id);
+              }
+              static <T extends @Nullable Object> List<T> lambda(List<T> input) {
+                return map(input, value -> {
+                  var copy = id(value);
+                  return map(copy, Test::id);
+                });
+              }
+              static <T extends Comparable<T>> T fBounded(T input) {
+                return map(input, Test::id);
+              }
+              void test(List<@Nullable String> nullable, List<String> nonNull) {
+                List<@Nullable String> nullableResult = lambda(reference(nullable));
+                // BUG: Diagnostic contains: dereferenced expression
+                nullableResult.get(0).length();
+                List<String> nonNullResult = lambda(reference(nonNull));
+                nonNullResult.get(0).length();
+                fBounded("text").length();
+              }
+            }
+            """)
+        .doTest();
+  }
+
+  @Test
+  public void unrelatedSiblingInferenceRemainsIndependent() {
+    makeHelper()
+        .addSourceLines(
+            "Test.java",
+            """
+            import java.util.List;
+            import java.util.function.Function;
+            import org.jspecify.annotations.NullMarked;
+            import org.jspecify.annotations.Nullable;
+            @NullMarked
+            class Test {
+              static <A extends @Nullable Object, R extends @Nullable Object,
+                  S extends @Nullable Object> R mapWithSibling(
+                  A value, Function<A, R> mapper, S sibling) {
+                return mapper.apply(value);
+              }
+              static <T extends @Nullable Object> T id(T value) { return value; }
+              void test(List<@Nullable String> nullable, List<String> nonNull) {
+                List<@Nullable String> result = mapWithSibling(
+                    nullable, value -> { var copy = id(value); return copy; },
+                    id(nonNull).get(0).length());
+                // BUG: Diagnostic contains: dereferenced expression
+                result.get(0).length();
+                List<String> clean = mapWithSibling(
+                    nonNull, value -> { var copy = id(value); return copy; },
+                    // BUG: Diagnostic contains: dereferenced expression
+                    id(nullable).get(0).length());
+                clean.get(0).length();
+              }
+            }
+            """)
+        .doTest();
+  }
+
+  @Test
+  public void receiverInstantiatedMethodReferenceBound() {
+    makeHelper()
+        .addSourceLines(
+            "Test.java",
+            """
+            import org.jspecify.annotations.NullMarked;
+            import org.jspecify.annotations.Nullable;
+            @NullMarked
+            class Test {
+              interface Fn<T extends @Nullable Object> {
+                T apply(T value);
+              }
+              static class Parent<X extends @Nullable Object> {
+                <T extends X> T id(T value) { return value; }
+              }
+              static class Child extends Parent<String> {}
+              static <T extends @Nullable Object> void use(T value, Fn<T> fn) {}
+              static void test(Child child, @Nullable String value) {
+                // BUG: Diagnostic contains: inference failure: type variable T is constrained to be @Nullable, but its upper bound requires it to be @NonNull
+                use(value, child::id);
+              }
+            }
+            """)
+        .doTest();
+  }
+
+  @Test
   public void genericCallInLambdaVarInitializerPreservesNestedNullness() {
     makeHelper()
         .addSourceLines(
