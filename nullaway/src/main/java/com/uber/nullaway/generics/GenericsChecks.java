@@ -425,14 +425,6 @@ public final class GenericsChecks {
   private final Map<Symbol, TreePath> varLocalDeclarations = new LinkedHashMap<>();
 
   /**
-   * Tracks generic method invocations currently undergoing nested-nullability repair so re-entrant
-   * requests for the same invocation can use the already inferred call-site method type rather than
-   * recursing back through the same repair logic. See {@link
-   * #getResolvedCallSignature(InferenceCall, TreePath, VisitorState, boolean)}
-   */
-  private final Set<MethodInvocationTree> nestedNullabilityRepairInProgress = new LinkedHashSet<>();
-
-  /**
    * PolyNull results inferred separately from generic call inference, cached by invocation
    * identity. Results from joint generic inference remain in {@link InferenceSuccess}.
    */
@@ -4969,39 +4961,6 @@ public final class GenericsChecks {
             state,
             calledFromDataflow);
       }
-      if (result instanceof InferenceWithTypes repairResult
-          && invocationTree instanceof MethodInvocationTree methodInvocation) {
-        // Repairing dropped nested nullability annotations can itself inspect actual argument
-        // types. For diamond constructor arguments, that can re-enter method-type computation for
-        // this same invocation while we are still repairing it. In that case, use the already
-        // inferred method type and skip the repair on the recursive call.
-        Set<Element> rootOnlyVariables = new LinkedHashSet<>();
-        for (Element variable : call.site.variables) {
-          var key = new ConstraintSolver.InferenceVariable(variable, invocationTree);
-          if (!repairResult.solution().inferredTypes().containsKey(key)
-              || repairResult.solution().incompleteVariables().contains(key)
-              || repairResult.solution().inconsistentVariables().contains(key)) {
-            rootOnlyVariables.add(variable);
-          }
-        }
-        if (!rootOnlyVariables.isEmpty()
-            && !nestedNullabilityRepairInProgress.contains(invocationTree)) {
-          nestedNullabilityRepairInProgress.add(methodInvocation);
-          try {
-            methodTypeAtCallSite =
-                restoreNestedNullabilityForTypeVarArguments(
-                    methodInvocation,
-                    methodType,
-                    methodTypeAtCallSite,
-                    rootOnlyVariables,
-                    path,
-                    state,
-                    calledFromDataflow);
-          } finally {
-            nestedNullabilityRepairInProgress.remove(invocationTree);
-          }
-        }
-      }
       if (result instanceof InferenceWithTypes successResult) {
         // Retain the javac call-site shape with a diagnostic overlay for uncertified inference.
         return modelResolvedSignature(
@@ -5030,45 +4989,6 @@ public final class GenericsChecks {
       }
     }
     return modelResolvedSignature(call, methodType, cached, path, state, calledFromDataflow);
-  }
-
-  /**
-   * In narrow cases, javac drops or misplaces nested type-use nullability annotations on type
-   * variables in its inferred type for a generic method at a call site. See <a
-   * href="https://github.com/uber/NullAway/issues/1455">issue 1455</a>. This method repairs those
-   * annotations based on the types of actual parameters. It does not attempt to be a very general
-   * fix, as we do not fully understand the scenarios where this can arise.
-   *
-   * @param invocationTree the method invocation tree for the generic method call
-   * @param origMethodType the declared method type for the generic method (to identify formal
-   *     parameters whose type is a type variable of the method)
-   * @param methodTypeAtCallSite the method type for the generic method as inferred by javac at the
-   *     call site
-   * @param rootOnlyVariables variables without a certified full substitution
-   * @param invocationPath the path to the invocation tree, or null if not available
-   * @param state the visitor state
-   * @return a method type based on {@code methodTypeAtCallSite} but with some nested nullability
-   *     annotations on type variables restored to match those on actual parameters passed at the
-   *     call site
-   */
-  private Type.MethodType restoreNestedNullabilityForTypeVarArguments(
-      MethodInvocationTree invocationTree,
-      Type.MethodType origMethodType,
-      Type.MethodType methodTypeAtCallSite,
-      Set<Element> rootOnlyVariables,
-      @Nullable TreePath invocationPath,
-      VisitorState state,
-      boolean calledFromDataflow) {
-    return NestedTypeVarSubstitutionRepairVisitor.repairMethodType(
-        this,
-        invocationTree,
-        origMethodType,
-        methodTypeAtCallSite,
-        rootOnlyVariables,
-        invocationPath,
-        state,
-        config,
-        calledFromDataflow);
   }
 
   /**
@@ -6086,7 +6006,6 @@ public final class GenericsChecks {
     inferredPolyExpressionTypes.clear();
     inferredVarLocalTypes.clear();
     varLocalDeclarations.clear();
-    nestedNullabilityRepairInProgress.clear();
   }
 
   public boolean isNullableAnnotated(Type type) {
