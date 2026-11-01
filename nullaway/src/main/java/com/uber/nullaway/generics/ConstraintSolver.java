@@ -2,11 +2,15 @@ package com.uber.nullaway.generics;
 
 import com.sun.source.tree.Tree;
 import com.sun.tools.javac.code.Type;
-import com.uber.nullaway.Config;
 import com.uber.nullaway.Nullness;
+import java.util.Collections;
+import java.util.LinkedHashMap;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import javax.lang.model.element.Element;
+import org.jspecify.annotations.Nullable;
 
 /**
  * An interface for solving constraints on type variables, such as subtype relationships between
@@ -28,6 +32,70 @@ public interface ConstraintSolver {
   record InferenceVariable(Element typeVariable, Tree site) {}
 
   /**
+   * External unresolved inputs affecting variable values or raw/fixed site inputs. Site provenance
+   * does not imply that unrelated variables at that site depend on those inputs.
+   */
+  record InputDependencies(Set<InferenceVariable> variables, Set<Tree> sites) {
+    /** Takes immutable, insertion-ordered snapshots of both dependency sets. */
+    public InputDependencies {
+      variables = Collections.unmodifiableSet(new LinkedHashSet<>(variables));
+      sites = Collections.unmodifiableSet(new LinkedHashSet<>(sites));
+    }
+
+    /** Returns whether neither variable values nor raw/fixed inputs depend on foreign inference. */
+    public boolean isIndependentForSite(Tree site) {
+      return !sites.contains(site)
+          && variables.stream().noneMatch(variable -> variable.site().equals(site));
+    }
+  }
+
+  /** Annotated candidates and independent certification/ownership status. */
+  record Solution(
+      Map<InferenceVariable, Type> inferredTypes,
+      Set<InferenceVariable> incompleteVariables,
+      Set<InferenceVariable> inconsistentVariables,
+      InputDependencies inputDependencies) {
+    /** Creates a result without external unresolved inputs. */
+    public Solution(
+        Map<InferenceVariable, Type> types,
+        Set<InferenceVariable> incomplete,
+        Set<InferenceVariable> inconsistent) {
+      this(types, incomplete, inconsistent, new InputDependencies(Set.of(), Set.of()));
+    }
+
+    /** Freezes candidate and status collections before any frontend publication. */
+    public Solution {
+      inferredTypes = Collections.unmodifiableMap(new LinkedHashMap<>(inferredTypes));
+      incompleteVariables = Collections.unmodifiableSet(new LinkedHashSet<>(incompleteVariables));
+      inconsistentVariables =
+          Collections.unmodifiableSet(new LinkedHashSet<>(inconsistentVariables));
+    }
+
+    /** Returns whether every registered variable has a certified, consistent candidate. */
+    public boolean isComplete() {
+      return incompleteVariables.isEmpty() && inconsistentVariables.isEmpty();
+    }
+
+    /** Returns whether this site's variables are complete and consistent. */
+    public boolean isCompleteForSite(Tree site) {
+      return incompleteVariables.stream().noneMatch(variable -> variable.site().equals(site))
+          && inconsistentVariables.stream().noneMatch(variable -> variable.site().equals(site));
+    }
+  }
+
+  /** Registers variables with authoritative declaration bounds and no attributed shapes. */
+  default Map<Element, Type.TypeVar> registerInferenceVariables(
+      Tree site, List<? extends Element> variables) {
+    return registerInferenceVariables(site, variables, Map.of(), Set.copyOf(variables), Map.of());
+  }
+
+  /** Registers attributed shapes using the variables' declaration bounds. */
+  default Map<Element, Type.TypeVar> registerInferenceVariables(
+      Tree site, List<? extends Element> variables, Map<Element, Type> shapes) {
+    return registerInferenceVariables(site, variables, Map.of(), Set.copyOf(variables), shapes);
+  }
+
+  /**
    * Registers the type variables whose nullability is inferred at {@code site}. Must be called
    * before adding constraints involving these variables; type variables not registered via this
    * method are treated as fixed types.
@@ -40,63 +108,73 @@ public interface ConstraintSolver {
    * retain the original declaration for library-modeled bound nullability, even when a separate
    * inference problem treats the fresh variables as fixed types.
    *
-   * <p>Re-registering a site with the same declarations returns its existing fresh variables and
-   * retains all constraints. Contextual views such as a PolyNull overlay may revisit a call; each
-   * view must still add its constraints. Separate inference problems use separate solvers.
+   * <p>Registering the same site again returns the same fresh type variables, preserving their
+   * identity in existing constraints. Later registrations retain additional bound and javac
+   * instantiation inputs; separate inference problems use separate solvers.
    *
    * @param site the tree whose type arguments are inferred
    * @param typeVariables the declared type variables inferred at {@code site}
+   * @param instantiatedUpperBounds upper bounds after receiver/class substitutions, keyed by the
+   *     corresponding declared type variable; an explicit nullable library-model override takes
+   *     precedence over the substituted bound's top-level nullness
+   * @param variablesWithNullnessMarkedBounds variables whose declaration upper-bound annotations
+   *     are an authoritative nullness contract
    * @return a map from each declared type variable to its fresh type variable for {@code site}
    */
-  Map<Element, Type.TypeVar> registerInferenceVariables(
-      Tree site, List<? extends Element> typeVariables);
+  default Map<Element, Type.TypeVar> registerInferenceVariables(
+      Tree site,
+      List<? extends Element> typeVariables,
+      Map<? extends Element, ? extends Type> instantiatedUpperBounds,
+      Set<? extends Element> variablesWithNullnessMarkedBounds) {
+    return registerInferenceVariables(
+        site, typeVariables, instantiatedUpperBounds, variablesWithNullnessMarkedBounds, Map.of());
+  }
 
   /**
-   * Registers variables with javac's nominal instantiations. The instantiations supply Java shapes,
-   * not nullness evidence. Solvers without full-type support retain their scalar behavior.
+   * Registers inference variables with javac's authoritative Java instantiations. Nullness evidence
+   * is projected onto these shapes; the solver never replaces their Java structure. Missing shapes
+   * yield incomplete results, even if an annotation source is available.
    *
    * @param site the inference site
    * @param typeVariables the declared variables inferred at the site
-   * @param javacInstantiations attributed type arguments, keyed by declared variable
-   * @return the fresh inference variables
+   * @param instantiatedUpperBounds receiver/class-substituted declaration upper bounds
+   * @param variablesWithNullnessMarkedBounds declarations with authoritative nullness bounds
+   * @param javacInstantiations attributed Java type arguments, keyed by declared variable element
+   * @return the fresh variables, as in the four-argument overload
    */
-  default Map<Element, Type.TypeVar> registerInferenceVariables(
-      Tree site, List<? extends Element> typeVariables, Map<Element, Type> javacInstantiations) {
-    return registerInferenceVariables(site, typeVariables);
-  }
+  Map<Element, Type.TypeVar> registerInferenceVariables(
+      Tree site,
+      List<? extends Element> typeVariables,
+      Map<? extends Element, ? extends Type> instantiatedUpperBounds,
+      Set<? extends Element> variablesWithNullnessMarkedBounds,
+      Map<? extends Element, ? extends Type> javacInstantiations);
+
+  /** Returns an immutable snapshot of the fresh symbols currently owned by this solver. */
+  Set<Element> inferenceVariableSymbols();
 
   /**
-   * What inference established for one variable. Unsupported nested shapes retain a root qualifier,
-   * not an unchecked javac type or a private inference-variable placeholder. There is deliberately
-   * no global completeness, contradiction, or provenance state in this foundation result.
+   * Registers explicitly foreign unresolved inference symbols before consuming their types. Stable
+   * caller type parameters must not be registered. Owned fresh symbols are never external.
    */
-  sealed interface InferredType permits Substitution, RootOnly {
-    /** Returns the established root qualifier for either kind of result. */
-    default Nullness rootNullness(Config config) {
-      if (this instanceof RootOnly root) {
-        return root.nullness();
-      }
-      return GenericsUtils.isAnnotatedAsNullable(((Substitution) this).type(), config)
-          ? Nullness.NULLABLE
-          : Nullness.NONNULL;
-    }
-  }
+  void registerExternalInferenceSymbols(Set<? extends Element> symbols);
 
-  /** A supported proper substitution with inferred nested annotations and no fresh variables. */
-  record Substitution(Type type) implements InferredType {}
+  /** Returns whether the type, including nested positions and bounds, consumes foreign symbols. */
+  boolean hasExternalInputDependency(Type type);
 
   /**
-   * Only root nullness was inferred. Consumers must leave nested types on the existing attributed
-   * type/repair path, rather than treating provisional javac annotations as inferred evidence.
+   * Records a raw signature/result input consuming foreign symbols at a site, without seeding
+   * unrelated variable values merely because they share that site.
    */
-  record RootOnly(Nullness nullness) implements InferredType {
-    /** Root fallback cannot express dataflow bottom or other non-qualifier lattice states. */
-    public RootOnly {
-      if (nullness != Nullness.NONNULL && nullness != Nullness.NULLABLE) {
-        throw new IllegalArgumentException("Expected an inferred root nullness qualifier");
-      }
-    }
-  }
+  void recordInferenceSiteInput(Tree site, Type type);
+
+  /**
+   * Returns a live immutable dependency snapshot, also usable after constraint generation throws.
+   * This status is independent of completeness and consistency.
+   */
+  InputDependencies inputDependencies();
+
+  /** Returns an established scalar fact, excluding candidate defaults and provisional shapes. */
+  @Nullable Nullness knownNullness(InferenceVariable variable);
 
   /**
    * Exception thrown when the constraints added to the solver are determined to be unsatisfiable.
@@ -112,14 +190,28 @@ public interface ConstraintSolver {
     /** Whether a {@code @Nullable} constraint conflicts with the type variable's upper bound. */
     private final boolean causedByNonNullUpperBound;
 
+    /** Site owning the conflicting inference variable, when available. */
+    private final @Nullable Tree inferenceSite;
+
     public UnsatisfiableConstraintsException(Element typeVariable) {
       this(typeVariable, false);
     }
 
     public UnsatisfiableConstraintsException(
         Element typeVariable, boolean causedByNonNullUpperBound) {
+      this(typeVariable, causedByNonNullUpperBound, null);
+    }
+
+    /** Records the declaration, root-bound cause, and owning inference site of a contradiction. */
+    public UnsatisfiableConstraintsException(
+        Element typeVariable, boolean causedByNonNullUpperBound, @Nullable Tree inferenceSite) {
       this.typeVariable = typeVariable;
       this.causedByNonNullUpperBound = causedByNonNullUpperBound;
+      this.inferenceSite = inferenceSite;
+    }
+
+    public @Nullable Tree getInferenceSite() {
+      return inferenceSite;
     }
 
     public Element getTypeVariable() {
@@ -132,33 +224,43 @@ public interface ConstraintSolver {
   }
 
   /**
-   * Add a subtype constraint between two types. Also constrains nested types appropriately (e.g.,
-   * generic type parameters of the two types must have identical nullability). Inference variables
-   * must appear in the types as the fresh type variables returned by {@link
-   * #registerInferenceVariables(Tree, List)}.
-   *
-   * @param subtype the subtype
-   * @param supertype the supertype
-   * @param localVariableType whether this constraint arises from assigning to a local variable. In
-   *     such a case, the top-level types are not constrained to be subtypes (as local variable
-   *     types are separately inferred), but the nested types are still constrained.
-   * @throws UnsatisfiableConstraintsException if the constraints are determined to be unsatisfiable
+   * Indicates a proven nested-nullness violation of a declaration upper bound for which no safe
+   * annotation source can preserve ordinary compatibility diagnostics. This includes cyclic
+   * inference, non-generic subclasses of annotated generic bounds, and incompatible nominal shapes
+   * nested inside arrays. The caller reports the violation; the solver does not emit diagnostics.
    */
-  void addSubtypeConstraint(Type subtype, Type supertype, boolean localVariableType)
-      throws UnsatisfiableConstraintsException;
+  class NestedUpperBoundViolationException extends UnsatisfiableConstraintsException {
+    private final Tree site;
+    private final Type lowerBound;
+    private final Type upperBound;
+
+    /** Records the inference site and the lower/declaration-bound pair proving the violation. */
+    public NestedUpperBoundViolationException(
+        Element typeVariable, Tree site, Type lowerBound, Type upperBound) {
+      super(typeVariable, false, site);
+      this.site = site;
+      this.lowerBound = lowerBound;
+      this.upperBound = upperBound;
+    }
+
+    public Tree getSite() {
+      return site;
+    }
+
+    public Type getLowerBound() {
+      return lowerBound;
+    }
+
+    public Type getUpperBound() {
+      return upperBound;
+    }
+  }
+
+  /** Adds a subtype relation, excluding the root nullness of a local-variable target. */
+  void addSubtypeConstraint(Type subtype, Type supertype, boolean localVariableType);
 
   /**
-   * Solves once, returning an immutable map of the information established for each variable: a
-   * supported full substitution or explicit root-only fallback. Variables with neither root
-   * constraints nor supported type evidence are omitted. Root propagation and contradiction
-   * checking are internal; unsupported nested shapes are not certified contradictions.
-   *
-   * <p>This is intentionally not a map of only {@link Type}s: omitting unsupported variables could
-   * lose established root qualifiers, while publishing their attributed types could incorrectly
-   * present provisional nested annotations as inferred evidence.
-   *
-   * @return established results keyed by call-specific inference variables
-   * @throws UnsatisfiableConstraintsException if root constraints are unsatisfiable
+   * Incorporates structural bounds, propagates nullness, and independently certifies candidates.
    */
-  Map<InferenceVariable, InferredType> solve() throws UnsatisfiableConstraintsException;
+  Solution solve() throws UnsatisfiableConstraintsException;
 }

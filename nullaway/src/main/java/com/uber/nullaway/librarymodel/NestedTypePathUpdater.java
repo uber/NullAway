@@ -17,7 +17,8 @@ public final class NestedTypePathUpdater extends Types.MapVisitor<Integer> {
 
   private enum UpdateKind {
     ADD_ANNOTATION,
-    REPLACE_TYPE
+    REPLACE_TYPE,
+    REPLACE_CONCRETE_TYPE
   }
 
   private final ImmutableList<NestedAnnotationInfo.TypePathEntry> typePath;
@@ -54,11 +55,24 @@ public final class NestedTypePathUpdater extends Types.MapVisitor<Integer> {
     return new NestedTypePathUpdater(typePath, replacement, UpdateKind.REPLACE_TYPE).apply(type);
   }
 
+  /**
+   * Replaces a modeled location unless it is a type variable whose nominal declaration contract
+   * must still participate in generic inference.
+   */
+  public static Type replaceConcreteType(
+      Type type, ImmutableList<NestedAnnotationInfo.TypePathEntry> typePath, Type replacement) {
+    return new NestedTypePathUpdater(typePath, replacement, UpdateKind.REPLACE_CONCRETE_TYPE)
+        .apply(type);
+  }
+
   private Type apply(Type type) {
     return type.accept(this, 0);
   }
 
   private Type updateLeaf(Type type) {
+    if (updateKind == UpdateKind.REPLACE_CONCRETE_TYPE && type instanceof Type.TypeVar) {
+      return type;
+    }
     return updateKind == UpdateKind.ADD_ANNOTATION
         ? TypeSubstitutionUtils.typeWithAnnot(type, annotationOrReplacementType)
         : annotationOrReplacementType;
@@ -113,8 +127,8 @@ public final class NestedTypePathUpdater extends Types.MapVisitor<Integer> {
     if (pathIndex == typePath.size()) {
       // Member-type substitution can replace a modeled type variable with a wildcard. Annotate
       // a copy of its upper bound: reads use the bound's nullness, and annotations directly on
-      // wildcards are not legal under JSpecify. REPLACE_TYPE replaces the entire wildcard.
-      if (updateKind == UpdateKind.REPLACE_TYPE) {
+      // wildcards are not legal under JSpecify. Replacement operations replace the entire wildcard.
+      if (updateKind != UpdateKind.ADD_ANNOTATION) {
         return updateLeaf(t);
       }
       if (t.kind == BoundKind.EXTENDS) {
@@ -168,7 +182,7 @@ public final class NestedTypePathUpdater extends Types.MapVisitor<Integer> {
    */
   @Override
   public Type visitCapturedType(Type.CapturedType t, Integer pathIndex) {
-    if (updateKind == UpdateKind.REPLACE_TYPE && pathIndex == typePath.size()) {
+    if (updateKind != UpdateKind.ADD_ANNOTATION && pathIndex == typePath.size()) {
       return updateLeaf(t);
     }
     Type.WildcardType wildcard = t.wildcard;

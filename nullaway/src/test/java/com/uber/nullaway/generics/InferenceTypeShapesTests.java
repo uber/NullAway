@@ -6,6 +6,7 @@ import static com.google.errorprone.matchers.Description.NO_MATCH;
 
 import com.google.errorprone.BugPattern;
 import com.google.errorprone.CompilationTestHelper;
+import com.google.errorprone.ErrorProneFlags;
 import com.google.errorprone.VisitorState;
 import com.google.errorprone.bugpatterns.BugChecker;
 import com.google.errorprone.matchers.Description;
@@ -14,6 +15,7 @@ import com.sun.source.tree.MethodTree;
 import com.sun.tools.javac.code.BoundKind;
 import com.sun.tools.javac.code.Symbol;
 import com.sun.tools.javac.code.Type;
+import com.uber.nullaway.NullAway;
 import java.util.List;
 import java.util.Map;
 import javax.lang.model.element.Element;
@@ -181,7 +183,7 @@ public class InferenceTypeShapesTests {
                   ? new Type.WildcardType(string, BoundKind.SUPER, wildcard.tsym)
                   : string;
           attributed = executable(state, List.of(string, second), object, List.of());
-          rejected = true;
+          rejected = tree.getName().contentEquals("wildcardKindConflict");
         }
         case "errorAttribution" -> {
           attributed = state.getSymtab().errType;
@@ -211,7 +213,12 @@ public class InferenceTypeShapesTests {
       }
       Map<Element, Type> shapes =
           InferenceTypeShapes.inferInstantiations(
-              declaration, attributed, method.getTypeParameters(), state.getTypes());
+              declaration,
+              attributed,
+              method.getTypeParameters(),
+              state,
+              new NullAway(ErrorProneFlags.fromMap(Map.of("NullAway:OnlyNullMarked", "true")))
+                  .getConfig());
       if (rejected) {
         assertThat(shapes).isEmpty();
       } else {

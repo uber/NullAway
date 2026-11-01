@@ -3,6 +3,7 @@ package com.uber.nullaway.generics;
 import static com.google.common.truth.Truth.assertThat;
 import static com.google.errorprone.BugPattern.SeverityLevel.SUGGESTION;
 import static com.google.errorprone.matchers.Description.NO_MATCH;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 
 import com.google.errorprone.BugPattern;
 import com.google.errorprone.CompilationTestHelper;
@@ -12,29 +13,27 @@ import com.google.errorprone.bugpatterns.BugChecker;
 import com.google.errorprone.matchers.Description;
 import com.google.errorprone.util.ASTHelpers;
 import com.sun.source.tree.MethodTree;
-import com.sun.source.tree.Tree;
 import com.sun.tools.javac.code.Symbol;
 import com.sun.tools.javac.code.Type;
 import com.uber.nullaway.NullAway;
-import com.uber.nullaway.Nullness;
 import com.uber.nullaway.generics.ConstraintSolver.InferenceVariable;
-import java.util.LinkedHashMap;
-import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import javax.lang.model.element.Element;
 import org.junit.Test;
 
-/** Exercises the capability boundary using types from an active javac compilation. */
+/** Checks typed candidates and independent certification using compiler-attributed types. */
 public class FullTypeBoundsTests {
 
   @Test
-  public void supportedSubstitutionsAndScalarFallback() {
+  public void typedSubstitutionsAndCertification() {
     CompilationTestHelper.newInstance(BoundsChecker.class, getClass())
         .addSourceLines(
             "Test.java",
             """
             import java.util.List;
             import java.util.ArrayList;
+            import java.io.Serializable;
             import java.lang.annotation.ElementType;
             import java.lang.annotation.Target;
             import org.jspecify.annotations.NonNull;
@@ -60,7 +59,7 @@ public class FullTypeBoundsTests {
               static <T extends @Nullable Object, U extends @Nullable Object>
                   void conflictingInvariantBounds(List<@Nullable String> evidence) {}
               static <T extends @Nullable Object, U extends @Nullable Object>
-                  void noIncorporation(List<@Nullable String> evidence) {}
+                  void incorporatesNestedVariable(List<@Nullable String> evidence) {}
               static <T extends @Nullable Object, U extends @Nullable Object>
                   void nestedDependency(List<@Nullable String> evidence) {}
               static <T extends @Nullable Object, U extends @Nullable Object>
@@ -91,6 +90,13 @@ public class FullTypeBoundsTests {
                   void annotatedMetadata(@NonNull @Marker List<@Nullable String> evidence) {}
               static <T extends @Nullable Object, U extends @Nullable Object>
                   void nominalProjection(Strings evidence, List<@Nullable String> upper) {}
+              static <T extends @Nullable Object, U extends @Nullable Object>
+                  void conflictingNominalBounds(Strings evidence, List<String> upper) {}
+              static <T extends @Nullable Object, U extends @Nullable Object>
+                  void structuredCycleWithoutShape(List<String> evidence) {}
+              static <T extends @Nullable Object,
+                  U extends @Marker List<@Nullable String> & @Marker Serializable>
+                  void intersectionMetadata(U evidence) {}
               static <T extends @Nullable Object, U extends @Nullable Object>
                   void primitiveArray(int[] evidence) {}
               static <T extends @Nullable Object, U extends @Nullable Object>
@@ -129,15 +135,15 @@ public class FullTypeBoundsTests {
                   void wildcardEnclosingShape(Outer<?>.Inner evidence) {}
               static <T extends @Nullable Object, U extends @Nullable Object>
                   void knownNullableWildcardRoot(
-                                        @Nullable List<? extends String> evidence,
-                                        @Nullable List<? extends @Nullable String> provisional) {}
+                      @Nullable List<? extends String> evidence,
+                      @Nullable List<? extends @Nullable String> provisional) {}
             }
             """)
         .doTest();
   }
 
   @Test
-  public void dependentDeclarationBoundsUseScalarFallback() {
+  public void dependentDeclarationBoundsParticipateInTypedInference() {
     CompilationTestHelper.newInstance(BoundsChecker.class, getClass())
         .addSourceLines(
             "Test.java",
@@ -179,32 +185,7 @@ public class FullTypeBoundsTests {
         .doTest();
   }
 
-  /** A scalar-only implementation must not need to implement the optional full-type capability. */
-  private static final class ScalarOnlySolver implements ConstraintSolver {
-    private final Map<Element, Type.TypeVar> variables;
-
-    ScalarOnlySolver(Map<Element, Type.TypeVar> variables) {
-      this.variables = variables;
-    }
-
-    @Override
-    public Map<Element, Type.TypeVar> registerInferenceVariables(
-        Tree site, List<? extends Element> declarations) {
-      return variables;
-    }
-
-    @Override
-    public void addSubtypeConstraint(Type subtype, Type supertype, boolean localVariableType) {
-      throw new UnsupportedOperationException();
-    }
-
-    @Override
-    public Map<InferenceVariable, InferredType> solve() {
-      return Map.of();
-    }
-  }
-
-  /** Checks both published annotations and deliberate omissions from the full-type capability. */
+  /** Checks candidate annotations and the status preventing unsafe full-type publication. */
   @BugPattern(summary = "Checks full-type bounds and scalar fallback", severity = SUGGESTION)
   public static final class BoundsChecker extends BugChecker
       implements BugChecker.MethodTreeMatcher {
@@ -226,22 +207,27 @@ public class FullTypeBoundsTests {
                       "NullAway:JSpecifyMode", "true",
                       "NullAway:HandleWildcardGenerics", "true")));
       ConstraintSolver solver = new ConstraintSolverImpl(analysis.getConfig(), state, analysis);
-      String name = tree.getName().toString();
-      if (name.startsWith("dependent")) {
+      String rule = tree.getName().toString();
+      if (rule.startsWith("dependent")) {
         checkDependentDeclaration(tree, method, solver, analysis);
         return NO_MATCH;
       }
-      if (name.startsWith("repeated")) {
+      if (rule.startsWith("repeated")) {
         checkRepeatedRegistration(tree, method, solver, state, analysis);
         return NO_MATCH;
       }
       Type evidence = method.getParameters().head.type;
       Element t = method.getTypeParameters().get(0);
       Element u = method.getTypeParameters().get(1);
+      String name = tree.getName().toString();
+      if (name.equals("intersectionMetadata")) {
+        evidence = ((Type.TypeVar) evidence).getUpperBound();
+      }
       Type shape = name.equals("capturedShape") ? state.getTypes().capture(evidence) : evidence;
       if (name.equals("nestedDependency")) {
         shape = parameterizedLike(evidence, evidence);
       } else if (name.equals("nominalProjection")
+          || name.equals("conflictingNominalBounds")
           || name.startsWith("projection")
           || name.equals("provisionalAnnotations")
           || name.equals("knownNullableWildcardRoot")) {
@@ -253,14 +239,28 @@ public class FullTypeBoundsTests {
           solver.registerInferenceVariables(
               tree,
               method.getTypeParameters(),
-              name.equals("missingShape") ? Map.of() : Map.of(t, shape, u, evidence));
+              Map.of(),
+              Set.copyOf(method.getTypeParameters()),
+              name.equals("missingShape")
+                  ? Map.of()
+                  : name.equals("structuredCycleWithoutShape")
+                      ? Map.of(u, evidence)
+                      : name.startsWith("unresolved")
+                          ? Map.of(t, shape)
+                          : Map.of(
+                              t,
+                              shape,
+                              u,
+                              name.equals("incorporatesNestedVariable")
+                                  ? evidence.getTypeArguments().head
+                                  : evidence));
       Type.TypeVar alpha = fresh.get(t);
       Type.TypeVar beta = fresh.get(u);
       Type lower = evidence;
       if (name.equals("nestedDependency")) {
         lower = parameterizedLike(evidence, beta);
         solver.addSubtypeConstraint(evidence, beta, false);
-      } else if (name.equals("structuredCycle")) {
+      } else if (name.startsWith("structuredCycle")) {
         lower = parameterizedLike(evidence, alpha);
       } else if (name.equals("unresolvedArray")) {
         lower =
@@ -277,9 +277,13 @@ public class FullTypeBoundsTests {
       } else if (!name.equals("noEvidence")) {
         solver.addSubtypeConstraint(lower, alpha, false);
       }
-      if (method.getParameters().size() == 2 && !name.equals("provisionalAnnotations")) {
+      if (method.getParameters().size() == 2
+          && !name.equals("provisionalAnnotations")
+          && !name.equals("knownNullableWildcardRoot")) {
         Type other = method.getParameters().get(1).type;
-        if (name.equals("invariantArrays") || name.startsWith("enclosingLowerConflict")) {
+        if (name.equals("invariantArrays")
+            || name.equals("conflictingNominalBounds")
+            || name.startsWith("enclosingLowerConflict")) {
           solver.addSubtypeConstraint(other, alpha, false);
         } else {
           solver.addSubtypeConstraint(alpha, other, false);
@@ -295,20 +299,83 @@ public class FullTypeBoundsTests {
                 evidence.getEnclosingType(),
                 com.sun.tools.javac.util.List.of(state.getSymtab().stringType));
         solver.addSubtypeConstraint(nonNullEvidence, alpha, false);
-      } else if (name.equals("noIncorporation")) {
-        // List<@Nullable String> <: alpha <: List<beta> must not solve beta by incorporation.
+      } else if (name.equals("incorporatesNestedVariable")) {
+        // Incorporation derives @Nullable String <: beta from both structured bounds.
         Type upper =
             TypeMetadataBuilder.TYPE_METADATA_BUILDER.createClassType(
                 evidence, evidence.getEnclosingType(), com.sun.tools.javac.util.List.of(beta));
         solver.addSubtypeConstraint(alpha, upper, false);
       }
-      ConstraintSolver scalarOnly = new ScalarOnlySolver(fresh);
-      assertThat(scalarOnly.registerInferenceVariables(tree, method.getTypeParameters(), Map.of()))
-          .containsExactlyEntriesIn(fresh);
-      assertThat(scalarOnly.solve()).isEmpty();
-      Map<InferenceVariable, ConstraintSolver.InferredType> solution = solver.solve();
-      Map<InferenceVariable, Type> fullTypes = substitutions(solution);
-      if (name.equals("annotatedLower")
+      ConstraintSolver.Solution solution = solver.solve();
+      Map<InferenceVariable, Type> fullTypes = solution.inferredTypes();
+      InferenceVariable target = new InferenceVariable(t, tree);
+      assertThat(fullTypes).containsKey(target);
+      assertThat(fullTypes).containsKey(new InferenceVariable(u, tree));
+      if (name.equals("knownNullableWildcardRoot")) {
+        Type candidate = fullTypes.get(target);
+        assertThat(solver.knownNullness(target)).isEqualTo(com.uber.nullaway.Nullness.NULLABLE);
+        assertThat(GenericsUtils.isAnnotatedAsNullable(candidate, analysis.getConfig())).isTrue();
+        Type targetType =
+            TypeSubstitutionUtils.removeNullableAnnotation(evidence, analysis.getConfig());
+        Type.WildcardType nested = (Type.WildcardType) targetType.getTypeArguments().head;
+        Type rootOnly =
+            TypeSubstitutionUtils.typeWithAnnot(
+                ((Symbol) t).type, GenericsChecks.getSyntheticNullableAnnotType(state));
+        Type updated =
+            TypeSubstitutionUtils.updateTypeWithInferredTypes(
+                targetType,
+                ((Symbol) t).type,
+                Map.of(t, rootOnly),
+                Map.of(),
+                state,
+                analysis.getConfig());
+        assertThat(GenericsUtils.isAnnotatedAsNullable(updated, analysis.getConfig())).isTrue();
+        assertThat(updated.getTypeArguments().head).isSameInstanceAs(nested);
+        Type omitted =
+            TypeSubstitutionUtils.updateTypeWithInferredTypes(
+                targetType, ((Symbol) t).type, Map.of(), Map.of(), state, analysis.getConfig());
+        assertThat(GenericsUtils.isAnnotatedAsNullable(omitted, analysis.getConfig())).isFalse();
+        if (!solution.incompleteVariables().contains(target)
+            && !solution.inconsistentVariables().contains(target)) {
+          Type.WildcardType checked = (Type.WildcardType) candidate.getTypeArguments().head;
+          assertThat(GenericsUtils.isAnnotatedAsNullable(checked.type, analysis.getConfig()))
+              .isFalse();
+        }
+        Type unchecked =
+            TypeSubstitutionUtils.updateTypeWithInferredTypes(
+                targetType,
+                ((Symbol) t).type,
+                Map.of(t, rootOnly),
+                Map.of(t, shape),
+                state,
+                analysis.getConfig());
+        assertThat(
+                GenericsUtils.isAnnotatedAsNullable(
+                    ((Type.WildcardType) unchecked.getTypeArguments().head).type,
+                    analysis.getConfig()))
+            .isTrue();
+        assertThat(GenericsUtils.isAnnotatedAsNullable(nested.type, analysis.getConfig()))
+            .isFalse();
+        return NO_MATCH;
+      }
+      if (name.equals("intersectionMetadata")) {
+        Type inferred = fullTypes.get(target);
+        assertThat(inferred).isInstanceOf(Type.IntersectionClassType.class);
+        assertThat(solution.isComplete()).isTrue();
+        for (Type component : ((Type.IntersectionClassType) inferred).getExplicitComponents()) {
+          assertThat(
+                  component.getAnnotationMirrors().stream()
+                      .map(annotation -> annotation.type.toString()))
+              .contains("Test.Marker");
+          assertThat(GenericsUtils.isAnnotatedAsNonNull(component, analysis.getConfig())).isTrue();
+          if (!component.getTypeArguments().isEmpty()) {
+            assertThat(
+                    GenericsUtils.isAnnotatedAsNullable(
+                        component.getTypeArguments().head, analysis.getConfig()))
+                .isTrue();
+          }
+        }
+      } else if (name.equals("annotatedLower")
           || name.equals("upperOnly")
           || name.equals("variableEdges")
           || name.equals("nestedDependency")
@@ -316,12 +383,15 @@ public class FullTypeBoundsTests {
           || name.startsWith("upperArray")
           || name.equals("annotatedMetadata")
           || name.equals("nominalProjection")
+          || name.equals("incorporatesNestedVariable")
           || name.equals("primitiveArray")
           || name.equals("primitiveMatrix")
           || name.equals("provisionalAnnotations")) {
         Type inferred = fullTypes.get(new InferenceVariable(t, tree));
         assertThat(inferred).isNotNull();
         assertThat(state.getTypes().isSameType(inferred, shape)).isTrue();
+        assertThat(solution.incompleteVariables()).doesNotContain(target);
+        assertThat(solution.inconsistentVariables()).doesNotContain(target);
         assertThat(inferred.getAnnotationMirrors())
             .hasSize(name.equals("annotatedMetadata") ? 2 : 1);
         if (name.equals("annotatedMetadata")) {
@@ -355,12 +425,8 @@ public class FullTypeBoundsTests {
                       shape.getTypeArguments().head, analysis.getConfig()))
               .isTrue();
           Type published =
-              TypeSubstitutionUtils.updateTypeWithInferredTypes(
-                  shape,
-                  ((Symbol) t).type,
-                  Map.of(t, new ConstraintSolver.Substitution(inferred)),
-                  state,
-                  analysis.getConfig());
+              TypeSubstitutionUtils.updateTypeWithInferredNullability(
+                  shape, ((Symbol) t).type, Map.of(t, inferred), state, analysis.getConfig());
           assertThat(state.getTypes().isSameType(published, shape)).isTrue();
           assertThat(
                   GenericsUtils.isAnnotatedAsNullable(
@@ -371,50 +437,32 @@ public class FullTypeBoundsTests {
                       shape.getTypeArguments().head, analysis.getConfig()))
               .isTrue();
         }
-      } else {
-        assertThat(fullTypes).isEmpty();
-      }
-      if (name.equals("knownNullableWildcardRoot")) {
-        ConstraintSolver.InferredType inferred = solution.get(new InferenceVariable(t, tree));
-        assertThat(inferred).isEqualTo(new ConstraintSolver.RootOnly(Nullness.NULLABLE));
-        Type target =
-            TypeSubstitutionUtils.removeNullableAnnotation(evidence, analysis.getConfig());
-        Type.WildcardType nested = (Type.WildcardType) target.getTypeArguments().head;
-        assertThat(GenericsUtils.isAnnotatedAsNullable(nested.type, analysis.getConfig()))
-            .isFalse();
-        Type updated =
-            TypeSubstitutionUtils.updateTypeWithInferredTypes(
-                target, ((Symbol) t).type, Map.of(t, inferred), state, analysis.getConfig());
-        assertThat(GenericsUtils.isAnnotatedAsNullable(updated, analysis.getConfig())).isTrue();
-        assertThat(updated.getTypeArguments().head).isSameInstanceAs(nested);
-
-        Type omitted =
-            TypeSubstitutionUtils.updateTypeWithInferredTypes(
-                target, ((Symbol) t).type, Map.of(), state, analysis.getConfig());
-        assertThat(GenericsUtils.isAnnotatedAsNullable(omitted, analysis.getConfig())).isFalse();
-
-        assertThat(state.getTypes().isSameType(shape, target)).isTrue();
-        Type unchecked =
-            TypeSubstitutionUtils.updateTypeWithInferredTypes(
-                target,
-                ((Symbol) t).type,
-                Map.of(t, new ConstraintSolver.Substitution(shape)),
-                state,
-                analysis.getConfig());
-        Type.WildcardType uncheckedNested = (Type.WildcardType) unchecked.getTypeArguments().head;
-        assertThat(GenericsUtils.isAnnotatedAsNullable(uncheckedNested.type, analysis.getConfig()))
+      } else if (name.equals("missingShape")
+          || name.equals("capturedShape")
+          || name.equals("erroneousShape")
+          || name.equals("structuredCycleWithoutShape")
+          || name.startsWith("unresolved")) {
+        assertThat(solution.incompleteVariables()).contains(target);
+      } else if (name.equals("noEvidence")
+          || name.equals("wildcardShape")
+          || name.equals("wildcardArrayShape")
+          || name.equals("wildcardEnclosingShape")) {
+        assertThat(solution.inconsistentVariables()).doesNotContain(target);
+        assertThat(state.getTypes().isSameType(fullTypes.get(target), shape)).isTrue();
+      } else if (name.startsWith("projection")
+          || name.startsWith("invalid")
+          || name.equals("invariantNominal")) {
+        assertThat(
+                solution.incompleteVariables().contains(target)
+                    || solution.inconsistentVariables().contains(target))
             .isTrue();
-        assertThat(GenericsUtils.isAnnotatedAsNullable(nested.type, analysis.getConfig()))
-            .isFalse();
+      } else {
+        assertThat(solution.inconsistentVariables()).contains(target);
       }
       return NO_MATCH;
     }
 
-    /**
-     * Declines dependent declaration roots without inferring new edges or reporting a
-     * contradiction, including when another variable reaches such a declaration through an existing
-     * edge.
-     */
+    /** Checks declaration-root edges rather than publishing A's unchecked scalar fallback. */
     private static void checkDependentDeclaration(
         MethodTree tree, Symbol.MethodSymbol method, ConstraintSolver solver, NullAway analysis) {
       var declarations = method.getTypeParameters();
@@ -425,7 +473,11 @@ public class FullTypeBoundsTests {
       Type other = method.getParameters().get(1).type;
       Map<Element, Type.TypeVar> fresh =
           solver.registerInferenceVariables(
-              tree, declarations, Map.of(t, nonNull, u, nonNull, v, nonNull));
+              tree,
+              declarations,
+              Map.of(),
+              Set.copyOf(declarations),
+              Map.of(t, nonNull, u, nonNull, v, nonNull));
       solver.addSubtypeConstraint(nonNull, fresh.get(t), false);
       solver.addSubtypeConstraint(fresh.get(t), nonNull, false);
       boolean throughEdge = tree.getName().contentEquals("dependentThroughEdge");
@@ -435,27 +487,25 @@ public class FullTypeBoundsTests {
       } else if (tree.getName().contentEquals("dependentNonNull")) {
         solver.addSubtypeConstraint(fresh.get(u), nonNull, false);
       }
-      var solution = solver.solve();
-      assertThat(solution.get(new InferenceVariable(t, tree)).rootNullness(analysis.getConfig()))
-          .isEqualTo(Nullness.NONNULL);
-      assertThat(solution.get(new InferenceVariable(u, tree)))
-          .isEqualTo(
-              new ConstraintSolver.RootOnly(
-                  tree.getName().contentEquals("dependentNonNull")
-                      ? Nullness.NONNULL
-                      : Nullness.NULLABLE));
-      Map<InferenceVariable, Type> full = substitutions(solution);
-      assertThat(full).containsKey(new InferenceVariable(t, tree));
-      assertThat(full).doesNotContainKey(new InferenceVariable(u, tree));
-      if (throughEdge) {
-        assertThat(full).doesNotContainKey(new InferenceVariable(v, tree));
+      if (!tree.getName().contentEquals("dependentNonNull")) {
+        assertThrows(ConstraintSolver.UnsatisfiableConstraintsException.class, solver::solve);
+      } else {
+        ConstraintSolver.Solution result = solver.solve();
+        assertThat(result.isComplete()).isTrue();
+        assertThat(
+                GenericsUtils.isAnnotatedAsNullable(
+                    result.inferredTypes().get(new InferenceVariable(t, tree)),
+                    analysis.getConfig()))
+            .isFalse();
+        assertThat(
+                GenericsUtils.isAnnotatedAsNullable(
+                    result.inferredTypes().get(new InferenceVariable(u, tree)),
+                    analysis.getConfig()))
+            .isFalse();
       }
     }
 
-    /**
-     * Keeps both visits' evidence and symbol identities, while allowing every visit to add
-     * constraints.
-     */
+    /** Keeps both visits' constraints, stable symbols and the earlier attributed shape. */
     private static void checkRepeatedRegistration(
         MethodTree tree,
         Symbol.MethodSymbol method,
@@ -467,18 +517,35 @@ public class FullTypeBoundsTests {
       Type first = method.getParameters().get(0).type;
       Map<Element, Type> shapes = Map.of(t, first, u, first);
       Map<Element, Type.TypeVar> initial =
-          solver.registerInferenceVariables(tree, method.getTypeParameters(), shapes);
+          solver.registerInferenceVariables(
+              tree,
+              method.getTypeParameters(),
+              Map.of(),
+              Set.copyOf(method.getTypeParameters()),
+              shapes);
       if (tree.getName().contentEquals("repeatedKeepsUpper")) {
         solver.addSubtypeConstraint(initial.get(t), first, false);
       } else {
         solver.addSubtypeConstraint(first, initial.get(t), false);
       }
-      // The shape-less overload must retain both the existing shape and the collected bounds.
       Map<Element, Type.TypeVar> repeated =
-          solver.registerInferenceVariables(tree, method.getTypeParameters());
+          solver.registerInferenceVariables(
+              tree,
+              method.getTypeParameters(),
+              Map.of(),
+              Set.copyOf(method.getTypeParameters()),
+              Map.of());
       assertThat(repeated.get(t)).isSameInstanceAs(initial.get(t));
       assertThat(repeated.get(u)).isSameInstanceAs(initial.get(u));
-      assertThat(solver.registerInferenceVariables(tree, method.getTypeParameters(), shapes).get(t))
+      assertThat(
+              solver
+                  .registerInferenceVariables(
+                      tree,
+                      method.getTypeParameters(),
+                      Map.of(),
+                      Set.copyOf(method.getTypeParameters()),
+                      shapes)
+                  .get(t))
           .isSameInstanceAs(initial.get(t));
       if (method.getParameters().size() == 2) {
         Type later = method.getParameters().get(1).type;
@@ -488,34 +555,20 @@ public class FullTypeBoundsTests {
           solver.addSubtypeConstraint(later, repeated.get(t), false);
         }
       }
-      Map<InferenceVariable, Type> full = substitutions(solver.solve());
+      ConstraintSolver.Solution result = solver.solve();
+      InferenceVariable target = new InferenceVariable(t, tree);
       if (tree.getName().contentEquals("repeatedKeepsEvidence")) {
-        Type inferred = full.get(new InferenceVariable(t, tree));
-        assertThat(inferred).isNotNull();
+        Type inferred = result.inferredTypes().get(target);
         assertThat(state.getTypes().isSameType(inferred, first)).isTrue();
+        assertThat(result.incompleteVariables()).doesNotContain(target);
+        assertThat(result.inconsistentVariables()).doesNotContain(target);
         assertThat(
                 GenericsUtils.isAnnotatedAsNullable(
                     inferred.getTypeArguments().head, analysis.getConfig()))
             .isTrue();
       } else {
-        assertThat(full).isEmpty();
+        assertThat(result.inconsistentVariables()).contains(target);
       }
-    }
-
-    /**
-     * Extracts supported substitutions for the existing capability assertions, never root
-     * fallbacks.
-     */
-    private static Map<InferenceVariable, Type> substitutions(
-        Map<InferenceVariable, ConstraintSolver.InferredType> solution) {
-      Map<InferenceVariable, Type> result = new LinkedHashMap<>();
-      solution.forEach(
-          (variable, inferred) -> {
-            if (inferred instanceof ConstraintSolver.Substitution substitution) {
-              result.put(variable, substitution.type());
-            }
-          });
-      return result;
     }
 
     /** Reuses a real class type's nominal shape with one substituted type argument. */
