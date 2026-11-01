@@ -3324,6 +3324,175 @@ public class GenericMethodTests extends NullAwayTestsBase {
         .doTest();
   }
 
+  @Test
+  public void issue1585NestedNullnessInSubstitution() {
+    makeHelper()
+        .addSourceLines(
+            "Example.java",
+            """
+            import org.jspecify.annotations.NullMarked;
+            import org.jspecify.annotations.Nullable;
+            @NullMarked
+            public final class Example {
+              public static final class Box<T extends @Nullable Object> {
+                public <R extends @Nullable Object> Box<R> flatMap(
+                    Mapper<? super T, ? extends Box<R>> mapper) {
+                  throw new UnsupportedOperationException();
+                }
+              }
+              @FunctionalInterface
+              public interface Mapper<P extends @Nullable Object, R extends @Nullable Object> {
+                R apply(P value);
+              }
+              static void acceptsNested(Box<Box<@Nullable String>> box) {}
+              static void reproduce(Box<Box<Box<@Nullable String>>> nested) {
+                var flat = nested.flatMap(box -> box);
+                acceptsNested(flat);
+              }
+              static void blockBody(Box<Box<Box<@Nullable String>>> nested) {
+                var flat = nested.flatMap(box -> { return box; });
+                acceptsNested(flat);
+              }
+              static void explicitDeclaration(Box<Box<Box<@Nullable String>>> nested) {
+                Box<Box<@Nullable String>> flat = nested.flatMap(box -> box);
+                acceptsNested(flat);
+              }
+              static void nestedNonNull(Box<Box<Box<String>>> nested) {
+                var flat = nested.flatMap(box -> box);
+                // BUG: Diagnostic contains: cannot be converted to Box<Box<@Nullable String>>
+                acceptsNested(flat);
+              }
+            }
+            """)
+        .doTest();
+  }
+
+  @Test
+  public void fullTypeSubstitutionsArePerCall() {
+    makeHelper()
+        .addSourceLines(
+            "Test.java",
+            """
+            import org.jspecify.annotations.NullMarked;
+            import org.jspecify.annotations.Nullable;
+            @NullMarked
+            class Test {
+              static class Box<T extends @Nullable Object> {}
+              static <T extends @Nullable Object> T id(T value) { return value; }
+              static void acceptsNullable(Box<@Nullable String> box) {}
+              static void acceptsNonNull(Box<String> box) {}
+              static void preservesNestedNullness(Box<@Nullable String> nullable, Box<String> nonNull) {
+                var first = id(nullable);
+                var second = id(nonNull);
+                acceptsNullable(first);
+                acceptsNonNull(second);
+                // BUG: Diagnostic contains: cannot be converted
+                acceptsNonNull(first);
+                // BUG: Diagnostic contains: cannot be converted
+                acceptsNullable(second);
+              }
+              static void nestedCalls(Box<@Nullable String> box) {
+                var result = id(id(box));
+                acceptsNullable(result);
+                // BUG: Diagnostic contains: cannot be converted
+                acceptsNonNull(result);
+              }
+            }
+            """)
+        .doTest();
+  }
+
+  @Test
+  public void fullTypeSubstitutionFromContext() {
+    makeHelper()
+        .addSourceLines(
+            "Test.java",
+            """
+            import org.jspecify.annotations.NullMarked;
+            import org.jspecify.annotations.Nullable;
+            @NullMarked
+            class Test {
+              static class Box<T extends @Nullable Object> {}
+              static <T extends @Nullable Object> Box<T> empty() { return new Box<T>(); }
+              static void acceptsNested(Box<Box<@Nullable String>> box) {}
+              static void acceptsFromContext() {
+                acceptsNested(empty());
+                Box<Box<@Nullable String>> local = empty();
+                acceptsNested(local);
+              }
+            }
+            """)
+        .doTest();
+  }
+
+  @Test
+  public void fullTypeSubstitutionMergesCovariantArrayEvidence() {
+    makeHelper()
+        .addSourceLines(
+            "Test.java",
+            """
+            import org.jspecify.annotations.NullMarked;
+            import org.jspecify.annotations.Nullable;
+            @NullMarked
+            class Test {
+              static class Box<T extends @Nullable Object> {}
+              static <T extends @Nullable Object> Box<T> combine(T first, T second) {
+                return new Box<T>();
+              }
+              static void acceptsNullable(Box<@Nullable String[]> box) {}
+              static void acceptsNonNull(Box<String[]> box) {}
+              static void acceptsWidened(Box<@Nullable Object[]> box) {}
+              static void mergesBothOrders(String[] nonNull, @Nullable String[] nullable) {
+                var first = combine(nonNull, nullable);
+                var second = combine(nullable, nonNull);
+                acceptsNullable(first);
+                acceptsNullable(second);
+                // BUG: Diagnostic contains: cannot be converted
+                acceptsNonNull(first);
+                // BUG: Diagnostic contains: cannot be converted
+                acceptsNonNull(second);
+              }
+              static void preservesNonNullElements(String[] first, String[] second) {
+                var result = combine(first, second);
+                acceptsNonNull(result);
+                // BUG: Diagnostic contains: cannot be converted
+                acceptsNullable(result);
+              }
+              static void widensNominalComponents(String[] first, @Nullable Object[] second) {
+                var result = combine(first, second);
+                acceptsWidened(result);
+              }
+            }
+            """)
+        .doTest();
+  }
+
+  @Test
+  public void fullTypeSubstitutionPreservesOccurrenceOverrides() {
+    makeHelper()
+        .addSourceLines(
+            "Test.java",
+            """
+            import org.jspecify.annotations.NullMarked;
+            import org.jspecify.annotations.Nullable;
+            @NullMarked
+            class Test {
+              static class Box<T extends @Nullable Object> {}
+              static <T extends @Nullable Object> @Nullable T maybe(T value) { return value; }
+              static void acceptsNested(Box<@Nullable String> box) {}
+              static void retainsNullableRoot(Box<@Nullable String> box) {
+                var result = maybe(box);
+                // BUG: Diagnostic contains: passing @Nullable parameter
+                acceptsNested(result);
+                if (result != null) {
+                  acceptsNested(result);
+                }
+              }
+            }
+            """)
+        .doTest();
+  }
+
   private CompilationTestHelper makeHelper() {
     return makeTestHelperWithArgs(
         JSpecifyJavacConfig.withJSpecifyModeArgs(
