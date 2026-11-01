@@ -8,6 +8,10 @@ import org.junit.Test;
 
 public class GenericLambdaTests extends NullAwayTestsBase {
 
+  /**
+   * Method references returned from expression or block lambdas retain nested target nullability,
+   * accepting nullable list elements and rejecting methods that require non-null elements.
+   */
   @Test
   public void methodReferencesReturnedFromLambdasPreserveNestedTargets() {
     makeHelper()
@@ -81,6 +85,11 @@ public class GenericLambdaTests extends NullAwayTestsBase {
         .doTest();
   }
 
+  /**
+   * Returned lambdas and method references preserve nullable type-variable uses in their target
+   * types, including through parentheses and wildcard bounds, so unsafe dereferences and
+   * incompatible parameter types are reported.
+   */
   @Test
   public void returnedPolyExpressionsPreserveNullableTypeVariableTargets() {
     makeHelper()

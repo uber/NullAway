@@ -79,6 +79,11 @@ public class GenericMethodLambdaOrMethodRefArgTests extends NullAwayTestsBase {
         .doTest();
   }
 
+  /**
+   * Method references targeting unmarked functional interfaces avoid nested nullability inference
+   * failures in argument, local, and return contexts, while marked targets still report conflicts.
+   * Explicitly nullable unmarked signatures remain valid inference targets.
+   */
   @Test
   public void unmarkedMethodReferenceTargetsDoNotReportNestedInferenceFailures() {
     makeHelper()
@@ -127,6 +132,11 @@ public class GenericMethodLambdaOrMethodRefArgTests extends NullAwayTestsBase {
         .doTest();
   }
 
+  /**
+   * Method references preserve nullable type-variable uses in targets supplied by casts,
+   * conditionals, and switch expressions, reporting incompatible nested return types or inference
+   * constraints.
+   */
   @Test
   public void methodReferenceTargetsPreserveNullableTypeVariablesInCastsAndConditionals() {
     makeHelper()
@@ -217,12 +227,20 @@ public class GenericMethodLambdaOrMethodRefArgTests extends NullAwayTestsBase {
         .doTest();
   }
 
+  /**
+   * Regression for issue 2063: a generic method reference accepting a marked publisher with a
+   * wildcard type argument infers successfully both inline and when assigned first.
+   */
   @Test
   public void issue2063InlineGenericMethodReference() {
     checkInlineGenericMethodReference(
         "@NullMarked interface Publisher<T extends @Nullable Object> {}");
   }
 
+  /**
+   * Regression for issue 2063: a generic method reference accepting an unmarked publisher with a
+   * wildcard type argument infers successfully both inline and when assigned first.
+   */
   @Test
   public void issue2063InlineGenericMethodReferenceWithUnmarkedPublisher() {
     checkInlineGenericMethodReference("@NullUnmarked interface Publisher<T> {}");
@@ -271,6 +289,11 @@ public class GenericMethodLambdaOrMethodRefArgTests extends NullAwayTestsBase {
         .doTest();
   }
 
+  /**
+   * Generic method references infer nullability from known functional interface targets for static,
+   * bound, unbound, and varargs methods, rejecting conflicting constraints and preserving explicit
+   * type arguments.
+   */
   @Test
   public void genericMethodReferenceInferenceAgainstKnownTarget() {
     makeHelper()
@@ -331,6 +354,11 @@ public class GenericMethodLambdaOrMethodRefArgTests extends NullAwayTestsBase {
         .doTest();
   }
 
+  /**
+   * Generic method references infer nested nullability consistently in field initializers, locals,
+   * assignments, returns, lambda results, and method or constructor arguments, rejecting
+   * conflicting input and return constraints.
+   */
   @Test
   public void genericMethodReferenceInferenceAcrossContexts() {
     makeHelper()
@@ -418,6 +446,10 @@ public class GenericMethodLambdaOrMethodRefArgTests extends NullAwayTestsBase {
         .doTest();
   }
 
+  /**
+   * Non-generic method references check nested parameter and return nullability against local,
+   * return, and argument targets, accepting matching list element types and rejecting mismatches.
+   */
   @Test
   public void nonGenericMethodReferenceNestedNullabilityAcrossContexts() {
     makeHelper()
