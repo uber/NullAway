@@ -20,62 +20,43 @@ import com.uber.nullaway.NullAway;
 import com.uber.nullaway.NullAwayTestsBase;
 import com.uber.nullaway.Nullness;
 import com.uber.nullaway.generics.ConstraintSolver.InferenceVariable;
-import com.uber.nullaway.generics.ConstraintSolver.InferredType;
-import com.uber.nullaway.generics.ConstraintSolver.Substitution;
-import com.uber.nullaway.generics.ConstraintSolver.TopLevelOnly;
-import java.util.ArrayList;
-import java.util.LinkedHashMap;
+import com.uber.nullaway.generics.ConstraintSolver.Solution;
 import java.util.List;
 import java.util.Map;
-import java.util.concurrent.atomic.AtomicInteger;
 import javax.lang.model.element.Element;
 import org.junit.Test;
 
-/** Checks inferred substitutions, reuse within a solve, and top-level-only results. */
+/**
+ * Checks root facts, graph updates, cycles, immutable snapshots, and proper certified
+ * substitutions.
+ */
 public class ConstraintSolverSolveTests extends NullAwayTestsBase {
-
   @Test
-  public void topLevelOnlyFallbackRejectsNonQualifierStates() {
-    assertThat(new TopLevelOnly(Nullness.NONNULL).nullness()).isEqualTo(Nullness.NONNULL);
-    assertThat(new TopLevelOnly(Nullness.NULLABLE).nullness()).isEqualTo(Nullness.NULLABLE);
-    assertThrows(IllegalArgumentException.class, () -> new TopLevelOnly(Nullness.NULL));
-    assertThrows(IllegalArgumentException.class, () -> new TopLevelOnly(Nullness.BOTTOM));
-  }
-
-  @Test
-  public void inferredTypeTopLevelNullness() {
+  public void knownQualifiersMatchInferredTypes() {
     CompilationTestHelper.newInstance(SolveChecker.class, getClass())
         .addSourceLines(
             "Test.java",
             """
             import org.jspecify.annotations.Nullable;
             class Test {
-              <T> void qualifiers(@Nullable String nullable, String nonNull) {}
+              <T extends @Nullable Object> void qualifiers(@Nullable String nullable, String nonNull) {}
             }
             """)
         .doTest();
   }
 
   @Test
-  public void nestedLowerChainsHaveBoundedWork() {
-    StringBuilder source =
-        new StringBuilder(
-            "import org.jspecify.annotations.*; @NullMarked class Test { static class Box<T extends @Nullable Object> {} ");
-    for (int depth : new int[] {12, 24}) {
-      List<String> declarations = new ArrayList<>();
-      for (int index = 0; index < depth; index++) {
-        declarations.add("T" + index + " extends @Nullable Object");
-      }
-      source
-          .append("<")
-          .append(String.join(",", declarations))
-          .append("> void chain")
-          .append(depth)
-          .append("(Box<String> box, String word) {}");
-    }
-    source.append("}");
+  public void rootFactsExcludeCandidateDefaultsAndNonQualifierStates() {
     CompilationTestHelper.newInstance(SolveChecker.class, getClass())
-        .addSourceLines("Test.java", source.toString())
+        .addSourceLines(
+            "Test.java",
+            """
+            import java.util.List;
+            import org.jspecify.annotations.Nullable;
+            class Test {
+              <T extends @Nullable Object> void rootFacts(List<?> value) {}
+            }
+            """)
         .doTest();
   }
 
@@ -105,7 +86,7 @@ public class ConstraintSolverSolveTests extends NullAwayTestsBase {
   }
 
   @Test
-  public void topLevelOnlyFallbackRetainsNullableWildcardResult() {
+  public void knownNullnessFallbackRetainsNullableWildcardResult() {
     makeTestHelperWithArgs(
             JSpecifyJavacConfig.withJSpecifyModeArgs(
                 List.of("-XepOpt:NullAway:OnlyNullMarked=true")))
@@ -175,13 +156,11 @@ public class ConstraintSolverSolveTests extends NullAwayTestsBase {
         .doTest();
   }
 
-  /** Uses real compiler symbols while observing only reads of the supplied structured bounds. */
+  /** Uses real compiler symbols and checks certification separately from diagnostic candidates. */
   @BugPattern(summary = "Checks constraint solver solve contracts", severity = SUGGESTION)
   public static final class SolveChecker extends BugChecker
       implements BugChecker.MethodTreeMatcher {
-    /**
-     * Builds the named input graph and checks supported types rather than only final diagnostics.
-     */
+    /** Builds the named graph and checks scalar facts separately from certified candidates. */
     @Override
     public Description matchMethod(MethodTree tree, VisitorState state) {
       Symbol.MethodSymbol method = ASTHelpers.getSymbol(tree);
@@ -199,69 +178,85 @@ public class ConstraintSolverSolveTests extends NullAwayTestsBase {
                       "NullAway:HandleWildcardGenerics",
                       "true")));
       if (tree.getName().contentEquals("qualifiers")) {
-        var config = analysis.getConfig();
-        InferredType nullable = new Substitution(method.getParameters().get(0).type);
-        InferredType nonNull = new Substitution(method.getParameters().get(1).type);
-        assertThat(nullable.topLevelNullness(config)).isEqualTo(Nullness.NULLABLE);
-        assertThat(nonNull.topLevelNullness(config)).isEqualTo(Nullness.NONNULL);
-        assertThat(new TopLevelOnly(Nullness.NULLABLE).topLevelNullness(config))
-            .isEqualTo(Nullness.NULLABLE);
-        assertThat(new TopLevelOnly(Nullness.NONNULL).topLevelNullness(config))
-            .isEqualTo(Nullness.NONNULL);
+        checkKnownQualifiers(tree, method, state, analysis);
         return NO_MATCH;
       }
       ConstraintSolver solver = new ConstraintSolverImpl(analysis.getConfig(), state, analysis);
-      if (tree.getName().toString().startsWith("chain")) {
-        checkChain(tree, method, solver, state);
+      if (tree.getName().contentEquals("rootFacts")) {
+        checkRootFacts(tree, method, solver, state, analysis);
       } else {
         checkCycleAndUpdate(tree, method, solver, state, analysis);
       }
       return NO_MATCH;
     }
 
-    /**
-     * Fails if solving a chain of n nested lower bounds calls their {@code getTypeArguments()}
-     * methods more than 4n times. Counts repeated resolution without relying on compiler speed;
-     * constructing and comparing result types may do additional work.
-     */
-    private static void checkChain(
-        MethodTree tree, Symbol.MethodSymbol method, ConstraintSolver solver, VisitorState state) {
-      var declarations = method.getTypeParameters();
-      Type.ClassType box = (Type.ClassType) method.getParameters().get(0).type;
-      Type word = method.getParameters().get(1).type;
-      Map<Element, Type> instantiations = new LinkedHashMap<>();
-      Type instantiation = word;
-      for (int index = declarations.size() - 1; index >= 0; index--) {
-        instantiations.put(declarations.get(index), instantiation);
-        instantiation = withArgument(box, instantiation);
+    /** Checks nullable and non-null root evidence through the scalar and structured result APIs. */
+    private static void checkKnownQualifiers(
+        MethodTree tree, Symbol.MethodSymbol method, VisitorState state, NullAway analysis) {
+      Element t = method.getTypeParameters().head;
+      InferenceVariable variable = new InferenceVariable(t, tree);
+      for (Symbol.VarSymbol parameter : method.getParameters()) {
+        ConstraintSolver solver = new ConstraintSolverImpl(analysis.getConfig(), state, analysis);
+        Type evidence = parameter.type;
+        var fresh =
+            solver.registerInferenceVariables(tree, method.getTypeParameters(), Map.of(t, evidence));
+        assertThat(solver.knownNullness(variable)).isNull();
+        solver.addSubtypeConstraint(evidence, fresh.get(t), false);
+        if (!GenericsUtils.isAnnotatedAsNullable(evidence, analysis.getConfig())) {
+          solver.addSubtypeConstraint(fresh.get(t), evidence, false);
+        }
+        Solution result = solver.solve();
+        Nullness expected =
+            GenericsUtils.isAnnotatedAsNullable(evidence, analysis.getConfig())
+                ? Nullness.NULLABLE
+                : Nullness.NONNULL;
+        assertThat(solver.knownNullness(variable)).isEqualTo(expected);
+        assertThat(result.isComplete()).isTrue();
+        assertThat(
+                GenericsUtils.isAnnotatedAsNullable(
+                    result.inferredTypes().get(variable), analysis.getConfig()))
+            .isEqualTo(expected == Nullness.NULLABLE);
       }
-      var fresh = solver.registerInferenceVariables(tree, declarations, instantiations);
-      AtomicInteger reads = new AtomicInteger();
-      int budget = 4 * declarations.size();
-      for (int index = 0; index < declarations.size(); index++) {
-        Type lower =
-            index + 1 == declarations.size()
-                ? word
-                : new CountingClassType(box, fresh.get(declarations.get(index + 1)), reads, budget);
-        solver.addSubtypeConstraint(lower, fresh.get(declarations.get(index)), false);
-      }
-      reads.set(0);
-      var result = solver.solve();
-      assertThat(result).hasSize(declarations.size());
-      for (Element declaration : declarations) {
-        Substitution inferred = (Substitution) result.get(new InferenceVariable(declaration, tree));
-        assertThat(state.getTypes().isSameType(inferred.type(), instantiations.get(declaration)))
-            .isTrue();
-        assertSupportedSubstitution(inferred.type());
-      }
-      assertThat(reads.get()).isGreaterThan(0);
-      assertThat(reads.get()).isAtMost(budget);
-      assertThrows(UnsupportedOperationException.class, result::clear);
     }
 
     /**
-     * Cycles retain fallback, while independent values and later graph/nullness updates still
-     * solve.
+     * Literal null establishes nullable, never NULL/BOTTOM, while default candidates are not facts.
+     */
+    private static void checkRootFacts(
+        MethodTree tree,
+        Symbol.MethodSymbol method,
+        ConstraintSolver solver,
+        VisitorState state,
+        NullAway analysis) {
+      Element t = method.getTypeParameters().head;
+      Type shape = method.getParameters().head.type;
+      var fresh =
+          solver.registerInferenceVariables(tree, method.getTypeParameters(), Map.of(t, shape));
+      InferenceVariable variable = new InferenceVariable(t, tree);
+      Solution before = solver.solve();
+      assertThat(solver.knownNullness(variable)).isNull();
+      solver.addSubtypeConstraint(state.getSymtab().botType, fresh.get(t), false);
+      Solution after = solver.solve();
+      assertThat(solver.knownNullness(variable)).isEqualTo(Nullness.NULLABLE);
+      assertThat(
+              GenericsUtils.isAnnotatedAsNullable(
+                  after.inferredTypes().get(variable), analysis.getConfig()))
+          .isTrue();
+      assertThat(
+              GenericsUtils.isAnnotatedAsNullable(
+                  before.inferredTypes().get(variable), analysis.getConfig()))
+          .isFalse();
+      assertThrows(UnsupportedOperationException.class, after.inferredTypes()::clear);
+      ConstraintSolver nonNull = new ConstraintSolverImpl(analysis.getConfig(), state, analysis);
+      var other =
+          nonNull.registerInferenceVariables(tree, method.getTypeParameters(), Map.of(t, shape));
+      nonNull.addSubtypeConstraint(other.get(t), state.getSymtab().objectType, false);
+      nonNull.solve();
+      assertThat(nonNull.knownNullness(variable)).isEqualTo(Nullness.NONNULL);
+    }
+
+    /**
+     * Preserves independent values, immutable results, and later graph/root changes across solves.
      */
     private static void checkCycleAndUpdate(
         MethodTree tree,
@@ -277,43 +272,50 @@ public class ConstraintSolverSolveTests extends NullAwayTestsBase {
       Type box = method.getParameters().get(0).type;
       Type word = method.getParameters().get(1).type;
       var order = name.equals("cycleReverse") ? List.of(u, t, v) : List.of(t, u, v);
-      var instantiations =
+      var shapes =
           name.equals("graphUpdate") || name.equals("fBoundWithConcreteLower")
               ? Map.of(t, word, u, box, v, word)
               : Map.of(t, box, u, box, v, word);
-      var fresh = solver.registerInferenceVariables(tree, order, instantiations);
+      var fresh = solver.registerInferenceVariables(tree, order, shapes);
       solver.addSubtypeConstraint(word, fresh.get(v), false);
       if (name.equals("graphUpdate")) {
         solver.addSubtypeConstraint(withArgument(box, fresh.get(t)), fresh.get(u), false);
         solver.addSubtypeConstraint(fresh.get(u), state.getSymtab().objectType, false);
-        var before = solver.solve();
-        assertThat(before).doesNotContainKey(new InferenceVariable(t, tree));
-        assertThat(before.get(new InferenceVariable(u, tree)))
-            .isEqualTo(new TopLevelOnly(Nullness.NONNULL));
-        solver.addSubtypeConstraint(word, fresh.get(t), false);
-        var nonNull = solver.solve();
-        assertThat(nonNull).hasSize(3);
-        assertThat(nonNull.get(new InferenceVariable(t, tree))).isInstanceOf(Substitution.class);
-        assertThat(
-                nonNull.get(new InferenceVariable(t, tree)).topLevelNullness(analysis.getConfig()))
+        Solution before = solver.solve();
+        assertThat(solver.knownNullness(new InferenceVariable(t, tree))).isNull();
+        assertThat(solver.knownNullness(new InferenceVariable(u, tree)))
             .isEqualTo(Nullness.NONNULL);
+        solver.addSubtypeConstraint(word, fresh.get(t), false);
+        Solution nonNull = solver.solve();
+        assertThat(nonNull.inferredTypes()).hasSize(3);
+        assertCertifiedProper(nonNull);
         Type nullable =
             TypeSubstitutionUtils.typeWithAnnot(
                 word, GenericsChecks.getSyntheticNullableAnnotType(state));
         solver.addSubtypeConstraint(nullable, fresh.get(t), false);
-        var after = solver.solve();
-        assertThat(after).hasSize(3);
-        assertThat(after.get(new InferenceVariable(t, tree)).topLevelNullness(analysis.getConfig()))
-            .isEqualTo(Nullness.NULLABLE);
+        Solution after = solver.solve();
+        assertThat(after.inferredTypes()).hasSize(3);
+        assertThat(
+                GenericsUtils.isAnnotatedAsNullable(
+                    after.inferredTypes().get(new InferenceVariable(t, tree)),
+                    analysis.getConfig()))
+            .isTrue();
         Type nested =
-            ((Substitution) after.get(new InferenceVariable(u, tree)))
-                .type()
-                .getTypeArguments()
-                .head;
+            after.inferredTypes().get(new InferenceVariable(u, tree)).getTypeArguments().head;
         assertThat(GenericsUtils.isAnnotatedAsNullable(nested, analysis.getConfig())).isTrue();
         assertThat(
-                nonNull.get(new InferenceVariable(t, tree)).topLevelNullness(analysis.getConfig()))
-            .isEqualTo(Nullness.NONNULL);
+                GenericsUtils.isAnnotatedAsNullable(
+                    nonNull.inferredTypes().get(new InferenceVariable(t, tree)),
+                    analysis.getConfig()))
+            .isFalse();
+        assertThat(
+                GenericsUtils.isAnnotatedAsNullable(
+                    before.inferredTypes().get(new InferenceVariable(t, tree)),
+                    analysis.getConfig()))
+            .isFalse();
+        assertThrows(UnsupportedOperationException.class, after.inferredTypes()::clear);
+        assertThrows(UnsupportedOperationException.class, after.incompleteVariables()::clear);
+        assertCertifiedProper(after);
         return;
       }
       if (name.equals("fBoundWithConcreteLower")) {
@@ -330,56 +332,63 @@ public class ConstraintSolverSolveTests extends NullAwayTestsBase {
         solver.addSubtypeConstraint(withArgument(box, fresh.get(u)), fresh.get(t), false);
         solver.addSubtypeConstraint(withArgument(box, fresh.get(t)), fresh.get(u), false);
       }
-      Map<InferenceVariable, InferredType> result = solver.solve();
-      assertThat(result.get(new InferenceVariable(t, tree))).isNotInstanceOf(Substitution.class);
-      assertThat(result.get(new InferenceVariable(u, tree))).isNotInstanceOf(Substitution.class);
-      assertThat(result.get(new InferenceVariable(v, tree))).isInstanceOf(Substitution.class);
+      Solution result = solver.solve();
+      if (!name.equals("fBoundWithConcreteLower")) {
+        assertThat(
+                result.incompleteVariables().contains(new InferenceVariable(t, tree))
+                    || result.inconsistentVariables().contains(new InferenceVariable(t, tree)))
+            .isTrue();
+        assertThat(
+                result.incompleteVariables().contains(new InferenceVariable(u, tree))
+                    || result.inconsistentVariables().contains(new InferenceVariable(u, tree)))
+            .isTrue();
+      } else {
+        assertThat(result.inconsistentVariables()).doesNotContain(new InferenceVariable(t, tree));
+      }
+      assertThat(result.incompleteVariables()).doesNotContain(new InferenceVariable(v, tree));
+      assertThat(result.inconsistentVariables()).doesNotContain(new InferenceVariable(v, tree));
+      assertThat(
+              state
+                  .getTypes()
+                  .isSameType(result.inferredTypes().get(new InferenceVariable(v, tree)), word))
+          .isTrue();
+      assertCertifiedProper(result);
+      assertThrows(UnsupportedOperationException.class, result.inferredTypes()::clear);
     }
 
-    /** Checks that substitutions contain only class types, arrays, primitives, and {@code NONE}. */
-    private static void assertSupportedSubstitution(Type type) {
+    /** No declared or fresh placeholder may escape as a certified proper substitution here. */
+    private static void assertCertifiedProper(Solution result) {
+      result
+          .inferredTypes()
+          .forEach(
+              (variable, type) -> {
+                if (!result.incompleteVariables().contains(variable)
+                    && !result.inconsistentVariables().contains(variable)) {
+                  assertProper(type);
+                }
+              });
+    }
+
+    /** Recursively checks proper types in the graph fixtures. */
+    private static void assertProper(Type type) {
       assertThat(type).isNotInstanceOf(Type.TypeVar.class);
       assertThat(type).isNotInstanceOf(Type.WildcardType.class);
       if (type instanceof Type.ClassType clazz) {
-        assertSupportedSubstitution(clazz.getEnclosingType());
+        assertProper(clazz.getEnclosingType());
         for (Type argument : clazz.getTypeArguments()) {
-          assertSupportedSubstitution(argument);
+          assertProper(argument);
         }
       } else if (type instanceof Type.ArrayType array) {
-        assertSupportedSubstitution(array.elemtype);
+        assertProper(array.elemtype);
       } else {
         assertThat(type.isPrimitive() || type.hasTag(TypeTag.NONE)).isTrue();
       }
     }
 
-    /** Creates a class type without the type-argument read counter used by the lower bounds. */
+    /** Builds a structural lower bound with one substituted argument. */
     private static Type withArgument(Type template, Type argument) {
       return TypeMetadataBuilder.TYPE_METADATA_BUILDER.createClassType(
           template, template.getEnclosingType(), com.sun.tools.javac.util.List.of(argument));
-    }
-  }
-
-  /** Throws during an unbounded traversal, instead of leaving a compiler thread stalled. */
-  private static final class CountingClassType extends Type.ClassType {
-    private final AtomicInteger reads;
-    private final int budget;
-
-    CountingClassType(Type.ClassType template, Type argument, AtomicInteger reads, int budget) {
-      super(template.getEnclosingType(), com.sun.tools.javac.util.List.of(argument), template.tsym);
-      this.reads = reads;
-      this.budget = budget;
-    }
-
-    /**
-     * Counts reads of original symbolic lower bounds; materialized types are ordinary class types.
-     */
-    @Override
-    public com.sun.tools.javac.util.List<Type> getTypeArguments() {
-      if (reads.incrementAndGet() > budget) {
-        throw new AssertionError(
-            "Repeated nested-bound resolution exceeded " + budget + " argument reads");
-      }
-      return super.getTypeArguments();
     }
   }
 }
