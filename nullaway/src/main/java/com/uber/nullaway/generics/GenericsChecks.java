@@ -64,6 +64,7 @@ import com.uber.nullaway.generics.ConstraintSolver.InferenceVariable;
 import com.uber.nullaway.generics.ConstraintSolver.InputDependencies;
 import com.uber.nullaway.generics.ConstraintSolver.LowerBoundConflict;
 import com.uber.nullaway.generics.ConstraintSolver.NestedUpperBoundViolationException;
+import com.uber.nullaway.generics.ConstraintSolver.NonNullWildcardBoundViolationException;
 import com.uber.nullaway.generics.ConstraintSolver.Solution;
 import com.uber.nullaway.generics.ConstraintSolver.SourceOrigin;
 import com.uber.nullaway.generics.ConstraintSolver.UnsatisfiableConstraintsException;
@@ -1857,6 +1858,9 @@ public final class GenericsChecks {
                 errorMessage, analysis.buildDescription(inferenceSite), reportingState, null));
       }
       InferenceFailure failureResult = new InferenceFailure(inferenceFailureMessage);
+      // Deferred wildcard obligations belong to their call, not necessarily this problem's root.
+      Tree failureSite =
+          e instanceof NonNullWildcardBoundViolationException ? inferenceSite : callTree;
       InferencePublicationDecision publication =
           inferencePublicationDecision(
               failureResult,
@@ -1865,14 +1869,12 @@ public final class GenericsChecks {
               calledFromDataflow,
               path,
               inferenceCall,
-              callTree,
+              failureSite,
               state);
       invalidateMethodReferenceResults(publication.methodReferences());
       if (publication.types() == InferenceTypePublication.FAILURE_SITE) {
-        // Contextual scalar contradictions complete only this root problem. Nested calls must
-        // still infer their own arguments and contexts independently.
-        inferredTypeVarNullabilityForGenericCalls.put(callTree, failureResult);
-        diagnosticInferenceResults.remove(callTree);
+        inferredTypeVarNullabilityForGenericCalls.put(failureSite, failureResult);
+        diagnosticInferenceResults.remove(failureSite);
       }
       return failureResult;
     } finally {
