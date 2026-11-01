@@ -638,31 +638,6 @@ public class TypeSubstitutionUtils {
         origType, updated, inferredTypes, state.getTypes(), config);
   }
 
-  /** Applies certified full substitutions before the ordinary diagnostic annotation overlay. */
-  static Type updateTypeWithInferredTypes(
-      Type target,
-      Type original,
-      @Nullable Map<Element, Type> candidates,
-      Map<Element, Type> certified,
-      VisitorState state,
-      Config config) {
-    Type substituted = substituteTypeVariables(original, certified, state.getTypes(), config);
-    return updateTypeWithInferredNullability(target, substituted, candidates, state, config);
-  }
-
-  /** Applies certified substitutions to executable types while retaining the attributed shape. */
-  static Type.MethodType updateMethodTypeWithInferredTypes(
-      Type.MethodType target,
-      Type.MethodType original,
-      Map<Element, Type> candidates,
-      Map<Element, Type> certified,
-      VisitorState state,
-      Config config) {
-    Type.MethodType substituted =
-        substituteTypeVariables(original, certified, state.getTypes(), config).asMethodType();
-    return updateMethodTypeWithInferredNullability(target, substituted, candidates, state, config);
-  }
-
   /**
    * Updates a method type {@code typeToUpdate} by applying inferred types for type variables. The
    * update is applied to the argument types, return type, and thrown types of the method type,

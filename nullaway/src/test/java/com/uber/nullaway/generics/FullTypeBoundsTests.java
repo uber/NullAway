@@ -322,18 +322,13 @@ public class FullTypeBoundsTests {
             TypeSubstitutionUtils.typeWithAnnot(
                 ((Symbol) t).type, GenericsChecks.getSyntheticNullableAnnotType(state));
         Type updated =
-            TypeSubstitutionUtils.updateTypeWithInferredTypes(
-                targetType,
-                ((Symbol) t).type,
-                Map.of(t, rootOnly),
-                Map.of(),
-                state,
-                analysis.getConfig());
+            TypeSubstitutionUtils.updateTypeWithInferredNullability(
+                targetType, ((Symbol) t).type, Map.of(t, rootOnly), state, analysis.getConfig());
         assertThat(GenericsUtils.isAnnotatedAsNullable(updated, analysis.getConfig())).isTrue();
         assertThat(updated.getTypeArguments().head).isSameInstanceAs(nested);
         Type omitted =
-            TypeSubstitutionUtils.updateTypeWithInferredTypes(
-                targetType, ((Symbol) t).type, Map.of(), Map.of(), state, analysis.getConfig());
+            TypeSubstitutionUtils.updateTypeWithInferredNullability(
+                targetType, ((Symbol) t).type, Map.of(), state, analysis.getConfig());
         assertThat(GenericsUtils.isAnnotatedAsNullable(omitted, analysis.getConfig())).isFalse();
         if (!solution.incompleteVariables().contains(target)
             && !solution.inconsistentVariables().contains(target)) {
@@ -342,13 +337,8 @@ public class FullTypeBoundsTests {
               .isFalse();
         }
         Type unchecked =
-            TypeSubstitutionUtils.updateTypeWithInferredTypes(
-                targetType,
-                ((Symbol) t).type,
-                Map.of(t, rootOnly),
-                Map.of(t, shape),
-                state,
-                analysis.getConfig());
+            TypeSubstitutionUtils.updateTypeWithInferredNullability(
+                targetType, ((Symbol) t).type, Map.of(t, shape), state, analysis.getConfig());
         assertThat(
                 GenericsUtils.isAnnotatedAsNullable(
                     ((Type.WildcardType) unchecked.getTypeArguments().head).type,
