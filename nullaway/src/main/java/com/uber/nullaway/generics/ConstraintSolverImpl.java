@@ -39,6 +39,7 @@ public final class ConstraintSolverImpl implements ConstraintSolver {
   private final Config config;
   private final Handler handler;
   private final VisitorState state;
+  private final FullTypeBounds fullTypeBounds;
 
   /**
    * Maps the symbol of each fresh type variable created by {@link #registerInferenceVariables(Tree,
@@ -48,10 +49,18 @@ public final class ConstraintSolverImpl implements ConstraintSolver {
   private final IdentityHashMap<Element, InferenceVariable> inferenceVariables =
       new IdentityHashMap<>();
 
+  /**
+   * Stable bindings for sites revisited under another contextual view, such as a PolyNull overlay.
+   * Re-registration must not replace fresh symbols or discard already collected bounds.
+   */
+  private final IdentityHashMap<Tree, Map<Element, Type.TypeVar>> freshVariablesBySite =
+      new IdentityHashMap<>();
+
   public ConstraintSolverImpl(Config config, VisitorState state, NullAway analysis) {
     this.config = config;
     this.handler = analysis.getHandler();
     this.state = state;
+    this.fullTypeBounds = new FullTypeBounds(config, state);
   }
 
   /* ───────────────────── internal enums & data ───────────────────── */
@@ -91,11 +100,21 @@ public final class ConstraintSolverImpl implements ConstraintSolver {
    */
   private final Map<InferenceVariable, VarState> vars = new LinkedHashMap<>();
 
+  /** Registration order also determines result order when a variable has inferred information. */
+  private final Set<InferenceVariable> registeredVariables = new LinkedHashSet<>();
+
   /* ───────────────────── public API ───────────────────── */
 
   @Override
   public Map<Element, Type.TypeVar> registerInferenceVariables(
       Tree site, List<? extends Element> typeVariables) {
+    Map<Element, Type.TypeVar> existing = freshVariablesBySite.get(site);
+    if (existing != null) {
+      Verify.verify(
+          existing.keySet().equals(new LinkedHashSet<>(typeVariables)),
+          "Repeated inference registration must use the same declarations");
+      return existing;
+    }
 
     // First create all the fresh type variables, since the upper bound of one type variable can
     // refer to others, e.g., <T extends Comparable<T>> or <T, U extends T>.
@@ -117,9 +136,24 @@ public final class ConstraintSolverImpl implements ConstraintSolver {
                   declared.getUpperBound(), fresh, types, config));
     }
     for (Map.Entry<Element, Type.TypeVar> entry : fresh.entrySet()) {
-      inferenceVariables.put(entry.getValue().tsym, new InferenceVariable(entry.getKey(), site));
+      InferenceVariable variable = new InferenceVariable(entry.getKey(), site);
+      inferenceVariables.put(entry.getValue().tsym, variable);
+      registeredVariables.add(variable);
     }
 
+    fullTypeBounds.register(site, fresh);
+    freshVariablesBySite.put(site, fresh);
+    return fresh;
+  }
+
+  /**
+   * Registers scalar variables first, then attaches shapes for the optional full-type capability.
+   */
+  @Override
+  public Map<Element, Type.TypeVar> registerInferenceVariables(
+      Tree site, List<? extends Element> typeVariables, Map<Element, Type> javacInstantiations) {
+    Map<Element, Type.TypeVar> fresh = registerInferenceVariables(site, typeVariables);
+    fullTypeBounds.setShapes(site, javacInstantiations);
     return fresh;
   }
 
@@ -150,6 +184,7 @@ public final class ConstraintSolverImpl implements ConstraintSolver {
         constrainSubtypeToWildcard(subtype, supertypeWildcard);
         return null;
       }
+      fullTypeBounds.addConstraint(subtype, supertype);
       // handle flow into a type variable. The check for !(subtype instanceof TypeVar) is a
       // small optimization, as that case should be handled in visitTypeVar.
       if (!localVariableType && (supertype instanceof TypeVar) && !(subtype instanceof TypeVar)) {
@@ -351,8 +386,28 @@ public final class ConstraintSolverImpl implements ConstraintSolver {
     }
   }
 
+  /** Combines supported proper substitutions and root-only fallbacks after root propagation. */
   @Override
-  public Map<InferenceVariable, InferredNullability> solve()
+  public Map<InferenceVariable, InferredType> solve() throws UnsatisfiableConstraintsException {
+    Map<InferenceVariable, Nullness> roots = solveRootNullness();
+    Map<InferenceVariable, Type> substitutions = fullTypeBounds.solve(roots);
+    Map<InferenceVariable, InferredType> result = new LinkedHashMap<>();
+    for (InferenceVariable variable : registeredVariables) {
+      Type substitution = substitutions.get(variable);
+      if (substitution != null) {
+        result.put(variable, new Substitution(substitution));
+      } else {
+        Nullness root = roots.get(variable);
+        if (root != null) {
+          result.put(variable, new RootOnly(root));
+        }
+      }
+    }
+    return Collections.unmodifiableMap(result);
+  }
+
+  /** Propagates root constraints before choosing any nested substitutions or root-only fallback. */
+  private Map<InferenceVariable, Nullness> solveRootNullness()
       throws UnsatisfiableConstraintsException {
     /* ---------- work-list propagation of nullability ---------- */
     Deque<InferenceVariable> work = new ArrayDeque<>();
@@ -392,16 +447,14 @@ public final class ConstraintSolverImpl implements ConstraintSolver {
     }
 
     /* ---------- build final solution map ---------- */
-    Map<InferenceVariable, InferredNullability> result = new LinkedHashMap<>();
+    Map<InferenceVariable, Nullness> result = new LinkedHashMap<>();
     vars.forEach(
         (inferenceVar, st) -> {
           // Note: if the nullness state is UNKNOWN, we infer NONNULL arbitrarily
           // TODO does this matter?  should we use NULLABLE instead?
           result.put(
               inferenceVar,
-              st.nullness == NullnessState.NULLABLE
-                  ? InferredNullability.NULLABLE
-                  : InferredNullability.NONNULL);
+              st.nullness == NullnessState.NULLABLE ? Nullness.NULLABLE : Nullness.NONNULL);
         });
     return result;
   }

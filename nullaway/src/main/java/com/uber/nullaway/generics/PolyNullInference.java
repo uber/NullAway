@@ -91,11 +91,12 @@ final class PolyNullInference {
   /** Resolves PolyNull nullness by invocation after a shared generic-inference solver run. */
   static IdentityHashMap<MethodInvocationTree, Nullness> resolveNullnessByInvocation(
       IdentityHashMap<MethodInvocationTree, PolyNullInferenceContext> contexts,
-      Map<ConstraintSolver.InferenceVariable, ConstraintSolver.InferredNullability> solution) {
+      Map<ConstraintSolver.InferenceVariable, ConstraintSolver.InferredType> solution,
+      Config config) {
     IdentityHashMap<MethodInvocationTree, Nullness> nullnessByInvocation = new IdentityHashMap<>();
     for (Map.Entry<MethodInvocationTree, PolyNullInferenceContext> entry : contexts.entrySet()) {
       nullnessByInvocation.put(
-          entry.getKey(), resolveContext(entry.getKey(), entry.getValue(), solution));
+          entry.getKey(), resolveContext(entry.getKey(), entry.getValue(), solution, config));
     }
     return nullnessByInvocation;
   }
@@ -104,15 +105,13 @@ final class PolyNullInference {
   static Nullness resolveContext(
       MethodInvocationTree invocationTree,
       PolyNullInferenceContext inferenceContext,
-      Map<ConstraintSolver.InferenceVariable, ConstraintSolver.InferredNullability> solution) {
-    ConstraintSolver.InferredNullability inferred =
-        solution.getOrDefault(
+      Map<ConstraintSolver.InferenceVariable, ConstraintSolver.InferredType> solution,
+      Config config) {
+    ConstraintSolver.InferredType inferred =
+        solution.get(
             new ConstraintSolver.InferenceVariable(
-                inferenceContext.inferenceVariable().asElement(), invocationTree),
-            ConstraintSolver.InferredNullability.NONNULL);
-    return inferred == ConstraintSolver.InferredNullability.NULLABLE
-        ? Nullness.NULLABLE
-        : Nullness.NONNULL;
+                inferenceContext.inferenceVariable().asElement(), invocationTree));
+    return inferred == null ? Nullness.NONNULL : inferred.rootNullness(config);
   }
 
   /**
