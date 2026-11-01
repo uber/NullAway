@@ -171,6 +171,7 @@ public class GenericMethodLambdaOrMethodRefArgTests extends NullAwayTestsBase {
             import org.jspecify.annotations.Nullable;
             @NullMarked
             class Repro {
+              // publisherDeclaration inserted here:
               %s
               static class Mono<T extends @Nullable Object> implements Publisher<T> {
                 static <T extends @Nullable Object> Mono<T> from(Publisher<? extends T> source) {
