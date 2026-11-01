@@ -534,8 +534,10 @@ public class LibraryModelsHandler implements Handler {
     return result;
   }
 
+  /** Keeps name-indexed models and javac Types local to the current compilation context. */
+  @SuppressWarnings("ReferenceEquality")
   private OptimizedLibraryModels getOptLibraryModels(Context context) {
-    if (optLibraryModels == null) {
+    if (optLibraryModels == null || optLibraryModels.context != context) {
       optLibraryModels = new OptimizedLibraryModels(libraryModels, context);
     }
     return optLibraryModels;
@@ -1770,6 +1772,7 @@ public class LibraryModelsHandler implements Handler {
 
     private static final int MAX_METHOD_REF_CACHE_SIZE = 1000;
 
+    private final Context context;
     private final Types types;
 
     /**
@@ -1835,6 +1838,7 @@ public class LibraryModelsHandler implements Handler {
     private final NameIndexedMap<ImmutableSet<PolyNullLocation>> polyNullLocations;
 
     OptimizedLibraryModels(LibraryModels models, Context context) {
+      this.context = context;
       types = Types.instance(context);
       Names names = Names.instance(context);
       failIfNullParams = makeOptimizedSetLookup(names, models.failIfNullParameters());
