@@ -84,16 +84,18 @@ import org.jspecify.annotations.Nullable;
 /** Methods for performing checks related to generic types and nullability. */
 public final class GenericsChecks {
 
-  /** Marker interface for results of attempting to infer nullability of type variables at a call */
-  private interface CallInferenceResult {}
+  /**
+   * Marker interface for results of attempting nullability inference for calls or method
+   * references.
+   */
+  private interface InferenceResult {}
 
   /**
-   * Indicates successful inference of nullability of type variables at a call. Stores the inferred
-   * nullability of every inference variable in the inference problem, which may span several calls
-   * (nested calls, generic method references, etc.), and any PolyNull nullability computed by the
-   * same solver run.
+   * Indicates successful nullability inference. Stores the inferred nullability of every inference
+   * variable in the inference problem, which may span several calls and method references, and any
+   * PolyNull nullability computed by the same solver run.
    */
-  private static final class InferenceSuccess implements CallInferenceResult {
+  private static final class InferenceSuccess implements InferenceResult {
 
     private final IdentityHashMap<Tree, Map<Element, ConstraintSolver.InferredNullability>>
         typeVarNullabilityBySite = new IdentityHashMap<>();
@@ -129,9 +131,9 @@ public final class GenericsChecks {
     }
   }
 
-  /** Indicates failed inference of nullability of type variables at a call */
+  /** Indicates failed nullability inference for a call or method reference. */
   private record InferenceFailure(@SuppressWarnings("UnusedVariable") @Nullable String errorMessage)
-      implements CallInferenceResult {
+      implements InferenceResult {
     private InferenceFailure(@Nullable String errorMessage) {
       this.errorMessage = errorMessage;
     }
@@ -142,11 +144,10 @@ public final class GenericsChecks {
    * result. Only omitted type arguments are inferred; explicit arguments can still constrain an
    * enclosing call. If a tree is absent, no inference result has been cached for that site.
    */
-  private final Map<Tree, CallInferenceResult> inferredTypeVarNullabilityForGenericCalls =
-      new LinkedHashMap<>();
+  private final Map<Tree, InferenceResult> inferenceResultsBySite = new LinkedHashMap<>();
 
-  /** Calls for which a generic inference failure diagnostic has already been reported. */
-  private final Set<Tree> callsWithReportedInferenceFailures = new LinkedHashSet<>();
+  /** Sites for which a generic inference failure diagnostic has already been reported. */
+  private final Set<Tree> sitesWithReportedInferenceFailures = new LinkedHashSet<>();
 
   /**
    * Maps poly expressions for which we have computed a context-derived type to that type, if
@@ -1373,7 +1374,7 @@ public final class GenericsChecks {
     Type.MethodType executableType =
         getExecutableTypeForInference(callTree, path, state, calledFromDataflow);
     Map<Element, ConstraintSolver.InferredNullability> typeVarNullability = null;
-    CallInferenceResult result = inferredTypeVarNullabilityForGenericCalls.get(callTree);
+    InferenceResult result = inferenceResultsBySite.get(callTree);
     if (result == null) { // have not yet attempted inference for this call
       result =
           runInferenceForCall(
@@ -1413,8 +1414,8 @@ public final class GenericsChecks {
   }
 
   /**
-   * Runs inference for a generic call, side-effecting the
-   * #inferredTypeVarNullabilityForGenericCalls map with the result.
+   * Runs inference for a generic call, side-effecting the {@link #inferenceResultsBySite} map with
+   * the result.
    *
    * @param state the visitor state
    * @param path the tree path to the call tree if available and possibly distinct from {@code
@@ -1429,7 +1430,7 @@ public final class GenericsChecks {
    * @return the inference result, either success with inferred type variable nullability or failure
    *     with an error message
    */
-  private CallInferenceResult runInferenceForCall(
+  private InferenceResult runInferenceForCall(
       VisitorState state,
       @Nullable TreePath path,
       ExpressionTree callTree,
@@ -1438,9 +1439,9 @@ public final class GenericsChecks {
       boolean assignedToLocal,
       boolean calledFromDataflow) {
     ConstraintSolver solver = makeSolver(state, analysis);
-    // allCalls tracks the top-level call and nested calls or method references requiring inference
-    Set<Tree> allCalls = new LinkedHashSet<>();
-    allCalls.add(callTree);
+    // Track the top-level call and nested calls or method references participating in inference.
+    Set<Tree> allInferenceSites = new LinkedHashSet<>();
+    allInferenceSites.add(callTree);
     IdentityHashMap<MethodInvocationTree, PolyNullInferenceContext> polyNullContexts =
         new IdentityHashMap<>();
     try {
@@ -1452,7 +1453,7 @@ public final class GenericsChecks {
           solver,
           callTree,
           executableType,
-          allCalls,
+          allInferenceSites,
           polyNullContexts,
           calledFromDataflow);
       Map<ConstraintSolver.InferenceVariable, ConstraintSolver.InferredNullability> solution =
@@ -1472,8 +1473,8 @@ public final class GenericsChecks {
       Map<Element, ConstraintSolver.InferredNullability> typeVarNullability =
           successResult.typeVarNullabilityForSite(callTree);
       if (okToCacheInferenceResult(calledFromDataflow)) {
-        for (Tree inferredCall : allCalls) {
-          inferredTypeVarNullabilityForGenericCalls.put(inferredCall, successResult);
+        for (Tree inferenceSite : allInferenceSites) {
+          inferenceResultsBySite.put(inferenceSite, successResult);
         }
         // Store inferred types for lambda or method reference arguments
         Type.MethodType callMethodType;
@@ -1514,8 +1515,8 @@ public final class GenericsChecks {
       reportInferenceFailure(callTree, inferenceFailureMessage, state);
       InferenceFailure failureResult = new InferenceFailure(inferenceFailureMessage);
       if (okToCacheInferenceResult(calledFromDataflow)) {
-        for (Tree inferredCall : allCalls) {
-          inferredTypeVarNullabilityForGenericCalls.put(inferredCall, failureResult);
+        for (Tree inferenceSite : allInferenceSites) {
+          inferenceResultsBySite.put(inferenceSite, failureResult);
         }
       }
       return failureResult;
@@ -1617,8 +1618,9 @@ public final class GenericsChecks {
    * @param callTree the call tree representing the generic method call or diamond constructor call
    * @param methodType the executable type of {@code callTree}, as computed by {@link
    *     #getExecutableTypeForInference}
-   * @param allCalls calls and method references requiring inference, including nested ones. This is
-   *     an output parameter that gets mutated while generating the constraints to add nested sites.
+   * @param allInferenceSites calls and method references participating in inference, including
+   *     nested ones. This is an output parameter that gets mutated while generating the constraints
+   *     to add nested sites.
    * @param polyNullContexts PolyNull inference contexts for calls in this inference session. This
    *     is an output parameter mutated during constraint generation to add contexts for modeled
    *     calls.
@@ -1633,7 +1635,7 @@ public final class GenericsChecks {
       ConstraintSolver solver,
       ExpressionTree callTree,
       Type.MethodType methodType,
-      Set<Tree> allCalls,
+      Set<Tree> allInferenceSites,
       IdentityHashMap<MethodInvocationTree, PolyNullInferenceContext> polyNullContexts,
       boolean calledFromDataflow)
       throws UnsatisfiableConstraintsException {
@@ -1700,7 +1702,7 @@ public final class GenericsChecks {
         solver,
         callTree,
         methodTypeForSite,
-        allCalls,
+        allInferenceSites,
         polyNullContexts,
         calledFromDataflow);
     if (callTree instanceof MethodInvocationTree invocationTree
@@ -1712,7 +1714,7 @@ public final class GenericsChecks {
           solver,
           invocationTree,
           polyNullContext.inferenceMethodType(),
-          allCalls,
+          allInferenceSites,
           polyNullContexts,
           calledFromDataflow);
     }
@@ -1724,8 +1726,9 @@ public final class GenericsChecks {
    *
    * @param state the visitor state
    * @param solver the constraint solver
-   * @param allCalls calls and method references requiring inference, including nested ones. This is
-   *     an output parameter that gets mutated while generating the constraints to add nested sites.
+   * @param allInferenceSites calls and method references participating in inference, including
+   *     nested ones. This is an output parameter that gets mutated while generating the constraints
+   *     to add nested sites.
    * @param rhsExpr the right-hand side expression of the pseudo-assignment
    * @param lhsType the left-hand side type of the pseudo-assignment
    * @param polyNullContexts PolyNull inference contexts for calls in this inference session. This
@@ -1736,7 +1739,7 @@ public final class GenericsChecks {
   private void generateConstraintsForPseudoAssignment(
       VisitorState state,
       ConstraintSolver solver,
-      Set<Tree> allCalls,
+      Set<Tree> allInferenceSites,
       ExpressionTree rhsExpr,
       Type lhsType,
       IdentityHashMap<MethodInvocationTree, PolyNullInferenceContext> polyNullContexts,
@@ -1748,7 +1751,7 @@ public final class GenericsChecks {
     // if the parameter is itself a generic call requiring inference, generate constraints for
     // that call
     if (isCallNeedingInference(rhsExpr)) {
-      allCalls.add(rhsExpr);
+      allInferenceSites.add(rhsExpr);
       generateConstraintsForCall(
           state,
           state.getPath(),
@@ -1757,7 +1760,7 @@ public final class GenericsChecks {
           solver,
           rhsExpr,
           getExecutableTypeForInference(rhsExpr, state.getPath(), state, calledFromDataflow),
-          allCalls,
+          allInferenceSites,
           polyNullContexts,
           calledFromDataflow);
     } else if (rhsExpr instanceof ConditionalExpressionTree conditionalExpressionTree) {
@@ -1768,7 +1771,7 @@ public final class GenericsChecks {
       generateConstraintsForPseudoAssignment(
           state.withPath(pathToTrueExpression),
           solver,
-          allCalls,
+          allInferenceSites,
           trueExpression,
           lhsType,
           polyNullContexts,
@@ -1778,7 +1781,7 @@ public final class GenericsChecks {
       generateConstraintsForPseudoAssignment(
           state.withPath(pathToFalseExpression),
           solver,
-          allCalls,
+          allInferenceSites,
           falseExpression,
           lhsType,
           polyNullContexts,
@@ -1788,13 +1791,13 @@ public final class GenericsChecks {
           state,
           state.getPath(),
           solver,
-          allCalls,
+          allInferenceSites,
           lhsType,
           lambda,
           polyNullContexts,
           calledFromDataflow);
     } else if (rhsExpr instanceof MemberReferenceTree memberReferenceTree) {
-      allCalls.add(memberReferenceTree);
+      allInferenceSites.add(memberReferenceTree);
       handleMethodRefInGenericMethodInference(state, solver, lhsType, memberReferenceTree);
     } else { // all other cases
       Type argumentType = getTreeType(rhsExpr, state, calledFromDataflow);
@@ -1823,8 +1826,9 @@ public final class GenericsChecks {
    * @param path the tree path to the enclosing call if available and possibly distinct from {@code
    *     state.getPath()}
    * @param solver the constraint solver
-   * @param allCalls calls and method references requiring inference, including nested ones. This is
-   *     an output parameter that gets mutated while generating the constraints to add nested sites.
+   * @param allInferenceSites calls and method references participating in inference, including
+   *     nested ones. This is an output parameter that gets mutated while generating the constraints
+   *     to add nested sites.
    * @param lhsType the type to which the lambda is being assigned
    * @param lambda The lambda argument
    * @param polyNullContexts PolyNull inference contexts for calls in this inference session. This
@@ -1836,7 +1840,7 @@ public final class GenericsChecks {
       VisitorState state,
       @Nullable TreePath path,
       ConstraintSolver solver,
-      Set<Tree> allCalls,
+      Set<Tree> allInferenceSites,
       Type lhsType,
       LambdaExpressionTree lambda,
       IdentityHashMap<MethodInvocationTree, PolyNullInferenceContext> polyNullContexts,
@@ -1893,7 +1897,7 @@ public final class GenericsChecks {
         generateConstraintsForPseudoAssignment(
             state.withPath(returnedExpressionPath),
             solver,
-            allCalls,
+            allInferenceSites,
             returnedExpression,
             fiReturnType,
             polyNullContexts,
@@ -1910,7 +1914,7 @@ public final class GenericsChecks {
           generateConstraintsForPseudoAssignment(
               state.withPath(returnExprPath),
               solver,
-              allCalls,
+              allInferenceSites,
               returnExpr,
               fiReturnType,
               polyNullContexts,
@@ -3093,11 +3097,11 @@ public final class GenericsChecks {
     // already ran inference for the reference
     if (!(referencedMethod.type instanceof Type.ForAll)
         || tree.getTypeArguments() != null
-        || inferredTypeVarNullabilityForGenericCalls.containsKey(tree)) {
+        || inferenceResultsBySite.containsKey(tree)) {
       return;
     }
     ConstraintSolver solver = makeSolver(state, analysis);
-    CallInferenceResult result;
+    InferenceResult result;
     try {
       handleMethodRefInGenericMethodInference(state, solver, targetType, tree);
       result = new InferenceSuccess(solver.solve(), new IdentityHashMap<>());
@@ -3108,7 +3112,7 @@ public final class GenericsChecks {
       }
       result = new InferenceFailure(message);
     }
-    inferredTypeVarNullabilityForGenericCalls.put(tree, result);
+    inferenceResultsBySite.put(tree, result);
   }
 
   /**
@@ -3125,8 +3129,7 @@ public final class GenericsChecks {
   private Type.MethodType getInferredMethodTypeForGenericMethodReference(
       Type.MethodType methodType, VisitorState state) {
     Tree memberReferenceTree = state.getPath().getLeaf();
-    CallInferenceResult inferenceResult =
-        inferredTypeVarNullabilityForGenericCalls.get(memberReferenceTree);
+    InferenceResult inferenceResult = inferenceResultsBySite.get(memberReferenceTree);
     if (inferenceResult instanceof InferenceSuccess successResult) {
       return TypeSubstitutionUtils.updateMethodTypeWithInferredNullability(
           methodType,
@@ -3646,7 +3649,7 @@ public final class GenericsChecks {
 
     // There are no explicit type arguments, so use the inferred types
     if (explicitTypeArgs.isEmpty() && invocationTree != null) {
-      CallInferenceResult result = inferredTypeVarNullabilityForGenericCalls.get(tree);
+      InferenceResult result = inferenceResultsBySite.get(tree);
       if (result == null) {
         // have not yet attempted inference for this call
         CallAndContext invocationAndType =
@@ -4121,7 +4124,7 @@ public final class GenericsChecks {
       ConstraintSolver solver,
       ExpressionTree callTree,
       Type.MethodType methodType,
-      Set<Tree> allCalls,
+      Set<Tree> allInferenceSites,
       IdentityHashMap<MethodInvocationTree, PolyNullInferenceContext> polyNullContexts,
       boolean calledFromDataflow) {
     TreePath pathToCall = path != null ? path : pathWithLeaf(state.getPath(), callTree);
@@ -4132,7 +4135,7 @@ public final class GenericsChecks {
               generateConstraintsForPseudoAssignment(
                   state.withPath(pathToArgument),
                   solver,
-                  allCalls,
+                  allInferenceSites,
                   argument,
                   formalParamType,
                   polyNullContexts,
@@ -4140,10 +4143,10 @@ public final class GenericsChecks {
             });
   }
 
-  /** Reports an inference failure once per call when inference warnings are enabled. */
-  private void reportInferenceFailure(Tree callTree, String message, VisitorState state) {
+  /** Reports an inference failure once per site when inference warnings are enabled. */
+  private void reportInferenceFailure(Tree inferenceSite, String message, VisitorState state) {
     if (!config.warnOnGenericInferenceFailure()
-        || !callsWithReportedInferenceFailures.add(callTree)) {
+        || !sitesWithReportedInferenceFailures.add(inferenceSite)) {
       return;
     }
     ErrorMessage errorMessage =
@@ -4152,7 +4155,7 @@ public final class GenericsChecks {
         analysis
             .getErrorBuilder()
             .createErrorDescription(
-                errorMessage, analysis.buildDescription(callTree), state, null));
+                errorMessage, analysis.buildDescription(inferenceSite), state, null));
   }
 
   /** Returns the synthetic annotation type representing the resolved PolyNull qualifier. */
@@ -4729,9 +4732,9 @@ public final class GenericsChecks {
    * alive and leak memory.
    */
   public void clearCache() {
-    inferredTypeVarNullabilityForGenericCalls.clear();
+    inferenceResultsBySite.clear();
     separatelyInferredPolyNullness.clear();
-    callsWithReportedInferenceFailures.clear();
+    sitesWithReportedInferenceFailures.clear();
     inferredPolyExpressionTypes.clear();
     inferredVarLocalTypes.clear();
     varLocalDeclarations.clear();
