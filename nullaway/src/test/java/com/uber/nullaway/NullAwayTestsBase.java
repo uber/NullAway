@@ -7,6 +7,7 @@ import com.google.errorprone.CompilationTestHelper;
 import com.google.errorprone.ErrorProneJavaCompiler;
 import com.google.errorprone.FileManagers;
 import com.google.errorprone.scanner.ScannerSupplier;
+import com.uber.nullaway.generics.JSpecifyJavacConfig;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
@@ -51,6 +52,43 @@ public abstract class NullAwayTestsBase {
         "-XepOpt:NullAway:ExternalInitAnnotations=com.uber.ExternalInit",
         "-XepOpt:NullAway:ExcludedFieldAnnotations=com.uber.ExternalFieldInit",
         "-XDaddTypeAnnotationsToSymbol=true");
+  }
+
+  /**
+   * Compiles sources with only NullAway in JSpecify mode and returns positioned diagnostics.
+   *
+   * <p>NullAway runs at warning severity; javac errors fail the test instead of being mistaken for
+   * checker diagnostics. Diagnostics without a source or line, including summary notes, are
+   * excluded. Callers retain responsibility for rendering messages and selecting their expected
+   * diagnostics.
+   *
+   * @param sources the compilation units to compile
+   * @return source-positioned diagnostics in compiler emission order
+   */
+  protected List<Diagnostic<? extends JavaFileObject>> compileAndCollectJSpecifyDiagnostics(
+      List<JavaFileObject> sources) {
+    DiagnosticCollector<JavaFileObject> diagnostics = new DiagnosticCollector<>();
+    List<String> args =
+        JSpecifyJavacConfig.withJSpecifyModeArgs(
+            List.of(
+                "-d",
+                temporaryFolder.getRoot().getAbsolutePath(),
+                "-XepOpt:NullAway:AnnotatedPackages=com.uber",
+                "-proc:none"));
+    ErrorProneJavaCompiler compiler =
+        new ErrorProneJavaCompiler(ScannerSupplier.fromBugCheckerClasses(NullAway.class));
+    boolean success =
+        compiler
+            .getTask(null, FileManagers.testFileManager(), diagnostics, args, null, sources)
+            .call();
+    assertWithMessage("compilation failed: %s", diagnostics.getDiagnostics())
+        .that(success)
+        .isTrue();
+    return diagnostics.getDiagnostics().stream()
+        .filter(
+            diagnostic ->
+                diagnostic.getSource() != null && diagnostic.getLineNumber() != Diagnostic.NOPOS)
+        .toList();
   }
 
   /**

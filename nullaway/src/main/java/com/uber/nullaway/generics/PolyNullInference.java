@@ -325,11 +325,14 @@ final class PolyNullInference {
     private final Set<Element> polySymbols = new LinkedHashSet<>();
     private final java.util.List<ScalarConstraint> scalarConstraints = new ArrayList<>();
     private final Map<InferenceVariable, Nullness> forced = new LinkedHashMap<>();
+    private final Map<InferenceVariable, SourceSupport> forcedSupports = new LinkedHashMap<>();
+    private final SourceSupport.Factory sourceSupports = new SourceSupport.Factory();
+    private int forcedVersion;
     private final Set<InferenceVariable> foreignInputs = new LinkedHashSet<>();
     private final Set<Tree> foreignSites = new LinkedHashSet<>();
     private final Set<InferenceVariable> opaqueVariables = new LinkedHashSet<>();
 
-    private record ScalarConstraint(Type subtype, Type supertype) {}
+    private record ScalarConstraint(Type subtype, Type supertype, SourceSupport support) {}
 
     /** Gives each projection its own registration without changing a call's declared variables. */
     private record ProjectionSite(InferenceVariable owner, Element variable) implements Tree {
@@ -452,7 +455,33 @@ final class PolyNullInference {
 
     @Override
     public void addSubtypeConstraint(Type subtype, Type supertype, boolean localVariableType) {
-      reduce(subtype, supertype, localVariableType, new IdentityHashMap<>());
+      reduce(subtype, supertype, localVariableType, sourceProof(null), new IdentityHashMap<>());
+    }
+
+    @Override
+    public void addSubtypeConstraint(
+        Type subtype, Type supertype, boolean localVariableType, SourceOrigin origin) {
+      reduce(subtype, supertype, localVariableType, sourceProof(origin), new IdentityHashMap<>());
+    }
+
+    /** Preserves factored premises supplied by another qualifier/full-type reduction. */
+    @Override
+    public void addSubtypeConstraintWithSupport(
+        Type subtype, Type supertype, boolean localVariableType, SourceSupport support) {
+      reduce(subtype, supertype, localVariableType, support, new IdentityHashMap<>());
+    }
+
+    /** Returns the established scalar proof without treating candidate shapes as facts. */
+    @Override
+    public SourceSupport nullnessSupport(InferenceVariable variable) {
+      SourceSupport support = forcedSupports.get(variable);
+      return support == null ? delegate.nullnessSupport(variable) : support;
+    }
+
+    /** Converts an explicit origin to one premise, retaining source-less intrinsic constraints. */
+    private SourceSupport sourceProof(@Nullable SourceOrigin origin) {
+      return sourceSupports.conjunction(
+          origin == null ? java.util.List.of() : java.util.List.of(origin));
     }
 
     /**
@@ -476,9 +505,13 @@ final class PolyNullInference {
      * Reduces only relations containing PolyNull; all other relations retain full solver semantics.
      */
     private void reduce(
-        Type subtype, Type supertype, boolean local, IdentityHashMap<Type, Set<Type>> active) {
+        Type subtype,
+        Type supertype,
+        boolean local,
+        SourceSupport support,
+        IdentityHashMap<Type, Set<Type>> active) {
       if (!containsPoly(subtype) && !containsPoly(supertype)) {
-        delegate.addSubtypeConstraint(subtype, supertype, local);
+        addNominalConstraint(subtype, supertype, local, support);
         return;
       }
       Set<Type> targets =
@@ -495,7 +528,7 @@ final class PolyNullInference {
                 && (supertype instanceof Type.WildcardType
                     || GenericsUtils.asWildcard(subtype) != null))) {
           if (!local) {
-            scalarConstraints.add(new ScalarConstraint(subtype, supertype));
+            scalarConstraints.add(new ScalarConstraint(subtype, supertype, support));
             InferenceVariable lower = variableForUse(subtype);
             InferenceVariable upper = variableForUse(supertype);
             if (delegate.hasExternalInputDependency(subtype)
@@ -516,16 +549,17 @@ final class PolyNullInference {
             Type actual = GenericsUtils.asWildcard(subtype);
             if (actual instanceof Type.WildcardType actualWildcard) {
               if (actualWildcard.kind == BoundKind.SUPER) {
-                reduce(wildcard.type, actualWildcard.type, false, active);
+                reduce(wildcard.type, actualWildcard.type, false, support, active);
               }
             } else {
-              reduce(wildcard.type, subtype, false, active);
+              reduce(wildcard.type, subtype, false, support, active);
             }
           } else {
             reduce(
                 GenericsUtils.effectiveWildcardUpperBound(subtype, state, config, handler),
                 GenericsUtils.wildcardUpperBound(wildcard, state, config, handler),
                 false,
+                support,
                 active);
           }
         } else if (config.handleWildcardGenerics() && GenericsUtils.asWildcard(subtype) != null) {
@@ -536,14 +570,15 @@ final class PolyNullInference {
                   : GenericsUtils.wildcardUpperBound(wildcard, state, config, handler),
               supertype,
               false,
+              support,
               active);
         } else if (subtype instanceof Type.TypeVar && shapes.containsKey(subtype.asElement())) {
-          projectConstraint(subtype, supertype, local, true);
+          projectConstraint(subtype, supertype, local, true, support);
         } else if (supertype instanceof Type.TypeVar && shapes.containsKey(supertype.asElement())) {
-          projectConstraint(supertype, subtype, local, false);
+          projectConstraint(supertype, subtype, local, false, support);
         } else if (subtype instanceof Type.ArrayType lower
             && supertype instanceof Type.ArrayType upper) {
-          reduce(lower.elemtype, upper.elemtype, false, active);
+          reduce(lower.elemtype, upper.elemtype, false, support, active);
         } else if (subtype instanceof Type.ClassType && supertype instanceof Type.ClassType upper) {
           Type aligned =
               TypeSubstitutionUtils.asSuper(
@@ -556,18 +591,18 @@ final class PolyNullInference {
           for (int i = 0; i < lowerArguments.size() && i < upperArguments.size(); i++) {
             Type lower = lowerArguments.get(i);
             Type higher = upperArguments.get(i);
-            reduce(lower, higher, false, active);
+            reduce(lower, higher, false, support, active);
             if (!config.handleWildcardGenerics()
                 || (!(higher instanceof Type.WildcardType)
                     && GenericsUtils.asWildcard(lower) == null)) {
-              reduce(higher, lower, false, active);
+              reduce(higher, lower, false, support, active);
             }
           }
           if (aligned.getEnclosingType() instanceof Type.ClassType enclosing
               && upper.getEnclosingType() instanceof Type.ClassType upperEnclosing
               && !enclosing.isRaw()
               && !upperEnclosing.isRaw()) {
-            reduce(enclosing, upperEnclosing, false, active);
+            reduce(enclosing, upperEnclosing, false, support, active);
           }
         } else {
           // An unavailable Java shape cannot certify the corresponding qualifier projection.
@@ -593,11 +628,14 @@ final class PolyNullInference {
      * particular, a String and an Integer projection never acquire nominal bounds on each other.
      */
     private void projectConstraint(
-        Type variableType, Type modeledType, boolean local, boolean lower) {
+        Type variableType, Type modeledType, boolean local, boolean lower, SourceSupport support) {
       InferenceVariable variable = Objects.requireNonNull(variables.get(variableType.asElement()));
       Type projected =
           projectQualifiers(
-              modeledType, Objects.requireNonNull(shapes.get(variableType.asElement())), variable);
+              modeledType,
+              Objects.requireNonNull(shapes.get(variableType.asElement())),
+              variable,
+              support);
       if (projected == null) {
         opaqueVariables.add(variable);
         for (Element symbol : polySymbols) {
@@ -610,7 +648,7 @@ final class PolyNullInference {
         return;
       }
       addNominalConstraint(
-          lower ? variableType : projected, lower ? projected : variableType, local);
+          lower ? variableType : projected, lower ? projected : variableType, local, support);
     }
 
     /**
@@ -619,7 +657,7 @@ final class PolyNullInference {
      * the full solver projects actual bounds rather than treating these annotations as evidence.
      */
     private @Nullable Type projectQualifiers(
-        Type modeled, Type shape, InferenceVariable projectionOwner) {
+        Type modeled, Type shape, InferenceVariable projectionOwner, SourceSupport support) {
       if (!containsPoly(modeled)) {
         return modeled;
       }
@@ -650,17 +688,18 @@ final class PolyNullInference {
         variables.put(fresh.asElement(), projection);
         freshVariables.put(projection, fresh);
         projectionOwners.put(symbol, owner);
-        scalarConstraints.add(new ScalarConstraint(modeled, fresh));
-        scalarConstraints.add(new ScalarConstraint(fresh, modeled));
+        scalarConstraints.add(new ScalarConstraint(modeled, fresh, support));
+        scalarConstraints.add(new ScalarConstraint(fresh, modeled, support));
         return fresh;
       }
       if (modeled instanceof Type.ArrayType array && shape instanceof Type.ArrayType actual) {
-        Type component = projectQualifiers(array.elemtype, actual.elemtype, projectionOwner);
+        Type component =
+            projectQualifiers(array.elemtype, actual.elemtype, projectionOwner, support);
         return component == null ? null : TYPE_METADATA_BUILDER.createArrayType(array, component);
       }
       if (modeled instanceof Type.WildcardType wildcard) {
         Type bound = shape instanceof Type.WildcardType actual ? actual.type : shape;
-        Type projected = projectQualifiers(wildcard.type, bound, projectionOwner);
+        Type projected = projectQualifiers(wildcard.type, bound, projectionOwner, support);
         if (projected == null) {
           return null;
         }
@@ -684,7 +723,8 @@ final class PolyNullInference {
               projectQualifiers(
                   clazz.getTypeArguments().get(i),
                   aligned.getTypeArguments().get(i),
-                  projectionOwner);
+                  projectionOwner,
+                  support);
           if (argument == null) {
             return null;
           }
@@ -692,7 +732,7 @@ final class PolyNullInference {
         }
         Type enclosing =
             projectQualifiers(
-                clazz.getEnclosingType(), aligned.getEnclosingType(), projectionOwner);
+                clazz.getEnclosingType(), aligned.getEnclosingType(), projectionOwner, support);
         return enclosing == null
             ? null
             : TYPE_METADATA_BUILDER.createClassType(clazz, enclosing, arguments.toList());
@@ -707,13 +747,17 @@ final class PolyNullInference {
       return owner == null
           ? failure
           : new UnsatisfiableConstraintsException(
-              owner.typeVariable(), failure.isCausedByNonNullUpperBound(), owner.site());
+              owner.typeVariable(),
+              failure.isCausedByNonNullUpperBound(),
+              owner.site(),
+              failure.getSourceSupport());
     }
 
     /** Adds full-type evidence while retaining PolyNull ownership of synthetic projections. */
-    private void addNominalConstraint(Type lower, Type upper, boolean local) {
+    private void addNominalConstraint(
+        Type lower, Type upper, boolean local, SourceSupport support) {
       try {
-        delegate.addSubtypeConstraint(lower, upper, local);
+        delegate.addSubtypeConstraintWithSupport(lower, upper, local, support);
       } catch (UnsatisfiableConstraintsException failure) {
         throw projectionFailure(failure);
       }
@@ -732,19 +776,27 @@ final class PolyNullInference {
     private void propagateScalars(@Nullable Solution solution) {
       int previous;
       do {
-        previous = forced.size();
+        previous = forcedVersion;
         for (ScalarConstraint constraint : scalarConstraints) {
           InferenceVariable lower = variableForUse(constraint.subtype());
           InferenceVariable upper = variableForUse(constraint.supertype());
           Type inferredLower =
               solution != null && lower != null ? solution.inferredTypes().get(lower) : null;
-          boolean nullable =
-              constraint.subtype() instanceof NullType
-                  || GenericsUtils.isAnnotatedAsNullable(constraint.subtype(), config)
-                  || (lower != null && forced.get(lower) == Nullness.NULLABLE)
-                  || (lower != null
-                      && inferredLower != null
-                      && delegate.knownNullness(lower) == Nullness.NULLABLE);
+          SourceSupport nullableSupport = null;
+          if (constraint.subtype() instanceof NullType
+              || GenericsUtils.isAnnotatedAsNullable(constraint.subtype(), config)) {
+            nullableSupport = constraint.support();
+          }
+          if (lower != null && forced.get(lower) == Nullness.NULLABLE) {
+            SourceSupport proof = nullnessSupport(lower).and(constraint.support());
+            nullableSupport = nullableSupport == null ? proof : nullableSupport.or(proof);
+          }
+          if (lower != null
+              && inferredLower != null
+              && delegate.knownNullness(lower) == Nullness.NULLABLE) {
+            SourceSupport proof = delegate.nullnessSupport(lower).and(constraint.support());
+            nullableSupport = nullableSupport == null ? proof : nullableSupport.or(proof);
+          }
           boolean nonnull =
               upper != null
                   ? forced.get(upper) == Nullness.NONNULL
@@ -753,28 +805,40 @@ final class PolyNullInference {
                           || GenericsUtils.isAnnotatedAsNonNull(variable, config)
                           || !GenericsUtils.upperBoundIsNullable(
                               variable.asElement(), config, handler, state));
-          if (nullable && upper != null) {
-            force(upper, Nullness.NULLABLE);
+          if (nullableSupport != null && upper != null) {
+            force(upper, Nullness.NULLABLE, nullableSupport);
           }
           if (nonnull && lower != null) {
-            force(lower, Nullness.NONNULL);
+            SourceSupport proof =
+                upper == null
+                    ? constraint.support()
+                    : nullnessSupport(upper).and(constraint.support());
+            force(lower, Nullness.NONNULL, proof);
           }
         }
-      } while (forced.size() != previous);
+      } while (forcedVersion != previous);
     }
 
     /**
      * Imposes a root fact on the variable itself, never on an unrelated carrier's nominal shape.
      */
-    private void force(InferenceVariable variable, Nullness nullness) {
+    private void force(InferenceVariable variable, Nullness nullness, SourceSupport support) {
       Nullness previous = forced.putIfAbsent(variable, nullness);
+      SourceSupport previousSupport = forcedSupports.get(variable);
       if (previous != null) {
+        SourceSupport established = Objects.requireNonNull(previousSupport);
         if (previous != nullness) {
-          throw new UnsatisfiableConstraintsException(
-              variable.typeVariable(), false, variable.site());
+          throw projectionFailure(
+              new UnsatisfiableConstraintsException(
+                  variable.typeVariable(), false, variable.site(), established.and(support)));
         }
-        return;
+        support = established.or(support);
+        if (support.equals(established)) {
+          return;
+        }
       }
+      forcedSupports.put(variable, support);
+      forcedVersion++;
       Type fresh = Objects.requireNonNull(freshVariables.get(variable));
       Type annotated =
           TypeSubstitutionUtils.typeWithAnnot(
@@ -784,7 +848,7 @@ final class PolyNullInference {
                   : GenericsChecks.getSyntheticNonNullAnnotType(state));
       Type lower = nullness == Nullness.NULLABLE ? annotated : fresh;
       Type upper = nullness == Nullness.NULLABLE ? fresh : annotated;
-      addNominalConstraint(lower, upper, false);
+      addNominalConstraint(lower, upper, false, support);
     }
 
     /** Carries qualifier status to linked qualifiers and their exact structural owners. */
@@ -818,14 +882,14 @@ final class PolyNullInference {
       Solution solution;
       int previous;
       do {
-        previous = forced.size();
+        previous = forcedVersion;
         try {
           solution = delegate.solve();
         } catch (UnsatisfiableConstraintsException failure) {
           throw projectionFailure(failure);
         }
         propagateScalars(solution);
-      } while (forced.size() != previous);
+      } while (forcedVersion != previous);
       Set<InferenceVariable> incomplete = new LinkedHashSet<>(solution.incompleteVariables());
       incomplete.addAll(opaqueVariables);
       // Symbolic shapes can retain a root annotation without any corresponding scalar fact.
@@ -842,7 +906,21 @@ final class PolyNullInference {
       Set<InferenceVariable> inconsistent = new LinkedHashSet<>(solution.inconsistentVariables());
       propagateStatus(incomplete);
       propagateStatus(inconsistent);
-      return new Solution(solution.inferredTypes(), incomplete, inconsistent, inputDependencies());
+      return new Solution(
+          solution.inferredTypes(),
+          incomplete,
+          inconsistent,
+          solution.lowerConflicts().stream()
+              .map(
+                  conflict ->
+                      new LowerBoundConflict(
+                          projectionOwners.getOrDefault(
+                              conflict.variable().typeVariable(), conflict.variable()),
+                          conflict.first(),
+                          conflict.second(),
+                          conflict.shape()))
+              .toList(),
+          inputDependencies());
     }
   }
 
