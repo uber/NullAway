@@ -3422,10 +3422,7 @@ public class GenericMethodTests extends NullAwayTestsBase {
         .doTest();
   }
 
-  /**
-   * Records the false diagnostics and missed nullable dereference caused by top-level-only
-   * constructor inference in issue #1942.
-   */
+  /** Checks that structured constructor inference retains modeled nested nullness (issue #1942). */
   @Test
   public void issue1942ModeledNestedReturnThroughDiamondConstructor() {
     makeHelper()
@@ -3442,20 +3439,14 @@ public class GenericMethodTests extends NullAwayTestsBase {
                 Box(T value) { this.value = value; }
                 T get() { return value; }
               }
-              void diamondConstructorLosesNullablePayload() {
-                // Known false positives: constructor inference retains only top-level nullability.
-                // BUG: Diagnostic contains: incompatible types
+              void diamondConstructorRetainsNullablePayload() {
                 CompletableFuture<@Nullable Void> future =
-                    // BUG: Diagnostic contains: incompatible types
                     new Box<>(CompletableFuture.allOf()).get();
               }
-              void inferredDiamondConstructorLosesNullablePayload() {
-                // BUG: Diagnostic contains: incompatible types
+              void inferredDiamondConstructorRetainsNullablePayload() {
                 var future = new Box<>(CompletableFuture.allOf()).get();
-                // Known false positive: the modeled nullable payload was lost at the constructor.
-                // BUG: Diagnostic contains: incompatible types
                 CompletableFuture<@Nullable Void> valid = future;
-                // Known false negative: dereferencing the nullable join() result is not reported.
+                // BUG: Diagnostic contains: dereferenced expression
                 future.join().toString();
               }
               void nonNullPayloadIsAccepted() {
@@ -3469,7 +3460,7 @@ public class GenericMethodTests extends NullAwayTestsBase {
   }
 
   @Test
-  public void issue1942NonNullVoidPayloadThroughIdentityIsCurrentlyAccepted() {
+  public void issue1942NonNullVoidPayloadThroughIdentityIsRejected() {
     makeHelper()
         .addSourceLines(
             "Test.java",
@@ -3480,8 +3471,8 @@ public class GenericMethodTests extends NullAwayTestsBase {
             @NullMarked
             class Test {
               static <T extends @Nullable Object> T id(T value) { return value; }
-              void nonNullVoidPayloadIsCurrentlyAccepted() {
-                // Known false negative (#1942): inference loses the modeled nullable type argument.
+              void nonNullVoidPayloadIsRejected() {
+                // BUG: Diagnostic contains: incompatible types
                 CompletableFuture<Void> future = id(CompletableFuture.allOf());
               }
             }
