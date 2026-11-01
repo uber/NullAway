@@ -247,6 +247,42 @@ public class JSpecifyLibraryModelsTests extends NullAwayTestsBase {
         .doTest();
   }
 
+  @Test
+  public void optionalModelsApplyToEachReceiverInstantiation() {
+    makeHelper()
+        .addSourceLines(
+            "Test.java",
+            """
+            import java.util.List;
+            import java.util.Optional;
+            import org.jspecify.annotations.NullMarked;
+            import org.jspecify.annotations.Nullable;
+            @NullMarked
+            class Test {
+              void test(Optional<String> strings, Optional<Integer> integers,
+                  Optional<List<@Nullable String>> lists) {
+                String string = strings.orElse(null);
+                // BUG: Diagnostic contains: dereferenced expression
+                string.length();
+                Integer integer = integers.orElse(null);
+                // BUG: Diagnostic contains: dereferenced expression
+                integer.intValue();
+                List<@Nullable String> values = lists.orElse(null);
+                if (values != null) {
+                  // BUG: Diagnostic contains: dereferenced expression
+                  values.get(0).length();
+                }
+                strings.get().length();
+                integers.get().intValue();
+                String again = strings.orElse(null);
+                // BUG: Diagnostic contains: dereferenced expression
+                again.length();
+              }
+            }
+            """)
+        .doTest();
+  }
+
   private CompilationTestHelper makeHelper() {
     return makeTestHelperWithArgs(
         JSpecifyJavacConfig.withJSpecifyModeArgs(
