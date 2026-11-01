@@ -31,6 +31,8 @@ public class GenericLambdaTests extends NullAwayTestsBase {
               static void nonNullElements(List<String> values) {}
               static <E extends @Nullable Object> void genericNullableElements(
                   List<@Nullable E> values) {}
+              static <E extends @Nullable Object> void genericElementNullnessInferred(
+                  List<@Nullable E> values) {}
               static <E> void genericNonNullElements(List<E> values) {}
               Factory<String> compatibleExpression() {
                 return () -> Test::nullableElements;
@@ -57,6 +59,12 @@ public class GenericLambdaTests extends NullAwayTestsBase {
               }
               Factory<String> compatibleGenericBlock() {
                 return () -> { return Test::genericNullableElements; };
+              }
+              Factory<String> compatibleGenericInferred() {
+                return () -> Test::genericElementNullnessInferred;
+              }
+              Factory<String> compatibleGenericBlockInferred() {
+                return () -> { return Test::genericElementNullnessInferred; };
               }
               Factory<String> incompatibleGenericExpression() {
                 // BUG: Diagnostic contains: inference failure
