@@ -728,6 +728,139 @@ public class WildcardTests extends NullAwayTestsBase {
   }
 
   @Test
+  public void wildcardCaptureReadsClassLeadingIntersectionBounds() {
+    makeHelper()
+        .addSourceLines(
+            "Test.java",
+            """
+            import org.jspecify.annotations.*;
+
+            @NullMarked
+            class Test {
+              static class Base {}
+              interface Marker {}
+              interface NullableHolder<T extends @Nullable Base & @Nullable Marker> {
+                T value();
+                @NonNull T nonNullValue();
+              }
+              interface NonNullHolder<T extends Base & Marker> {
+                T value();
+              }
+
+              static void takesNonNull(Object value) {}
+
+              static void nullable(NullableHolder<?> holder) {
+                // BUG: Diagnostic contains: passing @Nullable parameter 'holder.value()'
+                takesNonNull(holder.value());
+                takesNonNull(holder.nonNullValue());
+                // Restoring @NonNull on one member must not narrow the other member's capture.
+                // BUG: Diagnostic contains: passing @Nullable parameter 'holder.value()'
+                takesNonNull(holder.value());
+              }
+
+              static void nonNull(NonNullHolder<?> holder) {
+                takesNonNull(holder.value());
+                holder.value().hashCode();
+              }
+            }
+            """)
+        .doTest();
+  }
+
+  @Test
+  public void wildcardCaptureReadsInterfaceOnlyIntersectionBounds() {
+    makeHelper()
+        .addSourceLines(
+            "Test.java",
+            """
+            import org.jspecify.annotations.*;
+
+            @NullMarked
+            class Test {
+              interface First {}
+              interface Second {}
+              interface NullableHolder<T extends @Nullable First & @Nullable Second> {
+                T value();
+                @NonNull T nonNullValue();
+              }
+              interface NonNullHolder<T extends First & Second> {
+                T value();
+              }
+
+              static void takesNonNull(Object value) {}
+
+              static void nullable(NullableHolder<?> holder) {
+                // BUG: Diagnostic contains: passing @Nullable parameter 'holder.value()'
+                takesNonNull(holder.value());
+                holder.nonNullValue().hashCode();
+                // BUG: Diagnostic contains: passing @Nullable parameter 'holder.value()'
+                takesNonNull(holder.value());
+                // BUG: Diagnostic contains: dereferenced expression 'holder.value()' is @Nullable
+                holder.value().hashCode();
+              }
+
+              static void nonNull(NonNullHolder<?> holder) {
+                holder.value().hashCode();
+              }
+            }
+            """)
+        .doTest();
+  }
+
+  @Test
+  public void intersectionCapturePreservesNestedNullabilityAfterNarrowing() {
+    makeHelper()
+        .addSourceLines(
+            "Test.java",
+            """
+            import org.jspecify.annotations.*;
+
+            @NullMarked
+            class Test {
+              interface Marker {}
+              static class Box<E extends @Nullable Object> {
+                E get() {
+                  throw new RuntimeException();
+                }
+                Box<? extends @NonNull E> nonNullElements() {
+                  throw new RuntimeException();
+                }
+              }
+              interface NullableHolder<
+                  T extends @Nullable Box<@Nullable String> & @Nullable Marker> {
+                T value();
+                @NonNull T nonNullValue();
+              }
+              interface NonNullHolder<T extends Box<String> & Marker> {
+                T value();
+              }
+
+              static void takesNonNull(Object value) {}
+
+              static void nullable(NullableHolder<?> holder) {
+                var box = holder.nonNullValue();
+                // BUG: Diagnostic contains: passing @Nullable parameter 'box.get()'
+                takesNonNull(box.get());
+                box.nonNullElements().get().length();
+                // BUG: Diagnostic contains: dereferenced expression 'box.get()' is @Nullable
+                box.get().length();
+                Box<@Nullable String> compatible = holder.nonNullValue();
+                // BUG: Diagnostic contains: incompatible types
+                Box<String> incompatible = holder.nonNullValue();
+                // BUG: Diagnostic contains: dereferenced expression 'holder.value()' is @Nullable
+                holder.value().hashCode();
+              }
+
+              static void nonNull(NonNullHolder<?> holder) {
+                holder.value().get().length();
+                Box<String> compatible = holder.value();
+              }
+            }
+            """)
+        .doTest();
+  }
+
+  @Test
   public void annotationRestoredFromUpperBoundToCapturedWildcard() {
     makeHelper()
         .addSourceLines(
