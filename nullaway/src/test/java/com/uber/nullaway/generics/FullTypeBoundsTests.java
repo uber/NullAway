@@ -185,6 +185,29 @@ public class FullTypeBoundsTests {
         .doTest();
   }
 
+  @Test
+  public void capturedWildcardFixedBoundObligations() {
+    CompilationTestHelper.newInstance(BoundsChecker.class, getClass())
+        .addSourceLines(
+            "Test.java",
+            """
+            import org.jspecify.annotations.NonNull;
+            import org.jspecify.annotations.NullMarked;
+            import org.jspecify.annotations.Nullable;
+            @NullMarked
+            class Test<T extends @Nullable Object, N> {
+              static class Box<E extends @Nullable Object> {}
+              <U> void capturedWildcardNullableBound(Box<? extends T> actual, Box<? extends U> formal) {}
+              <U> void capturedWildcardNonNullBound(Box<? extends N> actual, Box<? extends U> formal) {}
+              <U> void capturedWildcardNonNullProjection(
+                  Box<? extends @NonNull T> actual, Box<? extends U> formal) {}
+              <U extends @Nullable Object> void capturedWildcardNullableTarget(
+                  Box<? extends T> actual, Box<? extends U> formal) {}
+            }
+            """)
+        .doTest();
+  }
+
   /** Checks candidate annotations and the status preventing unsafe full-type publication. */
   @BugPattern(summary = "Checks full-type bounds and scalar fallback", severity = SUGGESTION)
   public static final class BoundsChecker extends BugChecker
@@ -208,6 +231,10 @@ public class FullTypeBoundsTests {
                       "NullAway:HandleWildcardGenerics", "true")));
       ConstraintSolver solver = new ConstraintSolverImpl(analysis.getConfig(), state, analysis);
       String rule = tree.getName().toString();
+      if (rule.startsWith("capturedWildcard")) {
+        checkCapturedWildcard(tree, method, solver, state, analysis);
+        return NO_MATCH;
+      }
       if (rule.startsWith("dependent")) {
         checkDependentDeclaration(tree, method, solver, analysis);
         return NO_MATCH;
@@ -450,6 +477,47 @@ public class FullTypeBoundsTests {
         assertThat(solution.inconsistentVariables()).contains(target);
       }
       return NO_MATCH;
+    }
+
+    /**
+     * Checks capture-converted actuals against fresh wildcard targets using fixed caller bounds.
+     */
+    private static void checkCapturedWildcard(
+        MethodTree tree,
+        Symbol.MethodSymbol method,
+        ConstraintSolver solver,
+        VisitorState state,
+        NullAway analysis) {
+      Type actual = state.getTypes().capture(method.getParameters().head.type);
+      Type argument = actual.getTypeArguments().head;
+      assertThat(argument).isInstanceOf(Type.CapturedType.class);
+      Type upperBound =
+          GenericsUtils.effectiveWildcardUpperBound(
+              argument, state, analysis.getConfig(), analysis.getHandler());
+      assertThat(upperBound).isInstanceOf(Type.TypeVar.class);
+      assertThat(upperBound).isNotInstanceOf(Type.CapturedType.class);
+      Element variable = method.getTypeParameters().head;
+      Map<Element, Type.TypeVar> fresh =
+          solver.registerInferenceVariables(
+              tree,
+              method.getTypeParameters(),
+              Map.of(),
+              Set.copyOf(method.getTypeParameters()),
+              Map.of(variable, upperBound));
+      Type formal =
+          TypeSubstitutionUtils.substituteTypeVariables(
+              method.getParameters().get(1).type, fresh, state.getTypes(), analysis.getConfig());
+      solver.addSubtypeConstraint(actual, formal, false);
+      if (tree.getName().contentEquals("capturedWildcardNullableBound")) {
+        ConstraintSolver.NonNullWildcardBoundViolationException failure =
+            assertThrows(
+                ConstraintSolver.NonNullWildcardBoundViolationException.class, solver::solve);
+        assertThat(failure.getTypeVariable()).isSameInstanceAs(variable);
+        assertThat(failure.getInferenceSite()).isSameInstanceAs(tree);
+        assertThat(failure.isCausedByNonNullUpperBound()).isTrue();
+      } else {
+        assertThat(solver.solve().isComplete()).isTrue();
+      }
     }
 
     /** Checks declaration-root edges rather than publishing A's unchecked scalar fallback. */
