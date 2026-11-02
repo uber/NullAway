@@ -1,6 +1,5 @@
 package com.uber.nullaway.generics;
 
-import static com.uber.nullaway.Nullness.NULLABLE;
 import static com.uber.nullaway.generics.ClassDeclarationNullnessAnnotUtils.getAnnotatedSupertype;
 import static com.uber.nullaway.generics.TypeMetadataBuilder.TYPE_METADATA_BUILDER;
 
@@ -9,7 +8,10 @@ import com.google.errorprone.VisitorState;
 import com.sun.tools.javac.code.Attribute;
 import com.sun.tools.javac.code.BoundKind;
 import com.sun.tools.javac.code.Symbol;
+import com.sun.tools.javac.code.TargetType;
 import com.sun.tools.javac.code.Type;
+import com.sun.tools.javac.code.TypeAnnotationPosition.TypePathEntry;
+import com.sun.tools.javac.code.TypeAnnotationPosition.TypePathEntryKind;
 import com.sun.tools.javac.code.TypeMetadata;
 import com.sun.tools.javac.code.Types;
 import com.sun.tools.javac.util.List;
@@ -19,6 +21,7 @@ import com.uber.nullaway.Nullness;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.IdentityHashMap;
+import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.Set;
 import javax.lang.model.element.Element;
@@ -66,6 +69,18 @@ public class TypeSubstitutionUtils {
    */
   public static @Nullable Type asSuper(
       Types types, Type subtype, Symbol.ClassSymbol superTypeSymbol, Config config) {
+    if (subtype instanceof Type.IntersectionClassType intersection) {
+      if (intersection.tsym.equals(superTypeSymbol)) {
+        return intersection;
+      }
+      for (Type component : intersection.getComponents()) {
+        Type view = asSuper(types, component, superTypeSymbol, config);
+        if (view != null) {
+          return copyDirectNullabilityAnnotations(intersection, view, config);
+        }
+      }
+      return null;
+    }
     Type asSuper = types.asSuper(subtype, superTypeSymbol);
     if (asSuper == null) {
       return null;
@@ -93,15 +108,18 @@ public class TypeSubstitutionUtils {
    * @return the type of {@code sym} as a member of {@code t}
    */
   public static Type memberType(Types types, Type t, Symbol sym, Config config) {
-    Type origType = sym.type;
+    Type origType = restoreMemberDeclarationBounds(types, sym, config);
     Type memberType = types.memberType(t, sym);
     Type annotationSource = origType;
-    if (t instanceof DeclaredType declaredType
-        && sym.owner instanceof Symbol.ClassSymbol owner
-        && !t.tsym.equals(owner)) {
-      // annotatedOwner is the type of the class containing sym (a supertype of t), capturing any
-      // annotations in extends / inherits clauses on the inheritance path from subtype t
-      Type annotatedOwner = getAnnotatedSupertype(declaredType, owner, types, config);
+    if (sym.owner instanceof Symbol.ClassSymbol owner) {
+      // Find an annotated nominal owner even when the receiver is an intersection rather than a
+      // DeclaredType. The synthetic intersection symbol has no usable generic member slots.
+      Type annotatedOwner =
+          t instanceof Type.IntersectionClassType
+              ? asSuper(types, t, owner, config)
+              : t instanceof DeclaredType declaredType && !t.tsym.equals(owner)
+                  ? getAnnotatedSupertype(declaredType, owner, types, config)
+                  : null;
       if (annotatedOwner instanceof Type.ClassType annotatedOwnerClassType) {
         Type asMemberOfAnnotatedOwner = types.memberType(annotatedOwnerClassType, sym);
         // this call restores any explicit nullability annotations from the member itself, e.g.,
@@ -115,7 +133,364 @@ public class TypeSubstitutionUtils {
     // instantiated in memberType.  So, as a final step, restore the annotations from
     // annotationSource onto memberType.
     Type result = restoreExplicitNullabilityAnnotations(annotationSource, memberType, config);
-    return result;
+    return restoreReceiverInstantiatedMethodBounds(types, t, sym, origType, result, config);
+  }
+
+  /**
+   * Restores missing declaration-bound nullness from a method's authoritative raw type attributes.
+   * Anonymous-class attribution can strip annotations from constructor type-variable bounds before
+   * inference starts. Raw bound indices and type paths identify the exact annotated positions; a
+   * nested nullable annotation must not make the entire bound nullable. Changed variables, their
+   * peer occurrences, and the executable type are detached without modifying the member symbol.
+   *
+   * @return the member's declaration type, with detached variables if bound annotations were lost
+   */
+  public static Type restoreMemberDeclarationBounds(Types types, Symbol member, Config config) {
+    if (!(member instanceof Symbol.MethodSymbol)
+        || !(member.type instanceof Type.ForAll declaration)) {
+      return member.type;
+    }
+    java.util.List<Type> bounds = new java.util.ArrayList<>();
+    for (Type variable : declaration.tvars) {
+      bounds.add(((Type.TypeVar) variable).getUpperBound());
+    }
+    boolean changed = false;
+    for (Attribute.TypeCompound annotation : member.getRawTypeAttributes()) {
+
+      if (annotation.position.type != TargetType.METHOD_TYPE_PARAMETER_BOUND
+          || annotation.type.tsym == null) {
+        continue;
+      }
+      String name = annotation.type.tsym.getQualifiedName().toString();
+      if (!Nullness.isNullableAnnotation(name, config)
+          && !Nullness.isNonNullAnnotation(name, config)) {
+        continue;
+      }
+      int parameterIndex = annotation.position.parameter_index;
+      if (parameterIndex < 0 || parameterIndex >= bounds.size()) {
+        continue;
+      }
+      Type previous = bounds.get(parameterIndex);
+      Type restored = restoreDeclarationBoundAnnotation(previous, annotation, config);
+      bounds.set(parameterIndex, restored);
+
+      changed |= restored != previous;
+    }
+    if (!changed) {
+      return declaration;
+    }
+    return detachMethodVariables(
+        declaration.tvars, List.from(bounds), declaration.qtype, types, config);
+  }
+
+  /**
+   * Selects a JVMS bound index, including index zero's implicit Object slot for interface-only
+   * bounds. Invalid or unavailable positions are left untouched rather than creating Java shapes.
+   */
+  private static Type restoreDeclarationBoundAnnotation(
+      Type bound, Attribute.TypeCompound annotation, Config config) {
+    if (!(bound instanceof Type.IntersectionClassType)
+        && bound.baseType() instanceof Type.IntersectionClassType intersection) {
+      // Recover a genuine Java shape retained by a metadata wrapper, never one inferred from attrs.
+      bound = intersection;
+    }
+    int boundIndex = annotation.position.bound_index;
+    if (bound instanceof Type.IntersectionClassType intersection) {
+      List<Type> original = intersection.getComponents();
+      if (boundIndex < 0 || boundIndex >= original.size()) {
+        return bound;
+      }
+      ListBuffer<Type> components = new ListBuffer<>();
+      boolean changed = false;
+      for (int i = 0; i < original.size(); i++) {
+        Type component = original.get(i);
+        Type restored =
+            i == boundIndex
+                ? restoreBoundAnnotationAtPath(
+                    component, annotation.position.location, annotation, config)
+                : component;
+        components.append(restored);
+        changed |= restored != component;
+      }
+      return changed ? rebuildIntersection(intersection, components.toList()) : bound;
+    }
+    // A sole interface occupies bound_index 1 despite having no IntersectionClassType wrapper.
+    int expectedIndex = bound.isInterface() ? 1 : 0;
+    return boundIndex == expectedIndex
+        ? restoreBoundAnnotationAtPath(bound, annotation.position.location, annotation, config)
+        : bound;
+  }
+
+  /**
+   * Restores a raw annotation along its type path. Class paths start at the outermost class
+   * segment, not at javac's innermost ClassType object, so enclosing arguments and INNER_TYPE
+   * annotations cannot be confused with the inner class's root or arguments.
+   */
+  private static Type restoreBoundAnnotationAtPath(
+      Type type, List<TypePathEntry> path, Attribute.TypeCompound annotation, Config config) {
+    if (type instanceof Type.ClassType classType && !(type instanceof Type.IntersectionClassType)) {
+      List<Type.ClassType> segments = List.of(classType);
+      Type enclosing = classType.getEnclosingType();
+      while (enclosing instanceof Type.ClassType outer) {
+        segments = segments.prepend(outer);
+        enclosing = outer.getEnclosingType();
+      }
+      int segmentIndex = 0;
+      while (path.nonEmpty() && path.head.tag == TypePathEntryKind.INNER_TYPE) {
+        segmentIndex++;
+        path = path.tail;
+      }
+      if (segmentIndex >= segments.size()) {
+        return type;
+      }
+      Type restored =
+          restoreBoundAnnotationAtNode(segments.get(segmentIndex), path, annotation, config);
+      if (restored == segments.get(segmentIndex)) {
+        return type;
+      }
+      for (int i = segmentIndex + 1; i < segments.size(); i++) {
+        Type.ClassType inner = segments.get(i);
+        restored = TYPE_METADATA_BUILDER.createClassType(inner, restored, inner.getTypeArguments());
+      }
+      return restored;
+    }
+    return restoreBoundAnnotationAtNode(type, path, annotation, config);
+  }
+
+  /** Applies an annotation only at an existing root, array, wildcard, or type-argument position. */
+  private static Type restoreBoundAnnotationAtNode(
+      Type type, List<TypePathEntry> path, Attribute.TypeCompound annotation, Config config) {
+    if (path.isEmpty()) {
+      if (type instanceof Type.IntersectionClassType
+          || type.isErroneous()
+          || (type.tsym != null && type.tsym.type instanceof Type.IntersectionClassType)) {
+        // Raw bounds select a nominal component, never a synthetic intersection root.
+        return type;
+      }
+      if (GenericsUtils.isAnnotatedAsNullable(type, config)
+          || GenericsUtils.isAnnotatedAsNonNull(type, config)) {
+        return type;
+      }
+      ListBuffer<Attribute.TypeCompound> annotations = new ListBuffer<>();
+      annotations.appendList(type.getAnnotationMirrors());
+      annotations.append(annotation);
+      return TYPE_METADATA_BUILDER.cloneTypeWithMetadata(
+          type, TYPE_METADATA_BUILDER.create(annotations.toList()));
+    }
+    if (path.head.tag == TypePathEntryKind.ARRAY && type instanceof Type.ArrayType array) {
+      Type component = restoreBoundAnnotationAtPath(array.elemtype, path.tail, annotation, config);
+      return component == array.elemtype
+          ? type
+          : TYPE_METADATA_BUILDER.createArrayType(array, component);
+    }
+    if (path.head.tag == TypePathEntryKind.WILDCARD
+        && type instanceof Type.WildcardType wildcard
+        && !wildcard.isUnbound()) {
+      Type bound = restoreBoundAnnotationAtPath(wildcard.type, path.tail, annotation, config);
+      if (bound == wildcard.type) {
+        return type;
+      }
+      Type.WildcardType updated = TYPE_METADATA_BUILDER.createWildcardType(wildcard, bound);
+      updated.bound = wildcard.bound;
+      return updated;
+    }
+    if (path.head.tag == TypePathEntryKind.TYPE_ARGUMENT
+        && type instanceof Type.ClassType classType
+        && !(type instanceof Type.IntersectionClassType)) {
+      List<Type> arguments = classType.getTypeArguments();
+      int argumentIndex = path.head.arg;
+      if (classType.isRaw() || argumentIndex < 0 || argumentIndex >= arguments.size()) {
+        return type;
+      }
+      Type previous = arguments.get(argumentIndex);
+      Type restored = restoreBoundAnnotationAtPath(previous, path.tail, annotation, config);
+      if (restored == previous) {
+        return type;
+      }
+      ListBuffer<Type> updated = new ListBuffer<>();
+      for (int i = 0; i < arguments.size(); i++) {
+        updated.append(i == argumentIndex ? restored : arguments.get(i));
+      }
+      return TYPE_METADATA_BUILDER.createClassType(
+          classType, classType.getEnclosingType(), updated.toList());
+    }
+    return type;
+  }
+
+  /**
+   * Restores receiver argument annotations in a generic member's dependent bounds. javac's member
+   * substitution can erase them in bounds such as {@code U extends E}. Probe annotation repair
+   * before detaching method variables, then remap changed bounds and variable occurrences without
+   * mutating compiler-owned types.
+   */
+  private static Type restoreReceiverInstantiatedMethodBounds(
+      Types types,
+      Type receiver,
+      Symbol member,
+      Type declaration,
+      Type instantiated,
+      Config config) {
+    if (!(declaration instanceof Type.ForAll original)
+        || !(instantiated instanceof Type.ForAll resolved)
+        || !(member.owner instanceof Symbol.ClassSymbol owner)
+        || original.tvars.size() != resolved.tvars.size()) {
+      return instantiated;
+    }
+    Type ownerView = asSuper(types, receiver, owner, config);
+    Map<Element, Type> replacements = new LinkedHashMap<>();
+    if (ownerView instanceof Type.ClassType) {
+      List<Type> parameters = owner.type.allparams();
+      List<Type> arguments = ownerView.allparams();
+      if (parameters.size() == arguments.size()) {
+        for (int i = 0; i < parameters.size(); i++) {
+          replacements.put(parameters.get(i).asElement(), arguments.get(i));
+        }
+      }
+    }
+    // Repair annotations only, before detaching method variables. An unchanged bound retains its
+    // identity even for intersections. Keep repaired bounds so the changed path need not redo them.
+    ListBuffer<Type> repairedBounds = new ListBuffer<>();
+    boolean changed = false;
+    for (int i = 0; i < original.tvars.size(); i++) {
+      Type bound = ((Type.TypeVar) resolved.tvars.get(i)).getUpperBound();
+      Type restored =
+          restoreReceiverInstantiatedBound(
+              ((Type.TypeVar) original.tvars.get(i)).getUpperBound(),
+              bound,
+              replacements,
+              types,
+              config);
+      repairedBounds.append(restored);
+      changed |= restored != bound;
+    }
+    if (!changed) {
+      return instantiated;
+    }
+    return detachMethodVariables(
+        resolved.tvars, repairedBounds.toList(), resolved.qtype, types, config);
+  }
+
+  /**
+   * Detaches method variables and remaps completed bounds and executable occurrences without
+   * mutating javac-owned types. All detached variables are created before substituting dependent
+   * bounds, and annotated peer occurrences are synchronized only after every bound is complete.
+   */
+  private static Type.ForAll detachMethodVariables(
+      List<Type> typeVariables,
+      List<Type> completedBounds,
+      Type executable,
+      Types types,
+      Config config) {
+    Verify.verify(typeVariables.size() == completedBounds.size(), "method bound arity changed");
+    ListBuffer<Type> detachedVariables = new ListBuffer<>();
+    Map<Element, Type.TypeVar> methodVariables = new LinkedHashMap<>();
+    for (Type variable : typeVariables) {
+      Type.TypeVar detached =
+          TYPE_METADATA_BUILDER.createDetachedTypeVar(
+              (Type.TypeVar) variable, ((Type.TypeVar) variable).getUpperBound());
+      detachedVariables.append(detached);
+      methodVariables.put(variable.asElement(), detached);
+    }
+    List<Type> variables = detachedVariables.toList();
+    for (int i = 0; i < variables.size(); i++) {
+      ((Type.TypeVar) variables.get(i))
+          .setUpperBound(
+              substituteTypeVariables(completedBounds.get(i), methodVariables, types, config));
+    }
+    Type methodType = substituteTypeVariables(executable, methodVariables, types, config);
+    Set<Type> visited = Collections.newSetFromMap(new IdentityHashMap<>());
+    for (Type variable : variables) {
+      synchronizeReceiverInstantiatedBounds(
+          ((Type.TypeVar) variable).getUpperBound(), methodVariables, visited);
+    }
+    synchronizeReceiverInstantiatedBounds(methodType, methodVariables, visited);
+    return new Type.ForAll(variables, methodType);
+  }
+
+  /**
+   * Restores a dependent bound, pairing intersection components before substituting annotations.
+   *
+   * <p>Intersection types have no ordinary class type arguments. Restore their constituent bounds
+   * explicitly and rebuild only changed intersections, preserving javac's implicit Object
+   * representation. Receiver substitutions affect only the annotation source, never the
+   * authoritative instantiated bound's Java shape.
+   */
+  private static Type restoreReceiverInstantiatedBound(
+      Type declaration,
+      Type instantiated,
+      Map<Element, Type> replacements,
+      Types types,
+      Config config) {
+    if (declaration instanceof Type.IntersectionClassType originalIntersection
+        && instantiated instanceof Type.IntersectionClassType resolvedIntersection) {
+      // javac substitution may expose an originally implicit Object bound as an explicit one.
+      List<Type> originals = originalIntersection.getComponents();
+      List<Type> resolved = resolvedIntersection.getComponents();
+      Verify.verify(originals.size() == resolved.size(), "intersection component arity changed");
+      ListBuffer<Type> components = new ListBuffer<>();
+      boolean changed = false;
+      for (; originals.nonEmpty(); originals = originals.tail, resolved = resolved.tail) {
+        Type restored =
+            restoreReceiverInstantiatedBound(
+                originals.head, resolved.head, replacements, types, config);
+        components.append(restored);
+        changed |= restored != resolved.head;
+      }
+      boolean implicitObjectExposed =
+          originalIntersection.allInterfaces && !resolvedIntersection.allInterfaces;
+      if (!changed && !implicitObjectExposed) {
+        return instantiated;
+      }
+      return new Type.IntersectionClassType(
+          components.toList(),
+          (Symbol.ClassSymbol) resolvedIntersection.tsym,
+          originalIntersection.allInterfaces);
+    }
+    Type bound = substituteTypeVariables(declaration, replacements, types, config);
+    return restoreExplicitNullabilityAnnotations(bound, instantiated, config);
+  }
+
+  /**
+   * Gives detached method-variable occurrences their completed receiver-instantiated bounds.
+   *
+   * <p>The roots must have already been substituted with the detached method variables, so every
+   * syntactic occurrence of a listed variable is safe to update. Do not follow variable bounds:
+   * those may still reference compiler-owned types, and each completed bound is visited separately.
+   */
+  private static void synchronizeReceiverInstantiatedBounds(
+      Type type, Map<Element, Type.TypeVar> variables, Set<Type> visited) {
+    if (!visited.add(type)) {
+      return;
+    }
+    if (type instanceof Type.TypeVar variable) {
+      Type.TypeVar canonical = variables.get(variable.asElement());
+      if (canonical != null) {
+        variable.setUpperBound(canonical.getUpperBound());
+      }
+    } else if (type instanceof Type.MethodType method) {
+      for (Type parameter : method.getParameterTypes()) {
+        synchronizeReceiverInstantiatedBounds(parameter, variables, visited);
+      }
+      synchronizeReceiverInstantiatedBounds(method.getReturnType(), variables, visited);
+      for (Type thrown : method.getThrownTypes()) {
+        synchronizeReceiverInstantiatedBounds(thrown, variables, visited);
+      }
+    } else if (type instanceof Type.ArrayType array) {
+      synchronizeReceiverInstantiatedBounds(array.getComponentType(), variables, visited);
+    } else if (type instanceof Type.WildcardType wildcard) {
+      if (!wildcard.isUnbound()) {
+        synchronizeReceiverInstantiatedBounds(wildcard.type, variables, visited);
+      }
+    } else if (type instanceof Type.IntersectionClassType intersection) {
+      for (Type component : intersection.getExplicitComponents()) {
+        synchronizeReceiverInstantiatedBounds(component, variables, visited);
+      }
+    } else if (type instanceof Type.ClassType clazz) {
+      synchronizeReceiverInstantiatedBounds(clazz.getEnclosingType(), variables, visited);
+      for (Type argument : clazz.getTypeArguments()) {
+        synchronizeReceiverInstantiatedBounds(argument, variables, visited);
+      }
+    }
   }
 
   /**
@@ -206,14 +581,12 @@ public class TypeSubstitutionUtils {
   }
 
   /**
-   * Applies the single solve result to javac's attributed type without changing its nominal shape.
-   * Full substitutions supply nested annotations; root-only fallbacks qualify declaration uses
-   * without replacing the target's existing nested types (which may have been repaired). The update
-   * proceeds in three steps:
+   * Updates a type {@code typeToUpdate} by applying inferred types for type variables. The update
+   * proceeds in four steps:
    *
-   * <p>1. Substitute each supported type, or only its root qualifier, into {@code origType}. For
-   * example, a full {@code T = List<@Nullable String>} replaces all of T's nested structure; a
-   * root-only nullable result instead produces {@code @Nullable T} as the annotation source.
+   * <p>1. Substitute inferred top-level nullability for type variables in the original type {@code
+   * origType}. So, if the {@code origType} is {@code List<T>}, and we inferred T to be nullable,
+   * the result will be {@code List<@Nullable T>}.
    *
    * <p>2. Restore any explicit nullability annotations that were present on {@code origType} to the
    * result of 1. So, if {@code origType} was {@code List<@NonNull T>}, the result will be {@code
@@ -223,67 +596,103 @@ public class TypeSubstitutionUtils {
    * {@code typeToUpdate} is {@code List<String>}, and the result of 2 is {@code List<@Nullable T>},
    * the final result will be {@code List<@Nullable String>}.
    *
+   * <p>4. For type variables whose inferred type has known structure, apply the nested nullability
+   * annotations of the inferred type to the corresponding position in the result of 3. So, if
+   * {@code origType} is {@code Box<R>}, we inferred R to be {@code Box<@Nullable String>}, and the
+   * result of 3 is {@code Box<Box<String>>}, the final result is {@code Box<Box<@Nullable
+   * String>>}. This step corrects nested annotations that javac drops or misplaces in its inferred
+   * type arguments.
+   *
    * @param typeToUpdate the type to update
    * @param origType the original type with type variables and possibly explicit nullability
    *     annotations
-   * @param typeVarNullability one typed result per declared variable with inferred information
+   * @param inferredTypes a map from type variable elements to their inferred types, as described in
+   *     {@link ConstraintSolver#solve()}
    * @param state the visitor state
    * @param config the NullAway config
-   * @return the attributed type enhanced only with established root/nested annotations
+   * @return the updated type with inferred nullability applied
    */
-  static Type updateTypeWithInferredTypes(
+  static Type updateTypeWithInferredNullability(
       Type typeToUpdate,
       Type origType,
-      @Nullable Map<Element, ConstraintSolver.InferredType> typeVarNullability,
+      @Nullable Map<Element, Type> inferredTypes,
       VisitorState state,
       Config config) {
-    if (typeVarNullability == null) {
+    if (inferredTypes == null) {
       // no updates to perform
       return typeToUpdate;
     }
     // step 1
     Type inferredNullabilitySubstituted =
-        substituteInferredTypesForTypeVariables(origType, typeVarNullability, state, config);
+        substituteInferredNullabilityForTypeVariables(origType, inferredTypes, state, config);
     // step 2
     Type origExplicitAnnotationsRestored =
         restoreExplicitNullabilityAnnotations(origType, inferredNullabilitySubstituted, config);
     // step 3
     // TODO optimize these steps to avoid doing so many substitutions in the future, if needed
-    return restoreExplicitNullabilityAnnotations(
-        origExplicitAnnotationsRestored, typeToUpdate, config);
+    Type updated =
+        restoreExplicitNullabilityAnnotations(
+            origExplicitAnnotationsRestored, typeToUpdate, config);
+    // step 4
+    return applyNestedAnnotationsOfInferredTypes(
+        origType, updated, inferredTypes, state.getTypes(), config);
+  }
+
+  /** Applies certified full substitutions before the ordinary diagnostic annotation overlay. */
+  static Type updateTypeWithInferredTypes(
+      Type target,
+      Type original,
+      @Nullable Map<Element, Type> candidates,
+      Map<Element, Type> certified,
+      VisitorState state,
+      Config config) {
+    Type substituted = substituteTypeVariables(original, certified, state.getTypes(), config);
+    return updateTypeWithInferredNullability(target, substituted, candidates, state, config);
+  }
+
+  /** Applies certified substitutions to executable types while retaining the attributed shape. */
+  static Type.MethodType updateMethodTypeWithInferredTypes(
+      Type.MethodType target,
+      Type.MethodType original,
+      Map<Element, Type> candidates,
+      Map<Element, Type> certified,
+      VisitorState state,
+      Config config) {
+    Type.MethodType substituted =
+        substituteTypeVariables(original, certified, state.getTypes(), config).asMethodType();
+    return updateMethodTypeWithInferredNullability(target, substituted, candidates, state, config);
   }
 
   /**
-   * Updates a method type {@code typeToUpdate} by applying inferred nullability for type variables.
-   * The update is applied to the argument types, return type, and thrown types of the method type,
-   * using {@link #updateTypeWithInferredTypes(Type, Type, Map, VisitorState, Config)}
+   * Updates a method type {@code typeToUpdate} by applying inferred types for type variables. The
+   * update is applied to the argument types, return type, and thrown types of the method type,
+   * using {@link #updateTypeWithInferredNullability(Type, Type, Map, VisitorState, Config)}
    *
    * @param methodTypeToUpdate method type to update
    * @param origMethodType original method type, with type variables and possibly explicit
    *     nullability annotations
-   * @param typeVarNullability one typed result per declared variable with inferred information
+   * @param inferredTypes a map from type variable elements to their inferred types
    * @param state the visitor state
    * @param config the NullAway config
-   * @return the enhanced method type, with root-only fallback for unsupported substitutions
+   * @return the updated method type with inferred nullability applied
    */
   @SuppressWarnings("ReferenceEquality")
-  public static Type.MethodType updateMethodTypeWithInferredTypes(
+  public static Type.MethodType updateMethodTypeWithInferredNullability(
       Type.MethodType methodTypeToUpdate,
       Type.MethodType origMethodType,
-      @Nullable Map<Element, ConstraintSolver.InferredType> typeVarNullability,
+      @Nullable Map<Element, Type> inferredTypes,
       VisitorState state,
       Config config) {
     List<Type> argtypes = methodTypeToUpdate.argtypes;
     Type restype = methodTypeToUpdate.restype;
     List<Type> thrown = methodTypeToUpdate.thrown;
     List<Type> argtypes1 =
-        updateTypeListNullability(
-            argtypes, origMethodType.argtypes, typeVarNullability, state, config);
+        updateTypeListNullability(argtypes, origMethodType.argtypes, inferredTypes, state, config);
     Type restype1 =
-        updateTypeWithInferredTypes(
-            restype, origMethodType.restype, typeVarNullability, state, config);
+        updateTypeWithInferredNullability(
+            restype, origMethodType.restype, inferredTypes, state, config);
     List<Type> thrown1 =
-        updateTypeListNullability(thrown, origMethodType.thrown, typeVarNullability, state, config);
+        updateTypeListNullability(thrown, origMethodType.thrown, inferredTypes, state, config);
     if (argtypes1 == argtypes && restype1 == restype && thrown1 == thrown) {
       return methodTypeToUpdate;
     } else {
@@ -291,11 +700,37 @@ public class TypeSubstitutionUtils {
     }
   }
 
+  /**
+   * Substitutes complete inferred types into a generic method reference's still-symbolic method
+   * type, including nested type arguments and array components.
+   *
+   * <p>Unlike {@link #updateMethodTypeWithInferredNullability}, this replaces type-variable
+   * occurrences with the inferred types themselves rather than only overlaying their annotations.
+   * Explicit nullability annotations on each original occurrence take precedence over the inferred
+   * root annotation; nested annotations of the replacement are retained. Solver fallback values
+   * that are annotated declared type variables remain symbolic: their upper bounds are not used as
+   * replacement types. Variables absent from the inference map are left unchanged.
+   *
+   * @param methodType the original method-reference type, which may still contain type variables
+   * @param inferredTypes complete inferred substitutions for this method-reference site
+   * @param state the visitor state
+   * @param config the NullAway config
+   * @return the method type with complete inferred substitutions applied
+   */
+  static Type.MethodType substituteInferredTypesForGenericMethodReference(
+      Type.MethodType methodType,
+      Map<Element, Type> inferredTypes,
+      VisitorState state,
+      Config config) {
+    return (Type.MethodType)
+        substituteTypeVariables(methodType, inferredTypes, state.getTypes(), config);
+  }
+
   @SuppressWarnings("ReferenceEquality")
   private static List<Type> updateTypeListNullability(
       List<Type> typesToUpdate,
       List<Type> origTypes,
-      @Nullable Map<Element, ConstraintSolver.InferredType> typeVarNullability,
+      @Nullable Map<Element, Type> inferredTypes,
       VisitorState state,
       Config config) {
     ListBuffer<Type> buf = new ListBuffer<>();
@@ -303,7 +738,7 @@ public class TypeSubstitutionUtils {
     for (List<Type> l = typesToUpdate, l1 = origTypes; l.nonEmpty(); l = l.tail, l1 = l1.tail) {
       Type toUpdate = l.head;
       Type orig = l1.head;
-      Type t2 = updateTypeWithInferredTypes(toUpdate, orig, typeVarNullability, state, config);
+      Type t2 = updateTypeWithInferredNullability(toUpdate, orig, inferredTypes, state, config);
       buf.append(t2);
       if (t2 != toUpdate) {
         changed = true;
@@ -313,50 +748,402 @@ public class TypeSubstitutionUtils {
   }
 
   /**
-   * Substitutes a proper inferred type, or only a root qualifier, at each declared variable use.
+   * Substitutes inferred top-level nullability for type variables in the given target type.
    *
    * @param targetType type to which to apply substitutions
-   * @param typeVarNullability the single typed solve result indexed by declared variable
+   * @param inferredTypes a map from type variable elements to their inferred types
    * @param state the visitor state
    * @param config the NullAway config
-   * @return an annotation source; explicit occurrence overrides are retained by substitution
+   * @return the type resulting from applying inferred nullability substitutions
    */
-  private static Type substituteInferredTypesForTypeVariables(
-      Type targetType,
-      Map<Element, ConstraintSolver.InferredType> typeVarNullability,
-      VisitorState state,
-      Config config) {
+  private static Type substituteInferredNullabilityForTypeVariables(
+      Type targetType, Map<Element, Type> inferredTypes, VisitorState state, Config config) {
+    if (inferredTypes.isEmpty()) {
+      return targetType;
+    }
+    if (targetType instanceof Type.IntersectionClassType intersection) {
+      ListBuffer<Type> components = new ListBuffer<>();
+      boolean changed = false;
+      for (Type component : intersection.getComponents()) {
+        Type substituted =
+            substituteInferredNullabilityForTypeVariables(component, inferredTypes, state, config);
+        components.append(substituted);
+        changed |= substituted != component;
+      }
+      return changed ? rebuildIntersection(intersection, components.toList()) : targetType;
+    }
     ListBuffer<Type> typeVars = new ListBuffer<>();
-    ListBuffer<Type> inferredTypes = new ListBuffer<>();
-    for (Map.Entry<Element, ConstraintSolver.InferredType> entry : typeVarNullability.entrySet()) {
-      // find all TypeVars occurring in targetType with the same symbol and substitute for those.
-      // we can have multiple such TypeVars due to previous substitutions that modified the type
-      // in some way, e.g., by changing its bounds
-      Element symbol = entry.getKey();
-      TypeVarWithSymbolCollector tvc = new TypeVarWithSymbolCollector(symbol);
-      targetType.accept(tvc, null);
-      for (Type.TypeVar tv : tvc.getMatches()) {
-        typeVars.append(tv);
-        ConstraintSolver.InferredType inferred = entry.getValue();
-        if (inferred instanceof ConstraintSolver.Substitution substitution) {
-          inferredTypes.append(substitution.type());
-        } else {
-          ConstraintSolver.RootOnly root = (ConstraintSolver.RootOnly) inferred;
-          inferredTypes.append(
-              typeWithAnnot(
-                  tv,
-                  root.nullness() == NULLABLE
-                      ? GenericsChecks.getSyntheticNullableAnnotType(state)
-                      : GenericsChecks.getSyntheticNonNullAnnotType(state)));
-        }
+    ListBuffer<Type> inferredNullabilityTypes = new ListBuffer<>();
+    for (Map.Entry<Element, Type> inferred : inferredTypes.entrySet()) {
+      TypeVarWithSymbolCollector collector = new TypeVarWithSymbolCollector(inferred.getKey());
+      targetType.accept(collector, null);
+      Type nullnessAnnotType =
+          GenericsUtils.isAnnotatedAsNullable(inferred.getValue(), config)
+              ? GenericsChecks.getSyntheticNullableAnnotType(state)
+              : GenericsChecks.getSyntheticNonNullAnnotType(state);
+      for (Type.TypeVar occurrence : collector.getMatches()) {
+        typeVars.append(occurrence);
+        inferredNullabilityTypes.append(typeWithAnnot(occurrence, nullnessAnnotType));
       }
     }
     List<Type> typeVarsToReplace = typeVars.toList();
     if (!typeVarsToReplace.isEmpty()) {
-      return subst(state.getTypes(), targetType, typeVarsToReplace, inferredTypes.toList(), config);
+      return subst(
+          state.getTypes(),
+          targetType,
+          typeVarsToReplace,
+          inferredNullabilityTypes.toList(),
+          config);
     } else {
       return targetType;
     }
+  }
+
+  /**
+   * Walks {@code origType} and {@code target} in parallel. At each position where {@code origType}
+   * has a type variable whose inferred type has known structure (i.e., is not just the type
+   * variable itself; see {@link ConstraintSolver#solve()}), applies the nested nullability
+   * annotations of the inferred type to the corresponding position in {@code target}, keeping the
+   * top-level annotations of that position. Positions where the two types do not line up are left
+   * unchanged.
+   *
+   * @param origType the original type with type variables
+   * @param target the type to update, with the same shape as {@code origType} after substitution
+   * @param inferredTypes a map from type variable elements to their inferred types
+   * @param types the javac types instance
+   * @param config the NullAway config
+   * @return the updated type, or {@code target} itself if no updates were made
+   */
+  @SuppressWarnings("ReferenceEquality")
+  private static Type applyNestedAnnotationsOfInferredTypes(
+      Type origType, Type target, Map<Element, Type> inferredTypes, Types types, Config config) {
+    if (origType instanceof Type.TypeVar origTypeVar && !(origType instanceof Type.CapturedType)) {
+      Type inferredType = inferredTypes.get(origTypeVar.tsym);
+      if (inferredType == null
+          || (inferredType instanceof Type.TypeVar && inferredType.tsym == origTypeVar.tsym)) {
+        // no structure inferred for this type variable
+        return target;
+      }
+      return applyNestedAnnotations(inferredType, target, types, config);
+    }
+    if (origType instanceof Type.IntersectionClassType original
+        && target instanceof Type.IntersectionClassType intersection) {
+      ListBuffer<Type> components = new ListBuffer<>();
+      boolean changed = false;
+      for (Type component : intersection.getComponents()) {
+        Type corresponding = intersectionComponent(original, component.tsym);
+        Type updated =
+            corresponding == null
+                ? component
+                : applyNestedAnnotationsOfInferredTypes(
+                    corresponding, component, inferredTypes, types, config);
+        components.append(updated);
+        changed |= updated != component;
+      }
+      return changed ? rebuildIntersection(intersection, components.toList()) : target;
+    }
+    if (origType instanceof Type.IntersectionClassType
+        || target instanceof Type.IntersectionClassType) {
+      return target;
+    }
+    if (origType instanceof Type.ClassType origClassType
+        && target instanceof Type.ClassType targetClassType) {
+      if (origClassType.tsym != targetClassType.tsym
+          || origClassType.isRaw()
+          || targetClassType.isRaw()
+          || origClassType.getTypeArguments().size() != targetClassType.getTypeArguments().size()) {
+        return target;
+      }
+      ListBuffer<Type> newTypeArgs = new ListBuffer<>();
+      boolean changed = false;
+      for (List<Type> o = origClassType.getTypeArguments(), t = targetClassType.getTypeArguments();
+          t.nonEmpty();
+          o = o.tail, t = t.tail) {
+        Type newTypeArg =
+            applyNestedAnnotationsOfInferredTypes(o.head, t.head, inferredTypes, types, config);
+        changed |= newTypeArg != t.head;
+        newTypeArgs.append(newTypeArg);
+      }
+      Type enclosingType = targetClassType.getEnclosingType();
+      Type newEnclosingType =
+          applyNestedAnnotationsOfInferredTypes(
+              origClassType.getEnclosingType(), enclosingType, inferredTypes, types, config);
+      changed |= newEnclosingType != enclosingType;
+      return changed
+          ? TYPE_METADATA_BUILDER.createClassType(
+              targetClassType, newEnclosingType, newTypeArgs.toList())
+          : target;
+    }
+    if (origType instanceof Type.ArrayType origArrayType
+        && target instanceof Type.ArrayType targetArrayType) {
+      Type elemType = targetArrayType.getComponentType();
+      Type newElemType =
+          applyNestedAnnotationsOfInferredTypes(
+              origArrayType.getComponentType(), elemType, inferredTypes, types, config);
+      return newElemType == elemType
+          ? target
+          : TYPE_METADATA_BUILDER.createArrayType(targetArrayType, newElemType);
+    }
+    if (origType instanceof Type.WildcardType origWildcard && origWildcard.type != null) {
+      if (target instanceof Type.WildcardType targetWildcard) {
+        if (origWildcard.kind != targetWildcard.kind || targetWildcard.type == null) {
+          return target;
+        }
+        Type newBound =
+            applyNestedAnnotationsOfInferredTypes(
+                origWildcard.type, targetWildcard.type, inferredTypes, types, config);
+        if (newBound == targetWildcard.type) {
+          return target;
+        }
+        Type.WildcardType result =
+            TYPE_METADATA_BUILDER.createWildcardType(targetWildcard, newBound);
+        result.bound = targetWildcard.bound;
+        return result;
+      }
+      if (origWildcard.kind == BoundKind.EXTENDS && !(target instanceof Type.CapturedType)) {
+        // e.g., the ground type of a functional interface type replaces ? extends S with S
+        return applyNestedAnnotationsOfInferredTypes(
+            origWildcard.type, target, inferredTypes, types, config);
+      }
+    }
+    return target;
+  }
+
+  /**
+   * Applies the nested nullability annotations of {@code inferredType} (annotations on its type
+   * arguments, enclosing type, or array component type, recursively) to {@code target}, keeping the
+   * top-level annotations of {@code target}. If {@code inferredType} is a class type for a
+   * different class than {@code target} (e.g., a subtype), it is first viewed as an instance of the
+   * class of {@code target}. If the two types cannot be aligned, returns {@code target}.
+   *
+   * @param inferredType the inferred type, whose nested annotations to apply
+   * @param target the type to update
+   * @param types the javac types instance
+   * @param config the NullAway config
+   * @return the updated type, or {@code target} itself if no updates were made
+   */
+  private static Type applyNestedAnnotations(
+      Type inferredType, Type target, Types types, Config config) {
+    return overlayInferredTypeAnnotations(inferredType, target, types, config, true);
+  }
+
+  /**
+   * Overlays inferred nullability only at recursively aligned positions. Class types must name the
+   * same class after viewing the source as the target's supertype; equal argument counts alone do
+   * not establish alignment. Arrays and wildcard bounds are checked recursively rather than passed
+   * to the positional annotation-restoration visitor. Matching captures permit only a root
+   * annotation overlay, never replacement of their backing wildcards or structural bounds.
+   *
+   * @param inferredType the annotation source
+   * @param target the type whose structure and unrelated metadata are preserved
+   * @param types the javac types instance
+   * @param config the NullAway config
+   * @param preserveRoot whether to preserve the target's root annotations, including explicit
+   *     occurrence overrides already restored before applying nested inferred annotations
+   * @return the updated target, or the original target if no aligned annotations changed
+   */
+  private static Type overlayInferredTypeAnnotations(
+      Type inferredType, Type target, Types types, Config config, boolean preserveRoot) {
+    if (inferredType instanceof Type.CapturedType || target instanceof Type.CapturedType) {
+      if (preserveRoot
+          || !(inferredType instanceof Type.CapturedType inferredCapture)
+          || !(target instanceof Type.CapturedType targetCapture)
+          || inferredCapture.tsym != targetCapture.tsym) {
+        return target;
+      }
+      // A structured inferred array is authoritative about its component's use-site nullness.
+      // javac may have dropped that annotation or moved an array-root annotation here. Restore
+      // only this aligned capture's root; copying bounds would change the caller's capture.
+      Type updated =
+          GenericsUtils.isAnnotatedAsNullable(inferredType, config)
+              ? target
+              : withoutTopLevelNullableAnnotations(target, config);
+      return copyDirectNullabilityAnnotations(inferredType, updated, config);
+    }
+    if (target instanceof Type.IntersectionClassType) {
+      Type.IntersectionClassType updated =
+          (Type.IntersectionClassType)
+              (preserveRoot
+                  ? target
+                  : copyDirectNullabilityAnnotations(inferredType, target, config));
+      ListBuffer<Type> components = new ListBuffer<>();
+      boolean changed = false;
+      for (Type component : updated.getComponents()) {
+        // Component roots encode the intersection root, already chosen above. Overlay only the
+        // nested annotations from the source's corresponding nominal view.
+        Type overlaid =
+            overlayInferredTypeAnnotations(inferredType, component, types, config, true);
+        components.append(overlaid);
+        changed |= overlaid != component;
+      }
+      return changed ? rebuildIntersection(updated, components.toList()) : updated;
+    }
+    if (inferredType instanceof Type.ArrayType inferredArrayType
+        && target instanceof Type.ArrayType targetArrayType) {
+      Type.ArrayType updated =
+          preserveRoot
+              ? targetArrayType
+              : (Type.ArrayType) copyDirectNullabilityAnnotations(inferredType, target, config);
+      Type elemType = updated.getComponentType();
+      Type newElemType =
+          overlayInferredTypeAnnotations(
+              inferredArrayType.getComponentType(), elemType, types, config, false);
+      return newElemType == elemType
+          ? updated
+          : TYPE_METADATA_BUILDER.createArrayType(updated, newElemType);
+    }
+    if (inferredType instanceof Type.ClassType
+        && target instanceof Type.ClassType targetClassType) {
+      if (inferredType.isRaw() || targetClassType.isRaw()) {
+        return target;
+      }
+      Type aligned = inferredType;
+      if (inferredType.tsym != targetClassType.tsym) {
+        aligned = asSuper(types, inferredType, (Symbol.ClassSymbol) targetClassType.tsym, config);
+      }
+      if (!(aligned instanceof Type.ClassType alignedClassType)
+          || alignedClassType.isRaw()
+          || alignedClassType.tsym != targetClassType.tsym
+          || alignedClassType.getTypeArguments().size()
+              != targetClassType.getTypeArguments().size()) {
+        return target;
+      }
+      // A supertype view supplies argument positions, not the nullness of the original value.
+      Type updated =
+          preserveRoot ? target : copyDirectNullabilityAnnotations(inferredType, target, config);
+      ListBuffer<Type> newTypeArgs = new ListBuffer<>();
+      boolean changed = false;
+      for (List<Type> a = alignedClassType.getTypeArguments(),
+              t = targetClassType.getTypeArguments();
+          t.nonEmpty();
+          a = a.tail, t = t.tail) {
+        Type newTypeArg = overlayInferredTypeAnnotations(a.head, t.head, types, config, false);
+        changed |= newTypeArg != t.head;
+        newTypeArgs.append(newTypeArg);
+      }
+      Type enclosingType = targetClassType.getEnclosingType();
+      Type newEnclosingType =
+          overlayInferredTypeAnnotations(
+              alignedClassType.getEnclosingType(), enclosingType, types, config, false);
+      changed |= newEnclosingType != enclosingType;
+      return changed
+          ? TYPE_METADATA_BUILDER.createClassType(updated, newEnclosingType, newTypeArgs.toList())
+          : updated;
+    }
+    if (target instanceof Type.WildcardType targetWildcard
+        && !(inferredType instanceof Type.WildcardType)
+        && targetWildcard.kind != BoundKind.UNBOUND
+        && targetWildcard.type != null) {
+      // A concrete argument is contained by an existing wildcard slot. Copy its annotations to
+      // the bound, without inventing a wildcard or changing javac's selected variance.
+      Type newBound =
+          overlayInferredTypeAnnotations(inferredType, targetWildcard.type, types, config, false);
+      if (newBound == targetWildcard.type) {
+        return target;
+      }
+      Type.WildcardType result = TYPE_METADATA_BUILDER.createWildcardType(targetWildcard, newBound);
+      result.bound = targetWildcard.bound;
+      return result;
+    }
+    if (inferredType instanceof Type.WildcardType inferredWildcard
+        && target instanceof Type.WildcardType targetWildcard) {
+      if (inferredWildcard.kind != targetWildcard.kind) {
+        return target;
+      }
+      Type.WildcardType updated =
+          preserveRoot
+              ? targetWildcard
+              : (Type.WildcardType) copyDirectNullabilityAnnotations(inferredType, target, config);
+      if (inferredWildcard.type == null || targetWildcard.type == null) {
+        return updated;
+      }
+      Type newBound =
+          overlayInferredTypeAnnotations(
+              inferredWildcard.type, targetWildcard.type, types, config, false);
+      if (newBound == targetWildcard.type) {
+        return updated;
+      }
+      Type.WildcardType result = TYPE_METADATA_BUILDER.createWildcardType(updated, newBound);
+      result.bound = targetWildcard.bound;
+      return result;
+    }
+    if (!preserveRoot
+        && inferredType.tsym != null
+        && inferredType.tsym == target.tsym
+        && inferredType.getTag() == target.getTag()) {
+      return copyDirectNullabilityAnnotations(inferredType, target, config);
+    }
+    return target;
+  }
+
+  /**
+   * Copies a source's root nullability, retaining the target's other annotations without mutating
+   * shared javac types. Ordinary unannotated sources leave the target unchanged. Intersection roots
+   * are read and written structurally. Matching explicit nullness retains target identity; default
+   * non-null is not an explicit marker. Absent component annotations are not explicit overrides and
+   * must not erase root evidence already restored from authoritative declaration attributes.
+   *
+   * <p>This inference overlay preserves unrelated metadata and unchanged target identity, unlike
+   * {@link #typeWithAnnot}, which replaces all root annotations during explicit restoration.
+   */
+  private static Type copyDirectNullabilityAnnotations(Type source, Type target, Config config) {
+    if (target instanceof Type.IntersectionClassType intersection) {
+      ListBuffer<Type> components = new ListBuffer<>();
+      boolean changed = false;
+      for (Type component : intersection.getComponents()) {
+        Type updated = copyDirectNullabilityAnnotations(source, component, config);
+        components.append(updated);
+        changed |= updated != component;
+      }
+      return changed ? rebuildIntersection(intersection, components.toList()) : target;
+    }
+    if (source instanceof Type.IntersectionClassType intersection) {
+      boolean nullable = GenericsUtils.isAnnotatedAsNullable(intersection, config);
+      for (Type component : GenericsUtils.nullabilityMatchingComponents(intersection, config)) {
+        Type updated = copyDirectNullabilityAnnotations(component, target, config);
+        if (nullable || updated != target) {
+          return updated;
+        }
+        // A default non-null source root carries no annotation to restore. In particular, a
+        // stripped declaration must not overwrite explicit markers in an instantiated bound.
+      }
+      return target;
+    }
+    for (Attribute.TypeCompound annotation : source.getAnnotationMirrors()) {
+      if (annotation.type.tsym == null) {
+        continue;
+      }
+      String name = annotation.type.tsym.getQualifiedName().toString();
+      if (!Nullness.isNullableAnnotation(name, config)
+          && !Nullness.isNonNullAnnotation(name, config)) {
+        continue;
+      }
+      boolean nullable = Nullness.isNullableAnnotation(name, config);
+      if (GenericsUtils.isAnnotatedAsNullable(target, config) == nullable
+          && GenericsUtils.isAnnotatedAsNonNull(target, config) == !nullable
+          // Synthetic markers also certify inferred nullness; an explicit annotation alone does
+          // not.
+          && (!GenericsChecks.isSyntheticNullnessAnnotation(annotation.type)
+              || target.getAnnotationMirrors().stream()
+                  .anyMatch(existing -> existing.type == annotation.type))) {
+        return target;
+      }
+      ListBuffer<Attribute.TypeCompound> annotations = new ListBuffer<>();
+      for (Attribute.TypeCompound targetAnnotation : target.getAnnotationMirrors()) {
+        if (targetAnnotation.type.tsym != null) {
+          String targetName = targetAnnotation.type.tsym.getQualifiedName().toString();
+          if (Nullness.isNullableAnnotation(targetName, config)
+              || Nullness.isNonNullAnnotation(targetName, config)) {
+            continue;
+          }
+        }
+        annotations.append(targetAnnotation);
+      }
+      annotations.append(annotation);
+      return TYPE_METADATA_BUILDER.cloneTypeWithMetadata(
+          target, TYPE_METADATA_BUILDER.create(annotations.toList()));
+    }
+    return target;
   }
 
   /**
@@ -366,7 +1153,9 @@ public class TypeSubstitutionUtils {
    * List<@Nullable S>}.
    *
    * <p>Occurrences are found by symbol, since a type can contain several {@link Type.TypeVar}
-   * objects for the same symbol, e.g., due to annotations on type variable uses.
+   * objects for the same symbol, e.g., due to annotations on type variable uses. Intersection
+   * bounds are handled component-wise because their synthetic class has no type arguments for the
+   * collector to traverse.
    *
    * @param targetType type in which to replace type variables
    * @param replacements map from type variable symbols to their replacement types
@@ -380,14 +1169,28 @@ public class TypeSubstitutionUtils {
       Map<? extends Element, ? extends Type> replacements,
       Types types,
       Config config) {
+    if (replacements.isEmpty()) {
+      return targetType;
+    }
+    if (targetType instanceof Type.IntersectionClassType intersection) {
+      ListBuffer<Type> components = new ListBuffer<>();
+      boolean changed = false;
+      for (Type component : intersection.getComponents()) {
+        Type substituted = substituteTypeVariables(component, replacements, types, config);
+        components.append(substituted);
+        changed |= substituted != component;
+      }
+      return changed ? rebuildIntersection(intersection, components.toList()) : targetType;
+    }
     ListBuffer<Type> typeVars = new ListBuffer<>();
     ListBuffer<Type> replacementTypes = new ListBuffer<>();
-    for (Map.Entry<? extends Element, ? extends Type> entry : replacements.entrySet()) {
-      TypeVarWithSymbolCollector tvc = new TypeVarWithSymbolCollector(entry.getKey());
-      targetType.accept(tvc, null);
-      for (Type.TypeVar tv : tvc.getMatches()) {
-        typeVars.append(tv);
-        replacementTypes.append(entry.getValue());
+    for (Map.Entry<? extends Element, ? extends Type> replacement : replacements.entrySet()) {
+      TypeVarWithSymbolCollector collector = new TypeVarWithSymbolCollector(replacement.getKey());
+      targetType.accept(collector, null);
+      for (Type.TypeVar occurrence : collector.getMatches()) {
+        // Keep every annotation-distinct occurrence rather than the symbol's declaration type.
+        typeVars.append(occurrence);
+        replacementTypes.append(replacement.getValue());
       }
     }
     List<Type> typeVarsToReplace = typeVars.toList();
@@ -716,7 +1519,9 @@ public class TypeSubstitutionUtils {
       if (t == wt.type) {
         return wt;
       } else {
-        return TYPE_METADATA_BUILDER.createWildcardType(wt, t);
+        Type.WildcardType result = TYPE_METADATA_BUILDER.createWildcardType(wt, t);
+        result.bound = wt.bound;
+        return result;
       }
     }
 
@@ -751,7 +1556,9 @@ public class TypeSubstitutionUtils {
         return wildcard;
       }
       if (wildcard.kind == BoundKind.EXTENDS) {
-        return TYPE_METADATA_BUILDER.createWildcardType(wildcard, updatedBound);
+        Type.WildcardType result = TYPE_METADATA_BUILDER.createWildcardType(wildcard, updatedBound);
+        result.bound = wildcard.bound;
+        return result;
       } else { // unbounded or lower-bounded wildcard
         return replaceImplicitWildcardUpperBound(
             wildcard, Verify.verifyNotNull(implicitUpperBoundTypeVariable), updatedBound);
@@ -896,13 +1703,9 @@ public class TypeSubstitutionUtils {
       return t;
     }
 
-    /**
-     * Replaces the type's top-level annotations with an annotation of type {@code annot.type} via
-     * {@link TypeSubstitutionUtils#typeWithAnnot(Type, Type)}.
-     */
-    private static Type typeWithAnnot(Type t, Attribute.TypeCompound annot) {
-      Type annotType = annot.type;
-      return TypeSubstitutionUtils.typeWithAnnot(t, annotType);
+    /** Restores root nullness while preserving unrelated target metadata and compiler ownership. */
+    private Type typeWithAnnot(Type t, Attribute.TypeCompound annot) {
+      return typeWithInferredRoot(t, annot.type, config);
     }
 
     @Override
@@ -942,6 +1745,14 @@ public class TypeSubstitutionUtils {
       }
       return changed ? buf.toList() : newtypes;
     }
+  }
+
+  /**
+   * Applies inferred root nullness without dropping unrelated metadata or flattening intersections.
+   * The source is annotated structurally, then only its root nullness is copied to the target.
+   */
+  static Type typeWithInferredRoot(Type type, Type qualifier, Config config) {
+    return copyDirectNullabilityAnnotations(typeWithAnnot(type, qualifier), type, config);
   }
 
   /**
@@ -1016,6 +1827,19 @@ public class TypeSubstitutionUtils {
    * @return the type resulting from the substitution
    */
   public static Type subst(Types types, Type t, List<Type> from, List<Type> to, Config config) {
+    if (t instanceof Type.IntersectionClassType intersection) {
+      // Full-type inference substitutes inside root bounds, not just their annotations. Rebuild
+      // with the original symbol and allInterfaces flag: javac's substitution can expose an
+      // implicit Object as an explicit bound. Annotation restoration alone cannot repair that.
+      ListBuffer<Type> components = new ListBuffer<>();
+      boolean changed = false;
+      for (Type component : intersection.getComponents()) {
+        Type substituted = subst(types, component, from, to, config);
+        components.append(substituted);
+        changed |= substituted != component;
+      }
+      return changed ? rebuildIntersection(intersection, components.toList()) : t;
+    }
     Type substResult = types.subst(t, from, to);
     return restoreExplicitNullabilityAnnotations(t, substResult, config);
   }

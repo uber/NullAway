@@ -1,127 +1,321 @@
 package com.uber.nullaway.generics;
 
+import com.google.errorprone.VisitorState;
+import com.sun.tools.javac.code.Symbol;
 import com.sun.tools.javac.code.Type;
+import com.sun.tools.javac.code.Type.ArrayType;
+import com.sun.tools.javac.code.Type.CapturedType;
+import com.sun.tools.javac.code.Type.ClassType;
+import com.sun.tools.javac.code.Type.ForAll;
+import com.sun.tools.javac.code.Type.MethodType;
+import com.sun.tools.javac.code.Type.TypeVar;
+import com.sun.tools.javac.code.Type.WildcardType;
 import com.sun.tools.javac.code.Types;
+import com.uber.nullaway.Config;
+import java.util.Collections;
+import java.util.IdentityHashMap;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import javax.lang.model.element.Element;
+import javax.lang.model.type.TypeVariable;
 import org.jspecify.annotations.Nullable;
 
-/** Recovers javac's nominal method instantiations without using their annotations as evidence. */
+/** Recovers javac's nominal instantiations without inferring their nullness. */
 final class InferenceTypeShapes {
 
   private InferenceTypeShapes() {}
 
   /**
-   * Matches a receiver-substituted declaration against the attributed method-select type. Missing,
-   * unresolved, or conflicting occurrences are omitted, rather than replaced with declaration
-   * bounds. Fixed variables are never unfolded. Full-type support is decided separately by the
-   * solver.
+   * Matches a declaration against its javac-attributed shape, recovering only variables in {@code
+   * vars}.
+   *
+   * <p>For calls, the declaration should be the receiver-substituted executable type and the
+   * attributed type should be the invocation's method-select type (or attributed constructor
+   * signature). Class instantiations can instead be recovered by matching the constructed class's
+   * declaration against its attributed constructed type. For anonymous classes, callers must supply
+   * their existing view of the constructed class, not the anonymous class declaration.
+   *
+   * <p>Returned types retain javac's metadata, but their annotations are provisional, not nullness
+   * evidence. Repeated occurrences must have the same nominal shape, ignoring annotations; a
+   * conflicting or unresolved variable is omitted. Variables absent from the compared shapes are
+   * not defaulted to their declaration bounds. Fixed, non-listed type variables remain fixed.
    */
   static Map<Element, Type> inferInstantiations(
-      Type declaration, Type attributed, List<? extends Element> variables, Types types) {
-    Matcher matcher = new Matcher(variables, types);
+      Type declaration,
+      Type attributed,
+      List<? extends Element> vars,
+      VisitorState state,
+      Config config) {
+    Matcher matcher = new Matcher(vars, state.getTypes(), config);
     matcher.match(declaration, attributed);
     return matcher.instantiations;
   }
 
-  /** Matches syntactic type positions, deliberately not traversing type-variable bounds. */
+  /**
+   * Returns whether a variable occurs in the executable shape itself, excluding declaration bounds.
+   * A variable mentioned only in a peer's bound has no observable attributed occurrence to match.
+   */
+  static boolean containsVariable(Type type, Element variable, VisitorState state, Config config) {
+    Matcher matcher = new Matcher(List.of(variable), state.getTypes(), config);
+    Set<Element> occurrences = new LinkedHashSet<>();
+    matcher.collectVariables(type, occurrences, Collections.newSetFromMap(new IdentityHashMap<>()));
+    return !occurrences.isEmpty();
+  }
+
+  /** Stateful matching for one pair of attributed and declaration shapes. */
   private static final class Matcher {
     private final Set<Element> variables;
     private final Types types;
+    private final Config config;
     private final Map<Element, Type> instantiations = new LinkedHashMap<>();
     private final Set<Element> rejected = new LinkedHashSet<>();
+    private final IdentityHashMap<Type, Set<Type>> seen = new IdentityHashMap<>();
 
-    Matcher(List<? extends Element> variables, Types types) {
-      this.variables = new LinkedHashSet<>(variables);
+    private Matcher(List<? extends Element> vars, Types types, Config config) {
+      this.variables = new LinkedHashSet<>(vars);
       this.types = types;
+      this.config = config;
     }
 
-    /** Records variables only at corresponding positions with an unambiguous nominal shape. */
-    private void match(Type declaration, @Nullable Type attributed) {
-      if (declaration instanceof Type.ForAll quantified) {
+    /** Traverses corresponding shapes, never replacing a fixed variable with its bound. */
+    private void match(@Nullable Type declaration, @Nullable Type attributed) {
+      if (declaration == null || attributed == null) {
+        rejectVariables(declaration);
+        return;
+      }
+      if (!enter(seen, declaration, attributed)) {
+        return;
+      }
+      if (declaration instanceof ForAll quantified) {
         match(quantified.qtype, attributed);
-      } else if (attributed instanceof Type.ForAll quantified) {
+        return;
+      }
+      if (attributed instanceof ForAll quantified) {
         match(declaration, quantified.qtype);
-      } else if (declaration instanceof Type.CapturedType) {
-        // Synthesized capture bounds are not attributed instantiations.
-      } else if (declaration instanceof Type.TypeVar variable) {
-        Element symbol = variable.asElement();
-        if (!variables.contains(symbol) || rejected.contains(symbol)) {
+        return;
+      }
+      if (declaration.isErroneous() || attributed.isErroneous()) {
+        rejectVariables(declaration);
+        return;
+      }
+      // A capture's originating wildcard is explicit shape evidence; its synthesized bounds are
+      // not.
+      if (declaration instanceof CapturedType capture) {
+        match(capture.wildcard, attributed);
+        return;
+      }
+      if (declaration instanceof TypeVar variable) {
+        Element symbol = variableSymbol(variable);
+        if (variables.contains(symbol)) {
+          record(symbol, attributed);
+        }
+        return;
+      }
+      if (declaration instanceof WildcardType wildcard) {
+        matchWildcard(wildcard, attributed);
+        return;
+      }
+      if (declaration instanceof MethodType method && attributed instanceof MethodType actual) {
+        matchLists(method.getParameterTypes(), actual.getParameterTypes());
+        match(method.getReturnType(), actual.getReturnType());
+        matchLists(method.getThrownTypes(), actual.getThrownTypes());
+        return;
+      }
+      if (declaration instanceof ArrayType array && attributed instanceof ArrayType actual) {
+        match(array.elemtype, actual.elemtype);
+        return;
+      }
+      if (declaration instanceof ClassType clazz && attributed instanceof ClassType actual) {
+        Type aligned = actual;
+        if (!clazz.tsym.equals(actual.tsym) && clazz.tsym instanceof Symbol.ClassSymbol symbol) {
+          aligned = TypeSubstitutionUtils.asSuper(types, actual, symbol, config);
+        }
+        if (!(aligned instanceof ClassType alignedClass) || !clazz.tsym.equals(alignedClass.tsym)) {
+          rejectVariables(declaration);
           return;
         }
-        Type previous = instantiations.get(symbol);
-        if (attributed == null
-            || attributed.isErroneous()
-            || containsInferenceVariable(attributed)
-            || (previous != null && !types.isSameType(previous, attributed))) {
-          rejected.add(symbol);
-          instantiations.remove(symbol);
-        } else {
-          instantiations.put(symbol, attributed);
-        }
-      } else if (declaration instanceof Type.MethodType method) {
-        Type.MethodType actual = attributed instanceof Type.MethodType m ? m : null;
-        matchLists(method.argtypes, actual == null ? List.of() : actual.argtypes);
-        match(method.restype, actual == null ? null : actual.restype);
-        matchLists(method.thrown, actual == null ? List.of() : actual.thrown);
-      } else if (declaration instanceof Type.ArrayType array) {
-        match(array.elemtype, attributed instanceof Type.ArrayType a ? a.elemtype : null);
-      } else if (declaration instanceof Type.ClassType clazz) {
-        // These are two views of the same executable, not an arbitrary subtype comparison.
-        Type.ClassType actual =
-            attributed instanceof Type.ClassType c && clazz.tsym.equals(c.tsym) && !c.isRaw()
-                ? c
-                : null;
-        match(clazz.getEnclosingType(), actual == null ? null : actual.getEnclosingType());
-        matchLists(
-            clazz.getTypeArguments(), actual == null ? List.of() : actual.getTypeArguments());
-      } else if (declaration instanceof Type.WildcardType wildcard && !wildcard.isUnbound()) {
-        if (attributed instanceof Type.WildcardType actual) {
-          match(wildcard.type, wildcard.kind == actual.kind ? actual.type : null);
-        } else {
-          match(wildcard.type, null);
-        }
+        match(clazz.getEnclosingType(), alignedClass.getEnclosingType());
+        matchLists(clazz.getTypeArguments(), alignedClass.getTypeArguments());
+        return;
       }
+      rejectVariables(declaration);
     }
 
-    /**
-     * Rejects an entire unmatched list rather than silently truncating its variable occurrences.
-     */
+    /** Matches only explicit wildcard bounds, including a capture's original wildcard. */
+    private void matchWildcard(WildcardType declaration, Type attributed) {
+      if (attributed instanceof CapturedType capture) {
+        matchWildcard(declaration, capture.wildcard);
+        return;
+      }
+      if (declaration.isUnbound()) {
+        return;
+      }
+      if (attributed instanceof WildcardType wildcard) {
+        if (declaration.kind != wildcard.kind) {
+          rejectVariables(declaration);
+        } else {
+          match(declaration.type, wildcard.type);
+        }
+        return;
+      }
+      // A concrete adapted bound is useful, but a fixed type variable's upper bound is not
+      // evidence.
+      if (attributed instanceof TypeVar) {
+        rejectVariables(declaration);
+        return;
+      }
+      match(declaration.type, attributed);
+    }
+
+    /** Pairs lists only when their arities agree; truncation would hide contradictory evidence. */
     private void matchLists(List<Type> declaration, List<Type> attributed) {
-      boolean sameSize = declaration.size() == attributed.size();
+      if (declaration.size() != attributed.size()) {
+        for (Type type : declaration) {
+          rejectVariables(type);
+        }
+        return;
+      }
       for (int i = 0; i < declaration.size(); i++) {
-        match(declaration.get(i), sameSize ? attributed.get(i) : null);
+        match(declaration.get(i), attributed.get(i));
       }
     }
 
     /**
-     * Detects unresolved listed variables without treating a fixed variable's bound as its shape.
+     * Records attributed evidence unless it is unresolved or conflicts with an earlier occurrence.
      */
-    private boolean containsInferenceVariable(Type type) {
-      if (type instanceof Type.TypeVar variable) {
-        return variables.contains(variable.asElement());
+    private void record(Element variable, Type attributed) {
+      if (rejected.contains(variable)) {
+        return;
       }
-      if (type instanceof Type.ArrayType array) {
-        return containsInferenceVariable(array.elemtype);
+      Set<Element> unresolved = new LinkedHashSet<>();
+      collectVariables(attributed, unresolved, Collections.newSetFromMap(new IdentityHashMap<>()));
+      if (!unresolved.isEmpty() || attributed.isErroneous()) {
+        reject(variable);
+        return;
       }
-      if (type instanceof Type.ClassType clazz) {
-        if (containsInferenceVariable(clazz.getEnclosingType())) {
-          return true;
-        }
-        for (Type argument : clazz.getTypeArguments()) {
-          if (containsInferenceVariable(argument)) {
-            return true;
-          }
-        }
+      Type previous = instantiations.get(variable);
+      if (previous == null) {
+        instantiations.put(variable, attributed);
+      } else if (!sameShape(previous, attributed, new IdentityHashMap<>())) {
+        reject(variable);
       }
-      if (type instanceof Type.WildcardType wildcard && !wildcard.isUnbound()) {
-        return containsInferenceVariable(wildcard.type);
-      }
-      return false;
     }
+
+    /** Permanently removes all listed variables occurring in a mismatched declaration subtree. */
+    private void rejectVariables(@Nullable Type declaration) {
+      Set<Element> affected = new LinkedHashSet<>();
+      collectVariables(declaration, affected, Collections.newSetFromMap(new IdentityHashMap<>()));
+      for (Element variable : affected) {
+        reject(variable);
+      }
+    }
+
+    /** Removes an inconsistent variable so that later occurrences cannot reinstate it. */
+    private void reject(Element variable) {
+      rejected.add(variable);
+      instantiations.remove(variable);
+    }
+
+    /** Collects syntactic occurrences, not variables merely mentioned by declaration bounds. */
+    private void collectVariables(@Nullable Type type, Set<Element> result, Set<Type> visited) {
+      if (type == null || !visited.add(type)) {
+        return;
+      }
+      if (type instanceof CapturedType capture) {
+        collectVariables(capture.wildcard, result, visited);
+      } else if (type instanceof TypeVar variable) {
+        Element symbol = variableSymbol(variable);
+        if (variables.contains(symbol)) {
+          result.add(symbol);
+        }
+      } else if (type instanceof ForAll quantified) {
+        collectVariables(quantified.qtype, result, visited);
+      } else if (type instanceof MethodType method) {
+        for (Type parameter : method.getParameterTypes()) {
+          collectVariables(parameter, result, visited);
+        }
+        collectVariables(method.getReturnType(), result, visited);
+        for (Type thrown : method.getThrownTypes()) {
+          collectVariables(thrown, result, visited);
+        }
+      } else if (type instanceof ArrayType array) {
+        collectVariables(array.elemtype, result, visited);
+      } else if (type instanceof WildcardType wildcard) {
+        if (!wildcard.isUnbound()) {
+          collectVariables(wildcard.type, result, visited);
+        }
+      } else if (type instanceof ClassType clazz) {
+        collectVariables(clazz.getEnclosingType(), result, visited);
+        for (Type argument : clazz.getTypeArguments()) {
+          collectVariables(argument, result, visited);
+        }
+      }
+    }
+
+    /** Compares exact nominal shapes, without subtype alignment or annotation comparisons. */
+    private boolean sameShape(Type left, Type right, Map<Type, Set<Type>> compared) {
+      if (!enter(compared, left, right)) {
+        return true;
+      }
+      if (left instanceof CapturedType || right instanceof CapturedType) {
+        // Distinct captures cannot be equated just because their bounds happen to agree.
+        return left instanceof CapturedType
+            && right instanceof CapturedType
+            && variableSymbol((TypeVar) left).equals(variableSymbol((TypeVar) right));
+      }
+      if (left instanceof TypeVar || right instanceof TypeVar) {
+        return left instanceof TypeVar leftVariable
+            && right instanceof TypeVar rightVariable
+            && variableSymbol(leftVariable).equals(variableSymbol(rightVariable));
+      }
+      if (left instanceof WildcardType || right instanceof WildcardType) {
+        return left instanceof WildcardType leftWildcard
+            && right instanceof WildcardType rightWildcard
+            && leftWildcard.kind == rightWildcard.kind
+            && (leftWildcard.isUnbound()
+                || sameShape(leftWildcard.type, rightWildcard.type, compared));
+      }
+      if (left instanceof ArrayType || right instanceof ArrayType) {
+        return left instanceof ArrayType leftArray
+            && right instanceof ArrayType rightArray
+            && sameShape(leftArray.elemtype, rightArray.elemtype, compared);
+      }
+      if (left instanceof ClassType || right instanceof ClassType) {
+        return left instanceof ClassType leftClass
+            && right instanceof ClassType rightClass
+            && leftClass.tsym.equals(rightClass.tsym)
+            && sameShape(leftClass.getEnclosingType(), rightClass.getEnclosingType(), compared)
+            && sameShapes(leftClass.getTypeArguments(), rightClass.getTypeArguments(), compared);
+      }
+      return types.isSameType(left, right);
+    }
+
+    /** Checks corresponding type lists for exact, annotation-independent shape agreement. */
+    private boolean sameShapes(List<Type> left, List<Type> right, Map<Type, Set<Type>> compared) {
+      if (left.size() != right.size()) {
+        return false;
+      }
+      for (int i = 0; i < left.size(); i++) {
+        if (!sameShape(left.get(i), right.get(i), compared)) {
+          return false;
+        }
+      }
+      return true;
+    }
+  }
+
+  /** Uses the language-model variable symbol rather than comparing TypeVar wrapper identities. */
+  private static Element variableSymbol(TypeVar variable) {
+    return ((TypeVariable) variable).asElement();
+  }
+
+  /** Registers an identity pair, returning false for an already visited recursive edge. */
+  private static boolean enter(Map<Type, Set<Type>> pairs, Type declaration, Type attributed) {
+    return pairs
+        .computeIfAbsent(declaration, unused -> Collections.newSetFromMap(new IdentityHashMap<>()))
+        .add(attributed);
   }
 }
