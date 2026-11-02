@@ -2,6 +2,8 @@ package com.uber.nullaway.generics;
 
 import com.sun.source.tree.Tree;
 import com.sun.tools.javac.code.Type;
+import com.uber.nullaway.Config;
+import com.uber.nullaway.Nullness;
 import java.util.List;
 import java.util.Map;
 import javax.lang.model.element.Element;
@@ -38,8 +40,9 @@ public interface ConstraintSolver {
    * retain the original declaration for library-modeled bound nullability, even when a separate
    * inference problem treats the fresh variables as fixed types.
    *
-   * <p>Register each site once per inference problem. Constraint generation visits each call or
-   * method-reference tree once; separate inference problems use separate solvers.
+   * <p>Re-registering a site with the same declarations returns its existing fresh variables and
+   * retains all constraints. Contextual views such as a PolyNull overlay may revisit a call; each
+   * view must still add its constraints. Separate inference problems use separate solvers.
    *
    * @param site the tree whose type arguments are inferred
    * @param typeVariables the declared type variables inferred at {@code site}
@@ -47,6 +50,53 @@ public interface ConstraintSolver {
    */
   Map<Element, Type.TypeVar> registerInferenceVariables(
       Tree site, List<? extends Element> typeVariables);
+
+  /**
+   * Registers variables with javac's nominal instantiations. The instantiations supply Java shapes,
+   * not nullness evidence. Solvers without full-type support retain their scalar behavior.
+   *
+   * @param site the inference site
+   * @param typeVariables the declared variables inferred at the site
+   * @param javacInstantiations attributed type arguments, keyed by declared variable
+   * @return the fresh inference variables
+   */
+  default Map<Element, Type.TypeVar> registerInferenceVariables(
+      Tree site, List<? extends Element> typeVariables, Map<Element, Type> javacInstantiations) {
+    return registerInferenceVariables(site, typeVariables);
+  }
+
+  /**
+   * What inference established for one variable. Unsupported nested shapes retain a root qualifier,
+   * not an unchecked javac type or a private inference-variable placeholder. There is deliberately
+   * no global completeness, contradiction, or provenance state in this foundation result.
+   */
+  sealed interface InferredType permits Substitution, RootOnly {
+    /** Returns the established root qualifier for either kind of result. */
+    default Nullness rootNullness(Config config) {
+      if (this instanceof RootOnly root) {
+        return root.nullness();
+      }
+      return GenericsUtils.isAnnotatedAsNullable(((Substitution) this).type(), config)
+          ? Nullness.NULLABLE
+          : Nullness.NONNULL;
+    }
+  }
+
+  /** A supported proper substitution with inferred nested annotations and no fresh variables. */
+  record Substitution(Type type) implements InferredType {}
+
+  /**
+   * Only root nullness was inferred. Consumers must leave nested types on the existing attributed
+   * type/repair path, rather than treating provisional javac annotations as inferred evidence.
+   */
+  record RootOnly(Nullness nullness) implements InferredType {
+    /** Root fallback cannot express dataflow bottom or other non-qualifier lattice states. */
+    public RootOnly {
+      if (nullness != Nullness.NONNULL && nullness != Nullness.NULLABLE) {
+        throw new IllegalArgumentException("Expected an inferred root nullness qualifier");
+      }
+    }
+  }
 
   /**
    * Exception thrown when the constraints added to the solver are determined to be unsatisfiable.
@@ -97,17 +147,18 @@ public interface ConstraintSolver {
   void addSubtypeConstraint(Type subtype, Type supertype, boolean localVariableType)
       throws UnsatisfiableConstraintsException;
 
-  enum InferredNullability {
-    NONNULL,
-    NULLABLE
-  }
-
   /**
-   * Solve the constraints, returning a map from inference variables to their inferred nullability.
-   * The map only contains inference variables that appear in constraints.
+   * Solves once, returning an immutable map of the information established for each variable: a
+   * supported full substitution or explicit root-only fallback. Variables with neither root
+   * constraints nor supported type evidence are omitted. Root propagation and contradiction
+   * checking are internal; unsupported nested shapes are not certified contradictions.
    *
-   * @return a map from inference variables to their inferred nullability
-   * @throws UnsatisfiableConstraintsException if the constraints are determined to be unsatisfiable
+   * <p>This is intentionally not a map of only {@link Type}s: omitting unsupported variables could
+   * lose established root qualifiers, while publishing their attributed types could incorrectly
+   * present provisional nested annotations as inferred evidence.
+   *
+   * @return established results keyed by call-specific inference variables
+   * @throws UnsatisfiableConstraintsException if root constraints are unsatisfiable
    */
-  Map<InferenceVariable, InferredNullability> solve() throws UnsatisfiableConstraintsException;
+  Map<InferenceVariable, InferredType> solve() throws UnsatisfiableConstraintsException;
 }

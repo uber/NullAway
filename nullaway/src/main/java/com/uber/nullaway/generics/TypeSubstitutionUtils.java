@@ -1,7 +1,7 @@
 package com.uber.nullaway.generics;
 
+import static com.uber.nullaway.Nullness.NULLABLE;
 import static com.uber.nullaway.generics.ClassDeclarationNullnessAnnotUtils.getAnnotatedSupertype;
-import static com.uber.nullaway.generics.ConstraintSolver.InferredNullability.NULLABLE;
 import static com.uber.nullaway.generics.TypeMetadataBuilder.TYPE_METADATA_BUILDER;
 
 import com.google.common.base.Verify;
@@ -206,12 +206,14 @@ public class TypeSubstitutionUtils {
   }
 
   /**
-   * Updates a type {@code typeToUpdate} by applying inferred nullability for type variables. The
-   * update proceeds in three steps:
+   * Applies the single solve result to javac's attributed type without changing its nominal shape.
+   * Full substitutions supply nested annotations; root-only fallbacks qualify declaration uses
+   * without replacing the target's existing nested types (which may have been repaired). The update
+   * proceeds in three steps:
    *
-   * <p>1. Substitute inferred nullability for type variables in the original type {@code origType}.
-   * So, if the {@code origType} is {@code List<T>}, and we inferred T to be nullable, the result
-   * will be {@code List<@Nullable T>}.
+   * <p>1. Substitute each supported type, or only its root qualifier, into {@code origType}. For
+   * example, a full {@code T = List<@Nullable String>} replaces all of T's nested structure; a
+   * root-only nullable result instead produces {@code @Nullable T} as the annotation source.
    *
    * <p>2. Restore any explicit nullability annotations that were present on {@code origType} to the
    * result of 1. So, if {@code origType} was {@code List<@NonNull T>}, the result will be {@code
@@ -224,15 +226,15 @@ public class TypeSubstitutionUtils {
    * @param typeToUpdate the type to update
    * @param origType the original type with type variables and possibly explicit nullability
    *     annotations
-   * @param typeVarNullability a map from type variable elements to their inferred nullability
+   * @param typeVarNullability one typed result per declared variable with inferred information
    * @param state the visitor state
    * @param config the NullAway config
-   * @return the updated type with inferred nullability applied
+   * @return the attributed type enhanced only with established root/nested annotations
    */
-  static Type updateTypeWithInferredNullability(
+  static Type updateTypeWithInferredTypes(
       Type typeToUpdate,
       Type origType,
-      @Nullable Map<Element, ConstraintSolver.InferredNullability> typeVarNullability,
+      @Nullable Map<Element, ConstraintSolver.InferredType> typeVarNullability,
       VisitorState state,
       Config config) {
     if (typeVarNullability == null) {
@@ -241,7 +243,7 @@ public class TypeSubstitutionUtils {
     }
     // step 1
     Type inferredNullabilitySubstituted =
-        substituteInferredNullabilityForTypeVariables(origType, typeVarNullability, state, config);
+        substituteInferredTypesForTypeVariables(origType, typeVarNullability, state, config);
     // step 2
     Type origExplicitAnnotationsRestored =
         restoreExplicitNullabilityAnnotations(origType, inferredNullabilitySubstituted, config);
@@ -254,22 +256,21 @@ public class TypeSubstitutionUtils {
   /**
    * Updates a method type {@code typeToUpdate} by applying inferred nullability for type variables.
    * The update is applied to the argument types, return type, and thrown types of the method type,
-   * using {@link #updateMethodTypeWithInferredNullability(Type.MethodType, Type.MethodType, Map,
-   * VisitorState, Config)}
+   * using {@link #updateTypeWithInferredTypes(Type, Type, Map, VisitorState, Config)}
    *
    * @param methodTypeToUpdate method type to update
    * @param origMethodType original method type, with type variables and possibly explicit
    *     nullability annotations
-   * @param typeVarNullability a map from type variable elements to their inferred nullability
+   * @param typeVarNullability one typed result per declared variable with inferred information
    * @param state the visitor state
    * @param config the NullAway config
-   * @return the updated method type with inferred nullability applied
+   * @return the enhanced method type, with root-only fallback for unsupported substitutions
    */
   @SuppressWarnings("ReferenceEquality")
-  public static Type.MethodType updateMethodTypeWithInferredNullability(
+  public static Type.MethodType updateMethodTypeWithInferredTypes(
       Type.MethodType methodTypeToUpdate,
       Type.MethodType origMethodType,
-      @Nullable Map<Element, ConstraintSolver.InferredNullability> typeVarNullability,
+      @Nullable Map<Element, ConstraintSolver.InferredType> typeVarNullability,
       VisitorState state,
       Config config) {
     List<Type> argtypes = methodTypeToUpdate.argtypes;
@@ -279,7 +280,7 @@ public class TypeSubstitutionUtils {
         updateTypeListNullability(
             argtypes, origMethodType.argtypes, typeVarNullability, state, config);
     Type restype1 =
-        updateTypeWithInferredNullability(
+        updateTypeWithInferredTypes(
             restype, origMethodType.restype, typeVarNullability, state, config);
     List<Type> thrown1 =
         updateTypeListNullability(thrown, origMethodType.thrown, typeVarNullability, state, config);
@@ -294,7 +295,7 @@ public class TypeSubstitutionUtils {
   private static List<Type> updateTypeListNullability(
       List<Type> typesToUpdate,
       List<Type> origTypes,
-      @Nullable Map<Element, ConstraintSolver.InferredNullability> typeVarNullability,
+      @Nullable Map<Element, ConstraintSolver.InferredType> typeVarNullability,
       VisitorState state,
       Config config) {
     ListBuffer<Type> buf = new ListBuffer<>();
@@ -302,8 +303,7 @@ public class TypeSubstitutionUtils {
     for (List<Type> l = typesToUpdate, l1 = origTypes; l.nonEmpty(); l = l.tail, l1 = l1.tail) {
       Type toUpdate = l.head;
       Type orig = l1.head;
-      Type t2 =
-          updateTypeWithInferredNullability(toUpdate, orig, typeVarNullability, state, config);
+      Type t2 = updateTypeWithInferredTypes(toUpdate, orig, typeVarNullability, state, config);
       buf.append(t2);
       if (t2 != toUpdate) {
         changed = true;
@@ -313,23 +313,22 @@ public class TypeSubstitutionUtils {
   }
 
   /**
-   * Substitutes inferred nullability for type variables in the given target type.
+   * Substitutes a proper inferred type, or only a root qualifier, at each declared variable use.
    *
    * @param targetType type to which to apply substitutions
-   * @param typeVarNullability a map from type variable elements to their inferred nullability
+   * @param typeVarNullability the single typed solve result indexed by declared variable
    * @param state the visitor state
    * @param config the NullAway config
-   * @return the type resulting from applying inferred nullability substitutions
+   * @return an annotation source; explicit occurrence overrides are retained by substitution
    */
-  private static Type substituteInferredNullabilityForTypeVariables(
+  private static Type substituteInferredTypesForTypeVariables(
       Type targetType,
-      Map<Element, ConstraintSolver.InferredNullability> typeVarNullability,
+      Map<Element, ConstraintSolver.InferredType> typeVarNullability,
       VisitorState state,
       Config config) {
     ListBuffer<Type> typeVars = new ListBuffer<>();
     ListBuffer<Type> inferredTypes = new ListBuffer<>();
-    for (Map.Entry<Element, ConstraintSolver.InferredNullability> entry :
-        typeVarNullability.entrySet()) {
+    for (Map.Entry<Element, ConstraintSolver.InferredType> entry : typeVarNullability.entrySet()) {
       // find all TypeVars occurring in targetType with the same symbol and substitute for those.
       // we can have multiple such TypeVars due to previous substitutions that modified the type
       // in some way, e.g., by changing its bounds
@@ -338,12 +337,18 @@ public class TypeSubstitutionUtils {
       targetType.accept(tvc, null);
       for (Type.TypeVar tv : tvc.getMatches()) {
         typeVars.append(tv);
-        inferredTypes.append(
-            typeWithAnnot(
-                tv,
-                entry.getValue() == NULLABLE
-                    ? GenericsChecks.getSyntheticNullableAnnotType(state)
-                    : GenericsChecks.getSyntheticNonNullAnnotType(state)));
+        ConstraintSolver.InferredType inferred = entry.getValue();
+        if (inferred instanceof ConstraintSolver.Substitution substitution) {
+          inferredTypes.append(substitution.type());
+        } else {
+          ConstraintSolver.RootOnly root = (ConstraintSolver.RootOnly) inferred;
+          inferredTypes.append(
+              typeWithAnnot(
+                  tv,
+                  root.nullness() == NULLABLE
+                      ? GenericsChecks.getSyntheticNullableAnnotType(state)
+                      : GenericsChecks.getSyntheticNonNullAnnotType(state)));
+        }
       }
     }
     List<Type> typeVarsToReplace = typeVars.toList();
