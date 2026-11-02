@@ -3002,6 +3002,8 @@ public final class GenericsChecks {
    *
    * @param tree the method reference
    * @param state visitor state whose path ends at the reference
+   * @return true if inference failed _and_ an error was reported for the inference failure, false
+   *     otherwise
    */
   public boolean inferAndCheckMethodReferenceNullability(
       MemberReferenceTree tree, VisitorState state) {
@@ -3018,12 +3020,10 @@ public final class GenericsChecks {
                 handler);
     CallInferenceResult inferenceResult =
         inferMethodReferenceTypeArguments(tree, groundTargetType, !unannotatedTarget, state);
-    boolean warnedAboutInferenceFailure =
-        inferenceResult instanceof InferenceFailure && config.warnOnGenericInferenceFailure();
     if (unannotatedTarget) {
       return false;
     }
-    if (warnedAboutInferenceFailure) {
+    if (inferenceResult instanceof InferenceFailure && config.warnOnGenericInferenceFailure()) {
       return true;
     }
     GenericsUtils.processMethodRefTypeRelations(
@@ -3092,6 +3092,8 @@ public final class GenericsChecks {
    * @param reportFailure whether to report inference failures; false for unannotated targets whose
    *     nested nullability is unspecified
    * @param state visitor state whose path ends at the reference
+   * @return the {@code CallInferenceResult} capturing the inference result for the call, or {@code
+   *     null} if inference is not run
    */
   private @Nullable CallInferenceResult inferMethodReferenceTypeArguments(
       MemberReferenceTree tree, Type targetType, boolean reportFailure, VisitorState state) {
