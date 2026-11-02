@@ -161,6 +161,96 @@ public final class GenericsChecks {
    */
   private Map<Symbol, Type> lambdaParameterTypesForInference = Map.of();
 
+  /** A context-resolved executable and the result template used for inference. */
+  private record InferenceCall(CallSite site, Type executableType, Type resultTemplate) {
+    /** Returns the executable signature independently of its quantified declaration wrapper. */
+    Type.MethodType signature() {
+      return executableType.asMethodType();
+    }
+
+    /** Applies signature models while retaining an allocation's non-void result template. */
+    InferenceCall withSignature(Type.MethodType signature) {
+      return new InferenceCall(
+          site, signature, site.tree instanceof NewClassTree ? resultTemplate : signature.restype);
+    }
+  }
+
+  /** Call syntax shared by inference preparation and ordinary signature checking. */
+  private final class CallSite {
+    final ExpressionTree tree;
+    final Symbol.MethodSymbol symbol;
+    final List<Symbol.TypeVariableSymbol> variables;
+    final List<? extends Tree> explicitArguments;
+    final Type attributedResult;
+
+    /** Records the same inferred variables and constructor declaration as the existing paths. */
+    CallSite(ExpressionTree tree) {
+      this.tree = tree;
+      symbol = (Symbol.MethodSymbol) castToNonNull(ASTHelpers.getSymbol(tree));
+      if (tree instanceof MethodInvocationTree invocation) {
+        variables = symbol.getTypeParameters();
+        explicitArguments = invocation.getTypeArguments();
+        attributedResult = castToNonNull(ASTHelpers.getType(tree));
+      } else {
+        Verify.verify(tree instanceof NewClassTree);
+        NewClassTree construction = (NewClassTree) tree;
+        attributedResult = getConstructedTypeAtCallSite(construction);
+        variables = new ArrayList<>(attributedResult.tsym.getTypeParameters());
+        explicitArguments = construction.getTypeArguments();
+        if (explicitArguments.isEmpty()) {
+          variables.addAll(symbol.getTypeParameters());
+        }
+      }
+    }
+
+    /** Resolves receiver substitutions without inferring this call's omitted arguments. */
+    InferenceCall resolve(@Nullable TreePath path, VisitorState state, boolean calledFromDataflow) {
+      Type executable = symbol.type;
+      if (tree instanceof MethodInvocationTree invocation) {
+        Type receiver =
+            getEnclosingTypeForCallExpression(symbol, invocation, path, state, calledFromDataflow);
+        if (receiver != null) {
+          executable = TypeSubstitutionUtils.memberType(state.getTypes(), receiver, symbol, config);
+        }
+      }
+      return new InferenceCall(
+          this,
+          executable,
+          tree instanceof NewClassTree ? attributedResult.tsym.type : executable.getReturnType());
+    }
+
+    /**
+     * Resolves an ordinary-checking signature, including already instantiated constructor owners.
+     */
+    InferenceCall resolveForChecking(
+        Symbol.MethodSymbol declaration,
+        @Nullable TreePath path,
+        VisitorState state,
+        boolean calledFromDataflow) {
+      Type executable = declaration.type;
+      Type receiver =
+          getEnclosingTypeForCallExpression(declaration, tree, path, state, calledFromDataflow);
+      if (receiver != null) {
+        executable =
+            TypeSubstitutionUtils.memberType(state.getTypes(), receiver, declaration, config);
+      }
+      return new InferenceCall(this, executable, attributedResult);
+    }
+
+    /** Returns the attributed executable signature, not authoritative nullness evidence. */
+    Type.MethodType attributedSignature() {
+      return (tree instanceof MethodInvocationTree invocation
+              ? castToNonNull(ASTHelpers.getType(invocation.getMethodSelect()))
+              : ((JCTree.JCNewClass) tree).constructorType)
+          .asMethodType();
+    }
+  }
+
+  /** Creates a request-local description without caching receiver-dependent types. */
+  private CallSite callSite(ExpressionTree tree) {
+    return new CallSite(tree);
+  }
+
   /** Maps each {@code var}-declared local to its inferred NullAway type */
   private final Map<Symbol, Type> inferredVarLocalTypes = new LinkedHashMap<>();
 
@@ -178,7 +268,8 @@ public final class GenericsChecks {
    * Tracks generic method invocations currently undergoing nested-nullability repair so re-entrant
    * requests for the same invocation can use the already inferred call-site method type rather than
    * recursing back through the same repair logic. See {@link
-   * #substituteTypeArgsInGenericMethodType(Tree, Type.ForAll, TreePath, VisitorState, boolean)}
+   * #substituteTypeArgsInGenericMethodType(InferenceCall, Type.ForAll, TreePath, VisitorState,
+   * boolean)}
    */
   private final Set<MethodInvocationTree> nestedNullabilityRepairInProgress = new LinkedHashSet<>();
 
@@ -1368,8 +1459,8 @@ public final class GenericsChecks {
     Verify.verify(isCallNeedingInference(callTree));
     // Computing the executable type of a method invocation computes the type of its receiver,
     // which may itself require inference, so compute it only once
-    Type.MethodType executableType =
-        getExecutableTypeForInference(callTree, path, state, calledFromDataflow);
+    InferenceCall inferenceCall = getCallForInference(callTree, path, state, calledFromDataflow);
+    Type.MethodType executableType = inferenceCall.signature();
     Map<Element, ConstraintSolver.InferredType> inferredTypes = null;
     CallInferenceResult result = inferredTypeVarNullabilityForGenericCalls.get(callTree);
     if (result == null) { // have not yet attempted inference for this call
@@ -1377,8 +1468,7 @@ public final class GenericsChecks {
           runInferenceForCall(
               state,
               path,
-              callTree,
-              executableType,
+              inferenceCall,
               typeFromAssignmentContext,
               assignedToLocal,
               calledFromDataflow);
@@ -1417,9 +1507,7 @@ public final class GenericsChecks {
    * @param state the visitor state
    * @param path the tree path to the call tree if available and possibly distinct from {@code
    *     state.getPath()}
-   * @param callTree the method invocation tree or constructor call tree representing the call
-   * @param executableType the executable type of {@code callTree}, as computed by {@link
-   *     #getExecutableTypeForInference}
+   * @param inferenceCall the prepared executable and result for the call
    * @param typeFromAssignmentContext the type being "assigned to" in the assignment context, or
    *     {@code null} if the type is unavailable or the method result is not assigned anywhere
    * @param assignedToLocal true if the call result is assigned to a local variable, false otherwise
@@ -1430,11 +1518,12 @@ public final class GenericsChecks {
   private CallInferenceResult runInferenceForCall(
       VisitorState state,
       @Nullable TreePath path,
-      ExpressionTree callTree,
-      Type.MethodType executableType,
+      InferenceCall inferenceCall,
       @Nullable Type typeFromAssignmentContext,
       boolean assignedToLocal,
       boolean calledFromDataflow) {
+    ExpressionTree callTree = inferenceCall.site.tree;
+    Type.MethodType executableType = inferenceCall.signature();
     ConstraintSolver solver = makeSolver(state, analysis);
     // allCalls tracks the top-level call and any nested calls that also require inference
     Set<Tree> allCalls = new LinkedHashSet<>();
@@ -1542,17 +1631,7 @@ public final class GenericsChecks {
 
   /** Returns the type parameters whose nullability is inferred for {@code callTree}. */
   private List<Symbol.TypeVariableSymbol> getCallTypeParameters(ExpressionTree callTree) {
-    if (callTree instanceof MethodInvocationTree invocationTree) {
-      return ASTHelpers.getSymbol(invocationTree).getTypeParameters();
-    }
-    Verify.verify(callTree instanceof NewClassTree);
-    NewClassTree newClassTree = (NewClassTree) callTree;
-    List<Symbol.TypeVariableSymbol> typeParameters =
-        new ArrayList<>(getConstructedTypeAtCallSite(newClassTree).tsym.getTypeParameters());
-    if (newClassTree.getTypeArguments().isEmpty()) {
-      typeParameters.addAll(getMethodSymbolForCall(newClassTree).getTypeParameters());
-    }
-    return typeParameters;
+    return callSite(callTree).variables;
   }
 
   /**
@@ -1574,30 +1653,22 @@ public final class GenericsChecks {
       @Nullable TreePath path,
       VisitorState state,
       boolean calledFromDataflow) {
-    Symbol.MethodSymbol methodSymbol = getMethodSymbolForCall(callTree);
-    Type executableType = methodSymbol.type;
-    if (callTree instanceof MethodInvocationTree invocationTree) {
-      Type enclosingType =
-          getEnclosingTypeForCallExpression(
-              methodSymbol, invocationTree, path, state, calledFromDataflow);
-      if (enclosingType != null) {
-        executableType =
-            TypeSubstitutionUtils.memberType(state.getTypes(), enclosingType, methodSymbol, config);
-      }
-    }
-    return handler.onOverrideMethodType(
-        methodSymbol,
-        executableType.asMethodType(),
-        state,
-        callTree instanceof MethodInvocationTree invocationTree ? invocationTree : null);
+    return getCallForInference(callTree, path, state, calledFromDataflow).signature();
   }
 
-  /** Returns the method or constructor symbol for {@code callTree}. */
-  private Symbol.MethodSymbol getMethodSymbolForCall(ExpressionTree callTree) {
-    Verify.verify(
-        callTree instanceof MethodInvocationTree || callTree instanceof NewClassTree,
-        "Expected a MethodInvocationTree or a NewClassTree");
-    return (Symbol.MethodSymbol) castToNonNull(ASTHelpers.getSymbol(callTree));
+  /** Resolves a call's receiver before applying handler-provided signature models. */
+  private InferenceCall getCallForInference(
+      ExpressionTree callTree,
+      @Nullable TreePath path,
+      VisitorState state,
+      boolean calledFromDataflow) {
+    InferenceCall call = callSite(callTree).resolve(path, state, calledFromDataflow);
+    return call.withSignature(
+        handler.onOverrideMethodType(
+            call.site.symbol,
+            call.signature(),
+            state,
+            callTree instanceof MethodInvocationTree invocation ? invocation : null));
   }
 
   /**
@@ -3522,7 +3593,7 @@ public final class GenericsChecks {
   /**
    * Substitutes the type arguments from a generic method invocation into the method's type.
    *
-   * @param tree the method invocation tree
+   * @param call the prepared method invocation
    * @param forAllType the generic method type
    * @param path the path to the invocation tree, or null if not available
    * @param state the visitor state
@@ -3530,21 +3601,16 @@ public final class GenericsChecks {
    * @return the substituted method type with library models applied
    */
   private Type.MethodType substituteTypeArgsInGenericMethodType(
-      Tree tree,
+      InferenceCall call,
       Type.ForAll forAllType,
       @Nullable TreePath path,
       VisitorState state,
       boolean calledFromDataflow) {
-    Type.MethodType methodType = forAllType.asMethodType();
+    Tree tree = call.site.tree;
+    Type.MethodType methodType = call.signature();
     MethodInvocationTree invocationTree =
-        tree instanceof MethodInvocationTree methodInvocationTree ? methodInvocationTree : null;
-    Symbol.MethodSymbol methodSymbol =
-        (Symbol.MethodSymbol) castToNonNull(ASTHelpers.getSymbol(tree));
-
-    List<? extends Tree> typeArgumentTrees =
-        invocationTree != null
-            ? invocationTree.getTypeArguments()
-            : ((NewClassTree) tree).getTypeArguments();
+        tree instanceof MethodInvocationTree invocation ? invocation : null;
+    List<? extends Tree> typeArgumentTrees = call.site.explicitArguments;
     com.sun.tools.javac.util.List<Type> explicitTypeArgs = convertTreesToTypes(typeArgumentTrees);
     Type.MethodType substitutedMethodType;
     Nullness jointlyInferredPolyNullness = null;
@@ -3563,15 +3629,12 @@ public final class GenericsChecks {
             runInferenceForCall(
                 state,
                 path,
-                invocationAndType.call,
-                getExecutableTypeForInference(
-                    invocationAndType.call, path, state, calledFromDataflow),
+                getCallForInference(invocationAndType.call, path, state, calledFromDataflow),
                 invocationAndType.typeFromAssignmentContext,
                 invocationAndType.assignedToLocal,
                 calledFromDataflow);
       }
-      Type.MethodType methodTypeAtCallSite =
-          castToNonNull(ASTHelpers.getType(invocationTree.getMethodSelect())).asMethodType();
+      Type.MethodType methodTypeAtCallSite = call.site.attributedSignature();
       if (result instanceof InferenceSuccess successResult) {
         // Repairing dropped nested nullability annotations can itself inspect actual argument
         // types. For diamond constructor arguments, that can re-enter method-type computation for
@@ -3618,19 +3681,15 @@ public final class GenericsChecks {
                   state.getTypes(), methodType, forAllType.tvars, explicitTypeArgs, config)
               .asMethodType();
     }
-    Type.MethodType modeledMethodType =
-        handler.onOverrideMethodType(methodSymbol, substitutedMethodType, state, invocationTree);
-    return invocationTree == null
-            || (genericInferenceFailed && config.warnOnGenericInferenceFailure())
-        ? modeledMethodType
-        : applyPolyNullModel(
-            methodSymbol,
-            invocationTree,
-            modeledMethodType,
-            jointlyInferredPolyNullness,
-            path,
-            state,
-            calledFromDataflow);
+    return modelResolvedSignature(
+        call,
+        call.site.symbol,
+        substitutedMethodType,
+        jointlyInferredPolyNullness,
+        genericInferenceFailed,
+        path,
+        state,
+        calledFromDataflow);
   }
 
   /**
@@ -3853,28 +3912,43 @@ public final class GenericsChecks {
       @Nullable TreePath path,
       VisitorState state,
       boolean calledFromDataflow) {
-    Type invokedMethodType = methodSymbol.type;
-    Type enclosingType =
-        getEnclosingTypeForCallExpression(methodSymbol, tree, path, state, calledFromDataflow);
-    if (enclosingType != null) {
-      invokedMethodType =
-          TypeSubstitutionUtils.memberType(state.getTypes(), enclosingType, methodSymbol, config);
+    InferenceCall call =
+        callSite((ExpressionTree) tree)
+            .resolveForChecking(methodSymbol, path, state, calledFromDataflow);
+    if (tree instanceof MethodInvocationTree && call.executableType instanceof Type.ForAll forAll) {
+      return substituteTypeArgsInGenericMethodType(call, forAll, path, state, calledFromDataflow);
     }
-    if (tree instanceof MethodInvocationTree
-        && invokedMethodType instanceof Type.ForAll forAllType) {
-      return substituteTypeArgsInGenericMethodType(
-          tree, forAllType, path, state, calledFromDataflow);
-    }
-    Type.MethodType modeledMethodType =
-        handler.onOverrideMethodType(
-            methodSymbol,
-            invokedMethodType.asMethodType(),
+    return modelResolvedSignature(
+        call, methodSymbol, call.signature(), null, false, path, state, calledFromDataflow);
+  }
+
+  /**
+   * Applies models after substitution, using the checking path's declaration for fixed models
+   * rather than an anonymous allocation's synthetic forwarding constructor.
+   */
+  private Type.MethodType modelResolvedSignature(
+      InferenceCall call,
+      Symbol.MethodSymbol declaration,
+      Type.MethodType signature,
+      @Nullable Nullness jointlyInferredPolyNullness,
+      boolean inferenceFailed,
+      @Nullable TreePath path,
+      VisitorState state,
+      boolean calledFromDataflow) {
+    MethodInvocationTree invocation =
+        call.site.tree instanceof MethodInvocationTree methodInvocation ? methodInvocation : null;
+    Type.MethodType modeled =
+        handler.onOverrideMethodType(declaration, signature, state, invocation);
+    return invocation == null || (inferenceFailed && config.warnOnGenericInferenceFailure())
+        ? modeled
+        : applyPolyNullModel(
+            call.site.symbol,
+            invocation,
+            modeled,
+            jointlyInferredPolyNullness,
+            path,
             state,
-            tree instanceof MethodInvocationTree invocationTree ? invocationTree : null);
-    return tree instanceof MethodInvocationTree invocationTree
-        ? applyPolyNullModel(
-            methodSymbol, invocationTree, modeledMethodType, null, path, state, calledFromDataflow)
-        : modeledMethodType;
+            calledFromDataflow);
   }
 
   /** Returns whether {@code methodSymbol} has a polymorphic-nullness library model. */
@@ -4125,7 +4199,13 @@ public final class GenericsChecks {
       // Substitute the argument types within the MethodType
       Type.ForAll forAllType = (Type.ForAll) invokedMethodSymbol.type;
       List<Type> substitutedParamTypes =
-          substituteTypeArgsInGenericMethodType(tree, forAllType, null, state, false)
+          substituteTypeArgsInGenericMethodType(
+                  new InferenceCall(
+                      callSite((ExpressionTree) tree), forAllType, forAllType.getReturnType()),
+                  forAllType,
+                  null,
+                  state,
+                  false)
               .getParameterTypes();
       // If this condition evaluates to false, we fall through to the subsequent logic, to handle
       // type variables declared on the enclosing class
