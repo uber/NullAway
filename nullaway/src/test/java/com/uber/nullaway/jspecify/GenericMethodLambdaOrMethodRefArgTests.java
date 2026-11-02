@@ -79,6 +79,471 @@ public class GenericMethodLambdaOrMethodRefArgTests extends NullAwayTestsBase {
         .doTest();
   }
 
+  /**
+   * Method references targeting unmarked functional interfaces avoid nested nullability inference
+   * failures in argument, local, and return contexts, while marked targets still report conflicts.
+   */
+  @Test
+  public void unmarkedMethodReferenceTargetsDoNotReportNestedInferenceFailures() {
+    makeHelper()
+        .addSourceLines(
+            "Test.java",
+            """
+            package com.uber;
+            import java.util.List;
+            import org.jspecify.annotations.NullMarked;
+            import org.jspecify.annotations.NullUnmarked;
+            import org.jspecify.annotations.Nullable;
+            @NullMarked
+            class Test {
+              @NullUnmarked interface UnmarkedFn<T> { void apply(T value); }
+              interface MarkedFn<T extends @Nullable Object> { void apply(T value); }
+              static <T> void nonNullElements(List<T> values) {}
+              static void acceptUnmarked(UnmarkedFn<List<@Nullable String>> function) {}
+              static void acceptMarked(MarkedFn<List<@Nullable String>> function) {}
+              void unmarkedArgument() { acceptUnmarked(Test::nonNullElements); }
+              void unmarkedLocal() {
+                UnmarkedFn<List<@Nullable String>> function = Test::nonNullElements;
+              }
+              UnmarkedFn<List<@Nullable String>> unmarkedReturn() {
+                return Test::nonNullElements;
+              }
+              void markedArgument() {
+                // BUG: Diagnostic contains: inference failure
+                acceptMarked(Test::nonNullElements);
+              }
+              void markedLocal() {
+                // BUG: Diagnostic contains: inference failure
+                MarkedFn<List<@Nullable String>> function = Test::nonNullElements;
+              }
+              MarkedFn<List<@Nullable String>> markedReturn() {
+                // BUG: Diagnostic contains: inference failure
+                return Test::nonNullElements;
+              }
+            }
+            """)
+        .doTest();
+  }
+
+  /**
+   * Explicit {@code @Nullable} parameter and return annotations within a {@code @NullUnmarked}
+   * functional interface are used when performing inference for a method reference that targets the
+   * interface
+   */
+  @Test
+  public void explicitlyNullableUnmarkedMethodReferenceTargetsCheckParameterNullness() {
+    makeHelper()
+        .addSourceLines(
+            "Test.java",
+            """
+            package com.uber;
+            import org.jspecify.annotations.NullMarked;
+            import org.jspecify.annotations.NullUnmarked;
+            import org.jspecify.annotations.Nullable;
+            @NullMarked
+            class Test {
+              @NullUnmarked interface ExplicitNullableFn {
+                // explicit @Nullable annotations within the @NullUnmarked interface
+                @Nullable Object apply(@Nullable Object value);
+              }
+              static <T extends @Nullable Object> T identity(T value) { return value; }
+              static <T> T nonNullIdentity(T value) { return value; }
+              static void acceptExplicitNullable(ExplicitNullableFn function) {}
+              void nullableBoundAccepted() {
+                acceptExplicitNullable(Test::identity);
+              }
+              void nonNullBoundRejected() {
+                // BUG: Diagnostic contains: parameter value of referenced method is @NonNull
+                acceptExplicitNullable(Test::nonNullIdentity);
+              }
+            }
+            """)
+        .doTest();
+  }
+
+  /**
+   * Method references preserve nullable type-variable uses in targets supplied by casts,
+   * conditionals, and switch expressions, reporting incompatible nested return types or inference
+   * constraints.
+   */
+  @Test
+  public void methodReferenceTargetsPreserveNullableTypeVariablesInCastsAndConditionals() {
+    makeHelper()
+        .addSourceLines(
+            "Test.java",
+            """
+            package com.uber;
+            import java.util.List;
+            import java.util.function.Supplier;
+            import org.jspecify.annotations.NullMarked;
+            import org.jspecify.annotations.Nullable;
+            @NullMarked
+            class Test<T> {
+              List<@Nullable T> nullableValues() { throw new UnsupportedOperationException(); }
+              List<T> nonNullValues() { throw new UnsupportedOperationException(); }
+              static <U extends @Nullable Object> List<@Nullable U> genericNullableValues() {
+                throw new UnsupportedOperationException();
+              }
+              void accept(Supplier<List<@Nullable T>> supplier) {}
+              void acceptNonNull(Supplier<List<T>> supplier) {}
+              static <U extends @Nullable Object> void acceptGeneric(
+                  Supplier<List<U>> supplier, List<U> values) {}
+              Supplier<List<@Nullable T>> nullableCast() {
+                return (Supplier<List<@Nullable T>>) this::nullableValues;
+              }
+              Supplier<List<T>> nonNullCast() {
+                // BUG: Diagnostic contains: referenced method returns
+                return (Supplier<List<T>>) this::nullableValues;
+              }
+              Supplier<List<@Nullable T>> nullableGenericCast() {
+                return (Supplier<List<@Nullable T>>) Test::genericNullableValues;
+              }
+              Supplier<List<T>> nonNullGenericCast() {
+                // BUG: Diagnostic contains: referenced method returns
+                return (Supplier<List<T>>) Test::genericNullableValues;
+              }
+              Supplier<List<@Nullable T>> nullableConditional(boolean flag) {
+                return flag ? this::nullableValues : this::nullableValues;
+              }
+              Supplier<List<T>> nonNullConditional(boolean flag) {
+                // BUG: Diagnostic contains: referenced method returns
+                return flag ? this::nullableValues : this::nullableValues;
+              }
+              Supplier<List<T>> incompatibleTrueArm(boolean flag) {
+                return flag
+                    // BUG: Diagnostic contains: referenced method returns
+                    ? this::nullableValues
+                    : this::nonNullValues;
+              }
+              Supplier<List<T>> incompatibleFalseArm(boolean flag) {
+                return flag
+                    ? this::nonNullValues
+                    // BUG: Diagnostic contains: referenced method returns
+                    : this::nullableValues;
+              }
+              static void nullableConditionalArgument(Test<String> target, boolean flag) {
+                target.accept(flag ? target::nullableValues : target::nullableValues);
+              }
+              static void nonNullConditionalArgument(Test<String> target, boolean flag) {
+                // BUG: Diagnostic contains: referenced method returns
+                target.acceptNonNull(flag ? target::nullableValues : target::nullableValues);
+              }
+              static void parenthesizedConditionalArm(Test<String> target, boolean flag) {
+                target.accept(flag ? (target::nullableValues) : (target::nullableValues));
+              }
+              static void inferredNullableConditional(Test<String> target, boolean flag,
+                  List<@Nullable String> values) {
+                acceptGeneric(flag ? (target::nullableValues) : (target::nullableValues), values);
+              }
+              static void incompatibleInferredConditional(Test<String> target, boolean flag,
+                  List<String> values) {
+                // BUG: Diagnostic contains: inference failure
+                acceptGeneric(flag ? (target::nullableValues) : (target::nullableValues), values);
+              }
+              static void nestedConditional(Test<String> target, boolean first, boolean second) {
+                target.accept(first ? (second ? target::nullableValues : target::nullableValues)
+                    : target::nullableValues);
+              }
+              Supplier<List<@Nullable T>> nullableSwitch(int selector) {
+                return switch (selector) { default -> this::nullableValues; };
+              }
+              Supplier<List<T>> nonNullSwitch(int selector) {
+                // BUG: Diagnostic contains: referenced method returns
+                return switch (selector) { default -> this::nullableValues; };
+              }
+            }
+            """)
+        .doTest();
+  }
+
+  /**
+   * Regression for issue 2063: a generic method reference accepting a marked publisher with a
+   * wildcard type argument infers successfully both inline and when assigned first.
+   */
+  @Test
+  public void issue2063InlineGenericMethodReference() {
+    checkInlineGenericMethodReference(
+        "@NullMarked interface Publisher<T extends @Nullable Object> {}");
+  }
+
+  /**
+   * Regression for issue 2063: a generic method reference accepting an unmarked publisher with a
+   * wildcard type argument infers successfully both inline and when assigned first.
+   */
+  @Test
+  public void issue2063InlineGenericMethodReferenceWithUnmarkedPublisher() {
+    checkInlineGenericMethodReference("@NullUnmarked interface Publisher<T> {}");
+  }
+
+  /** Checks the wildcard inference reproducer with either a marked or an unmarked publisher. */
+  private void checkInlineGenericMethodReference(String publisherDeclaration) {
+    makeHelper()
+        .addSourceLines(
+            "Repro.java",
+            """
+            package com.uber;
+            import java.util.function.Function;
+            import org.jspecify.annotations.NullMarked;
+            import org.jspecify.annotations.NullUnmarked;
+            import org.jspecify.annotations.Nullable;
+            @NullMarked
+            class Repro {
+              // publisherDeclaration inserted here:
+              %s
+              static class Mono<T extends @Nullable Object> implements Publisher<T> {
+                static <T extends @Nullable Object> Mono<T> from(Publisher<? extends T> source) {
+                  return new Mono<>();
+                }
+              }
+              Function<Publisher<?>, Object> assigned = Mono::from;
+              static void register(Function<Publisher<?>, Object> adapter) {}
+              static <Unused> void registerGeneric(Function<Publisher<?>, Object> adapter) {}
+              static class Adapter {
+                Adapter(Function<Publisher<?>, Object> adapter) {}
+              }
+              void inlineReference() { register(Mono::from); }
+              void parenthesizedReference() { register((Mono::from)); }
+              void constructorArgument() { new Adapter(Mono::from); }
+              void explicitTypeArgument() { register(Mono::<@Nullable Object>from); }
+              void lambda() { register(source -> Mono.from(source)); }
+              void assignedReference() {
+                Function<Publisher<?>, Object> adapter = Mono::from;
+                register(adapter);
+              }
+              void genericEnclosingCall() { registerGeneric(Mono::from); }
+              void explicitEnclosingTypeArgument() { Repro.<Object>registerGeneric(Mono::from); }
+            }
+            """
+                .formatted(publisherDeclaration))
+        .doTest();
+  }
+
+  /**
+   * Generic method references infer nullability from known functional interface targets for static,
+   * bound, unbound, and varargs methods, rejecting conflicting constraints and preserving explicit
+   * type arguments.
+   */
+  @Test
+  public void genericMethodReferenceInferenceAgainstKnownTarget() {
+    makeHelper()
+        .addSourceLines(
+            "Test.java",
+            """
+            package com.uber;
+            import java.util.function.BiFunction;
+            import java.util.function.Function;
+            import org.jspecify.annotations.NullMarked;
+            import org.jspecify.annotations.Nullable;
+            @NullMarked
+            class Test {
+              static class Box<T extends @Nullable Object> {}
+              static class Factory {
+                <T extends @Nullable Object> Box<T> box(T value) { return new Box<>(); }
+              }
+              static <T extends @Nullable Object> Box<T> box(T value) { return new Box<>(); }
+              static <T> Box<T> nonNullBox(T value) { return new Box<>(); }
+              @SafeVarargs
+              static <T extends @Nullable Object> Box<T> varargsBox(T... values) {
+                return new Box<>();
+              }
+              static void acceptsNonNull(Function<String, Box<String>> function) {}
+              static void acceptsNullable(
+                  Function<@Nullable String, Box<@Nullable String>> function) {}
+              static void acceptsBoth(Function<String, Box<String>> first,
+                  Function<@Nullable String, Box<@Nullable String>> second) {}
+              static void acceptsUnbound(
+                  BiFunction<Factory, @Nullable String, Box<@Nullable String>> function) {}
+              static void acceptsArray(
+                  Function<@Nullable String[], Box<@Nullable String>> function) {}
+              static void acceptsIncompatible(Function<@Nullable String, Box<String>> function) {}
+              void nonNullInputAndReturn() { acceptsNonNull(Test::box); }
+              void nullableInputAndReturn() { acceptsNullable(Test::box); }
+              void nonNullBoundWithNonNullInput() { acceptsNonNull(Test::nonNullBox); }
+              void boundReference(Factory factory) { acceptsNullable(factory::box); }
+              void unboundReference() { acceptsUnbound(Factory::box); }
+              void variableArityReference() { acceptsNullable(Test::varargsBox); }
+              void fixedArityReference() { acceptsArray(Test::varargsBox); }
+              void referencesAreInferredSeparately() {
+                acceptsBoth(Test::box, Test::box);
+              }
+              void incompatibleInputAndReturn() {
+                // BUG: Diagnostic contains: inference failure: type variable T constrained to be both
+                acceptsIncompatible(Test::box);
+              }
+              void nonNullBoundWithNullableInput() {
+                // BUG: Diagnostic contains: inference failure: type variable T is constrained to be @Nullable
+                acceptsNullable(Test::nonNullBox);
+              }
+              void explicitTypeArgumentIsPreserved() {
+                // BUG: Diagnostic contains: referenced method
+                acceptsNullable(Test::<String>box);
+              }
+            }
+            """)
+        .doTest();
+  }
+
+  /**
+   * Generic method references infer nested nullability consistently in field initializers, locals,
+   * assignments, returns, lambda results, and method or constructor arguments, rejecting
+   * conflicting input and return constraints.
+   */
+  @Test
+  public void genericMethodReferenceInferenceAcrossContexts() {
+    makeHelper()
+        .addSourceLines(
+            "Test.java",
+            """
+            package com.uber;
+            import java.util.List;
+            import java.util.function.Function;
+            import java.util.function.Supplier;
+            import org.jspecify.annotations.NullMarked;
+            import org.jspecify.annotations.Nullable;
+            @NullMarked
+            class Test {
+              static <T extends @Nullable Object> List<T> identity(List<T> values) {
+                return values;
+              }
+              static void acceptNullable(
+                  Function<List<@Nullable String>, List<@Nullable String>> function) {}
+              static void acceptIncompatible(
+                  Function<List<@Nullable String>, List<String>> function) {}
+              static class Adapter {
+                Adapter(Function<List<@Nullable String>, List<String>> function) {}
+              }
+
+              Function<List<String>, List<String>> nonNullField = Test::identity;
+              Function<List<@Nullable String>, List<@Nullable String>> nullableField = Test::identity;
+              // BUG: Diagnostic contains: inference failure: type variable T constrained to be both
+              Function<List<@Nullable String>, List<String>> incompatibleField = Test::identity;
+
+              void nonNullLocal() {
+                Function<List<String>, List<String>> function = Test::identity;
+              }
+              void nullableLocal() {
+                Function<List<@Nullable String>, List<@Nullable String>> function = Test::identity;
+              }
+              void incompatibleLocal() {
+                // BUG: Diagnostic contains: inference failure: type variable T constrained to be both
+                Function<List<@Nullable String>, List<String>> function = Test::identity;
+              }
+              void nullableAssignment() {
+                nullableField = (Test::identity);
+              }
+              void incompatibleAssignment() {
+                // BUG: Diagnostic contains: inference failure: type variable T constrained to be both
+                incompatibleField = (Test::identity);
+              }
+              Function<List<String>, List<String>> nonNullReturn() {
+                return Test::identity;
+              }
+              Function<List<@Nullable String>, List<@Nullable String>> nullableReturn() {
+                return (Test::identity);
+              }
+              Function<List<@Nullable String>, List<String>> incompatibleReturn() {
+                // BUG: Diagnostic contains: inference failure: type variable T constrained to be both
+                return (Test::identity);
+              }
+              static <T> Function<List<@Nullable T>, List<@Nullable T>> nullableTypeVariableReturn() {
+                return Test::identity;
+              }
+              static <T> Function<List<@Nullable T>, List<T>> incompatibleTypeVariableReturn() {
+                // BUG: Diagnostic contains: inference failure: type variable T constrained to be both
+                return Test::identity;
+              }
+              Supplier<Function<List<@Nullable String>, List<@Nullable String>>> nullableLambdaReturn() {
+                return () -> Test::identity;
+              }
+              Supplier<Function<List<@Nullable String>, List<String>>> incompatibleLambdaReturn() {
+                // BUG: Diagnostic contains: inference failure: type variable T constrained to be both
+                return () -> Test::identity;
+              }
+              void nullableArgument() {
+                acceptNullable(Test::identity);
+              }
+              void incompatibleArgument() {
+                // BUG: Diagnostic contains: inference failure: type variable T constrained to be both
+                acceptIncompatible(Test::identity);
+              }
+              void incompatibleConstructorArgument() {
+                // BUG: Diagnostic contains: inference failure: type variable T constrained to be both
+                new Adapter(Test::identity);
+              }
+            }
+            """)
+        .doTest();
+  }
+
+  /**
+   * Non-generic method references check nested parameter and return nullability against local,
+   * return, and argument targets, accepting matching list element types and rejecting mismatches.
+   */
+  @Test
+  public void nonGenericMethodReferenceNestedNullabilityAcrossContexts() {
+    makeHelper()
+        .addSourceLines(
+            "Test.java",
+            """
+            package com.uber;
+            import java.util.ArrayList;
+            import java.util.List;
+            import java.util.function.Consumer;
+            import java.util.function.Supplier;
+            import org.jspecify.annotations.NullMarked;
+            import org.jspecify.annotations.Nullable;
+            @NullMarked
+            class Test {
+              static List<@Nullable String> nullableValues() { return new ArrayList<>(); }
+              static void nonNullValues(List<String> values) {}
+              static void acceptNullableSupplier(Supplier<List<@Nullable String>> supplier) {}
+              static void acceptNonNullSupplier(Supplier<List<String>> supplier) {}
+              static void acceptNullableConsumer(Consumer<List<@Nullable String>> consumer) {}
+              static void acceptNonNullConsumer(Consumer<List<String>> consumer) {}
+
+              void compatibleLocals() {
+                Supplier<List<@Nullable String>> supplier = Test::nullableValues;
+                Consumer<List<String>> consumer = Test::nonNullValues;
+              }
+              void incompatibleSupplierLocal() {
+                // BUG: Diagnostic contains: referenced method returns List<@Nullable String>
+                Supplier<List<String>> supplier = Test::nullableValues;
+              }
+              void incompatibleConsumerLocal() {
+                // BUG: Diagnostic contains: parameter type of referenced method is List<String>
+                Consumer<List<@Nullable String>> consumer = Test::nonNullValues;
+              }
+              Supplier<List<@Nullable String>> compatibleSupplierReturn() {
+                return Test::nullableValues;
+              }
+              Supplier<List<String>> incompatibleSupplierReturn() {
+                // BUG: Diagnostic contains: referenced method returns List<@Nullable String>
+                return Test::nullableValues;
+              }
+              Consumer<List<String>> compatibleConsumerReturn() {
+                return Test::nonNullValues;
+              }
+              Consumer<List<@Nullable String>> incompatibleConsumerReturn() {
+                // BUG: Diagnostic contains: parameter type of referenced method is List<String>
+                return Test::nonNullValues;
+              }
+              void compatibleArguments() {
+                acceptNullableSupplier(Test::nullableValues);
+                acceptNonNullConsumer(Test::nonNullValues);
+              }
+              void incompatibleSupplierArgument() {
+                // BUG: Diagnostic contains: referenced method returns List<@Nullable String>
+                acceptNonNullSupplier(Test::nullableValues);
+              }
+              void incompatibleConsumerArgument() {
+                // BUG: Diagnostic contains: parameter type of referenced method is List<String>
+                acceptNullableConsumer(Test::nonNullValues);
+              }
+            }
+            """)
+        .doTest();
+  }
+
   @Test
   public void voidCompatibleLambdaDiscardsNullableGenericResult() {
     makeHelper()

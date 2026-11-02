@@ -1452,8 +1452,11 @@ public class NullAway extends BugChecker
     if (!withinAnnotatedCode(state)) {
       return Description.NO_MATCH;
     }
+    boolean warnedAboutInferenceFailure = false;
     if (config.isJSpecifyMode()) {
       genericsChecks.maybeStoreLibraryModeledPolyExpressionType(tree, state);
+      warnedAboutInferenceFailure =
+          genericsChecks.inferAndCheckMethodReferenceNullability(tree, state);
     }
     // Technically the qualifier expression of a method reference gets passed to
     // Objects.requireNonNull, but it's fine to treat it as a dereference for error-checking
@@ -1467,7 +1470,11 @@ public class NullAway extends BugChecker
     Symbol.MethodSymbol funcInterfaceSymbol =
         NullabilityUtil.getFunctionalInterfaceMethod(tree, state.getTypes());
     handler.onMatchMethodReference(tree, new MethodAnalysisContext(this, state, referencedMethod));
-    return checkOverriding(funcInterfaceSymbol, referencedMethod, null, tree, state);
+    if (!warnedAboutInferenceFailure) {
+      return checkOverriding(funcInterfaceSymbol, referencedMethod, null, tree, state);
+    } else {
+      return Description.NO_MATCH;
+    }
   }
 
   /**

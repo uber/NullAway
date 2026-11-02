@@ -171,7 +171,7 @@ jobs:
           - project: junit-framework
             url: https://github.com/junit-team/junit-framework.git
             branch: main
-            sha: bf8b0f4821e5445d5d2c0f1296d523853f1b6ddb
+            sha: 778cef55c315a91cf66dfe389f442f61094ca35b
             build: ./gradlew --init-script use-snapshot.gradle.kts compileAllJava
           - project: spring-boot
             url: https://github.com/spring-projects/spring-boot.git

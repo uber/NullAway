@@ -306,6 +306,158 @@ public class GenericInferenceErrorReportingTests extends NullAwayTestsBase {
                 + " required");
   }
 
+  @Test
+  public void methodReferenceInferenceFailuresAreReportedOnce() {
+    assertThat(
+            compileAndReportDiagnostics(
+                List.of(methodReferenceSource()),
+                "-XepOpt:NullAway:AcknowledgeRestrictiveAnnotations=true",
+                "-XepOpt:NullAway:WarnOnGenericInferenceFailure=true"))
+        .containsExactly(
+            "Test.java:29: [NullAway] inference failure: type variable T is constrained to be"
+                + " @Nullable, but its upper bound requires it to be @NonNull",
+            "Test.java:30: [NullAway] inference failure: type variable T is constrained to be"
+                + " @Nullable, but its upper bound requires it to be @NonNull",
+            "Test.java:31: [NullAway] inference failure: type variable T is constrained to be"
+                + " @Nullable, but its upper bound requires it to be @NonNull",
+            "Test.java:32: [NullAway] inference failure: type variable T is constrained to be"
+                + " @Nullable, but its upper bound requires it to be @NonNull",
+            "Test.java:34: [NullAway] inference failure: type variable T is constrained to be"
+                + " @Nullable, but its upper bound requires it to be @NonNull",
+            "Test.java:37: [NullAway] inference failure: type variable T is constrained to be"
+                + " @Nullable, but its upper bound requires it to be @NonNull",
+            "Test.java:40: [NullAway] inference failure: type variable T is constrained to be"
+                + " @Nullable, but its upper bound requires it to be @NonNull",
+            "Test.java:43: [NullAway] inference failure: type variable T is constrained to be"
+                + " @Nullable, but its upper bound requires it to be @NonNull",
+            "Test.java:45: [NullAway] inference failure: type variable T is constrained to be"
+                + " @Nullable, but its upper bound requires it to be @NonNull",
+            "Test.java:46: [NullAway] inference failure: type variable T is constrained to be"
+                + " @Nullable, but its upper bound requires it to be @NonNull",
+            "Test.java:47: [NullAway] inference failure: type variable T is constrained to be"
+                + " @Nullable, but its upper bound requires it to be @NonNull",
+            "Test.java:48: [NullAway] inference failure: type variable T is constrained to be"
+                + " @Nullable, but its upper bound requires it to be @NonNull",
+            "Test.java:49: [NullAway] parameter extra of referenced method is @NonNull, but"
+                + " parameter in functional interface method"
+                + " com.uber.Test.UnmarkedFn.apply(List<@Nullable String>,@Nullable Object) is"
+                + " @Nullable");
+  }
+
+  @Test
+  public void methodReferenceCompatibilityErrorsRemainWhenInferenceWarningsAreDisabled() {
+    assertThat(
+            compileAndReportDiagnostics(
+                List.of(methodReferenceSource()),
+                "-XepOpt:NullAway:AcknowledgeRestrictiveAnnotations=true",
+                "-XepOpt:NullAway:WarnOnGenericInferenceFailure=false"))
+        .containsExactly(
+            "Test.java:29: [NullAway] parameter value of referenced method is @NonNull, but"
+                + " parameter in functional interface method com.uber.Test.Fn.apply(@Nullable"
+                + " String) is @Nullable",
+            "Test.java:30: [NullAway] parameter value of referenced method is @NonNull, but"
+                + " parameter in functional interface method com.uber.Test.Fn.apply(@Nullable"
+                + " String) is @Nullable",
+            "Test.java:31: [NullAway] parameter value of referenced method is @NonNull, but"
+                + " parameter in functional interface method com.uber.Test.Fn.apply(@Nullable"
+                + " String) is @Nullable",
+            "Test.java:32: [NullAway] parameter value of referenced method is @NonNull, but"
+                + " parameter in functional interface method com.uber.Test.Fn.apply(@Nullable"
+                + " String) is @Nullable",
+            "Test.java:34: [NullAway] parameter value of referenced method is @NonNull, but"
+                + " parameter in functional interface method com.uber.Test.Fn.apply(@Nullable"
+                + " String) is @Nullable",
+            "Test.java:37: [NullAway] parameter value of referenced method is @NonNull, but"
+                + " parameter in functional interface method com.uber.Test.Fn.apply(@Nullable"
+                + " String) is @Nullable",
+            "Test.java:40: [NullAway] parameter value of referenced method is @NonNull, but"
+                + " parameter in functional interface method com.uber.Test.Fn.apply(@Nullable"
+                + " String) is @Nullable",
+            "Test.java:43: [NullAway] parameter value of referenced method is @NonNull, but"
+                + " parameter in functional interface method com.uber.Test.Fn.apply(@Nullable"
+                + " String) is @Nullable",
+            "Test.java:45: [NullAway] parameter type of referenced method is List<T>, but parameter"
+                + " in functional interface method has type List<@Nullable String>, which has"
+                + " mismatched type parameter nullability",
+            "Test.java:46: [NullAway] parameter type of referenced method is List<T>, but parameter"
+                + " in functional interface method has type List<@Nullable String>, which has"
+                + " mismatched type parameter nullability",
+            "Test.java:47: [NullAway] parameter type of referenced method is List<T>, but parameter"
+                + " in functional interface method has type List<@Nullable String>, which has"
+                + " mismatched type parameter nullability",
+            "Test.java:48: [NullAway] parameter type of referenced method is List<T>, but parameter"
+                + " in functional interface method has type List<@Nullable String>, which has"
+                + " mismatched type parameter nullability",
+            "Test.java:49: [NullAway] parameter extra of referenced method is @NonNull, but"
+                + " parameter in functional interface method"
+                + " com.uber.Test.UnmarkedFn.apply(List<@Nullable String>,@Nullable Object) is"
+                + " @Nullable");
+  }
+
+  /**
+   * Returns method references with incompatible inferred nullability in each target context, with
+   * nullable-bound and unmarked-target controls. The generic cached call runs joint inference
+   * before the reference itself is visited.
+   */
+  private static JavaFileObject methodReferenceSource() {
+    return FileObjects.forSourceLines(
+        "Test.java",
+        """
+        package com.uber;
+        import java.util.List;
+        import java.util.function.Supplier;
+        import org.jspecify.annotations.*;
+        @NullMarked class Test {
+          // Functional interfaces for testing method references
+          interface Fn<A extends @Nullable Object, R extends @Nullable Object> { R apply(A a); }
+          interface MarkedFn<T extends @Nullable Object> { void apply(T value); }
+          @NullUnmarked interface UnmarkedFn {
+            void apply(List<@Nullable String> values, @Nullable Object extra);
+          }
+
+          // Methods used for references
+          static <T> T nonNullId(T value) { return value; }
+          static <T extends @Nullable Object> T nullableId(T value) { return value; }
+          static <T> void nonNullElements(List<T> values) {}
+          static <T> void nonNullExtra(List<T> values, Object extra) {}
+
+          // Methods to which we pass references
+          static <T extends @Nullable Object> void gen(Fn<T, T> function) {}
+          static void accept(Fn<@Nullable String, @Nullable String> function) {}
+          static void acceptNested(MarkedFn<List<@Nullable String>> function) {}
+          // The U type variable forces inference for a call to this function before a method reference passed
+          // as the first argument is visited, so the reference's inference failure is already cached when it
+          // is visited.
+          static <U> void cached(MarkedFn<List<@Nullable String>> function, U witness) {}
+
+          // Cases to check we get exactly one error or none
+          void explicitGenericArgument() { Test.<@Nullable String>gen(Test::nonNullId); } // Error expected.
+          void nonGenericArgument() { accept(Test::nonNullId); } // Error expected.
+          void local() { Fn<@Nullable String, @Nullable String> function = Test::nonNullId; } // Error expected.
+          Fn<@Nullable String, @Nullable String> field = Test::nonNullId; // Error expected.
+          Fn<@Nullable String, @Nullable String> conditional(boolean flag) {
+            return flag ? Test::nonNullId : value -> value; // Error expected.
+          }
+          Fn<@Nullable String, @Nullable String> switchArm(int selector) {
+            return switch (selector) { default -> Test::nonNullId; }; // Error expected.
+          }
+          Supplier<Fn<@Nullable String, @Nullable String>> lambdaReturn() {
+            return () -> Test::nonNullId; // Error expected.
+          }
+          Supplier<Fn<@Nullable String, @Nullable String>> lambdaBlockReturn() {
+            return () -> { return Test::nonNullId; }; // Error expected.
+          }
+          void nestedLocal() { MarkedFn<List<@Nullable String>> function = Test::nonNullElements; } // Error expected.
+          void nestedArgument() { acceptNested(Test::nonNullElements); } // Error expected.
+          MarkedFn<List<@Nullable String>> nestedReturn() { return Test::nonNullElements; } // Error expected.
+          void cachedNested() { cached(Test::nonNullElements, ""); } // Error expected.
+          void unmarkedTarget() { UnmarkedFn function = Test::nonNullExtra; } // Error expected.
+          void nullableBoundControl() { accept(Test::nullableId); } // No error expected.
+          void nonNullNestedControl() { MarkedFn<List<String>> function = Test::nonNullElements; } // No error expected.
+        }
+        """);
+  }
+
   /**
    * Fails when {@link #compileAndReportDiagnostics} reports a diagnostic that names no line in the
    * compiled source. javac emits a summary note against a file rather than against no file at all,
@@ -352,9 +504,11 @@ public class GenericInferenceErrorReportingTests extends NullAwayTestsBase {
    * itself is broken.
    *
    * @param sources the compilation units to compile
+   * @param additionalArgs compiler options overriding the default JSpecify configuration
    * @return the rendered diagnostics, in the order javac emitted them
    */
-  private List<String> compileAndReportDiagnostics(List<JavaFileObject> sources) {
+  private List<String> compileAndReportDiagnostics(
+      List<JavaFileObject> sources, String... additionalArgs) {
     DiagnosticCollector<JavaFileObject> diagnosticCollector = new DiagnosticCollector<>();
     List<String> args =
         new ArrayList<>(
@@ -363,6 +517,7 @@ public class GenericInferenceErrorReportingTests extends NullAwayTestsBase {
                     "-d",
                     temporaryFolder.getRoot().getAbsolutePath(),
                     "-XepOpt:NullAway:AnnotatedPackages=com.uber")));
+    args.addAll(Arrays.asList(additionalArgs));
     args.add("-proc:none");
     ErrorProneJavaCompiler compiler =
         new ErrorProneJavaCompiler(ScannerSupplier.fromBugCheckerClasses(NullAway.class));
