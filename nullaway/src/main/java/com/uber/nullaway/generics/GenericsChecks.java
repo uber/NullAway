@@ -3078,7 +3078,7 @@ public final class GenericsChecks {
     }
     Type groundTargetType = GenericsUtils.groundTargetType(targetType, state, config, handler);
     return TypeSubstitutionUtils.restoreExplicitNullabilityAnnotations(
-        groundTargetType, expressionType, config);
+        groundTargetType, expressionType, state.getTypes(), config);
   }
 
   /**
