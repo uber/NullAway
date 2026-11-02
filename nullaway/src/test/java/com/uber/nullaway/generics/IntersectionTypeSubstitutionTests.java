@@ -13,6 +13,7 @@ import com.google.errorprone.util.ASTHelpers;
 import com.sun.source.tree.VariableTree;
 import com.sun.tools.javac.code.Symbol;
 import com.sun.tools.javac.code.Type;
+import com.sun.tools.javac.code.Types;
 import com.sun.tools.javac.util.List;
 import com.uber.nullaway.Config;
 import com.uber.nullaway.NullAway;
@@ -174,7 +175,7 @@ public class IntersectionTypeSubstitutionTests {
       switch (name) {
         case "reordered", "ordinary" -> {
           target = ((Type.TypeVar) target).getUpperBound();
-          Type result = restore(source, target, inputs);
+          Type result = restore(source, target, inputs, state.getTypes());
           observe(observations, "result", result);
           observe(observations, "A.argument", argument(component(result, "A")));
           observe(observations, "original.A.argument", argument(component(target, "A")));
@@ -186,14 +187,14 @@ public class IntersectionTypeSubstitutionTests {
           }
         }
         case "mixedTopLevel" -> {
-          Type result = restore(source, target, inputs);
+          Type result = restore(source, target, inputs, state.getTypes());
           observe(observations, "result", result);
           observe(observations, "result.argument", argument(result));
           observe(observations, "original.argument", argument(target));
           observe(observations, "source.A", component(source, "A"));
         }
         case "unmatched" -> {
-          Type result = restore(source, target, inputs);
+          Type result = restore(source, target, inputs, state.getTypes());
           observe(observations, "result", result);
           observe(observations, "result.argument", argument(result));
         }
@@ -204,7 +205,8 @@ public class IntersectionTypeSubstitutionTests {
                   : GenericsChecks.getSyntheticNonNullAnnotType(state);
           Type annotatedSource = TypeSubstitutionUtils.typeWithAnnot(source, annotation);
           Type.CapturedType result =
-              restoreCapture(annotatedSource, capture(target, state), observations, inputs);
+              restoreCapture(
+                  annotatedSource, capture(target, state), observations, inputs, state.getTypes());
           observe(observations, "upperBound", result.getUpperBound());
         }
         case "mixedSynthetic" -> {
@@ -221,7 +223,7 @@ public class IntersectionTypeSubstitutionTests {
                               component(source, "B"),
                               GenericsChecks.getSyntheticNonNullAnnotType(state))));
           Type.CapturedType result =
-              restoreCapture(mixed, capture(target, state), observations, inputs);
+              restoreCapture(mixed, capture(target, state), observations, inputs, state.getTypes());
           observe(observations, "upperBound", result.getUpperBound());
         }
         case "narrowedCapture" -> {
@@ -248,7 +250,8 @@ public class IntersectionTypeSubstitutionTests {
         }
         case "explicitCapture" -> {
           Type.CapturedType captured = capture(target, state);
-          Type.CapturedType result = (Type.CapturedType) restore(source, captured, inputs);
+          Type.CapturedType result =
+              (Type.CapturedType) restore(source, captured, inputs, state.getTypes());
           observe(observations, "result", result);
           observe(observations, "upperBound", result.getUpperBound());
           observe(observations, "wildcard.argument", argument(result.wildcard.type));
@@ -269,11 +272,12 @@ public class IntersectionTypeSubstitutionTests {
     }
 
     /** Restores annotations and records input top-level nullability before and after the call. */
-    private Type restore(Type source, Type target, StringBuilder inputs) {
+    private Type restore(Type source, Type target, StringBuilder inputs, Types types) {
       String sourceBefore = nullness(source);
       String targetBefore = nullness(target);
       Type result =
-          TypeSubstitutionUtils.restoreExplicitNullabilityAnnotations(source, target, config);
+          TypeSubstitutionUtils.restoreExplicitNullabilityAnnotations(
+              source, target, types, config);
       inputs.append("source=").append(sourceBefore).append("->").append(nullness(source));
       inputs.append(", target=").append(targetBefore).append("->").append(nullness(target));
       return result;
@@ -284,8 +288,9 @@ public class IntersectionTypeSubstitutionTests {
         Type source,
         Type.CapturedType target,
         Map<String, String> observations,
-        StringBuilder inputs) {
-      Type.CapturedType result = (Type.CapturedType) restore(source, target, inputs);
+        StringBuilder inputs,
+        Types types) {
+      Type.CapturedType result = (Type.CapturedType) restore(source, target, inputs, types);
       observe(observations, "result", result);
       observe(observations, "wildcard.argument", argument(result.wildcard.type));
       observe(observations, "original.upperBound", target.getUpperBound());

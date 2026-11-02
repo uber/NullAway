@@ -255,7 +255,7 @@ public final class GenericsChecks {
           GenericsUtils.groundTargetType(formalParameterType, state, config, handler);
       Type modeledPolyExpressionType =
           TypeSubstitutionUtils.restoreExplicitNullabilityAnnotations(
-              groundTargetType, polyExpressionType, config);
+              groundTargetType, polyExpressionType, state.getTypes(), config);
       inferredPolyExpressionTypes.put(polyExpressionTree, modeledPolyExpressionType);
     }
   }
@@ -920,7 +920,7 @@ public final class GenericsChecks {
                 && wildcard.kind == BoundKind.SUPER)) {
               result =
                   TypeSubstitutionUtils.restoreExplicitNullabilityAnnotations(
-                      annotationSource, result, config);
+                      annotationSource, result, state.getTypes(), config);
             }
           } else if (tree instanceof MemberSelectTree memberSelectTree) {
             Symbol memberSelectSymbol = ASTHelpers.getSymbol(memberSelectTree);
@@ -929,7 +929,7 @@ public final class GenericsChecks {
               Type fieldType = memberSelectSymbol.type;
               result =
                   TypeSubstitutionUtils.restoreExplicitNullabilityAnnotations(
-                      fieldType, result, config);
+                      fieldType, result, state.getTypes(), config);
             }
           }
         }
@@ -4658,7 +4658,7 @@ public final class GenericsChecks {
     Type groundTargetType = GenericsUtils.groundTargetType(targetType, state, config, handler);
     Type polyExpressionTypeWithTargetAnnotations =
         TypeSubstitutionUtils.restoreExplicitNullabilityAnnotations(
-            groundTargetType, polyExpressionType, config);
+            groundTargetType, polyExpressionType, state.getTypes(), config);
     inferredPolyExpressionTypes.put(polyExpressionTree, polyExpressionTypeWithTargetAnnotations);
   }
 
