@@ -9,6 +9,41 @@ import org.junit.Test;
 
 public class WildcardTests extends NullAwayTestsBase {
 
+  /**
+   * Regression for <a href="https://github.com/uber/NullAway/issues/2103">#2103</a>: restoring
+   * annotations after inference with F-bounded wildcards must handle a recursive bound that refers
+   * to a second type parameter without crashing.
+   */
+  @Test
+  public void fBoundedWildcardWithSecondTypeParameterDoesNotCrash() {
+    makeHelper()
+        .addSourceLines(
+            "Repro.java",
+            """
+            import org.jspecify.annotations.NullMarked;
+
+            @NullMarked
+            class Repro {
+              interface A<S extends A<S, T>, T> {}
+              interface B<S extends B<S>> extends A<S, String> {}
+              interface C<S extends C<S>> extends A<S, String> {}
+
+              static <T> T pick(T a, T b, T c) {
+                return a;
+              }
+
+              A<?, ?> repeatedSecondArgument(B<?> b, C<?> c) {
+                return pick(b, c, c);
+              }
+
+              A<?, ?> repeatedFirstArgument(B<?> b, C<?> c) {
+                return pick(b, b, c);
+              }
+            }
+            """)
+        .doTest();
+  }
+
   @Test
   public void issue1909FBoundedWildcardReturnDoesNotCrash() {
     makeHelper()

@@ -12,11 +12,13 @@ import com.google.errorprone.ErrorProneFlags;
 import com.google.errorprone.VisitorState;
 import com.google.errorprone.bugpatterns.BugChecker;
 import com.google.errorprone.matchers.Description;
+import com.google.errorprone.suppliers.Supplier;
 import com.google.errorprone.util.ASTHelpers;
 import com.sun.source.tree.VariableTree;
 import com.sun.tools.javac.code.BoundKind;
 import com.sun.tools.javac.code.Symbol;
 import com.sun.tools.javac.code.Type;
+import com.sun.tools.javac.util.Name;
 import com.uber.nullaway.Config;
 import com.uber.nullaway.NullAway;
 import com.uber.nullaway.librarymodel.NestedTypePathUpdater;
@@ -115,6 +117,92 @@ public class TypeSubstitutionUtilsTests {
         .doTest();
   }
 
+  @Test
+  public void restoreClassArgumentsUsesAnnotatedSupertypeOnlyWhenAvailable() {
+    CompilationTestHelper.newInstance(ClassTypeRestorationChecker.class, getClass())
+        .addSourceLines(
+            "Test.java",
+            """
+            import java.util.List;
+            import org.jspecify.annotations.NonNull;
+            import org.jspecify.annotations.Nullable;
+
+            interface Parent<X, Y> {}
+            interface Middle<X> extends Parent<List<@Nullable X>, @NonNull String> {}
+            interface Child<X> extends Middle<X> {}
+            interface Swapped<X, Y> extends Parent<List<Y>, X> {}
+            interface Unrelated<X, Y> {}
+            interface RawChild<X> extends Parent {}
+
+            class Inherited {
+              Child<String> source;
+              // BUG: Diagnostic contains: Inherited: nestedNullable=true, secondNonNull=true, inputsPreserved=true
+              Parent<List<String>, String> target;
+            }
+
+            class Substituted {
+              Swapped<@NonNull String, @Nullable String> source;
+              // BUG: Diagnostic contains: Substituted: nestedNullable=true, secondNonNull=true, inputsPreserved=true
+              Parent<List<String>, String> target;
+            }
+
+            class NoSupertype {
+              Child<String> source;
+              // BUG: Diagnostic contains: NoSupertype: nestedNullable=false, secondNonNull=false, inputsPreserved=true
+              Unrelated<List<String>, String> target;
+            }
+
+            class RawSupertype {
+              RawChild<String> source;
+              // BUG: Diagnostic contains: RawSupertype: nestedNullable=false, secondNonNull=false, inputsPreserved=true
+              Parent<List<String>, String> target;
+            }
+            """)
+        .doTest();
+  }
+
+  /** Reports restored nested nullability using the fixture's source and target fields. */
+  @BugPattern(summary = "Checks annotation restoration through supertypes", severity = SUGGESTION)
+  public static final class ClassTypeRestorationChecker extends BugChecker
+      implements BugChecker.VariableTreeMatcher {
+
+    private static final Supplier<Name> SOURCE = VisitorState.memoize(s -> s.getName("source"));
+
+    private final Config config =
+        new NullAway(ErrorProneFlags.fromMap(Map.of("NullAway:OnlyNullMarked", "true")))
+            .getConfig();
+
+    /** Restores onto the target and reports annotations and preservation of both input types. */
+    @Override
+    public Description matchVariable(VariableTree tree, VisitorState state) {
+      if (!tree.getName().contentEquals("target")) {
+        return NO_MATCH;
+      }
+      Symbol.VarSymbol targetSymbol = ASTHelpers.getSymbol(tree);
+      Symbol.ClassSymbol owner = (Symbol.ClassSymbol) targetSymbol.owner;
+      Type source = owner.members().findFirst(SOURCE.get(state)).type;
+      Type target = targetSymbol.type;
+      String sourceBefore = source.toString();
+      String targetBefore = target.toString();
+      Type result =
+          TypeSubstitutionUtils.restoreExplicitNullabilityAnnotations(
+              source, target, state.getTypes(), config);
+      Type nestedArgument = result.getTypeArguments().head.getTypeArguments().head;
+      Type secondArgument = result.getTypeArguments().tail.head;
+      return buildDescription(tree)
+          .setMessage(
+              owner.getSimpleName()
+                  + ": nestedNullable="
+                  + GenericsUtils.isAnnotatedAsNullable(nestedArgument, config)
+                  + ", secondNonNull="
+                  + GenericsUtils.isAnnotatedAsNonNull(secondArgument, config)
+                  + ", inputsPreserved="
+                  + (sourceBefore.equals(source.toString())
+                      && targetBefore.equals(target.toString())))
+          .build();
+    }
+  }
+
   /**
    * Checker that exercises javac type copying and annotation restoration.
    *
@@ -155,9 +243,9 @@ public class TypeSubstitutionUtilsTests {
         case CAPTURED_TYPE_METADATA_FIELD ->
             checkCapturedTypeMetadataCopy(testTypeContext, tree, state);
         case WILDCARD_ANNOTATION_FIELD ->
-            checkWildcardAnnotationRestoration(testTypeContext, false);
+            checkWildcardAnnotationRestoration(testTypeContext, false, state);
         case WILDCARD_WITHOUT_FORMAL_FIELD ->
-            checkWildcardAnnotationRestoration(testTypeContext, true);
+            checkWildcardAnnotationRestoration(testTypeContext, true, state);
         default -> {
           throw new RuntimeException("Unknown field name: " + fieldName);
         }
@@ -292,7 +380,7 @@ public class TypeSubstitutionUtilsTests {
      * upper bound, leaving compiler-owned types intact. Without a formal, restoration is skipped.
      */
     private static void checkWildcardAnnotationRestoration(
-        TestTypeContext context, boolean missingFormal) {
+        TestTypeContext context, boolean missingFormal, VisitorState state) {
       Config config =
           new NullAway(
                   ErrorProneFlags.fromMap(
@@ -315,7 +403,8 @@ public class TypeSubstitutionUtilsTests {
               context.originalUpperBound(), BoundKind.EXTENDS, context.sourceWildcard().tsym);
       Type.WildcardType restored =
           (Type.WildcardType)
-              TypeSubstitutionUtils.restoreExplicitNullabilityAnnotations(source, target, config);
+              TypeSubstitutionUtils.restoreExplicitNullabilityAnnotations(
+                  source, target, state.getTypes(), config);
       if (missingFormal) {
         assertThat(restored).isSameInstanceAs(target);
       } else {

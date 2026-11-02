@@ -36,7 +36,7 @@ repositories {
 }
 
 jacoco {
-    toolVersion = "0.8.16-SNAPSHOT"
+    toolVersion = "0.8.16"
 }
 
 // -PenableJacoco decides instrumentation for every Test task.  Left unset, only the `test` task is

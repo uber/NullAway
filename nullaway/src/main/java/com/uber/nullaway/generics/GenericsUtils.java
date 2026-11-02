@@ -265,7 +265,7 @@ public class GenericsUtils {
         // formal stored in WildcardType.bound is mutable.
         upperBound =
             TypeSubstitutionUtils.restoreExplicitNullabilityAnnotations(
-                capturedType.wildcard.getExtendsBound(), upperBound, config);
+                capturedType.wildcard.getExtendsBound(), upperBound, state.getTypes(), config);
       } else {
         // An explicit annotation on the capture is a use-site projection and takes precedence over
         // both the capture's structural bound and declaration-level fallback information.
@@ -273,7 +273,7 @@ public class GenericsUtils {
         if (captureHasDirectNullnessAnnotation) {
           upperBound =
               TypeSubstitutionUtils.restoreExplicitNullabilityAnnotations(
-                  capturedType, upperBound, config);
+                  capturedType, upperBound, state.getTypes(), config);
         }
         if (formalTypeVariable == null && capturedType.wildcard != null) {
           // Without a containing-type formal, the backing formal is the only available source of
@@ -366,7 +366,7 @@ public class GenericsUtils {
         || !upperBoundHasExplicitNullnessAnnotation) {
       upperBound =
           TypeSubstitutionUtils.restoreExplicitNullabilityAnnotations(
-              declarationUpperBound, upperBound, config);
+              declarationUpperBound, upperBound, state.getTypes(), config);
       upperBoundHasExplicitNullnessAnnotation = hasNullnessAnnotation(upperBound, config);
     }
     if (upperBoundIsNullable(formalTypeVar.asElement(), config, handler, state)
