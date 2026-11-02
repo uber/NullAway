@@ -1232,4 +1232,138 @@ public class EnsuresNonNullIfTests extends NullAwayTestsBase {
             """)
         .doTest();
   }
+
+  // --- Checker Framework @EnsuresNonNullIf(expression = ...) tests ---
+
+  @Test
+  public void checkerFrameworkEnsuresNonNullIfCallerDereference() {
+    defaultCompilationHelper
+        .addSourceLines(
+            "Holder.java",
+            """
+            package com.uber;
+            import javax.annotation.Nullable;
+            import org.checkerframework.checker.nullness.qual.EnsuresNonNullIf;
+            class Holder {
+              @Nullable String foo;
+              @EnsuresNonNullIf(expression = "foo", result = true)
+              boolean hasFoo() { return foo != null; }
+              int caller() {
+                if (hasFoo()) {
+                  return foo.length();
+                }
+                return 0;
+              }
+            }
+            """)
+        .doTest();
+  }
+
+  @Test
+  public void checkerFrameworkEnsuresNonNullIfPostconditionViolation() {
+    defaultCompilationHelper
+        .addSourceLines(
+            "Holder.java",
+            """
+            package com.uber;
+            import javax.annotation.Nullable;
+            import org.checkerframework.checker.nullness.qual.EnsuresNonNullIf;
+            class Holder {
+              @Nullable String foo;
+              @EnsuresNonNullIf(expression = "foo", result = true)
+              // BUG: Diagnostic contains: Method is annotated with @EnsuresNonNullIf but does not ensure fields [foo]
+              boolean wrong() { return true; }
+            }
+            """)
+        .doTest();
+  }
+
+  @Test
+  public void checkerFrameworkEnsuresNonNullIfInvalidField() {
+    defaultCompilationHelper
+        .addSourceLines(
+            "Holder.java",
+            """
+            package com.uber;
+            import javax.annotation.Nullable;
+            import org.checkerframework.checker.nullness.qual.EnsuresNonNullIf;
+            class Holder {
+              @Nullable String foo;
+              @EnsuresNonNullIf(expression = "nonexistent", result = true)
+              // BUG: Diagnostic contains: For @EnsuresNonNullIf annotation, cannot find instance field nonexistent in class Holder
+              boolean hasFoo() { return foo != null; }
+            }
+            """)
+        .doTest();
+  }
+
+  @Test
+  public void checkerFrameworkEnsuresNonNullIfResultFalse() {
+    defaultCompilationHelper
+        .addSourceLines(
+            "Holder.java",
+            """
+            package com.uber;
+            import javax.annotation.Nullable;
+            import org.checkerframework.checker.nullness.qual.EnsuresNonNullIf;
+            class Holder {
+              @Nullable String foo;
+              @EnsuresNonNullIf(expression = "foo", result = false)
+              boolean lacksFoo() { return foo == null; }
+              int caller() {
+                if (!lacksFoo()) {
+                  return foo.length();
+                }
+                return 0;
+              }
+            }
+            """)
+        .doTest();
+  }
+
+  @Test
+  public void checkerFrameworkEnsuresNonNullIfOverrideInheritance() {
+    defaultCompilationHelper
+        .addSourceLines(
+            "SuperClass.java",
+            """
+            package com.uber;
+            import javax.annotation.Nullable;
+            import org.checkerframework.checker.nullness.qual.EnsuresNonNullIf;
+            class SuperClass {
+              @Nullable Item a;
+              @Nullable Item b;
+              @EnsuresNonNullIf(expression = "a", result = true)
+              public boolean hasA() {
+                return a != null;
+              }
+              @EnsuresNonNullIf(expression = "b", result = true)
+              public boolean hasB() {
+                return b != null;
+              }
+            }
+            """)
+        .addSourceLines(
+            "ChildClass.java",
+            """
+            package com.uber;
+            import javax.annotation.Nullable;
+            import org.checkerframework.checker.nullness.qual.EnsuresNonNullIf;
+            class ChildClass extends SuperClass {
+              @Nullable Item c;
+              @EnsuresNonNullIf(expression = "c", result = true)
+              // BUG: Diagnostic contains: postcondition inheritance is violated, this method must guarantee that all fields written in the @EnsuresNonNullIf annotation of overridden method SuperClass.hasA are @NonNull at exit point as well. Fields [a] must explicitly appear as parameters at this method @EnsuresNonNullIf annotation
+              public boolean hasA() {
+                return c != null;
+              }
+              @EnsuresNonNullIf(expression = {"b", "c"}, result = true)
+              public boolean hasB() {
+                return b != null && c != null;
+              }
+            }
+            """)
+        .addSourceLines(
+            "Item.java", "package com.uber;", "class Item {", "  public void call() { }", "}")
+        .doTest();
+  }
 }

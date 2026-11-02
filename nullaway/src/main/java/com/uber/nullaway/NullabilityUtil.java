@@ -295,12 +295,38 @@ public class NullabilityUtil {
    */
   public static @Nullable Set<String> getAnnotationValueArray(
       Symbol.MethodSymbol methodSymbol, String annotName, boolean exactMatch) {
+    return getAnnotationValueArray(methodSymbol, annotName, exactMatch, null);
+  }
+
+  /**
+   * Retrieve the field-list attribute of a method annotation. Looks for an attribute named {@code
+   * value} first; if not found and {@code fallbackAttributeName} is non-null, tries that name
+   * instead. This supports annotations like the Checker Framework's {@code @EnsuresNonNullIf},
+   * which stores its field list in an attribute named {@code expression} rather than {@code value}.
+   *
+   * @param methodSymbol A method to check for the annotation.
+   * @param annotName The qualified name or simple name of the annotation depending on the value of
+   *     {@code exactMatch}.
+   * @param exactMatch If true, the annotation name must match the full qualified name given in
+   *     {@code annotName}, otherwise, simple names will be checked.
+   * @param fallbackAttributeName An alternative attribute name to try when no explicitly supplied
+   *     {@code value} entry is found in the annotation's element values, or {@code null} to only
+   *     check {@code value}.
+   * @return The field-list attribute of the annotation as a {@code Set}, or {@code null} if the
+   *     annotation is not present or has neither a {@code value} nor a matching fallback attribute.
+   */
+  public static @Nullable Set<String> getAnnotationValueArray(
+      Symbol.MethodSymbol methodSymbol,
+      String annotName,
+      boolean exactMatch,
+      @Nullable String fallbackAttributeName) {
     AnnotationMirror annot = findAnnotation(methodSymbol, annotName, exactMatch);
     if (annot == null) {
       return null;
     }
     Map<? extends ExecutableElement, ? extends AnnotationValue> elementValues =
         annot.getElementValues();
+    AnnotationValue fallbackValue = null;
     for (Map.Entry<? extends ExecutableElement, ? extends AnnotationValue> entry :
         elementValues.entrySet()) {
       ExecutableElement elem = entry.getKey();
@@ -309,6 +335,15 @@ public class NullabilityUtil {
         List<AnnotationValue> values = (List<AnnotationValue>) entry.getValue().getValue();
         return values.stream().map((av) -> ((String) av.getValue())).collect(Collectors.toSet());
       }
+      if (fallbackAttributeName != null
+          && elem.getSimpleName().contentEquals(fallbackAttributeName)) {
+        fallbackValue = entry.getValue();
+      }
+    }
+    if (fallbackValue != null) {
+      @SuppressWarnings("unchecked")
+      List<AnnotationValue> values = (List<AnnotationValue>) fallbackValue.getValue();
+      return values.stream().map((av) -> ((String) av.getValue())).collect(Collectors.toSet());
     }
     return null;
   }

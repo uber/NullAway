@@ -71,8 +71,15 @@ public class EnsuresNonNullIfHandler extends AbstractFieldContractHandler {
   private @Nullable MethodTree methodTreeUnderAnalysis;
   private @Nullable MethodAnalysisContext methodAnalysisContextUnderAnalysis;
 
+  private static final String EXPRESSION_ATTRIBUTE = "expression";
+
   public EnsuresNonNullIfHandler() {
     super("EnsuresNonNullIf");
+  }
+
+  @Override
+  protected @Nullable String fallbackFieldListAttributeName() {
+    return EXPRESSION_ATTRIBUTE;
   }
 
   /**
@@ -156,7 +163,13 @@ public class EnsuresNonNullIfHandler extends AbstractFieldContractHandler {
       MethodTree tree,
       Symbol.MethodSymbol overriddenMethod) {
     FieldContractUtils.ensureStrictPostConditionInheritance(
-        annotName, overridingFieldNames, analysis, state, tree, overriddenMethod);
+        annotName,
+        overridingFieldNames,
+        analysis,
+        state,
+        tree,
+        overriddenMethod,
+        EXPRESSION_ATTRIBUTE);
   }
 
   @Override
@@ -175,7 +188,8 @@ public class EnsuresNonNullIfHandler extends AbstractFieldContractHandler {
     Symbol.MethodSymbol methodSymbolUnderAnalysis = methodAnalysisContext.methodSymbol();
     VisitorState state = methodAnalysisContext.state().withPath(returnTreePath);
 
-    Set<String> fieldNames = getAnnotationValueArray(methodSymbolUnderAnalysis, annotName, false);
+    Set<String> fieldNames =
+        getAnnotationValueArray(methodSymbolUnderAnalysis, annotName, false, EXPRESSION_ATTRIBUTE);
     if (fieldNames == null) {
       throw new RuntimeException("List of field names shouldn't be null");
     }
@@ -293,7 +307,8 @@ public class EnsuresNonNullIfHandler extends AbstractFieldContractHandler {
           node, methodSymbol, state, apContext, inputs, thenUpdates, elseUpdates, bothUpdates);
     }
 
-    Set<String> fieldNames = getAnnotationValueArray(methodSymbol, annotName, false);
+    Set<String> fieldNames =
+        getAnnotationValueArray(methodSymbol, annotName, false, EXPRESSION_ATTRIBUTE);
     if (fieldNames != null) {
       fieldNames = ContractUtils.trimReceivers(fieldNames);
       boolean trueIfNonNull = getResultValueFromAnnotation(methodSymbol);
