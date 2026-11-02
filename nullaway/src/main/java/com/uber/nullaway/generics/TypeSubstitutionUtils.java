@@ -652,7 +652,7 @@ public class TypeSubstitutionUtils {
      * the complete intersection.
      */
     private Type restoreClassTypeArguments(Type updated, Type other) {
-      // Raw sources have no type arguments from which to restore nested annotations.
+      // A raw source type has no type arguments from which to restore nested annotations.
       if (!(other instanceof Type.ClassType) || other.isRaw()) {
         return updated;
       }
