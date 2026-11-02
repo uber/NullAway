@@ -13,7 +13,7 @@ errorprone-plugin = "5.1.1"
 shadow = "9.6.1"
 jmh = "0.7.3"
 shellcheck = "1.5.1"
-pitest = "1.30.0"
+pitest = "1.30.1"
 
 errorProne = "2.51.0"
 errorProneJdk17 = "2.42.0"
