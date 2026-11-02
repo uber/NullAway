@@ -115,6 +115,21 @@ public class TypeSubstitutionUtilsTests {
         .doTest();
   }
 
+  @Test
+  public void inferredWildcardOverlaysPreserveFormalBounds() {
+    CompilationTestHelper.newInstance(TypeCopyIsolationChecker.class, getClass())
+        .addSourceLines(
+            "Test.java",
+            """
+            class Test<T> {
+              Test<? extends java.util.List<String>> wildcardOverlayField;
+              Test<? extends java.util.List<String>> concreteOverlayField;
+              Test<? extends java.util.List<String>> nestedWildcardOverlayField;
+            }
+            """)
+        .doTest();
+  }
+
   /**
    * Checker that exercises javac type copying and annotation restoration.
    *
@@ -147,6 +162,8 @@ public class TypeSubstitutionUtilsTests {
       String fieldName = tree.getName().toString();
       TestTypeContext testTypeContext = createTestTypeContext(tree, state);
       switch (fieldName) {
+        case "wildcardOverlayField", "concreteOverlayField", "nestedWildcardOverlayField" ->
+            checkInferredWildcardOverlay(testTypeContext, fieldName, state);
         case TYPE_VAR_FIELD -> checkUnboundedWildcardReplacement(testTypeContext);
         case CAPTURED_TYPE_FIELD -> checkCapturedWildcardReplacement(testTypeContext, tree, state);
         case CAPTURED_WILDCARD_ANNOTATION_FIELD ->
@@ -328,6 +345,59 @@ public class TypeSubstitutionUtilsTests {
       assertThat(annotatedFormal.getUpperBound()).isSameInstanceAs(context.updatedUpperBound());
       assertThat(context.formalTypeVariable().getUpperBound())
           .isSameInstanceAs(context.originalUpperBound());
+    }
+
+    /** Checks all wildcard overlay paths retain the target's formal and nested annotations. */
+    private static void checkInferredWildcardOverlay(
+        TestTypeContext context, String fieldName, VisitorState state) {
+      Config config =
+          new NullAway(
+                  ErrorProneFlags.fromMap(
+                      Map.of(
+                          "NullAway:OnlyNullMarked", "true",
+                          "NullAway:JSpecifyMode", "true",
+                          "NullAway:HandleWildcardGenerics", "true")))
+              .getConfig();
+      Type.ClassType bound = (Type.ClassType) context.sourceWildcard().type;
+      Type argument = bound.getTypeArguments().head;
+      Type annotatedArgument =
+          TypeSubstitutionUtils.typeWithAnnot(argument, context.nullableAnnotationType());
+      Type annotatedBound =
+          TypeMetadataBuilder.TYPE_METADATA_BUILDER.createClassType(
+              bound, bound.getEnclosingType(), com.sun.tools.javac.util.List.of(annotatedArgument));
+      for (BoundKind kind : new BoundKind[] {BoundKind.EXTENDS, BoundKind.SUPER}) {
+        Type.WildcardType target =
+            new Type.WildcardType(
+                bound, kind, context.sourceWildcard().tsym, context.formalTypeVariable());
+        Type original = context.formalTypeVariable();
+        Type inferred = annotatedBound;
+        if (fieldName.equals("wildcardOverlayField")) {
+          inferred = new Type.WildcardType(annotatedBound, kind, context.sourceWildcard().tsym);
+        } else if (fieldName.equals("nestedWildcardOverlayField")) {
+          original =
+              new Type.WildcardType(
+                  context.formalTypeVariable(), kind, context.sourceWildcard().tsym);
+        }
+        Type.WildcardType result =
+            (Type.WildcardType)
+                TypeSubstitutionUtils.updateTypeWithInferredNullability(
+                    target,
+                    original,
+                    Map.of(context.formalTypeVariable().asElement(), inferred),
+                    state,
+                    config);
+        assertThat(result).isNotSameInstanceAs(target);
+        assertThat(result.bound).isNotNull();
+        assertThat(result.bound.tsym).isSameInstanceAs(context.formalTypeVariable().tsym);
+        assertThat(result.bound.lower).isSameInstanceAs(context.formalTypeVariable().lower);
+        assertThat(result.kind).isEqualTo(kind);
+        assertThat(GenericsUtils.isAnnotatedAsNullable(result.type.getTypeArguments().head, config))
+            .isTrue();
+        assertThat(bound.getTypeArguments().head).isSameInstanceAs(argument);
+        assertThat(argument.getAnnotationMirrors()).isEmpty();
+        assertThat(context.formalTypeVariable().getUpperBound())
+            .isSameInstanceAs(context.originalUpperBound());
+      }
     }
 
     /** Checks that replacing a capture's backing wildcard returns a fully detached capture. */

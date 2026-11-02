@@ -23,6 +23,7 @@ import com.uber.nullaway.generics.ConstraintSolver.InferenceVariable;
 import com.uber.nullaway.generics.ConstraintSolver.Solution;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import javax.lang.model.element.Element;
 import org.junit.Test;
 
@@ -187,7 +188,12 @@ public class FoundationSolveTests extends NullAwayTestsBase {
       Element t = method.getTypeParameters().head;
       Type shape = method.getParameters().head.type;
       var fresh =
-          solver.registerInferenceVariables(tree, method.getTypeParameters(), Map.of(t, shape));
+          solver.registerInferenceVariables(
+              tree,
+              method.getTypeParameters(),
+              Map.of(),
+              Set.copyOf(method.getTypeParameters()),
+              Map.of(t, shape));
       InferenceVariable variable = new InferenceVariable(t, tree);
       Solution before = solver.solve();
       assertThat(solver.knownNullness(variable)).isNull();
@@ -205,7 +211,12 @@ public class FoundationSolveTests extends NullAwayTestsBase {
       assertThrows(UnsupportedOperationException.class, after.inferredTypes()::clear);
       ConstraintSolver nonNull = new ConstraintSolverImpl(analysis.getConfig(), state, analysis);
       var other =
-          nonNull.registerInferenceVariables(tree, method.getTypeParameters(), Map.of(t, shape));
+          nonNull.registerInferenceVariables(
+              tree,
+              method.getTypeParameters(),
+              Map.of(),
+              Set.copyOf(method.getTypeParameters()),
+              Map.of(t, shape));
       nonNull.addSubtypeConstraint(other.get(t), state.getSymtab().objectType, false);
       nonNull.solve();
       assertThat(nonNull.knownNullness(variable)).isEqualTo(Nullness.NONNULL);
@@ -232,7 +243,8 @@ public class FoundationSolveTests extends NullAwayTestsBase {
           name.equals("graphUpdate") || name.equals("fBoundWithProperLower")
               ? Map.of(t, word, u, box, v, word)
               : Map.of(t, box, u, box, v, word);
-      var fresh = solver.registerInferenceVariables(tree, order, shapes);
+      var fresh =
+          solver.registerInferenceVariables(tree, order, Map.of(), Set.copyOf(order), shapes);
       solver.addSubtypeConstraint(word, fresh.get(v), false);
       if (name.equals("graphUpdate")) {
         solver.addSubtypeConstraint(withArgument(box, fresh.get(t)), fresh.get(u), false);
