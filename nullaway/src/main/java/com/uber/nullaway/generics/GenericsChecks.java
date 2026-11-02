@@ -3018,6 +3018,9 @@ public final class GenericsChecks {
                 NullabilityUtil.getFunctionalInterfaceMethod(tree, state.getTypes()),
                 config,
                 handler);
+    // we run inference here even for unannotated targets since they may have restrictive
+    // annotations that influence inference; see the test
+    // `GenericMethodLambdaOrMethodRefArgTests.explicitlyNullableUnmarkedMethodReferenceTargetsCheckParameterNullness`
     CallInferenceResult inferenceResult =
         inferMethodReferenceTypeArguments(tree, groundTargetType, !unannotatedTarget, state);
     if (unannotatedTarget) {
