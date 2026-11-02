@@ -384,9 +384,8 @@ public class JDKIntegrationTest {
                 // BUG: Diagnostic contains: incompatible types
                 String[][] nullableComponentArrays =
                     ReturnAnnotation.returnNullableComponentArrays2D();
-                // TODO: This should report a nullable dereference. NullAway currently loses the
-                // nested library-model annotation on a directly indexed method return.
                 int componentArrayLength =
+                    // BUG: Diagnostic contains: dereferenced expression 'ReturnAnnotation.returnNullableComponentArrays2D()[0]' is @Nullable
                     ReturnAnnotation.returnNullableComponentArrays2D()[0].length;
 
                 // BUG: Diagnostic contains: dereferenced expression 'ReturnAnnotation.returnNullableOuterAndComponentArrays2D()' is @Nullable
