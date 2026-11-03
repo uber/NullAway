@@ -344,6 +344,90 @@ public class GenericInferenceErrorReportingTests extends NullAwayTestsBase {
                 + " @Nullable");
   }
 
+  /**
+   * Checks that method-reference inference failures preserve independent parameter and return
+   * compatibility errors. Asserting the complete diagnostic set also catches duplicate warnings,
+   * including a warning at the reference when inference failed at the enclosing generic call.
+   */
+  @Test
+  public void methodReferenceInferenceFailuresPreserveIndependentCompatibilityErrors() {
+    JavaFileObject source =
+        FileObjects.forSourceLines(
+            "Test.java",
+            """
+            package com.uber;
+            import java.util.List;
+            import org.jspecify.annotations.*;
+            @NullMarked class Test {
+              // Setup: functional interfaces and methods used by the warning checks below.
+              interface Fn<A extends @Nullable Object, R extends @Nullable Object> { R apply(A a); }
+              interface BiFn<A extends @Nullable Object, B extends @Nullable Object> { void apply(A a, B b); }
+              static <T> @Nullable String nul(T t) { return null; }
+              static <T extends @Nullable Object> @Nullable List<T> wrap(T t) { return null; }
+              static <T> T nonNullId(T value) { return value; }
+              static <T> void consume(T value, String extra) {}
+              static <U> void pair(Fn<String, String> f, U u) {}
+              static <U> void cachedTop(Fn<@Nullable String, @Nullable String> f, U w) {}
+              static class Receiver<C> {
+                <T> void consume(C value, List<T> values) {}
+              }
+
+              // Warning checks: each method below is a case whose diagnostics are asserted exactly.
+              void unrelatedArgumentFailure() {
+                pair(Test::nul, null); // 3 warnings: U inference failure, nullable argument, nullable return.
+              }
+              void unrelatedArgumentControl() {
+                pair(Test::nul, "x"); // 1 warning: nullable return.
+              }
+              void nestedReturnFailure() {
+                Fn<@Nullable String, List<String>> f = Test::wrap; // 2 warnings: T inference failure, nullable return.
+              }
+              void nestedReturnControl() {
+                Fn<String, List<String>> f = Test::wrap; // 1 warning: nullable return.
+              }
+              void cachedTopLevelFailure() {
+                cachedTop( // 1 warning: T inference failure, reported at the enclosing call.
+                    Test::nonNullId, // 0 warnings: the duplicate parameter mismatch is suppressed.
+                    "");
+              }
+              void independentParameterFailure() {
+                BiFn<@Nullable String, @Nullable String> f = Test::consume; // 2 warnings: T inference failure, extra parameter mismatch.
+              }
+              void classTypeVariableFailure(Receiver<String> receiver) {
+                BiFn<@Nullable String, List<@Nullable String>> f = receiver::consume; // 2 warnings: T inference failure, value parameter mismatch.
+              }
+            }
+            """);
+
+    assertThat(compileAndReportDiagnostics(List.of(source)))
+        .containsExactly(
+            "Test.java:20: [NullAway] inference failure: type variable U is constrained to be"
+                + " @Nullable, but its upper bound requires it to be @NonNull",
+            "Test.java:20: [NullAway] passing @Nullable parameter 'null' where @NonNull is required",
+            "Test.java:20: [NullAway] referenced method returns @Nullable, but functional interface"
+                + " method com.uber.Test.Fn.apply(String) returns @NonNull",
+            "Test.java:23: [NullAway] referenced method returns @Nullable, but functional interface"
+                + " method com.uber.Test.Fn.apply(String) returns @NonNull",
+            "Test.java:26: [NullAway] inference failure: type variable T constrained to be both"
+                + " @NonNull and @Nullable",
+            "Test.java:26: [NullAway] referenced method returns @Nullable, but functional interface"
+                + " method com.uber.Test.Fn.apply(@Nullable String) returns @NonNull",
+            "Test.java:29: [NullAway] referenced method returns @Nullable, but functional interface"
+                + " method com.uber.Test.Fn.apply(String) returns @NonNull",
+            "Test.java:32: [NullAway] inference failure: type variable T is constrained to be"
+                + " @Nullable, but its upper bound requires it to be @NonNull",
+            "Test.java:37: [NullAway] inference failure: type variable T is constrained to be"
+                + " @Nullable, but its upper bound requires it to be @NonNull",
+            "Test.java:37: [NullAway] parameter extra of referenced method is @NonNull, but"
+                + " parameter in functional interface method"
+                + " com.uber.Test.BiFn.apply(@Nullable String,@Nullable String) is @Nullable",
+            "Test.java:40: [NullAway] inference failure: type variable T is constrained to be"
+                + " @Nullable, but its upper bound requires it to be @NonNull",
+            "Test.java:40: [NullAway] parameter value of referenced method is @NonNull, but"
+                + " parameter in functional interface method"
+                + " com.uber.Test.BiFn.apply(@Nullable String,List<@Nullable String>) is @Nullable");
+  }
+
   @Test
   public void methodReferenceCompatibilityErrorsRemainWhenInferenceWarningsAreDisabled() {
     assertThat(
