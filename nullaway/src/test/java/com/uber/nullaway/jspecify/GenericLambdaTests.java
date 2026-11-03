@@ -32,7 +32,7 @@ public class GenericLambdaTests extends NullAwayTestsBase {
               static <E extends @Nullable Object> void genericNullableElements(
                   List<@Nullable E> values) {}
               static <E extends @Nullable Object> void genericElementNullnessInferred(
-                  List<@Nullable E> values) {}
+                  List<E> values) {}
               static <E> void genericNonNullElements(List<E> values) {}
               Factory<String> compatibleExpression() {
                 return () -> Test::nullableElements;
