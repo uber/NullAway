@@ -257,39 +257,22 @@ public class GenericMethodLambdaOrMethodRefArgTests extends NullAwayTestsBase {
   }
 
   /**
-   * Regression for issue 2063: a generic method reference accepting a marked publisher with a
-   * wildcard type argument infers successfully both inline and when assigned first.
+   * Regression for issue 2063: generic method references accepting marked or unmarked publishers
+   * with wildcard type arguments infer successfully both inline and when assigned first.
    */
   @Test
   public void issue2063InlineGenericMethodReference() {
-    checkInlineGenericMethodReference(
-        "@NullMarked interface Publisher<T extends @Nullable Object> {}");
-  }
-
-  /**
-   * Regression for issue 2063: a generic method reference accepting an unmarked publisher with a
-   * wildcard type argument infers successfully both inline and when assigned first.
-   */
-  @Test
-  public void issue2063InlineGenericMethodReferenceWithUnmarkedPublisher() {
-    checkInlineGenericMethodReference("@NullUnmarked interface Publisher<T> {}");
-  }
-
-  /** Checks the wildcard inference reproducer with either a marked or an unmarked publisher. */
-  private void checkInlineGenericMethodReference(String publisherDeclaration) {
     makeHelper()
         .addSourceLines(
-            "Repro.java",
+            "com/uber/marked/MarkedPublisherRepro.java",
             """
-            package com.uber;
+            package com.uber.marked;
             import java.util.function.Function;
             import org.jspecify.annotations.NullMarked;
-            import org.jspecify.annotations.NullUnmarked;
             import org.jspecify.annotations.Nullable;
             @NullMarked
-            class Repro {
-              // publisherDeclaration inserted here:
-              %s
+            class MarkedPublisherRepro {
+              interface Publisher<T extends @Nullable Object> {}
               static class Mono<T extends @Nullable Object> implements Publisher<T> {
                 static <T extends @Nullable Object> Mono<T> from(Publisher<? extends T> source) {
                   return new Mono<>();
@@ -311,10 +294,44 @@ public class GenericMethodLambdaOrMethodRefArgTests extends NullAwayTestsBase {
                 register(adapter);
               }
               void genericEnclosingCall() { registerGeneric(Mono::from); }
-              void explicitEnclosingTypeArgument() { Repro.<Object>registerGeneric(Mono::from); }
+              void explicitEnclosingTypeArgument() { MarkedPublisherRepro.<Object>registerGeneric(Mono::from); }
             }
+            """)
+        .addSourceLines(
+            "com/uber/unmarked/UnmarkedPublisherRepro.java",
             """
-                .formatted(publisherDeclaration))
+            package com.uber.unmarked;
+            import java.util.function.Function;
+            import org.jspecify.annotations.NullMarked;
+            import org.jspecify.annotations.NullUnmarked;
+            import org.jspecify.annotations.Nullable;
+            @NullMarked
+            class UnmarkedPublisherRepro {
+              @NullUnmarked interface Publisher<T> {}
+              static class Mono<T extends @Nullable Object> implements Publisher<T> {
+                static <T extends @Nullable Object> Mono<T> from(Publisher<? extends T> source) {
+                  return new Mono<>();
+                }
+              }
+              Function<Publisher<?>, Object> assigned = Mono::from;
+              static void register(Function<Publisher<?>, Object> adapter) {}
+              static <Unused> void registerGeneric(Function<Publisher<?>, Object> adapter) {}
+              static class Adapter {
+                Adapter(Function<Publisher<?>, Object> adapter) {}
+              }
+              void inlineReference() { register(Mono::from); }
+              void parenthesizedReference() { register((Mono::from)); }
+              void constructorArgument() { new Adapter(Mono::from); }
+              void explicitTypeArgument() { register(Mono::<@Nullable Object>from); }
+              void lambda() { register(source -> Mono.from(source)); }
+              void assignedReference() {
+                Function<Publisher<?>, Object> adapter = Mono::from;
+                register(adapter);
+              }
+              void genericEnclosingCall() { registerGeneric(Mono::from); }
+              void explicitEnclosingTypeArgument() { UnmarkedPublisherRepro.<Object>registerGeneric(Mono::from); }
+            }
+            """)
         .doTest();
   }
 
