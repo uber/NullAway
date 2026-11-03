@@ -1276,8 +1276,8 @@ public final class GenericsChecks {
    * @param state visitor state whose path points to {@code expression}
    * @param calledFromDataflow whether this method was called as part of dataflow analysis
    * @return the element nullness, or {@link Nullness#NONNULL} if the element type cannot be
-   *     resolved; {@link Nullness#NO_CHANGE} for an element whose type is, or is bounded by, a type
-   *     variable with a nullable upper bound
+   *     resolved; {@link Nullness#NO_CHANGE} for an element whose type is a type variable with a
+   *     nullable upper bound, or, when {@code HandleWildcardGenerics} is on, is bounded by one
    */
   public Nullness getEnhancedForLoopElementNullness(
       ExpressionTree expression, VisitorState state, boolean calledFromDataflow) {
@@ -1303,7 +1303,7 @@ public final class GenericsChecks {
    * @return the element type for the loop variable of the enhanced-for, or {@code null} if it can't
    *     be found
    */
-  private @Nullable Type getEnhancedForLoopElementType(
+  public @Nullable Type getEnhancedForLoopElementType(
       ExpressionTree expression, VisitorState state, boolean calledFromDataflow) {
     Type expressionType = getTreeType(expression, state, calledFromDataflow);
     if (expressionType instanceof Type.ArrayType arrayType) {
@@ -4720,6 +4720,84 @@ public final class GenericsChecks {
 
   public boolean isNullableAnnotated(Type type) {
     return GenericsUtils.isAnnotatedAsNullable(type, config);
+  }
+
+  /**
+   * Returns whether a location of type {@code targetType} accepts a {@link Nullness#NO_CHANGE}
+   * value of type {@code valueType}. That holds when {@code targetType} is a type variable {@code
+   * T} with no {@code @NonNull} annotation, or a capture of {@code ? super T}, and {@code
+   * valueType} is {@code T} or reaches {@code T} through upper bounds none of which is annotated
+   * {@code @Nullable}. Such a value is null only when {@code T} is instantiated with a nullable
+   * type argument, and then the location admits null too. In {@code <U extends @Nullable T>}, the
+   * bound of {@code U} breaks the chain, since {@code U} may be nullable while {@code T} is not.
+   *
+   * <p>Dataflow applies the same test when a value moves to a variable or expression of another
+   * static type, so a {@code NO_CHANGE} fact always holds relative to the static type of its
+   * holder.
+   *
+   * @param valueType static type of the expression or variable that holds the value
+   * @param targetType type of the location receiving the value, or {@code null} if unknown
+   * @param state visitor state
+   */
+  public boolean acceptsNoChangeValue(
+      Type valueType, @Nullable Type targetType, VisitorState state) {
+    // A capture of ? super T accepts every value of type T
+    Type typeVariable =
+        targetType instanceof Type.CapturedType capturedType
+            ? capturedType.getLowerBound()
+            : targetType;
+    if (!(typeVariable instanceof Type.TypeVar)
+        || typeVariable instanceof Type.CapturedType
+        || Nullness.hasNonNullAnnotation(typeVariable.getAnnotationMirrors().stream(), config)) {
+      return false;
+    }
+    return reachesThroughNonNullableBounds(valueType, typeVariable, state.getTypes());
+  }
+
+  /**
+   * Returns whether {@code type} is {@code typeVariable}, or a type variable or capture whose chain
+   * of upper bounds reaches {@code typeVariable} with no {@code @Nullable} bound along the way.
+   */
+  private boolean reachesThroughNonNullableBounds(Type type, Type typeVariable, Types types) {
+    if (types.isSameType(type, typeVariable)) {
+      return true;
+    }
+    if (!(type instanceof Type.TypeVar)) {
+      return false;
+    }
+    Type upperBound = type.getUpperBound();
+    if (upperBound == null || isNullableAnnotated(upperBound)) {
+      return false;
+    }
+    return reachesThroughNonNullableBounds(upperBound, typeVariable, types);
+  }
+
+  /**
+   * Returns whether the declared type of the parameter that receives an argument may admit null: it
+   * carries no {@code @NonNull} annotation, and when it is a type variable, that variable has a
+   * nullable upper bound. An argument passed individually to a varargs parameter is received by the
+   * component type of the varargs array.
+   *
+   * @param methodSymbol the invoked method
+   * @param paramIndex index of the declared parameter receiving the argument
+   * @param individualVarargsArgument whether the argument is one element passed individually to the
+   *     varargs parameter
+   * @param state visitor state
+   */
+  public boolean declaredParameterAdmitsNull(
+      Symbol.MethodSymbol methodSymbol,
+      int paramIndex,
+      boolean individualVarargsArgument,
+      VisitorState state) {
+    if (Nullness.paramHasNonNullAnnotation(methodSymbol, paramIndex, config)) {
+      return false;
+    }
+    Type declaredType = methodSymbol.getParameters().get(paramIndex).type;
+    if (individualVarargsArgument && declaredType instanceof Type.ArrayType arrayType) {
+      declaredType = arrayType.getComponentType();
+    }
+    return !(declaredType instanceof Type.TypeVar)
+        || GenericsUtils.upperBoundIsNullable(declaredType.tsym, config, handler, state);
   }
 
   /**

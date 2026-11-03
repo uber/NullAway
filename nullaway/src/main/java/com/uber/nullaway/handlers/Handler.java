@@ -417,7 +417,9 @@ public interface Handler {
   }
 
   /**
-   * Called when a method writes a {@code @NonNull} value to a class field.
+   * Called when a method writes a value to a {@code @NonNull} class field and the field accepts it:
+   * the value is non-null, or it is a {@link com.uber.nullaway.Nullness#NO_CHANGE} value that the
+   * field's type accepts.
    *
    * @param field Symbol of the initialized class field.
    * @param analysis nullness dataflow analysis

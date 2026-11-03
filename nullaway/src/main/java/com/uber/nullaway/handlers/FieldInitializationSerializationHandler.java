@@ -86,8 +86,8 @@ public class FieldInitializationSerializationHandler implements Handler {
         analysis.getInitializedFieldsOfReceiverAtExit(pathToMethod, state.context).stream()
             .anyMatch(element -> element.getSimpleName().toString().equals(fieldName));
     if (!leavesNonNullAtExitPoint) {
-      // Method does not keep the field @NonNull at exit point and fails the post condition to be an
-      // Initializer.
+      // Method does not leave the field initialized at exit point and fails the post condition to
+      // be an Initializer.
       return;
     }
     NullabilityUtil.castToNonNull(config.getSerializer())

@@ -339,9 +339,7 @@ public class NullnessStore implements Store<NullnessStore> {
   }
 
   /**
-   * Returns the fields of the receiver that hold a value their declared type admits: a non-null
-   * value, or a {@link Nullness#NO_CHANGE} value, which a field typed by the same type variable
-   * accepts.
+   * Returns the fields of the receiver that hold a non-null or a {@link Nullness#NO_CHANGE} value.
    *
    * @return the initialized receiver fields
    */

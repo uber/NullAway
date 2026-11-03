@@ -296,6 +296,42 @@ public final class AccessPath implements MapKey {
   }
 
   /**
+   * Returns the static type of the value held by the access path of {@code node}, or {@code null}
+   * when that type may differ between two nodes with the same path.
+   *
+   * <p>A path keeps no cast on a receiver and no type argument of a method call, so {@code
+   * ((Holder<T>) holder).field} and {@code holder.field} share one path, as do {@code g.<T>get()}
+   * and {@code g.<S>get()}, while their types differ.
+   *
+   * @param node a node that may have an access path
+   * @return the type of {@code node} without enclosing casts, or {@code null} if a receiver on the
+   *     path is cast or a method on it is generic
+   */
+  static @Nullable TypeMirror holderType(Node node) {
+    node = stripCasts(node);
+    Node current = node;
+    while (true) {
+      Node receiver;
+      if (current instanceof FieldAccessNode fieldAccess) {
+        receiver = fieldAccess.getReceiver();
+      } else if (current instanceof ArrayAccessNode arrayAccess) {
+        receiver = arrayAccess.getArray();
+      } else if (current instanceof MethodInvocationNode invocation) {
+        if (!invocation.getTarget().getMethod().getTypeParameters().isEmpty()) {
+          return null;
+        }
+        receiver = invocation.getTarget().getReceiver();
+      } else {
+        return node.getType();
+      }
+      if (receiver instanceof TypeCastNode) {
+        return null;
+      }
+      current = receiver;
+    }
+  }
+
+  /**
    * Strips a widening conversion and the value-preserving casts from around a method argument.
    *
    * <p>A widening conversion keeps the value of a constant: for a {@code long} parameter, {@code

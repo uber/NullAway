@@ -102,7 +102,6 @@ import com.uber.nullaway.ErrorMessage.MessageTypes;
 import com.uber.nullaway.dataflow.AccessPathNullnessAnalysis;
 import com.uber.nullaway.dataflow.EnclosingEnvironmentNullness;
 import com.uber.nullaway.generics.GenericsChecks;
-import com.uber.nullaway.generics.GenericsUtils;
 import com.uber.nullaway.generics.JSpecifyJavacConfig;
 import com.uber.nullaway.handlers.Handler;
 import com.uber.nullaway.handlers.Handlers;
@@ -117,6 +116,7 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
+import java.util.function.Supplier;
 import java.util.stream.Collectors;
 import java.util.stream.StreamSupport;
 import javax.inject.Inject;
@@ -623,7 +623,10 @@ public class NullAway extends BugChecker
       Type arrayType = genericsChecks.getTreeType(arrayExpr, state.withPath(pathToArrayExpr));
       boolean isElementNullable = isArrayElementNullable(arrayType, config);
       if (!isTopLevelNullnessCompatible(
-          expression, lhsType, isElementNullable ? Nullness.NULLABLE : Nullness.NONNULL, state)) {
+          expression,
+          () -> lhsType,
+          isElementNullable ? Nullness.NULLABLE : Nullness.NONNULL,
+          state)) {
         state.reportMatch(
             errorBuilder.createErrorDescription(
                 new ErrorMessage(
@@ -647,7 +650,8 @@ public class NullAway extends BugChecker
       // field already annotated
       return Description.NO_MATCH;
     }
-    if (isTopLevelNullnessCompatible(tree.getExpression(), lhsType, Nullness.NONNULL, state)) {
+    if (isTopLevelNullnessCompatible(
+        tree.getExpression(), () -> lhsType, Nullness.NONNULL, state)) {
       handler.onNonNullFieldAssignment(assigned, getNullnessAnalysis(state), state);
     } else {
       state.reportMatch(
@@ -1380,13 +1384,17 @@ public class NullAway extends BugChecker
               .equals(Nullness.NONNULL)
           || genericsChecks.passingLambdaOrMethodRefWithGenericReturnToUnmarkedCode(
               methodSymbol, lambdaTree, state, codeAnnotationInfo)) {
-        // In JSpecify mode, the return type of a lambda may be @Nullable via a type argument
+        // In JSpecify mode, a type argument may let a lambda return null: the return type is
+        // @Nullable, or is a wildcard bounded by a type variable with a nullable upper bound
         return;
       }
     }
 
     if (!isTopLevelNullnessCompatible(
-        retExpr, returnTypeAtReturn(methodSymbol, lambdaTree, state), Nullness.NONNULL, state)) {
+        retExpr,
+        () -> returnTypeAtReturn(methodSymbol, lambdaTree, state),
+        Nullness.NONNULL,
+        state)) {
       state.reportMatch(
           errorBuilder.createErrorDescriptionForNullAssignment(
               new ErrorMessage(
@@ -1998,7 +2006,7 @@ public class NullAway extends BugChecker
           getFieldInitializationSkipResult(state, symbol, null) == Handler.FieldSkipResult.YES
               ? Nullness.NULLABLE
               : Nullness.NONNULL;
-      if (!isTopLevelNullnessCompatible(initializer, symbol.type, targetNullness, state)) {
+      if (!isTopLevelNullnessCompatible(initializer, () -> symbol.type, targetNullness, state)) {
         state.reportMatch(
             errorBuilder.createErrorDescriptionForNullAssignment(
                 new ErrorMessage(
@@ -2514,9 +2522,20 @@ public class NullAway extends BugChecker
             // Preserve the fast path for nullable and unannotated parameters.
             return;
           }
-          Type targetType =
-              declaredParameterExcludesNull(methodSymbol, argPos, state) ? null : formalParamType;
-          if (!isTopLevelNullnessCompatible(actual, targetType, Nullness.NONNULL, state)) {
+          int paramIndex = argPos;
+          boolean individualVarargsArgument =
+              methodSymbol.isVarArgs()
+                  && paramIndex == formalParams.size() - 1
+                  && !varArgsPassedAsArray;
+          if (!isTopLevelNullnessCompatible(
+              actual,
+              () ->
+                  genericsChecks.declaredParameterAdmitsNull(
+                          methodSymbol, paramIndex, individualVarargsArgument, state)
+                      ? formalParamType
+                      : null,
+              Nullness.NONNULL,
+              state)) {
             state.reportMatch(
                 errorBuilder.createErrorDescriptionForNullAssignment(
                     new ErrorMessage(
@@ -3136,17 +3155,18 @@ public class NullAway extends BugChecker
    * distinction matters for handlers that are notified only of successful nonnull field writes.
    *
    * @param expression expression being assigned, passed, or returned
-   * @param targetType destination type after call-site substitutions, or {@code null} if unknown or
-   *     if the declared destination excludes null whatever the substitution; for array writes and
-   *     individually passed varargs, this is the component type. A {@link Nullness#NO_CHANGE} value
-   *     is compatible only with a type variable destination, see {@link #acceptsNoChangeValue}.
+   * @param targetType supplies the destination type after call-site substitutions, or {@code null}
+   *     if unknown or if the declared destination excludes null whatever the substitution; for
+   *     array writes and individually passed varargs, this is the component type. It is called only
+   *     for a {@link Nullness#NO_CHANGE} value, which is compatible only with a type variable
+   *     destination, see {@link GenericsChecks#acceptsNoChangeValue}.
    * @param targetNullness destination's nullness after applying context-specific rules and handlers
    * @param state visitor state at the pseudo-assignment
    * @return whether the top-level nullness is compatible
    */
   private boolean isTopLevelNullnessCompatible(
       ExpressionTree expression,
-      @Nullable Type targetType,
+      Supplier<@Nullable Type> targetType,
       Nullness targetNullness,
       VisitorState state) {
     if (targetNullness != Nullness.NONNULL) {
@@ -3154,54 +3174,14 @@ public class NullAway extends BugChecker
     }
     Nullness expressionNullness = getExpressionNullness(state, expression);
     if (expressionNullness == Nullness.NO_CHANGE) {
-      return acceptsNoChangeValue(expression, targetType, state);
+      // getExpressionNullness strips casts too, so the type describes the same expression
+      Type expressionType = ASTHelpers.getType(NullabilityUtil.stripParensAndCasts(expression));
+      return expressionType != null
+          && genericsChecks.acceptsNoChangeValue(expressionType, targetType.get(), state);
     }
     return expressionNullness // diff-coverage: ignore -- Preserve missing-dataflow fallback.
             == null
         || !NullabilityUtil.nullnessToBool(expressionNullness);
-  }
-
-  /**
-   * Returns whether a location of type {@code targetType} accepts the {@link Nullness#NO_CHANGE}
-   * value of {@code expr}. That holds when {@code targetType} is a type variable {@code T} with no
-   * {@code @NonNull} annotation, or a capture of {@code ? super T}, and the type of {@code expr} is
-   * a subtype of {@code T}. Such a value is null only when {@code T} is instantiated with a
-   * nullable type argument, and then the location admits null too.
-   *
-   * @param expr the expression whose value flows to the location
-   * @param targetType type of the parameter, return, field, or array element receiving the value,
-   *     or {@code null} if unknown
-   * @param state visitor state whose path encloses {@code expr}
-   */
-  private boolean acceptsNoChangeValue(
-      ExpressionTree expr, @Nullable Type targetType, VisitorState state) {
-    // A capture of ? super T accepts every value of type T
-    Type typeVariable =
-        targetType instanceof Type.CapturedType capturedType
-            ? capturedType.getLowerBound()
-            : targetType;
-    if (!(typeVariable instanceof Type.TypeVar)
-        || typeVariable instanceof Type.CapturedType
-        || Nullness.hasNonNullAnnotation(typeVariable.getAnnotationMirrors().stream(), config)) {
-      return false;
-    }
-    Type exprType = ASTHelpers.getType(NullabilityUtil.stripParensAndCasts(expr));
-    return exprType != null && state.getTypes().isSubtype(exprType, typeVariable);
-  }
-
-  /**
-   * Returns whether the declared type of parameter {@code paramIndex} of {@code methodSymbol}
-   * excludes null whatever the call substitutes for it: the parameter is annotated
-   * {@code @NonNull}, or its type is a type variable whose upper bound excludes null.
-   */
-  private boolean declaredParameterExcludesNull(
-      Symbol.MethodSymbol methodSymbol, int paramIndex, VisitorState state) {
-    if (Nullness.paramHasNonNullAnnotation(methodSymbol, paramIndex, config)) {
-      return true;
-    }
-    Type declaredType = methodSymbol.getParameters().get(paramIndex).type;
-    return declaredType instanceof Type.TypeVar
-        && !GenericsUtils.upperBoundIsNullable(declaredType.tsym, config, handler, state);
   }
 
   /** Returns whether the effective nullness of an expression permits null. */

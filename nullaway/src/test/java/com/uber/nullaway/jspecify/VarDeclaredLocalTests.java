@@ -545,8 +545,10 @@ public class VarDeclaredLocalTests extends NullAwayTestsBase {
   }
 
   /**
-   * Without {@code JSpecifyExperimental}, an enhanced-for element of type {@code T} is non-null in
-   * dataflow, as in 0.14.0, while unboxing it is still reported.
+   * Without {@code JSpecifyExperimental}, an enhanced-for variable of type {@code T} is non-null in
+   * dataflow, as in 0.14.0: dereferencing or unboxing it, or passing, returning, or storing it
+   * where {@code Object} is expected, is not reported. A loop that unboxes the element itself,
+   * {@code for (int x : list)}, is still reported.
    */
   @Test
   public void typeVariableEnhancedForLoopWithoutJSpecifyExperimental() {
@@ -593,6 +595,30 @@ public class VarDeclaredLocalTests extends NullAwayTestsBase {
                 for (T value : list) {
                   array[0] = value;
                 }
+              }
+              static void consumeObject(Object value) {}
+              <T extends @Nullable Object> void passAsObject(List<T> list) {
+                for (T value : list) {
+                  consumeObject(value);
+                }
+              }
+              <T extends @Nullable Object> Object returnAsObject(List<T> list) {
+                for (T value : list) {
+                  return value;
+                }
+                return new Object();
+              }
+              <T extends @Nullable Object> void storeInObjectArray(List<T> list, Object[] array) {
+                for (T value : list) {
+                  array[0] = value;
+                }
+              }
+              <T extends @Nullable Integer> int unboxLoopVariable(List<T> list) {
+                int sum = 0;
+                for (T value : list) {
+                  sum += value;
+                }
+                return sum;
               }
               <T extends @Nullable Object> void passNullableElement(
                   List<@Nullable T> list, Sink<T> sink) {
