@@ -2493,6 +2493,7 @@ public class NullAway extends BugChecker
     // is handled by matchMemberSelect()
     invArgs.forEach(
         (actual, argPos, formalParamType, varArgsPassedAsArray) -> {
+          // always do unboxing checks, whether or not the invoked method is annotated
           if (formalParamType.isPrimitive()) {
             doUnboxingCheck(state, actual);
             return;
