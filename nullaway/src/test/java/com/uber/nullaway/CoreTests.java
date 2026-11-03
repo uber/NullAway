@@ -410,13 +410,9 @@ public class CoreTests extends NullAwayTestsBase {
                 long l = b ? null : 0;
                 // BUG: Diagnostic contains: unboxing
                 g("", b ? null : 0);
-                // SHOULDBUSG: Diagnostic contains: unboxing
-                // BUG: Diagnostic contains: passing @Nullable parameter 'b ? null : 0' where @NonNull is
-                // required
+                // BUG: Diagnostic contains: unboxing
                 h("", 1, b ? null : 0);
-                // SHOULDBUSG: Diagnostic contains: unboxing
-                // BUG: Diagnostic contains: passing @Nullable parameter 'b ? null : 0' where @NonNull is
-                // required
+                // BUG: Diagnostic contains: unboxing
                 h("", 1, b ? null : 0, 3);
                 // BUG: Diagnostic contains: unboxing
                 int z = 0 + (b ? null : 1);
