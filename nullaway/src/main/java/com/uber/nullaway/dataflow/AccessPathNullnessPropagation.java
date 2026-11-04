@@ -886,13 +886,7 @@ public class AccessPathNullnessPropagation
       if (isElementNullable) {
         AccessPath arrayAccessPath = AccessPath.getAccessPathForNode(node, state, apContext);
         if (arrayAccessPath != null) {
-          Nullness accessPathNullness =
-              input.getRegularStore().getNullnessOfAccessPath(arrayAccessPath);
-          if (accessPathNullness == Nullness.NULLABLE || accessPathNullness.isNoChange()) {
-            resultNullness = accessPathNullness;
-          } else {
-            resultNullness = Nullness.NONNULL;
-          }
+          resultNullness = input.getRegularStore().getNullnessOfAccessPath(arrayAccessPath);
         } else {
           resultNullness = Nullness.NULLABLE;
         }

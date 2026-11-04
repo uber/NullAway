@@ -173,6 +173,38 @@ public class JSpecifyArrayTests extends NullAwayTestsBase {
   }
 
   @Test
+  public void nullableElementReadKeepsWhatDataflowKnows() {
+    makeHelper()
+        .addSourceLines(
+            "Test.java",
+            """
+            package com.uber;
+            import org.jspecify.annotations.Nullable;
+            class Test {
+              static void readWithoutCheck(@Nullable String[] array) {
+                String element = array[0];
+                // BUG: Diagnostic contains: dereferenced expression 'element' is @Nullable
+                element.hashCode();
+              }
+              static void readWhenNull(@Nullable String[] array) {
+                if (array[0] == null) {
+                  String element = array[0];
+                  // BUG: Diagnostic contains: dereferenced expression 'element' is @Nullable
+                  element.hashCode();
+                }
+              }
+              static void readWhenNonNull(@Nullable String[] array) {
+                if (array[0] != null) {
+                  String element = array[0];
+                  element.hashCode();
+                }
+              }
+            }
+            """)
+        .doTest();
+  }
+
+  @Test
   public void nullableAssignmentNonnullArray() {
     makeHelper()
         .addSourceLines(

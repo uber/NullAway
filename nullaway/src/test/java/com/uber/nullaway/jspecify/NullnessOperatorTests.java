@@ -686,6 +686,15 @@ public class NullnessOperatorTests extends NullAwayTestsBase {
                   identity(value).hashCode();
                 }
               }
+              static <T extends @Nullable Object> Object returnIdentityAsObjectWhenNull(
+                  Box<? extends T> box) {
+                T value = box.get();
+                if (value == null) {
+                  // BUG: Diagnostic contains: type variable X constrained to be both @NonNull and @Nullable
+                  return identity(value);
+                }
+                return new Object();
+              }
               static <T extends @Nullable Object> void dereferenceAfterIdentityWhenNull(
                   Box<? extends T> box) {
                 T value = box.get();
@@ -786,6 +795,13 @@ public class NullnessOperatorTests extends NullAwayTestsBase {
               }
               static <T extends @Nullable Object> T directArgument(Box<? extends T> box) {
                 return identity(box.get());
+              }
+              static <T extends @Nullable Object> T localArgument(Box<? extends T> box) {
+                T value = box.get();
+                return identity(value);
+              }
+              static <T extends @Nullable Object> Box<T> directBoxed(Box<? extends T> box) {
+                return of(box.get());
               }
               static <T extends @Nullable Object> Box<Object> objectLocal(Box<? extends T> box) {
                 Object value = box.get();
