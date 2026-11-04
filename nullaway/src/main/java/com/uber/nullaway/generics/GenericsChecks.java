@@ -2798,6 +2798,7 @@ public final class GenericsChecks {
    * <p>A {@code var}-declared local variable does not provide a target type; its type is inferred
    * from the initializer.
    */
+  @SuppressWarnings("ReferenceEquality") // Tree identity determines whether this is the case body.
   private TargetTypeAndAssignmentKind getTargetTypeFromParentContext(
       Tree tree, TreePath path, VisitorState state, boolean calledFromDataflow) {
     Tree expressionTree = tree;
@@ -2813,9 +2814,13 @@ public final class GenericsChecks {
       } else if (parent instanceof ConditionalExpressionTree) {
         expressionTree = parent;
         parentPath = castToNonNull(parentPath.getParentPath());
-      } else if (parent instanceof CaseTree || parent instanceof YieldTree) {
+      } else if (parent instanceof YieldTree
+          || (parent instanceof CaseTree caseTree
+              && caseTree.getBody() instanceof ExpressionTree caseBody
+              && ASTHelpers.stripParentheses(caseBody) == expressionTree)) {
         // Both arrow bodies and explicit yields take their target from the nearest switch
-        // expression. A yield may be inside blocks or other statements within its case.
+        // expression. Labels and guards do not share that target. A yield may be inside blocks or
+        // other statements within its case.
         do {
           parentPath = castToNonNull(parentPath.getParentPath());
         } while (!(parentPath.getLeaf() instanceof SwitchExpressionTree));
