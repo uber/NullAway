@@ -824,6 +824,10 @@ public class NullAway extends BugChecker
     if (!withinAnnotatedCode(state)) {
       return Description.NO_MATCH;
     }
+    if (config.isJSpecifyMode()) {
+      genericsChecks.checkTypeParameterNullnessForSwitchExpression(
+          tree, getSwitchExpressionResults(tree), state);
+    }
     // A switch expression of primitive type unboxes each boxed result, and the checks on the
     // enclosing expression skip it because its type is primitive.
     Type switchExprType = ASTHelpers.getType(tree);

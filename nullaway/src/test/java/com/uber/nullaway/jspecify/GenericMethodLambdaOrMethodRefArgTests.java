@@ -167,18 +167,21 @@ public class GenericMethodLambdaOrMethodRefArgTests extends NullAwayTestsBase {
    * constraints.
    */
   @Test
-  public void methodReferenceTargetsPreserveNullableTypeVariablesInCastsAndConditionals() {
+  public void methodReferenceTargetsPreserveNullableTypeVariablesInCastsConditionalsAndSwitches() {
     makeHelper()
         .addSourceLines(
             "Test.java",
             """
             package com.uber;
             import java.util.List;
+            import java.util.function.Consumer;
             import java.util.function.Supplier;
             import org.jspecify.annotations.NullMarked;
             import org.jspecify.annotations.Nullable;
             @NullMarked
             class Test<T> {
+              interface Factory<E> { Consumer<List<@Nullable E>> create(); }
+              static void nullableElements(List<@Nullable String> values) {}
               List<@Nullable T> nullableValues() { throw new UnsupportedOperationException(); }
               List<T> nonNullValues() { throw new UnsupportedOperationException(); }
               static <U extends @Nullable Object> List<@Nullable U> genericNullableValues() {
@@ -250,6 +253,30 @@ public class GenericMethodLambdaOrMethodRefArgTests extends NullAwayTestsBase {
               Supplier<List<T>> nonNullSwitch(int selector) {
                 // BUG: Diagnostic contains: referenced method returns
                 return switch (selector) { default -> this::nullableValues; };
+              }
+              static void nullableSwitchArgument(Test<String> target, int selector) {
+                target.accept(switch (selector) { default -> target::nullableValues; });
+              }
+              static void nullableSwitchYieldArgument(Test<String> target, int selector) {
+                target.accept(switch (selector) { default -> { yield target::nullableValues; } });
+              }
+              static Factory<String> switchInLambda(int selector) {
+                return () -> switch (selector) { default -> Test::nullableElements; };
+              }
+              static Factory<String> switchYieldInLambda(int selector) {
+                return () -> switch (selector) { default -> { yield Test::nullableElements; } };
+              }
+              static Factory<String> switchInBlockLambda(int selector) {
+                return () -> { return switch (selector) { default -> Test::nullableElements; }; };
+              }
+              static void incompatibleSwitchValueArgument(Test<String> target, int selector,
+                  Supplier<List<@Nullable String>> supplier) {
+                // BUG: Diagnostic contains: incompatible types
+                target.acceptNonNull(switch (selector) { default -> supplier; });
+              }
+              static void switchWithoutTarget(int selector,
+                  Supplier<List<@Nullable String>> supplier) {
+                var inferred = switch (selector) { default -> supplier; };
               }
             }
             """)

@@ -16,6 +16,7 @@ import com.sun.source.tree.AnnotationTree;
 import com.sun.source.tree.ArrayAccessTree;
 import com.sun.source.tree.AssignmentTree;
 import com.sun.source.tree.BlockTree;
+import com.sun.source.tree.CaseTree;
 import com.sun.source.tree.ClassTree;
 import com.sun.source.tree.ConditionalExpressionTree;
 import com.sun.source.tree.EnhancedForLoopTree;
@@ -31,9 +32,11 @@ import com.sun.source.tree.NewClassTree;
 import com.sun.source.tree.ParameterizedTypeTree;
 import com.sun.source.tree.ParenthesizedTree;
 import com.sun.source.tree.ReturnTree;
+import com.sun.source.tree.SwitchExpressionTree;
 import com.sun.source.tree.Tree;
 import com.sun.source.tree.VariableTree;
 import com.sun.source.tree.WildcardTree;
+import com.sun.source.tree.YieldTree;
 import com.sun.source.util.TreePath;
 import com.sun.source.util.TreePathScanner;
 import com.sun.tools.javac.code.BoundKind;
@@ -787,21 +790,15 @@ public final class GenericsChecks {
       tree = exprTreeAndState.expr();
       state = exprTreeAndState.state();
     }
-    if (tree instanceof LambdaExpressionTree
-        || tree instanceof MemberReferenceTree
-        || tree instanceof ConditionalExpressionTree) {
+    if (tree instanceof ConditionalExpressionTree || tree instanceof SwitchExpressionTree) {
+      return typeOrNullIfRawNonArray(
+          getConditionalOrSwitchExpressionType((ExpressionTree) tree, state, calledFromDataflow));
+    }
+    if (tree instanceof LambdaExpressionTree || tree instanceof MemberReferenceTree) {
       Type result =
           tree instanceof MemberReferenceTree memberReferenceTree
               ? getMethodReferenceType(memberReferenceTree, state, calledFromDataflow)
-              : inferredPolyExpressionTypes.get(tree);
-      if (result == null) {
-        // A lambda's nullness-enhanced type should have already been cached from its parent tree.
-        // A conditional expression's type may still need to be computed from its target context.
-        result =
-            tree instanceof ConditionalExpressionTree conditionalExpressionTree
-                ? getConditionalExpressionType(conditionalExpressionTree, state, calledFromDataflow)
-                : ASTHelpers.getType(tree);
-      }
+              : getPolyExpressionType(tree);
       return typeOrNullIfRawNonArray(result);
     }
     if (tree instanceof NewClassTree newClassTree) {
@@ -2687,21 +2684,49 @@ public final class GenericsChecks {
   }
 
   /**
-   * Returns the type to use for a conditional expression.
+   * Checks each switch result against the switch expression's recovered target type. Recovering the
+   * whole expression's type must not hide incompatible nested nullability in its results. Only
+   * called in JSpecify mode.
    *
-   * <p>If a target/contextual type for the conditional expression has already been cached, returns
-   * it. Otherwise, this method tries to recover a target type from the conditional expression's
-   * parent context and caches it when {@link #okToCacheInferenceResult(boolean)} permits it. If no
-   * target type is available, falls back to javac's type for the conditional expression.
+   * @param tree the switch expression
+   * @param results the arrow bodies and yield values that complete this switch
+   * @param state visitor state whose path ends at the switch expression
    */
-  private @Nullable Type getConditionalExpressionType(
-      ConditionalExpressionTree tree, VisitorState state, boolean calledFromDataflow) {
+  public void checkTypeParameterNullnessForSwitchExpression(
+      SwitchExpressionTree tree, List<ExpressionTree> results, VisitorState state) {
+    TargetTypeAndAssignmentKind target =
+        getTargetTypeFromParentContext(tree, state.getPath(), state, false);
+    Type targetType = target.typeFromAssignmentContext();
+    if (targetType == null) {
+      return;
+    }
+    for (ExpressionTree result : results) {
+      TreePath resultPath = castToNonNull(TreePath.getPath(state.getPath(), result));
+      Type resultType =
+          getTypeForRhsOfAssignment(
+              result, resultPath, targetType, target.assignedToLocal(), state, false);
+      if (resultType != null && !subtypeParameterNullability(targetType, resultType, state)) {
+        reportInvalidAssignmentInstantiationError(result, targetType, resultType, state);
+      }
+    }
+  }
+
+  /**
+   * Returns the type to use for a conditional or switch expression.
+   *
+   * <p>If a target/contextual type for the expression has already been cached, returns it.
+   * Otherwise, this method tries to recover a target type from the expression's parent context and
+   * caches it when {@link #okToCacheInferenceResult(boolean)} permits it. If no target type is
+   * available, falls back to javac's type for the expression.
+   */
+  private @Nullable Type getConditionalOrSwitchExpressionType(
+      ExpressionTree tree, VisitorState state, boolean calledFromDataflow) {
     Type cachedType = inferredPolyExpressionTypes.get(tree);
     if (cachedType != null) {
       return cachedType;
     }
     TargetTypeAndAssignmentKind targetTypeAndAssignmentKind =
-        getTargetTypeForConditionalExpression(tree, state, calledFromDataflow);
+        getTargetTypeFromParentContext(tree, state.getPath(), state, calledFromDataflow);
     Type typeFromAssignmentContext = targetTypeAndAssignmentKind.typeFromAssignmentContext();
     if (typeFromAssignmentContext != null) {
       if (okToCacheInferenceResult(calledFromDataflow)) {
@@ -2766,9 +2791,9 @@ public final class GenericsChecks {
    * Returns the target type supplied by the parent context for an expression, if one is available.
    *
    * <p>Handles assignment and variable declaration contexts, method and constructor arguments,
-   * return expressions, and expressions nested inside conditional expressions. If {@code path} is
-   * inside a nested conditional expression, this method first climbs to the outermost conditional
-   * expression, since the surrounding target type applies to that expression as a whole.
+   * method and lambda returns, and expressions nested inside conditional or switch expressions.
+   * First climbs to the outermost conditional or switch expression, since the surrounding target
+   * type applies to that expression as a whole.
    *
    * <p>A {@code var}-declared local variable does not provide a target type; its type is inferred
    * from the initializer.
@@ -2776,26 +2801,30 @@ public final class GenericsChecks {
   private TargetTypeAndAssignmentKind getTargetTypeFromParentContext(
       Tree tree, TreePath path, VisitorState state, boolean calledFromDataflow) {
     Tree expressionTree = tree;
-    TreePath expressionPath = path;
-    TreePath parentPath = expressionPath.getParentPath();
+    TreePath parentPath = path.getParentPath();
     if (parentPath == null) {
       return new TargetTypeAndAssignmentKind(null, false);
     }
     // 1. Climb up to corresponding "assignment-like" context:
     Tree parent = parentPath.getLeaf();
-    while (parent instanceof ParenthesizedTree) {
-      parentPath = parentPath.getParentPath();
-      parent = parentPath.getLeaf();
-    }
-    if (parent instanceof ConditionalExpressionTree) {
-      expressionPath = getOutermostConditionalExpressionPath(parentPath);
-      expressionTree = expressionPath.getLeaf();
-      parentPath = expressionPath.getParentPath();
-      parent = parentPath.getLeaf();
-      while (parent instanceof ParenthesizedTree) {
-        parentPath = parentPath.getParentPath();
-        parent = parentPath.getLeaf();
+    while (true) {
+      if (parent instanceof ParenthesizedTree) {
+        parentPath = castToNonNull(parentPath.getParentPath());
+      } else if (parent instanceof ConditionalExpressionTree) {
+        expressionTree = parent;
+        parentPath = castToNonNull(parentPath.getParentPath());
+      } else if (parent instanceof CaseTree || parent instanceof YieldTree) {
+        // Both arrow bodies and explicit yields take their target from the nearest switch
+        // expression. A yield may be inside blocks or other statements within its case.
+        do {
+          parentPath = castToNonNull(parentPath.getParentPath());
+        } while (!(parentPath.getLeaf() instanceof SwitchExpressionTree));
+        expressionTree = parentPath.getLeaf();
+        parentPath = castToNonNull(parentPath.getParentPath());
+      } else {
+        break;
       }
+      parent = parentPath.getLeaf();
     }
     VisitorState parentState = state.withPath(parentPath);
     // 2. We are at the right point in the tree now. Three cases:
@@ -2803,7 +2832,7 @@ public final class GenericsChecks {
     if (parent instanceof AssignmentTree || parent instanceof VariableTree) {
       return getTargetTypeForAssignmentContext(parent, parentState, calledFromDataflow);
     }
-    // 2b. `return [expr];` => target is containing method's formal return type
+    // 2b. A method or lambda return takes the enclosing function's return type as its target.
     if (parent instanceof ReturnTree) {
       TreePath enclosingMethodOrLambda =
           NullabilityUtil.findEnclosingMethodOrLambdaOrInitializer(parentPath);
@@ -2813,7 +2842,21 @@ public final class GenericsChecks {
         if (methodSymbol != null) {
           return new TargetTypeAndAssignmentKind(methodSymbol.getReturnType(), false);
         }
+      } else if (enclosingMethodOrLambda != null
+          && enclosingMethodOrLambda.getLeaf() instanceof LambdaExpressionTree) {
+        parentPath = enclosingMethodOrLambda;
+        parent = parentPath.getLeaf();
       }
+    }
+    if (parent instanceof LambdaExpressionTree lambda) {
+      Type lambdaType = castToNonNull(getPolyExpressionType(lambda));
+      Type returnType =
+          getFunctionalInterfaceMethodType(
+                  NullabilityUtil.getFunctionalInterfaceMethod(lambda, state.getTypes()),
+                  GenericsUtils.groundTargetType(lambdaType, state, config, handler),
+                  state.withPath(parentPath))
+              .getReturnType();
+      return new TargetTypeAndAssignmentKind(returnType, false);
     }
     // 2c. `foo(..., [expr]);` => target is called method's formal argument type
     if (parent instanceof MethodInvocationTree parentInvocation) {
@@ -3069,8 +3112,9 @@ public final class GenericsChecks {
 
   /**
    * Recovers nullability annotations from a method reference's target context when inference has
-   * not already cached its type. Conditional arms share the enclosing conditional's target type.
-   * Keeps javac's attributed type as the fallback for contexts without a recovered target.
+   * not already cached its type. Conditional and switch results share the enclosing expression's
+   * target type. Keeps javac's attributed type as the fallback for contexts without a recovered
+   * target.
    *
    * <p>Does not cache the recovered method-reference type: callers may be running dataflow or using
    * provisional lambda parameters. {@link #inferAndCheckMethodReferenceNullability} caches the type
@@ -3089,7 +3133,7 @@ public final class GenericsChecks {
     }
     Type targetType =
         parentPath.getLeaf() instanceof ConditionalExpressionTree conditionalTree
-            ? getConditionalExpressionType(
+            ? getConditionalOrSwitchExpressionType(
                 conditionalTree, state.withPath(parentPath), calledFromDataflow)
             : getTargetTypeFromParentContext(tree, state.getPath(), state, calledFromDataflow)
                 .typeFromAssignmentContext();
