@@ -515,6 +515,42 @@ public class NullnessOperatorTests extends NullAwayTestsBase {
                 plainHolder.set(box.get());
                 plainHolder.setAll(box.get());
               }
+              <N extends NonNullHolder<T>, P extends PlainHolder<T>> void storeThroughTypeVariableReceiver(
+                  N nonNullHolder, P plainHolder, Box<? extends T> box) {
+                // BUG: Diagnostic contains: assigning @Nullable expression to @NonNull field
+                nonNullHolder.field = box.get();
+                // BUG: Diagnostic contains: passing @Nullable parameter 'box.get()'
+                nonNullHolder.set(box.get());
+                plainHolder.field = box.get();
+                plainHolder.set(box.get());
+              }
+              void storeThroughCapturedReceiver(
+                  Box<? extends NonNullHolder<T>> nonNullHolders,
+                  Box<? extends PlainHolder<T>> plainHolders,
+                  Box<? extends T> box) {
+                // BUG: Diagnostic contains: assigning @Nullable expression to @NonNull field
+                nonNullHolders.get().field = box.get();
+                // BUG: Diagnostic contains: passing @Nullable parameter 'box.get()'
+                nonNullHolders.get().set(box.get());
+                plainHolders.get().field = box.get();
+                plainHolders.get().set(box.get());
+              }
+              void storeInAnonymousSubclass(@NonNull T value, @NonNull T[] values) {
+                new Holder<@NonNull T>(value, values) {
+                  void store(Box<? extends T> box) {
+                    // BUG: Diagnostic contains: assigning @Nullable expression to @NonNull field
+                    field = box.get();
+                    // BUG: Diagnostic contains: passing @Nullable parameter 'box.get()'
+                    set(box.get());
+                  }
+                };
+                new Holder<T>(value, values) {
+                  void store(Box<? extends T> box) {
+                    field = box.get();
+                    set(box.get());
+                  }
+                };
+              }
             }
             """)
         .doTest();

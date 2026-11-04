@@ -3421,7 +3421,7 @@ public final class GenericsChecks {
    * the annotations on its type arguments are kept. For a {@code super(...)} or {@code this(...)}
    * constructor call, this is the innermost enclosing class.
    *
-   * @param method the invoked method or constructor, or the field
+   * @param member the invoked method or constructor, or the field
    * @param path the path to the call or the field name
    * @param state the visitor state
    * @param calledFromDataflow whether this method is being called from dataflow analysis
@@ -3429,8 +3429,8 @@ public final class GenericsChecks {
    *     class's instance creation cannot be computed
    */
   private @Nullable Type getImplicitReceiverType(
-      Symbol method, TreePath path, VisitorState state, boolean calledFromDataflow) {
-    Symbol.ClassSymbol owner = method.enclClass();
+      Symbol member, TreePath path, VisitorState state, boolean calledFromDataflow) {
+    Symbol.ClassSymbol owner = member.enclClass();
     Type innermostType = null;
     // JLS 15.12.1: an unqualified call names a member of an enclosing class, so the loop returns
     // before it runs out of classes
@@ -3441,11 +3441,11 @@ public final class GenericsChecks {
         Type classType = castToNonNull(ASTHelpers.getType(classTree));
         if (innermostType == null) {
           innermostType = classType;
-          if (method.isConstructor()) {
+          if (member.isConstructor()) {
             return innermostType;
           }
         }
-        if (method.isMemberOf(classSymbol, state.getTypes())) {
+        if (member.isMemberOf(classSymbol, state.getTypes())) {
           if (classSymbol.isAnonymous() && !owner.equals(classSymbol)) {
             return getTypeForSymbol(classSymbol, state.withPath(p), calledFromDataflow);
           }
@@ -4861,16 +4861,39 @@ public final class GenericsChecks {
               ? ASTHelpers.getType(memberSelect.getExpression())
               : getImplicitReceiverType(symbol, path, state, false);
       if (receiverType != null) {
-        // the field as a member of the receiver's class as declared, so that annotations NullAway
-        // infers for the receiver's own type arguments do not enter
-        Type declaredFieldType =
-            TypeSubstitutionUtils.memberType(
-                state.getTypes(), receiverType.tsym.type, symbol, config);
         return TypeSubstitutionUtils.restoreExplicitNullabilityAnnotations(
-            declaredFieldType, javacType, state.getTypes(), config);
+            annotatedMemberType(receiverType, symbol, state.getTypes()),
+            javacType,
+            state.getTypes(),
+            config);
       }
     }
     return getTreeType(target, state.withPath(path));
+  }
+
+  /**
+   * Returns the type of {@code member} as a member of {@code receiverType}, keeping the type-use
+   * annotations on the type arguments of the receiver and of the supertypes it inherits {@code
+   * member} through. A type variable or captured receiver is replaced by its upper bound first.
+   *
+   * @param receiverType javac's type of the receiver
+   * @param member a field or method of the receiver
+   * @param types the {@link Types} instance
+   * @return the member type, or {@code member}'s declared type where the receiver is raw or does
+   *     not inherit {@code member}
+   */
+  private Type annotatedMemberType(Type receiverType, Symbol member, Types types) {
+    Type site = types.capture(types.skipTypeVars(receiverType, true));
+    if (site instanceof Type.ClassType classType
+        && !classType.isRaw()
+        && member.owner instanceof Symbol.ClassSymbol owner
+        && ClassDeclarationNullnessAnnotUtils.getAnnotatedSupertype(classType, owner, types, config)
+            instanceof Type.ClassType annotatedOwner
+        && !annotatedOwner.isRaw()) {
+      return TypeSubstitutionUtils.subst(
+          types, member.type, owner.type.allparams(), annotatedOwner.allparams(), config);
+    }
+    return member.type;
   }
 
   /**
@@ -4903,14 +4926,11 @@ public final class GenericsChecks {
               ? ASTHelpers.getType(memberSelect.getExpression())
               : getImplicitReceiverType(methodSymbol, state.getPath(), state, false);
     }
-    // the method as a member of the receiver's class as declared, as for a field in
-    // getAssignedVariableType
-    Type declaredMethodType =
+    Type memberType =
         receiverType != null
-            ? TypeSubstitutionUtils.memberType(
-                state.getTypes(), receiverType.tsym.type, methodSymbol, config)
+            ? annotatedMemberType(receiverType, methodSymbol, state.getTypes())
             : methodSymbol.type;
-    Type annotationSource = declaredMethodType.asMethodType().getParameterTypes().get(paramIndex);
+    Type annotationSource = memberType.asMethodType().getParameterTypes().get(paramIndex);
     if (individualVarargsArgument && annotationSource instanceof Type.ArrayType arrayType) {
       annotationSource = arrayType.getComponentType();
     }
