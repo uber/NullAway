@@ -1386,6 +1386,101 @@ public class JSpecifyArrayTests extends NullAwayTestsBase {
         .doTest();
   }
 
+  @Test
+  public void arrayReadTakesElementNullnessFromArrayExpression() {
+    makeHelper()
+        .addSourceLines(
+            "Test.java",
+            """
+            package com.uber;
+            import org.jspecify.annotations.Nullable;
+            class Test {
+              static @Nullable String[][] nullableElements2d = {};
+              static String[][] nonNullElements2d = {};
+              void dereferenceNullableElementOfCast(Object o) {
+                // BUG: Diagnostic contains: dereferenced expression '((@Nullable String[]) o)[0]' is @Nullable
+                ((@Nullable String[]) o)[0].length();
+              }
+              void dereferenceNullableElementOfParenthesizedCast(Object o) {
+                // BUG: Diagnostic contains: dereferenced expression '(((@Nullable String[]) o))[0]' is @Nullable
+                (((@Nullable String[]) o))[0].length();
+              }
+              void dereferenceLocalReadFromNullableElementOfCast(Object o) {
+                String s = ((@Nullable String[]) o)[0];
+                // BUG: Diagnostic contains: dereferenced expression 's' is @Nullable
+                s.length();
+              }
+              <T> void dereferenceNullableTypeVariableElementOfCast(Object o) {
+                // BUG: Diagnostic contains: dereferenced expression '((@Nullable T[]) o)[0]' is @Nullable
+                ((@Nullable T[]) o)[0].hashCode();
+              }
+              <T> void dereferenceLocalReadFromNullableTypeVariableElementOfCast(Object o) {
+                T t = ((@Nullable T[]) o)[0];
+                // BUG: Diagnostic contains: dereferenced expression 't' is @Nullable
+                t.hashCode();
+              }
+              <T> void dereferenceTypeVariableElementOfCast(Object o) {
+                ((T[]) o)[0].hashCode();
+              }
+              void dereferenceLoopVariableOverNullableElementsOfCast(Object o) {
+                for (String s : (@Nullable String[]) o) {
+                  // BUG: Diagnostic contains: dereferenced expression 's' is @Nullable
+                  s.length();
+                }
+              }
+              void dereferenceLoopVariableOverNonNullElementsOfCast(Object o) {
+                for (String s : (String[]) o) {
+                  s.length();
+                }
+              }
+              void dereferenceNonNullElementOfCast(Object o) {
+                ((String[]) o)[0].length();
+              }
+              void dereferenceLocalReadFromNonNullElementOfCast(Object o) {
+                String s = ((String[]) o)[0];
+                s.length();
+              }
+              void unboxLoopVariableOverNullableElementsOfCast(Object o) {
+                // BUG: Diagnostic contains: unboxing of a @Nullable value
+                for (int i : (@Nullable Integer[]) o) {}
+              }
+              void unboxLoopVariableOverNonNullElementsOfCast(Object o) {
+                for (int i : (Integer[]) o) {}
+              }
+              void dereferenceNullableElementOfNestedArray() {
+                // BUG: Diagnostic contains: dereferenced expression 'nullableElements2d[0][1]' is @Nullable
+                nullableElements2d[0][1].length();
+              }
+              void dereferenceNonNullElementOfNestedArray() {
+                nonNullElements2d[0][1].length();
+              }
+              void dereferenceLocalReadFromParenthesizedNullableLocal() {
+                @Nullable String[] a = new @Nullable String[1];
+                String s = (a)[0];
+                // BUG: Diagnostic contains: dereferenced expression 's' is @Nullable
+                s.length();
+              }
+              void dereferenceLocalReadFromParenthesizedDeclarationNullableVarargs(
+                  @javax.annotation.Nullable String... args) {
+                String s = (args)[0];
+                // BUG: Diagnostic contains: dereferenced expression 's' is @Nullable
+                s.length();
+              }
+              void dereferenceElementOfParenthesizedDeclarationNullableVarargs(
+                  @javax.annotation.Nullable String... args) {
+                // BUG: Diagnostic contains: dereferenced expression '(args)[0]' is @Nullable
+                (args)[0].length();
+              }
+              void dereferenceLocalReadFromParenthesizedNonNullLocal() {
+                String[] a = new String[1];
+                String s = (a)[0];
+                s.length();
+              }
+            }
+            """)
+        .doTest();
+  }
+
   private CompilationTestHelper makeHelper() {
     return makeTestHelperWithArgs(
         JSpecifyJavacConfig.withJSpecifyModeArgs(

@@ -871,18 +871,13 @@ public class AccessPathNullnessPropagation
     Nullness resultNullness;
     // Unsoundly assume @NonNull, except in JSpecify mode where we check the type
     if (config.isJSpecifyMode()) {
-      Symbol arraySymbol;
-      boolean isElementNullable = false;
-      // For enhanced-for-loops we get the symbol from the array expression as the node is desugared
+      // For enhanced-for-loops we get the array expression from the node as the tree is desugared
       ExpressionTree arrayExpr = node.getArrayExpression();
-      if (arrayExpr != null) {
-        arraySymbol = ASTHelpers.getSymbol(arrayExpr);
-      } else {
-        arraySymbol = ASTHelpers.getSymbol(node.getArray().getTree());
+      if (arrayExpr == null) {
+        arrayExpr = node.getTree().getExpression();
       }
-      if (arraySymbol != null) {
-        isElementNullable = NullabilityUtil.isArrayElementNullable(arraySymbol, config);
-      }
+      boolean isElementNullable =
+          NullabilityUtil.isArrayExpressionElementNullable(arrayExpr, config);
       if (isElementNullable) {
         AccessPath arrayAccessPath = AccessPath.getAccessPathForNode(node, state, apContext);
         if (arrayAccessPath != null) {

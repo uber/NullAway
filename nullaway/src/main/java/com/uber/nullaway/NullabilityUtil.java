@@ -627,6 +627,24 @@ public class NullabilityUtil {
   }
 
   /**
+   * Checks if the elements of the array an expression evaluates to are {@code @Nullable}. Reads the
+   * annotations from the expression's symbol when it has one, and from the expression's type
+   * otherwise, as for a cast like {@code ((@Nullable String[]) o)}.
+   *
+   * @param arrayExpr an expression of array type
+   * @param config NullAway configuration
+   * @return true if the array elements are {@code @Nullable}, false otherwise
+   */
+  public static boolean isArrayExpressionElementNullable(ExpressionTree arrayExpr, Config config) {
+    ExpressionTree expr = ASTHelpers.stripParentheses(arrayExpr);
+    Symbol arraySymbol = ASTHelpers.getSymbol(expr);
+    if (arraySymbol != null) {
+      return isArrayElementNullable(arraySymbol, config);
+    }
+    return isArrayElementNullable(ASTHelpers.getType(expr), config);
+  }
+
+  /**
    * Checks if the given varargs symbol has a {@code @Nullable} annotation for its elements. Works
    * for both source and bytecode.
    *
