@@ -53,10 +53,12 @@ public enum Nullness implements AbstractValue<Nullness> {
    * A value read through a type variable {@code T} with a nullable upper bound, such as the result
    * of {@code Box<? extends T>.get()} or an enhanced-for element of type {@code T}, which is null
    * only when {@code T} is instantiated with a nullable type argument. This is the JSpecify {@code
-   * NO_CHANGE} nullness operator applied to {@code T}. Such a value is treated as nullable, except
-   * that it may be passed, returned, or stored where an unannotated {@code T} is expected, it
-   * initializes a field of type {@code T}, and generic method inference takes {@code T} from it. A
-   * parameter of type {@code T} is {@link #NONNULL}, not {@code NO_CHANGE}.
+   * NO_CHANGE} nullness operator applied to {@code T}. NullAway computes it only with {@code
+   * HandleWildcardGenerics} on; with that option off, such a value is {@link #NONNULL}. Such a
+   * value is treated as nullable, except that it may be passed, returned, or stored where an
+   * unannotated {@code T} is expected, it initializes a field of type {@code T}, and generic method
+   * inference takes {@code T} from it. A parameter of type {@code T} is {@link #NONNULL}, not
+   * {@code NO_CHANGE}.
    *
    * <p>A {@code NO_CHANGE} fact holds relative to the static type of the variable or expression
    * that holds the value. Dataflow keeps the fact when the value moves to a holder of another type

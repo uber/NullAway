@@ -1319,10 +1319,9 @@ public class AccessPathNullnessPropagation
   }
 
   /**
-   * Returns the nullness of the element that {@code node} reads for an enhanced-for loop, or {@link
-   * Nullness#NONNULL} if {@code node} is not such a read. When {@code HandleWildcardGenerics} is
-   * off, an element that would be {@link Nullness#NO_CHANGE} is {@link Nullness#NONNULL}, like any
-   * other value whose type is a type variable.
+   * Returns the nullness of the element that {@code node} reads for an enhanced-for loop, as {@link
+   * GenericsChecks#getEnhancedForLoopElementNullness} computes it. Returns {@link Nullness#NONNULL}
+   * if {@code node} is not such a read, or outside JSpecify mode.
    */
   private Nullness enhancedForLoopElementNullness(MethodInvocationNode node) {
     if (!config.isJSpecifyMode()) {
@@ -1332,14 +1331,10 @@ public class AccessPathNullnessPropagation
     if (iterableExpression == null) {
       return NONNULL;
     }
-    Nullness elementNullness =
-        genericsChecks.getEnhancedForLoopElementNullness(
-            iterableExpression,
-            state.withPath(enhancedForLoopIterablePath(node)),
-            /* calledFromDataflow= */ true);
-    return elementNullness.equals(NO_CHANGE) && !config.handleWildcardGenerics()
-        ? NONNULL
-        : elementNullness;
+    return genericsChecks.getEnhancedForLoopElementNullness(
+        iterableExpression,
+        state.withPath(enhancedForLoopIterablePath(node)),
+        /* calledFromDataflow= */ true);
   }
 
   /**

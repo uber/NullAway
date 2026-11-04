@@ -408,6 +408,35 @@ public class VarDeclaredLocalTests extends NullAwayTestsBase {
   }
 
   @Test
+  public void rawIterableElementIsNonNull() {
+    makeHelper()
+        .addSourceLines(
+            "Test.java",
+            """
+            package com.uber;
+            import org.jspecify.annotations.NullMarked;
+            import org.jspecify.annotations.Nullable;
+            import java.util.List;
+            @NullMarked
+            class Test {
+              @SuppressWarnings("rawtypes")
+              void raw(List list) {
+                for (Object x : list) {
+                  x.hashCode();
+                }
+              }
+              void nullableElements(List<@Nullable Object> list) {
+                for (Object x : list) {
+                  // BUG: Diagnostic contains: dereferenced expression 'x' is @Nullable
+                  x.hashCode();
+                }
+              }
+            }
+            """)
+        .doTest();
+  }
+
+  @Test
   public void explicitlyTypedEnhancedForLoop() {
     makeHelper()
         .addSourceLines(
@@ -545,10 +574,10 @@ public class VarDeclaredLocalTests extends NullAwayTestsBase {
   }
 
   /**
-   * Without {@code JSpecifyExperimental}, an enhanced-for variable of type {@code T} is non-null in
-   * dataflow, as in 0.14.0: dereferencing or unboxing it, or passing, returning, or storing it
-   * where {@code Object} is expected, is not reported. A loop that unboxes the element itself,
-   * {@code for (int x : list)}, is still reported.
+   * With {@code HandleWildcardGenerics} off, as without {@code JSpecifyExperimental}, an
+   * enhanced-for element of type {@code T} is non-null, as in 0.14.0: dereferencing or unboxing it,
+   * whether through the loop variable or in the loop header, or passing, returning, or storing it
+   * where {@code Object} is expected, is not reported.
    */
   @Test
   public void typeVariableEnhancedForLoopWithoutJSpecifyExperimental() {
@@ -627,7 +656,11 @@ public class VarDeclaredLocalTests extends NullAwayTestsBase {
                   sink.accept(value);
                 }
               }
-              <T extends @Nullable Integer> void unbox(List<T> list) {
+              <T extends @Nullable Integer> void unboxInLoopHeader(List<T> list) {
+                for (int x : list) {}
+              }
+              <T extends @Nullable Integer> void unboxNullableElementInLoopHeader(
+                  List<@Nullable T> list) {
                 // BUG: Diagnostic contains: unboxing of a @Nullable value
                 for (int x : list) {}
               }

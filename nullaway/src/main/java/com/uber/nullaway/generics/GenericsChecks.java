@@ -1276,8 +1276,10 @@ public final class GenericsChecks {
    * @param state visitor state whose path points to {@code expression}
    * @param calledFromDataflow whether this method was called as part of dataflow analysis
    * @return the element nullness, or {@link Nullness#NONNULL} if the element type cannot be
-   *     resolved; {@link Nullness#NO_CHANGE} for an element whose type is a type variable with a
-   *     nullable upper bound, or, when {@code HandleWildcardGenerics} is on, is bounded by one
+   *     resolved; when {@code HandleWildcardGenerics} is on, {@link Nullness#NO_CHANGE} for an
+   *     element whose type is a type variable with a nullable upper bound or is bounded by one, and
+   *     when it is off, {@link Nullness#NONNULL} for such an element, like any other value whose
+   *     type is a type variable
    */
   public Nullness getEnhancedForLoopElementNullness(
       ExpressionTree expression, VisitorState state, boolean calledFromDataflow) {
@@ -1288,10 +1290,15 @@ public final class GenericsChecks {
       // if we're not handling wildcards, always treat as non-null
       return Nullness.NONNULL;
     }
-    return elementType == null
-        ? Nullness.NONNULL
-        : getTypeNullnessForRead(
+    if (elementType == null) {
+      return Nullness.NONNULL;
+    }
+    Nullness elementNullness =
+        getTypeNullnessForRead(
             elementType, state, config, handler, /* followUnsubstitutedTypeVarUpperBound= */ true);
+    return elementNullness.equals(Nullness.NO_CHANGE) && !config.handleWildcardGenerics()
+        ? Nullness.NONNULL
+        : elementNullness;
   }
 
   /**
