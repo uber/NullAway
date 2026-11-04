@@ -2448,7 +2448,8 @@ public final class GenericsChecks {
   /**
    * Returns {@code type} with its top-level nullness updated to {@code nullness}. A {@link
    * Nullness#NO_CHANGE} value of a type variable or capture type has the nullness of that type
-   * itself, so a top-level {@code @Nullable} is removed from it as from a non-null value.
+   * itself, so a top-level {@code @Nullable} is removed from it as from a non-null value. A {@link
+   * Nullness#NULL_NO_CHANGE} value is null, and the type becomes {@code @Nullable}.
    *
    * @param state the current visitor state
    * @param type the type to update
@@ -4732,24 +4733,32 @@ public final class GenericsChecks {
   }
 
   /**
-   * Returns whether a location of type {@code targetType} accepts a {@link Nullness#NO_CHANGE}
-   * value of type {@code valueType}. That holds when {@code targetType} is a type variable {@code
-   * T} with no {@code @NonNull} annotation, or a capture of {@code ? super T}, and {@code
-   * valueType} is {@code T} or reaches {@code T} through upper bounds none of which is annotated
-   * {@code @Nullable}. Such a value is null only when {@code T} is instantiated with a nullable
-   * type argument, and then the location admits null too. In {@code <U extends @Nullable T>}, the
-   * bound of {@code U} breaks the chain, since {@code U} may be nullable while {@code T} is not.
+   * Returns whether a location of type {@code targetType} accepts a value of type {@code valueType}
+   * for which {@link Nullness#isNoChange()} holds. That holds when {@code targetType} is a type
+   * variable {@code T}, or a capture of {@code ? super T}, that neither the type nor {@code
+   * targetDeclaration} annotates {@code @NonNull}, and {@code valueType} is {@code T} or reaches
+   * {@code T} through upper bounds none of which is annotated {@code @Nullable}. Such a value is
+   * null only when {@code T} is instantiated with a nullable type argument, and then the location
+   * admits null too. In {@code <U extends @Nullable T>}, the bound of {@code U} breaks the chain,
+   * since {@code U} may be nullable while {@code T} is not.
    *
-   * <p>Dataflow applies the same test when a value moves to a variable or expression of another
-   * static type, so a {@code NO_CHANGE} fact always holds relative to the static type of its
-   * holder.
+   * <p>Every sink and dataflow apply this test, so a {@code NO_CHANGE} fact always holds relative
+   * to the static type of its holder. For a parameter, {@link #parameterAdmitsNull} decides what
+   * the declaration and the handlers allow, and the caller passes a {@code null} target type where
+   * it does not hold.
    *
    * @param valueType static type of the expression or variable that holds the value
-   * @param targetType type of the location receiving the value, or {@code null} if unknown
+   * @param targetType type of the location receiving the value, or {@code null} if unknown or if
+   *     the location excludes null
+   * @param targetDeclaration the field, or the method whose return receives the value, whose
+   *     annotations apply to the location; {@code null} for any other location
    * @param state visitor state
    */
   public boolean acceptsNoChangeValue(
-      Type valueType, @Nullable Type targetType, VisitorState state) {
+      Type valueType,
+      @Nullable Type targetType,
+      @Nullable Symbol targetDeclaration,
+      VisitorState state) {
     // A capture of ? super T accepts every value of type T
     Type typeVariable =
         targetType instanceof Type.CapturedType capturedType
@@ -4757,7 +4766,9 @@ public final class GenericsChecks {
             : targetType;
     if (!(typeVariable instanceof Type.TypeVar)
         || typeVariable instanceof Type.CapturedType
-        || Nullness.hasNonNullAnnotation(typeVariable.getAnnotationMirrors().stream(), config)) {
+        || Nullness.hasNonNullAnnotation(typeVariable.getAnnotationMirrors().stream(), config)
+        || (targetDeclaration != null
+            && Nullness.hasNonNullAnnotation(targetDeclaration, config))) {
       return false;
     }
     return reachesThroughNonNullableBounds(valueType, typeVariable, state.getTypes());

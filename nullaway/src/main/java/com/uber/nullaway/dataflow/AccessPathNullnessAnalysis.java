@@ -181,7 +181,7 @@ public final class AccessPathNullnessAnalysis {
   /**
    * Gets the fields of the receiver that are initialized at exit from a method or initializer
    * block. Unlike {@link #getNonnullFieldsOfReceiverAtExit}, this includes a field that holds a
-   * {@link Nullness#NO_CHANGE} value.
+   * value for which {@link Nullness#isNoChange()} holds.
    *
    * @param path tree path of method, or initializer block
    * @param context Javac context
@@ -199,7 +199,7 @@ public final class AccessPathNullnessAnalysis {
 
   /**
    * Gets the fields of the receiver that are initialized before the current expression: those that
-   * hold a non-null or a {@link Nullness#NO_CHANGE} value.
+   * hold a non-null value or a value for which {@link Nullness#isNoChange()} holds.
    *
    * @param path tree path of some expression
    * @param context Javac context

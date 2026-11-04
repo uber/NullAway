@@ -20,7 +20,6 @@ import static com.google.errorprone.util.ASTHelpers.isStatic;
 import static com.uber.nullaway.NullabilityUtil.castToNonNull;
 import static com.uber.nullaway.Nullness.BOTTOM;
 import static com.uber.nullaway.Nullness.NONNULL;
-import static com.uber.nullaway.Nullness.NO_CHANGE;
 import static com.uber.nullaway.Nullness.NULLABLE;
 import static javax.lang.model.element.ElementKind.EXCEPTION_PARAMETER;
 import static org.checkerframework.nullaway.javacutil.TreeUtils.elementFromDeclaration;
@@ -543,11 +542,9 @@ public class AccessPathNullnessPropagation
 
     // Where the operands are equal, each access path holds the value of the other operand
     Nullness leftEqualBranchValue =
-        leftVal.greatestLowerBound(
-            valueHeldAs(rightVal, rightOperand, AccessPath.holderType(realLeftNode)));
+        leftVal.greatestLowerBound(valueHeldAs(rightVal, rightOperand, realLeftNode));
     Nullness rightEqualBranchValue =
-        rightVal.greatestLowerBound(
-            valueHeldAs(leftVal, leftOperand, AccessPath.holderType(realRightNode)));
+        rightVal.greatestLowerBound(valueHeldAs(leftVal, leftOperand, realRightNode));
 
     AccessPath leftAP = AccessPath.getAccessPathForNode(realLeftNode, state, apContext);
     if (leftAP != null) {
@@ -608,8 +605,7 @@ public class AccessPathNullnessPropagation
     ReadableUpdates updates = new ReadableUpdates();
     Node rhs = node.getExpression();
     Node target = node.getTarget();
-    Nullness value =
-        valueHeldAs(values(input).valueOfSubNode(rhs), rhs, AccessPath.holderType(target));
+    Nullness value = valueHeldAs(values(input).valueOfSubNode(rhs), rhs, target);
 
     if (target instanceof LocalVariableNode localVariableNode
         && !castToNonNull(ASTHelpers.getType(target.getTree())).isPrimitive()) {
@@ -892,7 +888,7 @@ public class AccessPathNullnessPropagation
         if (arrayAccessPath != null) {
           Nullness accessPathNullness =
               input.getRegularStore().getNullnessOfAccessPath(arrayAccessPath);
-          if (accessPathNullness == Nullness.NULLABLE || accessPathNullness == Nullness.NO_CHANGE) {
+          if (accessPathNullness == Nullness.NULLABLE || accessPathNullness.isNoChange()) {
             resultNullness = accessPathNullness;
           } else {
             resultNullness = Nullness.NONNULL;
@@ -992,7 +988,10 @@ public class AccessPathNullnessPropagation
         hasPrimitiveType(node)
             ? NONNULL
             : valueHeldAs(
-                values.valueOfSubNode(node.getOperand()), node.getOperand(), node.getType());
+                values.valueOfSubNode(node.getOperand()),
+                node.getOperand(),
+                node.getType(),
+                /* holderDeclaration= */ null);
     // (boolean) (x != null) has the truth value of x != null, so the branch facts of x != null hold
     if (input.containsTwoStores()) {
       return new ConditionalTransferResult<>(nullness, input.getThenStore(), input.getElseStore());
@@ -1183,7 +1182,7 @@ public class AccessPathNullnessPropagation
       AccessPath getAccessPath = AccessPath.getForMapInvocation(node, state, apContext);
       if (getAccessPath != null) {
         Node valueArgument = arguments.get(1);
-        // The type of get() is not computed here, so a NO_CHANGE value is stored as NULLABLE
+        // The get() call has no node here, so a NO_CHANGE value is stored as NULLABLE
         bothUpdates.set(
             getAccessPath, valueHeldAs(inputs.valueOfSubNode(valueArgument), valueArgument, null));
       }
@@ -1280,25 +1279,48 @@ public class AccessPathNullnessPropagation
   }
 
   /**
+   * Returns the nullness of {@code value}, the value of {@code source}, once {@code holder} holds
+   * it, as {@link #valueHeldAs(Nullness, Node, TypeMirror, Symbol)} computes it for the type and
+   * the declaration of {@code holder}.
+   *
+   * @param value nullness of {@code source}
+   * @param source node whose value moves
+   * @param holder variable or expression receiving the value, or {@code null} if unknown
+   */
+  private Nullness valueHeldAs(Nullness value, Node source, @Nullable Node holder) {
+    return holder == null
+        ? valueHeldAs(value, source, null, null)
+        : valueHeldAs(
+            value, source, AccessPath.holderType(holder), AccessPath.holderDeclaration(holder));
+  }
+
+  /**
    * Returns the nullness of {@code value}, the value of {@code source}, once a variable or
-   * expression of type {@code holderType} holds it. A {@link Nullness#NO_CHANGE} value stays {@code
-   * NO_CHANGE} only where {@link GenericsChecks#acceptsNoChangeValue} accepts it for {@code
-   * holderType}, and is {@link Nullness#NULLABLE} otherwise; any other value is unchanged.
+   * expression of type {@code holderType} holds it. A value for which {@link Nullness#isNoChange()}
+   * holds keeps its nullness only where {@link GenericsChecks#acceptsNoChangeValue} accepts it for
+   * {@code holderType} and {@code holderDeclaration}, and becomes {@link
+   * Nullness#withoutNoChange()} otherwise; any other value is unchanged.
    *
    * @param value nullness of {@code source}
    * @param source node whose value moves
    * @param holderType static type of the variable or expression receiving the value, or {@code
    *     null} if unknown
+   * @param holderDeclaration the field receiving the value, or {@code null} for any other holder
    */
-  private Nullness valueHeldAs(Nullness value, Node source, @Nullable TypeMirror holderType) {
-    if (value != NO_CHANGE) {
+  private Nullness valueHeldAs(
+      Nullness value,
+      Node source,
+      @Nullable TypeMirror holderType,
+      @Nullable Symbol holderDeclaration) {
+    if (!value.isNoChange()) {
       return value;
     }
     Type valueType = valueTypeOf(source);
     return valueType != null
-            && genericsChecks.acceptsNoChangeValue(valueType, (Type) holderType, state)
-        ? NO_CHANGE
-        : NULLABLE;
+            && genericsChecks.acceptsNoChangeValue(
+                valueType, (Type) holderType, holderDeclaration, state)
+        ? value
+        : value.withoutNoChange();
   }
 
   /**

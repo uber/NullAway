@@ -625,6 +625,7 @@ public class NullAway extends BugChecker
       if (!isTopLevelNullnessCompatible(
           expression,
           () -> lhsType,
+          /* targetDeclaration= */ null,
           isElementNullable ? Nullness.NULLABLE : Nullness.NONNULL,
           state)) {
         state.reportMatch(
@@ -651,7 +652,7 @@ public class NullAway extends BugChecker
       return Description.NO_MATCH;
     }
     if (isTopLevelNullnessCompatible(
-        tree.getExpression(), () -> lhsType, Nullness.NONNULL, state)) {
+        tree.getExpression(), () -> lhsType, assigned, Nullness.NONNULL, state)) {
       handler.onNonNullFieldAssignment(assigned, getNullnessAnalysis(state), state);
     } else {
       state.reportMatch(
@@ -1393,6 +1394,7 @@ public class NullAway extends BugChecker
     if (!isTopLevelNullnessCompatible(
         retExpr,
         () -> returnTypeAtReturn(methodSymbol, lambdaTree, state),
+        methodSymbol,
         Nullness.NONNULL,
         state)) {
       state.reportMatch(
@@ -2006,7 +2008,8 @@ public class NullAway extends BugChecker
           getFieldInitializationSkipResult(state, symbol, null) == Handler.FieldSkipResult.YES
               ? Nullness.NULLABLE
               : Nullness.NONNULL;
-      if (!isTopLevelNullnessCompatible(initializer, () -> symbol.type, targetNullness, state)) {
+      if (!isTopLevelNullnessCompatible(
+          initializer, () -> symbol.type, symbol, targetNullness, state)) {
         state.reportMatch(
             errorBuilder.createErrorDescriptionForNullAssignment(
                 new ErrorMessage(
@@ -2538,6 +2541,7 @@ public class NullAway extends BugChecker
                           state)
                       ? formalParamType
                       : null,
+              /* targetDeclaration= */ null,
               Nullness.NONNULL,
               state)) {
             state.reportMatch(
@@ -3161,9 +3165,11 @@ public class NullAway extends BugChecker
    * @param expression expression being assigned, passed, or returned
    * @param targetType supplies the destination type after call-site substitutions, or {@code null}
    *     if unknown or if the destination excludes null whatever the substitution; for array writes
-   *     and individually passed varargs, this is the component type. It is called only for a {@link
-   *     Nullness#NO_CHANGE} value, which is compatible only with a type variable destination, see
-   *     {@link GenericsChecks#acceptsNoChangeValue}.
+   *     and individually passed varargs, this is the component type. It is called only for a value
+   *     for which {@link Nullness#isNoChange()} holds, which is compatible only with a type
+   *     variable destination, see {@link GenericsChecks#acceptsNoChangeValue}.
+   * @param targetDeclaration the field, or the method whose return receives the value, whose
+   *     annotations apply to the destination; {@code null} for any other destination
    * @param targetNullness destination's nullness after applying context-specific rules and handlers
    * @param state visitor state at the pseudo-assignment
    * @return whether the top-level nullness is compatible
@@ -3171,17 +3177,19 @@ public class NullAway extends BugChecker
   private boolean isTopLevelNullnessCompatible(
       ExpressionTree expression,
       Supplier<@Nullable Type> targetType,
+      @Nullable Symbol targetDeclaration,
       Nullness targetNullness,
       VisitorState state) {
     if (targetNullness != Nullness.NONNULL) {
       return true;
     }
     Nullness expressionNullness = getExpressionNullness(state, expression);
-    if (expressionNullness == Nullness.NO_CHANGE) {
+    if (expressionNullness != null && expressionNullness.isNoChange()) {
       // getExpressionNullness strips casts too, so the type describes the same expression
       Type expressionType = ASTHelpers.getType(NullabilityUtil.stripParensAndCasts(expression));
       return expressionType != null
-          && genericsChecks.acceptsNoChangeValue(expressionType, targetType.get(), state);
+          && genericsChecks.acceptsNoChangeValue(
+              expressionType, targetType.get(), targetDeclaration, state);
     }
     return expressionNullness // diff-coverage: ignore -- Preserve missing-dataflow fallback.
             == null

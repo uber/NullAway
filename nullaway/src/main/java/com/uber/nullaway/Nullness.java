@@ -38,13 +38,13 @@ public enum Nullness implements AbstractValue<Nullness> {
    * The lattice for nullness looks like:
    *
    * <pre>
-   *        Nullable
-   *       /        \
-   *      |      No-change
-   *   Null          |
-   *      |      Non-null
-   *       \        /
-   *         Bottom
+   *          Nullable
+   *         /        \
+   *     Null          No-change
+   *         \        /         \
+   *     Null (no-change)     Non-null
+   *              \           /
+   *                 Bottom
    * </pre>
    */
   NULLABLE("Nullable"),
@@ -55,10 +55,12 @@ public enum Nullness implements AbstractValue<Nullness> {
    * only when {@code T} is instantiated with a nullable type argument. This is the JSpecify {@code
    * NO_CHANGE} nullness operator applied to {@code T}. NullAway computes it only with {@code
    * HandleWildcardGenerics} on; with that option off, such a value is {@link #NONNULL}. Such a
-   * value is treated as nullable, except that it may be passed, returned, or stored where an
-   * unannotated {@code T} is expected, it initializes a field of type {@code T}, and generic method
-   * inference takes {@code T} from it. A parameter of type {@code T} is {@link #NONNULL}, not
-   * {@code NO_CHANGE}.
+   * value is treated as nullable, except that a location of type {@code T} accepts it, it
+   * initializes a field of type {@code T}, and generic method inference takes {@code T} from it. A
+   * location of type {@code T} is a field, a method return, or an array element whose type is
+   * {@code T} with no {@code @NonNull} annotation, or a parameter for which {@link
+   * com.uber.nullaway.generics.GenericsChecks#parameterAdmitsNull} holds. A parameter of type
+   * {@code T} is {@link #NONNULL}, not {@code NO_CHANGE}.
    *
    * <p>A {@code NO_CHANGE} fact holds relative to the static type of the variable or expression
    * that holds the value. Dataflow keeps the fact when the value moves to a holder of another type
@@ -69,6 +71,15 @@ public enum Nullness implements AbstractValue<Nullness> {
    *     operator</a>
    */
   NO_CHANGE("No-change"),
+  /**
+   * A {@link #NO_CHANGE} value that dataflow has found equal to null, such as inside {@code if
+   * (value == null)}. A location of its type variable accepts it, as it accepts a {@code NO_CHANGE}
+   * value, and everywhere else it is {@link #NULL}: a dereference is reported, and generic method
+   * inference takes {@code @Nullable T} from it. Where it moves to a holder that {@link
+   * com.uber.nullaway.generics.GenericsChecks#acceptsNoChangeValue} rejects, it becomes {@link
+   * #NULL}.
+   */
+  NULL_NO_CHANGE("Null (no-change)"),
   NONNULL("Non-null"),
   BOTTOM("Bottom");
 
@@ -100,55 +111,72 @@ public enum Nullness implements AbstractValue<Nullness> {
         annot -> isNullableAnnotation(annot, config) || isMonotonicNonNullAnnotation(annot));
   }
 
-  // The following leastUpperBound and greatestLowerBound methods were created by handwriting a
-  // truth table and then encoding the values into these functions. A better approach would be to
-  // represent the lattice directly and compute these functions from the lattice.
+  /** All values, each listed after every value above it in the lattice. */
+  private static final Nullness[] TOP_DOWN = values();
+
+  /** Returns whether this value is below {@code other} in the lattice, or equal to it. */
+  private boolean isAtMost(Nullness other) {
+    return this == other
+        || this == BOTTOM
+        || other == NULLABLE
+        || (this == NULL_NO_CHANGE && (other == NULL || other == NO_CHANGE))
+        || (this == NONNULL && other == NO_CHANGE);
+  }
 
   @Override
   public Nullness leastUpperBound(Nullness other) {
     if (this == other) {
       return this;
     }
-    // Bottom loses.
-    if (this == BOTTOM) {
-      return other;
+    // The first upper bound met going up is below every other upper bound
+    for (int i = TOP_DOWN.length - 1; ; i--) {
+      Nullness candidate = TOP_DOWN[i];
+      if (isAtMost(candidate) && other.isAtMost(candidate)) {
+        return candidate;
+      }
     }
-    if (other == BOTTOM) {
-      return this;
-    }
-    if (isNoChangeOrNonNull(this) && isNoChangeOrNonNull(other)) {
-      return NO_CHANGE;
-    }
-    // They disagree, and neither is bottom.
-    return NULLABLE;
   }
 
   public Nullness greatestLowerBound(Nullness other) {
     if (this == other) {
       return this;
     }
-    // Nullable loses.
-    if (this == NULLABLE) {
-      return other;
+    // The first lower bound met going down is above every other lower bound
+    for (int i = 0; ; i++) {
+      Nullness candidate = TOP_DOWN[i];
+      if (candidate.isAtMost(this) && candidate.isAtMost(other)) {
+        return candidate;
+      }
     }
-    if (other == NULLABLE) {
-      return this;
-    }
-    if (isNoChangeOrNonNull(this) && isNoChangeOrNonNull(other)) {
-      return NONNULL;
-    }
-    // Not a lattice meet: Null and No-change are incomparable, so the meet would be Bottom. A
-    // no-change value equal to null is null only because its type variable admits null, so it stays
-    // No-change: a location of that type variable still accepts it, and a dereference is reported.
-    if ((this == NULL && other == NO_CHANGE) || (this == NO_CHANGE && other == NULL)) {
-      return NO_CHANGE;
-    }
-    // They disagree, and neither is nullable.
-    return BOTTOM;
   }
 
-  private static boolean isNoChangeOrNonNull(Nullness nullness) {
-    return nullness == NO_CHANGE || nullness == NONNULL;
+  /**
+   * Returns whether a location of the value's type variable accepts this value although it may be
+   * null: true for {@link #NO_CHANGE} and {@link #NULL_NO_CHANGE}.
+   */
+  public boolean isNoChange() {
+    return this == NO_CHANGE || this == NULL_NO_CHANGE;
+  }
+
+  /**
+   * Returns whether this value is known to be null: true for {@link #NULL} and {@link
+   * #NULL_NO_CHANGE}.
+   */
+  public boolean isNull() {
+    return this == NULL || this == NULL_NO_CHANGE;
+  }
+
+  /**
+   * Returns the nullness of this value once it moves to a holder that does not accept a {@code
+   * NO_CHANGE} value: {@link #NULLABLE} for {@link #NO_CHANGE}, {@link #NULL} for {@link
+   * #NULL_NO_CHANGE}, and this value for any other.
+   */
+  public Nullness withoutNoChange() {
+    return switch (this) {
+      case NO_CHANGE -> NULLABLE;
+      case NULL_NO_CHANGE -> NULL;
+      default -> this;
+    };
   }
 
   /**
@@ -175,7 +203,7 @@ public enum Nullness implements AbstractValue<Nullness> {
   public Nullness deducedValueWhenNotEqual() {
     return switch (this) {
       case NULLABLE, NO_CHANGE, NONNULL -> NULLABLE;
-      case NULL -> NONNULL;
+      case NULL, NULL_NO_CHANGE -> NONNULL;
       case BOTTOM -> BOTTOM;
     };
   }

@@ -525,10 +525,10 @@ public class ContractHandler implements Handler {
       Node rhs = comparison.getRightOperand();
       Nullness lhsNullness = inputs.valueOfSubNode(lhs);
       Nullness rhsNullness = inputs.valueOfSubNode(rhs);
-      if (Nullness.NULL.equals(lhsNullness)) {
+      if (lhsNullness.isNull()) {
         return Optional.of(rhs);
       }
-      if (Nullness.NULL.equals(rhsNullness)) {
+      if (rhsNullness.isNull()) {
         return Optional.of(lhs);
       }
       return Optional.empty();

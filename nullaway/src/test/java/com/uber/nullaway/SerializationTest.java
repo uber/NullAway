@@ -898,6 +898,72 @@ public class SerializationTest extends NullAwayTestsBase {
         .doTest();
   }
 
+  /**
+   * A method that stores a wildcard read in a field of its type variable initializes that field,
+   * since the field accepts the value; a field of type {@code Object} does not accept it.
+   */
+  @Test
+  public void fieldInitializationSerializationRecordsWildcardReadStoredInTypeVariableField() {
+    Path tempRoot =
+        Paths.get(temporaryFolder.getRoot().getAbsolutePath(), "test_field_init_no_change");
+    String output = tempRoot.toString();
+    try {
+      Files.createDirectories(tempRoot);
+      FixSerializationConfig.Builder builder =
+          new FixSerializationConfig.Builder().setFieldInitInfo(true).setOutputDirectory(output);
+      Path config = tempRoot.resolve("serializer.xml");
+      Files.createFile(config);
+      configPath = config.toString();
+      builder.writeAsXML(configPath);
+    } catch (IOException ex) {
+      throw new UncheckedIOException(ex);
+    }
+    SerializationTestHelper<FieldInitDisplay> tester = new SerializationTestHelper<>(tempRoot);
+    tester
+        .setArgs(
+            JSpecifyJavacConfig.withJSpecifyModeArgs(
+                Arrays.asList(
+                    "-d",
+                    temporaryFolder.getRoot().getAbsolutePath(),
+                    "-XepOpt:NullAway:AnnotatedPackages=com.uber",
+                    "-XepOpt:NullAway:SerializeFixMetadata=true",
+                    "-XepOpt:NullAway:SerializeFixMetadataVersion=3",
+                    "-XepOpt:NullAway:FixSerializationConfigPath=" + configPath)))
+        .addSourceLines(
+            "com/uber/Test.java",
+            """
+            package com.uber;
+            import org.jspecify.annotations.Nullable;
+            public class Test<T extends @Nullable Object> {
+               interface Box<R extends @Nullable Object> {
+                 R get();
+               }
+               T current;
+               Object other;
+               // BUG: Diagnostic contains: fields 'current' (line 7), 'other' (line 8) are initialized
+               Test() {}
+               void init(Box<? extends T> box) {
+                 current = box.get();
+               }
+               void initOther(Box<? extends T> box) {
+                 // BUG: Diagnostic contains: assigning @Nullable expression to @NonNull field
+                 other = box.get();
+               }
+            }
+            """)
+        .setExpectedOutputs(
+            new FieldInitDisplay(
+                "current",
+                "init(com.uber.Test.Box)",
+                "null",
+                "METHOD",
+                "com.uber.Test",
+                "com/uber/Test.java"))
+        .setOutputFileNameAndHeader(FIELD_INIT_FILE_NAME, FIELD_INIT_HEADER)
+        .setFactory(fieldInitDisplayFactory)
+        .doTest();
+  }
+
   @Test
   public void errorSerializationTestAnonymousInnerClass() {
     SerializationTestHelper<ErrorDisplay> tester = new SerializationTestHelper<>(root);

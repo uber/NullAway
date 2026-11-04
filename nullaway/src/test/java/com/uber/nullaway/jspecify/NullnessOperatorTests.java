@@ -219,7 +219,10 @@ public class NullnessOperatorTests extends NullAwayTestsBase {
 
   /**
    * A value of type {@code T} that a generic call returns or a field of type {@code T} holds is
-   * non-null, like a parameter of type {@code T}, even where a wildcard result went into it.
+   * non-null, like a parameter of type {@code T}, even where a wildcard result went into it. The
+   * cases that expect no report here are the dereference false negative of issue #1727 that {@link
+   * #issue1727NullableBoundDereferenceFalseNegative()} describes, and they expect reports once it
+   * is fixed.
    */
   @Test
   public void typeVariableValueTakenFromWildcardResultIsNonNull() {
@@ -365,23 +368,57 @@ public class NullnessOperatorTests extends NullAwayTestsBase {
         .doTest();
   }
 
+  /**
+   * A field, return, or parameter of type {@code T} rejects a wildcard read when it is annotated
+   * {@code @NonNull}, whether the annotation is a type-use annotation or a declaration annotation
+   * such as JSR-305 {@code @Nonnull}.
+   */
   @Test
-  public void nonNullReturnTargetRejectsWildcardResult() {
+  public void nonNullTargetRejectsWildcardResult() {
     makeHelper()
         .addSourceLines(
             "Test.java",
             """
+            import javax.annotation.Nonnull;
             import org.jspecify.annotations.NonNull;
             import org.jspecify.annotations.NullMarked;
             import org.jspecify.annotations.Nullable;
             @NullMarked
-            class Test {
+            class Test<T extends @Nullable Object> {
               interface Box<R extends @Nullable Object> {
                 R get();
               }
-              static <T extends @Nullable Object> @NonNull T get(Box<? extends T> box) {
+              T plainField;
+              @NonNull T typeUseField;
+              @Nonnull T declarationField;
+              // BUG: Diagnostic contains: fields 'typeUseField' (line 11), 'declarationField' (line 12) are
+              Test(Box<? extends T> box) {
+                plainField = box.get();
+                // BUG: Diagnostic contains: assigning @Nullable expression to @NonNull field
+                typeUseField = box.get();
+                // BUG: Diagnostic contains: assigning @Nullable expression to @NonNull field
+                declarationField = box.get();
+              }
+              T plainReturn(Box<? extends T> box) {
+                return box.get();
+              }
+              @NonNull T typeUseReturn(Box<? extends T> box) {
                 // BUG: Diagnostic contains: returning @Nullable expression
                 return box.get();
+              }
+              @Nonnull T declarationReturn(Box<? extends T> box) {
+                // BUG: Diagnostic contains: returning @Nullable expression
+                return box.get();
+              }
+              static <E extends @Nullable Object> void plainSink(E value) {}
+              static <E extends @Nullable Object> void typeUseSink(@NonNull E value) {}
+              static <E extends @Nullable Object> void declarationSink(@Nonnull E value) {}
+              void pass(Box<? extends T> box) {
+                Test.<T>plainSink(box.get());
+                // BUG: Diagnostic contains: passing @Nullable parameter 'box.get()'
+                Test.<T>typeUseSink(box.get());
+                // BUG: Diagnostic contains: passing @Nullable parameter 'box.get()'
+                Test.<T>declarationSink(box.get());
               }
             }
             """)
@@ -435,30 +472,6 @@ public class NullnessOperatorTests extends NullAwayTestsBase {
                 // Assigning null replaces the no-change value, so the local no longer satisfies T.
                 // BUG: Diagnostic contains: passing @Nullable parameter
                 Test.<T>sink(value);
-              }
-            }
-            """)
-        .doTest();
-  }
-
-  @Test
-  public void nonNullParameterRejectsWildcardResult() {
-    makeHelper()
-        .addSourceLines(
-            "Test.java",
-            """
-            import org.jspecify.annotations.NonNull;
-            import org.jspecify.annotations.NullMarked;
-            import org.jspecify.annotations.Nullable;
-            @NullMarked
-            class Test {
-              interface Box<R extends @Nullable Object> {
-                R get();
-              }
-              static <T extends @Nullable Object> void sink(@NonNull T value) {}
-              static <T extends @Nullable Object> void pass(Box<? extends T> box) {
-                // BUG: Diagnostic contains: passing @Nullable parameter 'box.get()'
-                Test.<T>sink(box.get());
               }
             }
             """)
@@ -588,12 +601,18 @@ public class NullnessOperatorTests extends NullAwayTestsBase {
         .doTest();
   }
 
+  /**
+   * Inside {@code if (value == null)} a wildcard read is null, and a location of its type variable
+   * still accepts it. Generic method inference takes {@code @Nullable T} from it, so a call such as
+   * {@code identity(value)} returns a nullable value.
+   */
   @Test
-  public void nullCheckRefinesWildcardLocal() {
+  public void nullTestedWildcardLocalIsNullExceptWhereItsTypeVariableIsExpected() {
     makeHelper()
         .addSourceLines(
             "Test.java",
             """
+            import java.util.List;
             import org.jspecify.annotations.NullMarked;
             import org.jspecify.annotations.Nullable;
             @NullMarked
@@ -603,6 +622,9 @@ public class NullnessOperatorTests extends NullAwayTestsBase {
               }
               static <T extends @Nullable Object> void sink(T value) {}
               static void objectSink(Object value) {}
+              static <X extends @Nullable Object> X identity(X x) {
+                return x;
+              }
               static <T extends @Nullable Object> void dereferenceWhenNonNull(Box<? extends T> box) {
                 T value = box.get();
                 if (value != null) {
@@ -655,6 +677,33 @@ public class NullnessOperatorTests extends NullAwayTestsBase {
                 if (value == null) {}
                 // BUG: Diagnostic contains: returning @Nullable expression
                 return value;
+              }
+              static <T extends @Nullable Object> void dereferenceIdentityWhenNull(
+                  Box<? extends T> box) {
+                T value = box.get();
+                if (value == null) {
+                  // BUG: Diagnostic contains: dereferenced expression 'identity(value)' is @Nullable
+                  identity(value).hashCode();
+                }
+              }
+              static <T extends @Nullable Object> void dereferenceAfterIdentityWhenNull(
+                  Box<? extends T> box) {
+                T value = box.get();
+                if (value == null) {
+                  value = identity(value);
+                }
+                // BUG: Diagnostic contains: dereferenced expression 'value' is @Nullable
+                value.hashCode();
+              }
+              static <T extends @Nullable Object> void dereferenceLoopElementAfterIdentityWhenNull(
+                  List<T> list) {
+                for (T element : list) {
+                  if (element == null) {
+                    element = identity(element);
+                  }
+                  // BUG: Diagnostic contains: dereferenced expression 'element' is @Nullable
+                  element.hashCode();
+                }
               }
             }
             """)
@@ -1299,9 +1348,11 @@ public class NullnessOperatorTests extends NullAwayTestsBase {
   }
 
   /**
-   * A cast, an equality test, and a {@code Map.put} move a value to a variable or expression of
-   * another static type. The value keeps {@code NO_CHANGE} only where its type reaches the new type
-   * through bounds without {@code @Nullable}.
+   * A cast and an equality test move a value to a variable or expression of another static type,
+   * and the value keeps {@code NO_CHANGE} only where its type reaches the new type through bounds
+   * without {@code @Nullable}. {@code Map.put} stores a {@code NO_CHANGE} value as nullable
+   * whatever the value type of the map, so {@code throughMap} expects a report where a {@code T} is
+   * expected.
    */
   @Test
   public void noChangeValueMovedToAnotherTypeKeepsItOnlyWhereTheTypeReachesIt() {

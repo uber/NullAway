@@ -332,6 +332,16 @@ public final class AccessPath implements MapKey {
   }
 
   /**
+   * Returns the field whose declaration governs what {@code node} may hold, or {@code null} where
+   * {@code node}, with casts removed, is not a field access.
+   */
+  static @Nullable Symbol holderDeclaration(Node node) {
+    return stripCasts(node) instanceof FieldAccessNode fieldAccess
+        ? (Symbol) fieldAccess.getElement()
+        : null;
+  }
+
+  /**
    * Strips a widening conversion and the value-preserving casts from around a method argument.
    *
    * <p>A widening conversion keeps the value of a constant: for a {@code long} parameter, {@code
