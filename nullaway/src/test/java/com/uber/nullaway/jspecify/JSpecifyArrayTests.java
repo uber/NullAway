@@ -1397,6 +1397,10 @@ public class JSpecifyArrayTests extends NullAwayTestsBase {
             class Test {
               static @Nullable String[][] nullableElements2d = {};
               static String[][] nonNullElements2d = {};
+              static String[] nonNullElements = {};
+              static String[] nonNullElements() {
+                return nonNullElements;
+              }
               static class Box<T extends @Nullable Object> {
                 T[][] elements2d;
                 Box(T[][] elements2d) {
@@ -1505,6 +1509,61 @@ public class JSpecifyArrayTests extends NullAwayTestsBase {
               void dereferenceNonNullElementOfNestedVarLocalArray() {
                 var local = new String[1][1];
                 local[0][1].length();
+              }
+              void dereferenceNullableElementOfPatternVariableArray(Object o) {
+                // BUG: Diagnostic contains: A nullness annotation on a type in a pattern has no meaning under JSpecify
+                if (o instanceof @Nullable String[] arr) {
+                  // BUG: Diagnostic contains: dereferenced expression 'arr[0]' is @Nullable
+                  arr[0].length();
+                }
+              }
+              void dereferenceNullableElementOfNestedPatternVariableArray(Object o) {
+                // BUG: Diagnostic contains: A nullness annotation on a type in a pattern has no meaning under JSpecify
+                if (o instanceof @Nullable String[][] arr) {
+                  // BUG: Diagnostic contains: dereferenced expression 'arr[0][1]' is @Nullable
+                  arr[0][1].length();
+                }
+              }
+              void unboxLoopVariableOverNullableElementsOfPatternVariableArray(Object o) {
+                // BUG: Diagnostic contains: A nullness annotation on a type in a pattern has no meaning under JSpecify
+                if (o instanceof @Nullable Integer[] arr) {
+                  // BUG: Diagnostic contains: unboxing of a @Nullable value
+                  for (int i : arr) {}
+                }
+              }
+              void dereferenceNonNullElementOfPatternVariableArray(Object o) {
+                if (o instanceof String[] arr) {
+                  arr[0].length();
+                }
+              }
+              void dereferenceNullableElementOfVarLocalArrayFromCast(Object o) {
+                var a = (@Nullable String[]) o;
+                // BUG: Diagnostic contains: dereferenced expression 'a[0]' is @Nullable
+                a[0].length();
+              }
+              void dereferenceNullableElementOfVarLocalArray() {
+                var a = new @Nullable String[1];
+                // BUG: Diagnostic contains: dereferenced expression 'a[0]' is @Nullable
+                a[0].length();
+              }
+              void unboxLoopVariableOverNullableElementsOfVarLocalArray(Object o) {
+                var a = (@Nullable Integer[]) o;
+                // BUG: Diagnostic contains: unboxing of a @Nullable value
+                for (int i : a) {}
+              }
+              void dereferenceNonNullElementOfVarLocalArrayFromCast(Object o) {
+                var a = (String[]) o;
+                a[0].length();
+              }
+              void dereferenceNonNullElementOfFieldArray() {
+                nonNullElements[0].length();
+              }
+              void dereferenceNonNullElementOfMethodResultArray() {
+                nonNullElements()[0].length();
+              }
+              void dereferenceNonNullElementOfVarLocalArray() {
+                var a = new String[1];
+                a[0].length();
               }
               void dereferenceNonNullElementOfNestedImplicitLambdaParameterArray() {
                 java.util.function.Function<String[][], Integer> f =

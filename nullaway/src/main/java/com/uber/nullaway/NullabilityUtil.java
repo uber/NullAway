@@ -430,7 +430,7 @@ public class NullabilityUtil {
   // https://github.com/google/error-prone/blob/5f71110374e63f3c35b661f538295fa15b5c1db2/check_api/src/main/java/com/google/errorprone/util/MoreAnnotations.java#L128
   private static boolean targetTypeMatches(Symbol sym, TypeAnnotationPosition position) {
     switch (sym.getKind()) {
-      case LOCAL_VARIABLE -> {
+      case LOCAL_VARIABLE, BINDING_VARIABLE -> {
         return position.type == TargetType.LOCAL_VARIABLE;
       }
       case FIELD, ENUM_CONSTANT -> {
@@ -630,7 +630,9 @@ public class NullabilityUtil {
   /**
    * Checks if the elements of the array an expression evaluates to are {@code @Nullable}. Reads the
    * annotations from the expression's symbol when it has one, and from the expression's type
-   * otherwise, as for a cast like {@code ((@Nullable String[]) o)}.
+   * otherwise, as for a cast like {@code ((@Nullable String[]) o)}. For a variable other than a
+   * field, it also reads the type of the symbol, which for a {@code var} local carries the
+   * annotations inferred from the initializer that its declaration does not.
    *
    * @param arrayExpr an expression of array type
    * @param config NullAway configuration
@@ -640,7 +642,10 @@ public class NullabilityUtil {
     ExpressionTree expr = ASTHelpers.stripParentheses(arrayExpr);
     Symbol arraySymbol = ASTHelpers.getSymbol(expr);
     if (arraySymbol != null) {
-      return isArrayElementNullable(arraySymbol, config);
+      return isArrayElementNullable(arraySymbol, config)
+          || (arraySymbol instanceof Symbol.VarSymbol
+              && !arraySymbol.getKind().isField()
+              && isArrayElementNullable(arraySymbol.type, config));
     }
     return isArrayElementNullable(arrayExpressionType(expr), config);
   }
