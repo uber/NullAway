@@ -1273,6 +1273,30 @@ public class InitializationTests extends NullAwayTestsBase {
         .doTest();
   }
 
+  /** Dataflow does not reach a catch block of an empty try, so a read there sees no field set. */
+  @Test
+  public void readInUnreachableCatchBlockSeesNoInitializedField() {
+    defaultCompilationHelper
+        .addSourceLines(
+            "Test.java",
+            """
+            package com.uber;
+            class Test {
+              private Object f;
+              Test() {
+                f = new Object();
+                try {
+                } catch (RuntimeException e) {
+                  // BUG: Diagnostic contains: read of @NonNull field 'f' before initialization
+                  f.hashCode();
+                }
+                f.hashCode();
+              }
+            }
+            """)
+        .doTest();
+  }
+
   @Test
   public void postConstructAnnotation() {
     defaultCompilationHelper

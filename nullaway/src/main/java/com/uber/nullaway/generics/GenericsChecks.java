@@ -2446,8 +2446,8 @@ public final class GenericsChecks {
 
   /**
    * Returns {@code type} with its top-level nullness updated to {@code nullness}. A {@link
-   * Nullness#NO_CHANGE} value of a type variable or capture type takes the nullness of that type,
-   * so it is left unannotated.
+   * Nullness#NO_CHANGE} value of a type variable or capture type has the nullness of that type
+   * itself, so a top-level {@code @Nullable} is removed from it as from a non-null value.
    *
    * @param state the current visitor state
    * @param type the type to update
@@ -2463,7 +2463,8 @@ public final class GenericsChecks {
       }
       return TypeSubstitutionUtils.typeWithAnnot(type, getSyntheticNullableAnnotType(state));
     } else {
-      // refine to @NonNull, by removing the top-level @Nullable annotation if present.
+      // refine to @NonNull, or to the type variable itself for NO_CHANGE, by removing the top-level
+      // @Nullable annotation if present.
       if (!isNullableAnnotated(type)) {
         return type;
       }
@@ -4770,6 +4771,7 @@ public final class GenericsChecks {
       return true;
     }
     if (!(type instanceof Type.TypeVar)) {
+      // diff-coverage: ignore -- only a type-variable-typed value is assignable to a type variable
       return false;
     }
     Type upperBound = type.getUpperBound();

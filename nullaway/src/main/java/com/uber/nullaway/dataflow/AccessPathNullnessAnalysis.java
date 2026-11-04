@@ -198,9 +198,8 @@ public final class AccessPathNullnessAnalysis {
   }
 
   /**
-   * Gets the fields of the receiver that are initialized before the current expression. Unlike
-   * {@link #getNonnullFieldsOfReceiverBefore}, this includes a field that holds a {@link
-   * Nullness#NO_CHANGE} value.
+   * Gets the fields of the receiver that are initialized before the current expression: those that
+   * hold a non-null or a {@link Nullness#NO_CHANGE} value.
    *
    * @param path tree path of some expression
    * @param context Javac context
@@ -212,21 +211,6 @@ public final class AccessPathNullnessAnalysis {
       return Collections.emptySet();
     }
     return store.getInitializedReceiverFields();
-  }
-
-  /**
-   * Get the instance fields that are guaranteed to be nonnull before the current expression.
-   *
-   * @param path tree path of some expression
-   * @param context Javac context
-   * @return fields of receiver guaranteed to be nonnull before expression is evaluated
-   */
-  public Set<Element> getNonnullFieldsOfReceiverBefore(TreePath path, Context context) {
-    NullnessStore store = dataFlow.resultBeforeExpr(path, context, nullnessPropagation);
-    if (store == null) {
-      return Collections.emptySet();
-    }
-    return store.getNonNullReceiverFields();
   }
 
   /**
