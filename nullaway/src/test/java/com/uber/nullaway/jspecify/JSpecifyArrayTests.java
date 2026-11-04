@@ -1397,6 +1397,20 @@ public class JSpecifyArrayTests extends NullAwayTestsBase {
             class Test {
               static @Nullable String[][] nullableElements2d = {};
               static String[][] nonNullElements2d = {};
+              static class Box<T extends @Nullable Object> {
+                T[][] elements2d;
+                Box(T[][] elements2d) {
+                  this.elements2d = elements2d;
+                }
+              }
+              void dereferenceNullableElementOfNestedFieldOfParameterizedReceiver(
+                  Box<@Nullable String> box) {
+                // BUG: Diagnostic contains: dereferenced expression 'box.elements2d[0][1]' is @Nullable
+                box.elements2d[0][1].length();
+              }
+              void dereferenceNonNullElementOfNestedFieldOfParameterizedReceiver(Box<String> box) {
+                box.elements2d[0][1].length();
+              }
               void dereferenceNullableElementOfCast(Object o) {
                 // BUG: Diagnostic contains: dereferenced expression '((@Nullable String[]) o)[0]' is @Nullable
                 ((@Nullable String[]) o)[0].length();
@@ -1453,6 +1467,52 @@ public class JSpecifyArrayTests extends NullAwayTestsBase {
               }
               void dereferenceNonNullElementOfNestedArray() {
                 nonNullElements2d[0][1].length();
+              }
+              void dereferenceNullableElementOfNestedLocalArray() {
+                @Nullable String[][] local = new @Nullable String[1][1];
+                // BUG: Diagnostic contains: dereferenced expression 'local[0][1]' is @Nullable
+                local[0][1].length();
+              }
+              void dereferenceNullableElementOfParenthesizedNestedLocalArray() {
+                @Nullable String[][] local = new @Nullable String[1][1];
+                // BUG: Diagnostic contains: dereferenced expression '((local)[0])[1]' is @Nullable
+                ((local)[0])[1].length();
+              }
+              void dereferenceLocalReadFromNullableElementOf3dLocalArray() {
+                @Nullable String[][][] local = new @Nullable String[1][1][1];
+                String s = local[0][0][0];
+                // BUG: Diagnostic contains: dereferenced expression 's' is @Nullable
+                s.length();
+              }
+              void dereferenceNullableElementOfNestedLambdaParameterArray() {
+                java.util.function.Function<@Nullable String[][], Integer> f =
+                    (@Nullable String[][] lambdaParam) ->
+                        // BUG: Diagnostic contains: dereferenced expression 'lambdaParam[0][1]' is @Nullable
+                        lambdaParam[0][1].length();
+              }
+              void dereferenceNullableElementOfNestedParameterArray(@Nullable String[][] param) {
+                // BUG: Diagnostic contains: dereferenced expression 'param[0][1]' is @Nullable
+                param[0][1].length();
+              }
+              void dereferenceNonNullElementOfNestedParameterArray(String[][] param) {
+                param[0][1].length();
+              }
+              void dereferenceNullableElementOfNestedVarLocalArray() {
+                var local = new @Nullable String[1][1];
+                // BUG: Diagnostic contains: dereferenced expression 'local[0][1]' is @Nullable
+                local[0][1].length();
+              }
+              void dereferenceNonNullElementOfNestedVarLocalArray() {
+                var local = new String[1][1];
+                local[0][1].length();
+              }
+              void dereferenceNonNullElementOfNestedImplicitLambdaParameterArray() {
+                java.util.function.Function<String[][], Integer> f =
+                    implicitParam -> implicitParam[0][1].length();
+              }
+              void dereferenceNonNullElementOfNestedLocalArray() {
+                String[][] local = new String[1][1];
+                local[0][1].length();
               }
               void dereferenceLocalReadFromParenthesizedNullableLocal() {
                 @Nullable String[] a = new @Nullable String[1];

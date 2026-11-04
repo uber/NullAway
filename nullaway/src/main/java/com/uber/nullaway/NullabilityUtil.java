@@ -30,6 +30,7 @@ import com.google.errorprone.VisitorState;
 import com.google.errorprone.suppliers.Supplier;
 import com.google.errorprone.suppliers.Suppliers;
 import com.google.errorprone.util.ASTHelpers;
+import com.sun.source.tree.ArrayAccessTree;
 import com.sun.source.tree.BlockTree;
 import com.sun.source.tree.ClassTree;
 import com.sun.source.tree.ExpressionTree;
@@ -641,7 +642,36 @@ public class NullabilityUtil {
     if (arraySymbol != null) {
       return isArrayElementNullable(arraySymbol, config);
     }
-    return isArrayElementNullable(ASTHelpers.getType(expr), config);
+    return isArrayElementNullable(arrayExpressionType(expr), config);
+  }
+
+  /**
+   * Returns the type of an array expression, with the type-use annotations of the declared type of
+   * a variable other than a field that it reads, such as the element type of a local {@code l} for
+   * {@code l[0]}. For an array access whose innermost array is such a variable, this method takes
+   * the variable's type from its symbol and projects it to the accessed component. Before JDK 27,
+   * javac attaches the annotations of a local variable or an explicitly typed lambda parameter to
+   * the symbol only after it has attributed the whole class body, so the type of a use of the
+   * variable lacks them (JDK-8371155); the symbol has them on every JDK. A field keeps the type of
+   * the use, which carries the substitution for a field read through a parameterized receiver.
+   *
+   * @param expr an expression of array type, without enclosing parentheses
+   * @return the type of {@code expr}, or {@code null} if javac recorded none
+   */
+  private static @Nullable Type arrayExpressionType(ExpressionTree expr) {
+    if (expr instanceof ArrayAccessTree arrayAccess) {
+      ExpressionTree array = ASTHelpers.stripParentheses(arrayAccess.getExpression());
+      Symbol arraySymbol = ASTHelpers.getSymbol(array);
+      Type arrayType =
+          arraySymbol instanceof Symbol.VarSymbol && !arraySymbol.getKind().isField()
+              ? arraySymbol.type
+              : arrayExpressionType(array);
+      if (arrayType // diff-coverage: ignore -- javac types the array of an array access as an array
+          instanceof Type.ArrayType arrayTypeWithComponent) {
+        return arrayTypeWithComponent.getComponentType();
+      }
+    }
+    return ASTHelpers.getType(expr);
   }
 
   /**
