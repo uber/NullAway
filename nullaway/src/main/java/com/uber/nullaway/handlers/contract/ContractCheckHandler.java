@@ -41,6 +41,7 @@ import com.sun.tools.javac.code.Symbol;
 import com.uber.nullaway.Config;
 import com.uber.nullaway.ErrorMessage;
 import com.uber.nullaway.NullAway;
+import com.uber.nullaway.NullabilityUtil;
 import com.uber.nullaway.Nullness;
 import com.uber.nullaway.dataflow.AccessPathNullnessAnalysis;
 import com.uber.nullaway.handlers.Handler;
@@ -172,9 +173,7 @@ public class ContractCheckHandler implements Handler {
           for (TreePath expressionPath : allPossiblyReturnedExpressions) {
             Nullness nullness =
                 nullnessAnalysis.getNullnessForContractDataflow(expressionPath, state.context);
-            if (nullness == Nullness.NULLABLE
-                || nullness == Nullness.NULL
-                || nullness.isNoChange()) {
+            if (nullness != null && NullabilityUtil.nullnessToBool(nullness)) {
               if (nullnessAnalysis.isUnreachableForContractDataflow(
                   expressionPath, state.context)) {
                 // The contract antecedent makes this branch unreachable.
