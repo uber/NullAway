@@ -65,7 +65,8 @@ public enum Nullness implements AbstractValue<Nullness> {
    * <p>A {@code NO_CHANGE} fact holds relative to the static type of the variable or expression
    * that holds the value. Dataflow keeps the fact when the value moves to a holder of another type
    * only where {@link com.uber.nullaway.generics.GenericsChecks#acceptsNoChangeValue} accepts the
-   * value for that type, and makes it {@link #NULLABLE} otherwise.
+   * value for the holder's type and declaration; otherwise the value becomes {@link
+   * #withoutNoChange()}.
    *
    * @see <a href="https://jspecify.dev/docs/spec/#nullness-operator">JSpecify: nullness
    *     operator</a>

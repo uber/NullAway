@@ -40,8 +40,8 @@ import javax.lang.model.element.ElementKind;
  * field accepts, and furthermore guarantees that said field is initialized on return from the
  * method, then we serialize information for this method as a potential initializer for that field.
  * A field is initialized when it holds a non-null value, or a value for which {@link
- * com.uber.nullaway.Nullness#isNoChange()} holds and that its type variable accepts. This
- * information can be used by an inference tool to detect initializer methods in classes.
+ * com.uber.nullaway.Nullness#isNoChange()} holds and that the field's type and declaration accept.
+ * This information can be used by an inference tool to detect initializer methods in classes.
  *
  * <p>Note that the above two conditions are both needed to eliminate the cases below:
  *

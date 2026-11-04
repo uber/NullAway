@@ -391,7 +391,7 @@ public class NullnessOperatorTests extends NullAwayTestsBase {
               T plainField;
               @NonNull T typeUseField;
               @Nonnull T declarationField;
-              // BUG: Diagnostic contains: 'typeUseArray' (line 43), 'plainNestedArray' (line 56), 'typeUseNestedArray' (line 57) are
+              // BUG: Diagnostic contains: guarantee @NonNull fields 'typeUseField' (line 11), 'declarationField' (line 12), 'plainArray' (line 42), 'typeUseArray' (line 43), 'plainNestedArray' (line 56), 'typeUseNestedArray' (line 57) are
               Test(Box<? extends T> box) {
                 plainField = box.get();
                 // BUG: Diagnostic contains: assigning @Nullable expression to @NonNull field
