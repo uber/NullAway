@@ -595,6 +595,7 @@ public class NullAway extends BugChecker
     Type lhsType = ASTHelpers.getType(tree.getVariable());
     if (lhsType != null && lhsType.isPrimitive()) {
       doUnboxingCheck(state, tree.getExpression());
+      return Description.NO_MATCH;
     }
     Symbol assigned = ASTHelpers.getSymbol(tree.getVariable());
     if (assigned instanceof Symbol.MethodSymbol) {
@@ -2460,13 +2461,6 @@ public class NullAway extends BugChecker
 
     InvocationArguments invArgs =
         new InvocationArguments(tree, invokedMethodTypeAtCall(tree, methodSymbol));
-    // always do unboxing checks, whether or not the invoked method is annotated
-    invArgs.forEach(
-        (actual, argPos, formalParamType, varArgsPassedAsArray) -> {
-          if (formalParamType.isPrimitive()) {
-            doUnboxingCheck(state, actual);
-          }
-        });
     boolean isMethodAnnotated =
         !codeAnnotationInfo.isSymbolUnannotated(methodSymbol, config, handler);
     MethodParameterNullness argumentNullness = MethodParameterNullness.create(methodSymbol);
@@ -2527,6 +2521,11 @@ public class NullAway extends BugChecker
     // is handled by matchMemberSelect()
     invArgs.forEach(
         (actual, argPos, formalParamType, varArgsPassedAsArray) -> {
+          // always do unboxing checks, whether or not the invoked method is annotated
+          if (formalParamType.isPrimitive()) {
+            doUnboxingCheck(state, actual);
+            return;
+          }
           if (argPos >= formalParams.size()) {
             // extra varargs argument; nullness info stored in the varargs parameter slot
             argPos = formalParams.size() - 1;
