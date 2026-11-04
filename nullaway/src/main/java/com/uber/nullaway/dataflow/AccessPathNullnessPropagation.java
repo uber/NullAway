@@ -605,7 +605,12 @@ public class AccessPathNullnessPropagation
     ReadableUpdates updates = new ReadableUpdates();
     Node rhs = node.getExpression();
     Node target = node.getTarget();
-    Nullness value = valueHeldAs(values(input).valueOfSubNode(rhs), rhs, target);
+    Nullness rhsValue = values(input).valueOfSubNode(rhs);
+    // The access path may lose the target's type where valueHeldAs cannot trust it, but the
+    // assignment expression itself always has the target's type
+    Nullness value = valueHeldAs(rhsValue, rhs, target);
+    Nullness result =
+        valueHeldAs(rhsValue, rhs, node.getType(), AccessPath.holderDeclaration(target));
 
     if (target instanceof LocalVariableNode localVariableNode
         && !castToNonNull(ASTHelpers.getType(target.getTree())).isPrimitive()) {
@@ -633,7 +638,7 @@ public class AccessPathNullnessPropagation
       }
     }
 
-    return updateRegularStore(value, input, updates);
+    return updateRegularStore(result, input, updates);
   }
 
   /**

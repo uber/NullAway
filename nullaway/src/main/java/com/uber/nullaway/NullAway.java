@@ -588,6 +588,26 @@ public class NullAway extends BugChecker
     throw new IllegalStateException("unexpected anonymous class constructor body " + statements);
   }
 
+  /**
+   * Returns the type of {@code arrayExpr}, at {@code path}, with the type-use annotations of its
+   * components. For an access into an outer array, such as {@code a[0]} in {@code a[0][1] = x},
+   * this is the component of the outer array's type, since the tree type of the access drops the
+   * annotations.
+   */
+  private @Nullable Type arrayTypeWithAnnotations(
+      ExpressionTree arrayExpr, TreePath path, VisitorState state) {
+    if (ASTHelpers.stripParentheses(arrayExpr) instanceof ArrayAccessTree outerAccess) {
+      ExpressionTree outerArrayExpr = outerAccess.getExpression();
+      Type outerArrayType =
+          arrayTypeWithAnnotations(
+              outerArrayExpr, pathWithLeaf(pathWithLeaf(path, outerAccess), outerArrayExpr), state);
+      if (outerArrayType instanceof Type.ArrayType outerArray) {
+        return outerArray.getComponentType();
+      }
+    }
+    return genericsChecks.getTreeType(arrayExpr, state.withPath(path));
+  }
+
   @Override
   public Description matchAssignment(AssignmentTree tree, VisitorState state) {
     if (!withinAnnotatedCode(state)) {
@@ -618,13 +638,24 @@ public class NullAway extends BugChecker
       // check for a write of a @Nullable value into @NonNull array contents
       ExpressionTree arrayExpr = arrayAccess.getExpression();
       ExpressionTree expression = tree.getExpression();
-      TreePath pathToArrayExpr =
-          pathWithLeaf(pathWithLeaf(state.getPath(), arrayAccess), arrayExpr);
-      Type arrayType = genericsChecks.getTreeType(arrayExpr, state.withPath(pathToArrayExpr));
+      Type arrayType =
+          arrayTypeWithAnnotations(
+              arrayExpr,
+              pathWithLeaf(pathWithLeaf(state.getPath(), arrayAccess), arrayExpr),
+              state);
       boolean isElementNullable = isArrayElementNullable(arrayType, config);
+      // The tree type of a field or local array element drops a type-use @NonNull on the component;
+      // getTreeType keeps it, but gives an inherited field its declared type rather than its type
+      // as a member of this class, so it decides only whether the component is @NonNull
+      Type elementType =
+          arrayType instanceof Type.ArrayType repairedArrayType
+                  && Nullness.hasNonNullAnnotation(
+                      repairedArrayType.getComponentType().getAnnotationMirrors().stream(), config)
+              ? repairedArrayType.getComponentType()
+              : lhsType;
       if (!isTopLevelNullnessCompatible(
           expression,
-          () -> lhsType,
+          () -> elementType,
           /* targetDeclaration= */ null,
           isElementNullable ? Nullness.NULLABLE : Nullness.NONNULL,
           state)) {

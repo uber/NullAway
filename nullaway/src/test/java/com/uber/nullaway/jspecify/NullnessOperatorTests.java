@@ -391,7 +391,7 @@ public class NullnessOperatorTests extends NullAwayTestsBase {
               T plainField;
               @NonNull T typeUseField;
               @Nonnull T declarationField;
-              // BUG: Diagnostic contains: fields 'typeUseField' (line 11), 'declarationField' (line 12) are
+              // BUG: Diagnostic contains: 'typeUseArray' (line 43), 'plainNestedArray' (line 56), 'typeUseNestedArray' (line 57) are
               Test(Box<? extends T> box) {
                 plainField = box.get();
                 // BUG: Diagnostic contains: assigning @Nullable expression to @NonNull field
@@ -419,6 +419,49 @@ public class NullnessOperatorTests extends NullAwayTestsBase {
                 Test.<T>typeUseSink(box.get());
                 // BUG: Diagnostic contains: passing @Nullable parameter 'box.get()'
                 Test.<T>declarationSink(box.get());
+              }
+              T[] plainArray;
+              @NonNull T[] typeUseArray;
+              void storeInArrays(Box<? extends T> box, @NonNull T[] typeUseArrayParameter) {
+                plainArray[0] = box.get();
+                // BUG: Diagnostic contains: Writing @Nullable expression into array with @NonNull contents
+                typeUseArray[0] = box.get();
+                // BUG: Diagnostic contains: Writing @Nullable expression into array with @NonNull contents
+                this.typeUseArray[0] = box.get();
+                // BUG: Diagnostic contains: Writing @Nullable expression into array with @NonNull contents
+                typeUseArrayParameter[0] = box.get();
+                @NonNull T[] typeUseArrayLocal = typeUseArrayParameter;
+                // BUG: Diagnostic contains: Writing @Nullable expression into array with @NonNull contents
+                typeUseArrayLocal[0] = box.get();
+              }
+              T[][] plainNestedArray;
+              @NonNull T[][] typeUseNestedArray;
+              void storeInNestedArrays(Box<? extends T> box, @NonNull T[][] typeUseNestedParameter) {
+                plainNestedArray[0][0] = box.get();
+                // BUG: Diagnostic contains: Writing @Nullable expression into array with @NonNull contents
+                typeUseNestedArray[0][0] = box.get();
+                // BUG: Diagnostic contains: Writing @Nullable expression into array with @NonNull contents
+                (typeUseNestedArray[0])[0] = box.get();
+                // BUG: Diagnostic contains: Writing @Nullable expression into array with @NonNull contents
+                typeUseNestedParameter[0][0] = box.get();
+                @NonNull T[][] typeUseNestedLocal = typeUseNestedParameter;
+                // BUG: Diagnostic contains: Writing @Nullable expression into array with @NonNull contents
+                typeUseNestedLocal[0][0] = box.get();
+              }
+              static class ArrayHolder<R extends @Nullable Object> {
+                R[] inheritedArray = newArray();
+                @NonNull R[] inheritedTypeUseArray = newArray();
+                static <A extends @Nullable Object> A[] newArray() {
+                  throw new UnsupportedOperationException();
+                }
+              }
+              static class ArraySubclass<S extends @Nullable Object> extends ArrayHolder<S> {
+                void storeInInheritedArrays(Box<? extends S> box) {
+                  inheritedArray[0] = box.get();
+                  this.inheritedArray[0] = box.get();
+                  // BUG: Diagnostic contains: Writing @Nullable expression into array with @NonNull contents
+                  inheritedTypeUseArray[0] = box.get();
+                }
               }
             }
             """)
@@ -765,6 +808,45 @@ public class NullnessOperatorTests extends NullAwayTestsBase {
                 throw new UnsupportedOperationException();
               }
               private final T current = Test.<T>box().get();
+            }
+            """)
+        .doTest();
+  }
+
+  @Test
+  public void assignmentOfWildcardResultHasTheTargetType() {
+    makeHelper()
+        .addSourceLines(
+            "Test.java",
+            """
+            import org.jspecify.annotations.NullMarked;
+            import org.jspecify.annotations.Nullable;
+            @NullMarked
+            class Test {
+              interface Box<R extends @Nullable Object> {
+                R get();
+              }
+              static class Holder<H extends @Nullable Object> {
+                H field;
+                Holder(H field) {
+                  this.field = field;
+                }
+              }
+              static <U extends @Nullable Object> Holder<U> holder() {
+                throw new UnsupportedOperationException();
+              }
+              static <T extends @Nullable Object> T throughLocalReceiver(
+                  Holder<T> holder, Box<? extends T> box) {
+                return (holder.field = box.get());
+              }
+              static <T extends @Nullable Object> T throughGenericCallReceiver(Box<? extends T> box) {
+                return (Test.<T>holder().field = box.get());
+              }
+              static <T extends @Nullable Object> Object throughGenericCallReceiverAsObject(
+                  Box<? extends T> box) {
+                // BUG: Diagnostic contains: returning @Nullable expression
+                return (Test.<T>holder().field = box.get());
+              }
             }
             """)
         .doTest();
