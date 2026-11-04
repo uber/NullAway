@@ -52,9 +52,11 @@ import org.jspecify.annotations.Nullable;
  *       means and so never feed the metamorphic pairs.
  *   <li><b>Metamorphic pairs.</b> Two compilations that differ only in a way Java gives no meaning
  *       must yield the same NullAway warnings. The pairs are a seed against each {@link Relation}
- *       rewrite of it, and one unit compiled with the rest of its seed as source against the same
+ *       rewrite of it, under each configuration the relation {@linkplain Relation#appliesUnder
+ *       applies under}, and one unit compiled with the rest of its seed as source against the same
  *       unit compiled with the rest as class files. Warnings compare by unit, line, and message,
- *       with the parts of the message a rewrite may change masked out.
+ *       with the parts of the message a rewrite may change masked out, or by unit and line alone
+ *       for a relation that {@linkplain Relation#comparesLinesOnly compares lines only}.
  * </ul>
  *
  * <p>A crash is deduplicated by its {@link CrashSignature}, and the reproduction kept is the
@@ -186,6 +188,9 @@ public final class OracleRunner {
   private final List<Divergence> divergences = new ArrayList<>();
   private final Map<GroupKey, Group> groups = new TreeMap<>();
   private final Map<String, Integer> counters = new TreeMap<>();
+
+  /** The relations {@link #check} was given, by name, for their {@link Relation#sideMeaning}. */
+  private final Map<String, Relation> checked = new TreeMap<>();
 
   /** Wall-clock milliseconds spent in NullAway runs and rewrites, by the kind of input. */
   private final Map<String, Long> millis = new TreeMap<>();
@@ -567,6 +572,10 @@ public final class OracleRunner {
     }
     Map<Relation, ImmutableList<ImmutableList<Source>>> variants = new LinkedHashMap<>();
     for (Relation relation : relations) {
+      checked.put(relation.name(), relation);
+      if (configs.stream().noneMatch(c -> relation.appliesUnder(CONFIGS.get(c)))) {
+        continue;
+      }
       long started = System.nanoTime();
       try {
         variants.put(relation, relation.variants(seed));
@@ -584,7 +593,11 @@ public final class OracleRunner {
       Outcome baseline = run("seed", seed.name(), config, options, seed.sources(), null);
       if (baseline.status() == Status.OK) {
         variants.forEach(
-            (relation, list) -> checkRelation(relation, list, seed, config, options, baseline));
+            (relation, list) -> {
+              if (relation.appliesUnder(options)) {
+                checkRelation(relation, list, seed, config, options, baseline);
+              }
+            });
         if (bytecode) {
           checkBytecode(seed, config, options, baseline);
         }
@@ -794,6 +807,15 @@ public final class OracleRunner {
       ImmutableList<Source> right,
       Multiset<String> leftWarnings,
       Multiset<String> rightWarnings) {
+    Relation checkedRelation = checked.get(relation);
+    if (checkedRelation != null && checkedRelation.comparesLinesOnly()) {
+      Set<String> leftLines = lines(leftWarnings);
+      Set<String> rightLines = lines(rightWarnings);
+      leftWarnings = HashMultiset.create(leftWarnings);
+      rightWarnings = HashMultiset.create(rightWarnings);
+      leftWarnings.removeIf(k -> rightLines.contains(line(k)));
+      rightWarnings.removeIf(k -> leftLines.contains(line(k)));
+    }
     if (leftWarnings.equals(rightWarnings)) {
       count(relation + ": agree");
       return;
@@ -812,6 +834,18 @@ public final class OracleRunner {
     divergences.add(divergence);
     group(divergence, "left", divergence.onlyLeft());
     group(divergence, "right", divergence.onlyRight());
+  }
+
+  /** Returns the unit and line of each of {@code warningKeys}. */
+  private static Set<String> lines(Multiset<String> warningKeys) {
+    Set<String> result = new TreeSet<>();
+    warningKeys.elementSet().forEach(k -> result.add(line(k)));
+    return result;
+  }
+
+  /** Returns the unit and line a key of {@link #keys} starts with. */
+  private static String line(String warningKey) {
+    return warningKey.substring(0, warningKey.indexOf(SEPARATOR));
   }
 
   /** Adds each of {@code warningKeys}, reported only on {@code side}, to its divergence group. */
@@ -934,9 +968,13 @@ public final class OracleRunner {
               + (d.relation().equals(BYTECODE)
                   ? "the one unit compiled against the class files of the others in `left`"
                   : "the rewrite")
-              + ".\n\nOnly in `left`:\n\n"
+              + ".\n\nOnly in `left`"
+              + meaning(d.relation(), "left")
+              + ":\n\n"
               + bullets(d.onlyLeft())
-              + "\nOnly in `right`:\n\n"
+              + "\nOnly in `right`"
+              + meaning(d.relation(), "right")
+              + ":\n\n"
               + bullets(d.onlyRight()));
     }
     String summary = summary(done, selected, elapsed);
@@ -1031,7 +1069,7 @@ public final class OracleRunner {
           .append(", ")
           .append(code(k.seed()))
           .append(", only ")
-          .append(k.side())
+          .append(side(k))
           .append(": ")
           .append(code(k.template()))
           .append(" (")
@@ -1160,7 +1198,7 @@ public final class OracleRunner {
                 .append(" | ")
                 .append(code(k.seed()))
                 .append(" | ")
-                .append(k.side())
+                .append(side(k))
                 .append(" | ")
                 .append(code(k.template()))
                 .append(" | ")
@@ -1183,6 +1221,21 @@ public final class OracleRunner {
         .append("| --- | --- | --- | --- | --- | --- |")
         .append(knownGroups ? " --- |\n" : "\n")
         .append(rows);
+  }
+
+  /** Returns the side of {@code key}, followed by what the relation says a warning there means. */
+  private String side(GroupKey key) {
+    return key.side() + meaning(key.relation(), key.side());
+  }
+
+  /**
+   * Returns {@link Relation#sideMeaning} of the checked relation named {@code relation} for {@code
+   * side}, in parentheses after a space, or the empty string if it has none.
+   */
+  private String meaning(String relation, String side) {
+    Relation r = checked.get(relation);
+    String meaning = r == null ? "" : r.sideMeaning(side);
+    return meaning.isEmpty() ? "" : " (" + meaning + ")";
   }
 
   /** Returns {@code text} as Markdown inline code that is safe in a table cell. */

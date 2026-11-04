@@ -25,6 +25,37 @@ interface Relation {
   ImmutableList<ImmutableList<Source>> variants(Seed seed);
 
   /**
+   * Returns whether NullAway must report the same warnings, or warnings on the same lines for a
+   * relation that {@linkplain #comparesLinesOnly compares lines only}, on the seed and on a rewrite
+   * when it runs with {@code options}. A relation whose rewrite means the same only under some
+   * options, such as one that relies on how NullAway infers the type arguments of a generic call,
+   * is not compared under the others.
+   */
+  default boolean appliesUnder(List<String> options) {
+    return true;
+  }
+
+  /**
+   * Returns whether the pair compares only which lines carry a warning, for a relation whose
+   * rewrite may move a warning to another message on the same line. A warning then counts as only
+   * on one side when the other side has no warning on its line.
+   */
+  default boolean comparesLinesOnly() {
+    return false;
+  }
+
+  /**
+   * Returns what a warning that only one compilation of the pair reported says about NullAway, for
+   * the report, or the empty string if the relation tells the two sides apart no further.
+   *
+   * @param side {@code left} for a warning only the seed got, {@code right} for one only the
+   *     rewrite got
+   */
+  default String sideMeaning(String side) {
+    return "";
+  }
+
+  /**
    * One logical change to one unit: the text edits that make it, such as the opening and closing
    * parenthesis around one expression.
    *

@@ -4,14 +4,24 @@ import static java.nio.charset.StandardCharsets.UTF_8;
 
 import com.google.common.collect.ImmutableList;
 import com.google.errorprone.FileObjects;
+import com.sun.source.tree.AssignmentTree;
+import com.sun.source.tree.ClassTree;
 import com.sun.source.tree.CompilationUnitTree;
+import com.sun.source.tree.CompoundAssignmentTree;
 import com.sun.source.tree.ExpressionTree;
+import com.sun.source.tree.IdentifierTree;
 import com.sun.source.tree.LambdaExpressionTree;
+import com.sun.source.tree.MemberSelectTree;
 import com.sun.source.tree.MethodInvocationTree;
+import com.sun.source.tree.MethodTree;
 import com.sun.source.tree.NewArrayTree;
+import com.sun.source.tree.NewClassTree;
+import com.sun.source.tree.ParameterizedTypeTree;
 import com.sun.source.tree.ParenthesizedTree;
 import com.sun.source.tree.ReturnTree;
 import com.sun.source.tree.Tree;
+import com.sun.source.tree.TypeCastTree;
+import com.sun.source.tree.UnaryTree;
 import com.sun.source.tree.VariableTree;
 import com.sun.source.util.JavacTask;
 import com.sun.source.util.TreePath;
@@ -27,8 +37,11 @@ import com.uber.nullaway.oracles.Relation.Change;
 import java.io.IOException;
 import java.io.UncheckedIOException;
 import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.IdentityHashMap;
 import java.util.List;
 import java.util.Locale;
+import java.util.Map;
 import java.util.Set;
 import java.util.TreeSet;
 import java.util.regex.Pattern;
@@ -36,7 +49,9 @@ import java.util.stream.Collectors;
 import javax.lang.model.element.Element;
 import javax.lang.model.element.ElementKind;
 import javax.lang.model.element.ExecutableElement;
+import javax.lang.model.element.Modifier;
 import javax.lang.model.element.NestingKind;
+import javax.lang.model.element.PackageElement;
 import javax.lang.model.element.TypeElement;
 import javax.lang.model.type.DeclaredType;
 import javax.lang.model.type.TypeKind;
@@ -64,7 +79,7 @@ final class AttributedRelations {
 
   /** Returns every relation in this class. */
   static ImmutableList<Relation> all() {
-    return ImmutableList.of(CAST, LAMBDA_TO_ANONYMOUS_CLASS);
+    return ImmutableList.of(CAST, LAMBDA_TO_ANONYMOUS_CLASS, GENERIC_IDENTITY);
   }
 
   /** Receives the attributed units of a seed and adds changes for them. */
@@ -241,6 +256,483 @@ final class AttributedRelations {
                   return super.visitVariable(t, null);
                 }
               }.scan(tree, null));
+
+  /**
+   * The unit that declares {@link #IDENTITY_CALL}, added to every variant of {@link
+   * #GENERIC_IDENTITY}.
+   */
+  static final Source IDENTITY_UNIT =
+      new Source(
+          "oracles__/Id__.java",
+          """
+          package oracles__;
+          @org.jspecify.annotations.NullMarked
+          public final class Id__ {
+            private Id__() {}
+            public static <X extends @org.jspecify.annotations.Nullable Object> X id__(X x) {
+              return x;
+            }
+          }
+          """);
+
+  /** The text that opens a call of the identity method {@link #IDENTITY_UNIT} declares. */
+  static final String IDENTITY_CALL = "oracles__.Id__.id__(";
+
+  /**
+   * Passes an expression through a generic identity method: {@code e} becomes {@code
+   * oracles__.Id__.id__(e)}, where {@code id__} is {@code <X extends @Nullable Object> X id__(X x)}
+   * in a {@code @NullMarked} unit the variant adds. NullAway infers {@code X}, nullness included,
+   * from the argument, so the call has the nullness of {@code e} at that point, the facts dataflow
+   * knows about {@code e} included.
+   *
+   * <p>The relation wraps the receiver of a method call or a field read that yields a primitive or
+   * nothing, a call argument, a returned expression, a variable initializer, and the right side of
+   * an assignment. NullAway refines the result of a call or a field read that yields a reference
+   * through facts it keys on the receiver, such as {@code map.get(k)} after {@code
+   * map.containsKey(k)}, and {@code id__(map).get(k)} matches none of them. For the same reason it
+   * leaves the receiver of a method annotated {@code @RequiresNonNull} or {@code @EnsuresNonNull},
+   * whose fields NullAway checks or refines through that receiver. It leaves out an expression of a
+   * primitive type, whose boxing would add a nullness of its own; a lambda, a method reference, a
+   * conditional or switch expression, a call that infers its own type arguments, and a diamond,
+   * which take their type from the target that the call replaces; {@code null}, a constant, {@code
+   * this}, and a type or package name; and an expression that spans several lines, since the call
+   * could move a warning to its first line.
+   *
+   * <p>A dereference or a null check of {@code id__(p)}, unlike one of {@code p}, refines no access
+   * path, so an access path {@code p}, such as a local, a field, or {@code a.b.c}, is wrapped only
+   * where it appears last in its method, and an argument of a call that is itself an access path,
+   * such as {@code k} in {@code map.get(k)}, is never wrapped, and neither is a constant such as
+   * {@code Long.valueOf(42)}, which NullAway reads as a key in {@code map.put(Long.valueOf(42),
+   * v)}. An operand of {@code == null} is never wrapped, and neither is an assigned variable.
+   *
+   * <p>Where NullAway infers {@code X} from the target, it reports a nullable {@code e} at the
+   * argument of {@code id__}, or as an inference failure, in place of the warning the target gave
+   * on {@code e}, so the pair compares only the lines that carry a warning.
+   *
+   * <p>The relation applies only where NullAway runs in JSpecify mode. Elsewhere it does not infer
+   * the type argument of a generic call, and {@code id__(e)} is non-null whatever {@code e} is.
+   */
+  static final Relation GENERIC_IDENTITY =
+      new GenericIdentity(
+          new Attributed(
+              "generic-identity",
+              (unit, parsed, tree, trees, types, changes) ->
+                  new IdentityWrapper(unit, parsed, trees, lastUses(parsed, tree, trees), changes)
+                      .scan(tree, null)));
+
+  /**
+   * {@link #GENERIC_IDENTITY}: the variants of {@code rewrite}, each with {@link #IDENTITY_UNIT}
+   * added.
+   */
+  private record GenericIdentity(Attributed rewrite) implements Relation {
+    @Override
+    public String name() {
+      return rewrite.name();
+    }
+
+    @Override
+    public ImmutableList<ImmutableList<Source>> variants(Seed seed) {
+      return rewrite.variants(seed).stream()
+          .map(v -> ImmutableList.<Source>builder().addAll(v).add(IDENTITY_UNIT).build())
+          .collect(ImmutableList.toImmutableList());
+    }
+
+    @Override
+    public boolean appliesUnder(List<String> options) {
+      return options.contains("-XepOpt:NullAway:JSpecifyMode=true");
+    }
+
+    @Override
+    public boolean comparesLinesOnly() {
+      return true;
+    }
+
+    @Override
+    public String sideMeaning(String side) {
+      return side.equals("left")
+          ? "lost through the generic call: unsound inference"
+          : "added by the generic call: imprecise inference";
+    }
+  }
+
+  /**
+   * Returns, for each scope of {@code tree} and each access path in it, the start position of the
+   * last appearance of that path. A scope is the nearest enclosing method or, outside a method,
+   * class; lambdas share the scope of the method they are in.
+   */
+  private static Map<Tree, Map<List<Object>, Integer>> lastUses(
+      ParsedUnit parsed, CompilationUnitTree tree, Trees trees) {
+    IdentityHashMap<Tree, Map<List<Object>, Integer>> result = new IdentityHashMap<>();
+    new TreePathScanner<Void, Void>() {
+      private void record(Tree t) {
+        List<Object> key = accessPath(getCurrentPath(), trees);
+        if (key != null) {
+          result
+              .computeIfAbsent(scopeOf(getCurrentPath()), s -> new HashMap<>())
+              .merge(key, parsed.start(t), Math::max);
+        }
+      }
+
+      @Override
+      public Void visitIdentifier(IdentifierTree t, Void unused) {
+        record(t);
+        return super.visitIdentifier(t, null);
+      }
+
+      @Override
+      public Void visitMemberSelect(MemberSelectTree t, Void unused) {
+        record(t);
+        return super.visitMemberSelect(t, null);
+      }
+
+      @Override
+      public Void visitMethodInvocation(MethodInvocationTree t, Void unused) {
+        record(t);
+        return super.visitMethodInvocation(t, null);
+      }
+    }.scan(tree, null);
+    return result;
+  }
+
+  /** Returns the nearest method or class enclosing {@code path}. */
+  private static Tree scopeOf(TreePath path) {
+    for (TreePath p = path; p != null; p = p.getParentPath()) {
+      if (p.getLeaf() instanceof MethodTree || p.getLeaf() instanceof ClassTree) {
+        return p.getLeaf();
+      }
+    }
+    return path.getCompilationUnit();
+  }
+
+  /**
+   * Returns the constant the expression at {@code path} evaluates to, as a key of an access path,
+   * or null if it is not one. A {@code valueOf} of a boxed type applied to a constant is a
+   * constant, the boxed value, and parentheses and casts read the constant they enclose.
+   */
+  private static @Nullable Object constant(TreePath path, Trees trees) {
+    Tree leaf = path.getLeaf();
+    if (leaf instanceof ParenthesizedTree parens) {
+      return constant(new TreePath(path, parens.getExpression()), trees);
+    }
+    if (leaf instanceof TypeCastTree cast) {
+      return constant(new TreePath(path, cast.getExpression()), trees);
+    }
+    Type type = ((JCTree.JCExpression) leaf).type;
+    if (type != null && type.constValue() != null) {
+      return type.constValue();
+    }
+    if (leaf instanceof MethodInvocationTree call
+        && call.getArguments().size() == 1
+        && trees.getElement(path) instanceof ExecutableElement method
+        && method.getSimpleName().contentEquals("valueOf")
+        && method.getModifiers().contains(Modifier.STATIC)
+        && method.getEnclosingElement() instanceof TypeElement owner
+        && BOXED.contains(owner.getQualifiedName().toString())) {
+      Object value = constant(new TreePath(path, call.getArguments().get(0)), trees);
+      return value == null ? null : List.of(owner, value);
+    }
+    return null;
+  }
+
+  private static final Set<String> BOXED =
+      Set.of(
+          "java.lang.Boolean",
+          "java.lang.Byte",
+          "java.lang.Character",
+          "java.lang.Short",
+          "java.lang.Integer",
+          "java.lang.Long",
+          "java.lang.Float",
+          "java.lang.Double");
+
+  /**
+   * Returns the access path the expression at {@code path} reads, as the symbols along it, or null
+   * if it reads none. An access path is a local variable or parameter, {@code this}, a field read
+   * from an access path or from a static context, or a call of a method on an access path whose
+   * arguments are all constants, such as {@code a.b().c} or {@code map.get("k")}, or a {@code get}
+   * whose one argument is an access path, such as {@code map.get(k)}; NullAway tracks the nullness
+   * of each of them through dataflow. Parentheses and casts read the path they enclose, and {@code
+   * Long.valueOf(42)} counts as a constant, as NullAway reads it.
+   */
+  private static @Nullable List<Object> accessPath(TreePath path, Trees trees) {
+    Tree leaf = path.getLeaf();
+    if (leaf instanceof ParenthesizedTree parens) {
+      return accessPath(new TreePath(path, parens.getExpression()), trees);
+    }
+    if (leaf instanceof TypeCastTree cast) {
+      return accessPath(new TreePath(path, cast.getExpression()), trees);
+    }
+    if (leaf instanceof IdentifierTree id && id.getName().contentEquals("this")) {
+      return List.of("this");
+    }
+    if (leaf instanceof MethodInvocationTree call) {
+      List<Object> receiver;
+      if (call.getMethodSelect() instanceof MemberSelectTree select) {
+        receiver =
+            accessPath(new TreePath(new TreePath(path, select), select.getExpression()), trees);
+      } else {
+        Element method = trees.getElement(path);
+        receiver =
+            method != null && method.getModifiers().contains(Modifier.STATIC)
+                ? List.of()
+                : List.of("this");
+      }
+      if (receiver == null) {
+        return null;
+      }
+      List<Object> key = new ArrayList<>(receiver);
+      key.add(trees.getElement(path));
+      // Besides constants, the argument of a one-argument get, such as Map.get, may be an access
+      // path.
+      boolean mapGet =
+          call.getArguments().size() == 1
+              && call.getMethodSelect() instanceof MemberSelectTree select
+              && select.getIdentifier().contentEquals("get");
+      for (ExpressionTree arg : call.getArguments()) {
+        TreePath argPath = new TreePath(path, arg);
+        Object value = constant(argPath, trees);
+        if (value == null && mapGet) {
+          value = accessPath(argPath, trees);
+        }
+        if (value == null) {
+          return null;
+        }
+        key.add(value);
+      }
+      return key;
+    }
+    if (!(leaf instanceof IdentifierTree) && !(leaf instanceof MemberSelectTree)) {
+      return null;
+    }
+    Element element = trees.getElement(path);
+    if (element == null) {
+      return null;
+    }
+    switch (element.getKind()) {
+      case LOCAL_VARIABLE, PARAMETER, EXCEPTION_PARAMETER, RESOURCE_VARIABLE, BINDING_VARIABLE -> {
+        return List.of(element);
+      }
+      case FIELD, ENUM_CONSTANT -> {
+        if (element.getModifiers().contains(Modifier.STATIC)) {
+          return List.of(element);
+        }
+        List<Object> receiver =
+            leaf instanceof MemberSelectTree select
+                ? accessPath(new TreePath(path, select.getExpression()), trees)
+                : List.of("this");
+        if (receiver == null) {
+          return null;
+        }
+        List<Object> key = new ArrayList<>(receiver);
+        key.add(element);
+        return key;
+      }
+      default -> {
+        return null;
+      }
+    }
+  }
+
+  private static final Set<Tree.Kind> INCREMENTS =
+      Set.of(
+          Tree.Kind.PREFIX_INCREMENT,
+          Tree.Kind.PREFIX_DECREMENT,
+          Tree.Kind.POSTFIX_INCREMENT,
+          Tree.Kind.POSTFIX_DECREMENT);
+
+  /** Adds the changes of {@link #GENERIC_IDENTITY} for one unit. */
+  private static final class IdentityWrapper extends TreePathScanner<Void, Void> {
+    private final int unit;
+    private final ParsedUnit parsed;
+    private final Trees trees;
+    private final Map<Tree, Map<List<Object>, Integer>> lastUses;
+    private final List<Change> changes;
+
+    IdentityWrapper(
+        int unit,
+        ParsedUnit parsed,
+        Trees trees,
+        Map<Tree, Map<List<Object>, Integer>> lastUses,
+        List<Change> changes) {
+      this.unit = unit;
+      this.parsed = parsed;
+      this.trees = trees;
+      this.lastUses = lastUses;
+      this.changes = changes;
+    }
+
+    private void wrap(@Nullable ExpressionTree e) {
+      wrap(getCurrentPath(), e);
+    }
+
+    /**
+     * Wraps {@code e}, a child of the tree at {@code parent}, unless {@link #GENERIC_IDENTITY}
+     * leaves it out.
+     */
+    private void wrap(TreePath parent, @Nullable ExpressionTree e) {
+      if (e == null
+          || parsed.start(e) < 0
+          || parsed.end(e) < 0
+          || parsed.textOf(e).contains("\n")) {
+        return;
+      }
+      TreePath path = new TreePath(parent, e);
+      ExpressionTree inner = e;
+      while (inner instanceof ParenthesizedTree parens) {
+        inner = parens.getExpression();
+        path = new TreePath(path, inner);
+      }
+      switch (inner.getKind()) {
+        case LAMBDA_EXPRESSION,
+            MEMBER_REFERENCE,
+            NULL_LITERAL,
+            CONDITIONAL_EXPRESSION,
+            SWITCH_EXPRESSION -> {
+          return;
+        }
+        default -> {}
+      }
+      if (inner instanceof NewArrayTree array && array.getType() == null) {
+        return;
+      }
+      if (inner instanceof NewClassTree newClass
+          && newClass.getIdentifier() instanceof ParameterizedTypeTree type
+          && type.getTypeArguments().isEmpty()) {
+        return;
+      }
+      if (inner instanceof MethodInvocationTree call
+          && call.getTypeArguments().isEmpty()
+          && trees.getElement(path) instanceof ExecutableElement method
+          && !method.getTypeParameters().isEmpty()) {
+        return;
+      }
+      Element element = trees.getElement(path);
+      if (element instanceof TypeElement || element instanceof PackageElement) {
+        return;
+      }
+      if (inner instanceof IdentifierTree id
+          && (id.getName().contentEquals("this") || id.getName().contentEquals("super"))) {
+        return;
+      }
+      if (inner instanceof MemberSelectTree select
+          && (select.getIdentifier().contentEquals("this")
+              || select.getIdentifier().contentEquals("class"))) {
+        return;
+      }
+      Type type = ((JCTree.JCExpression) inner).type;
+      if (type == null
+          || constant(path, trees) != null
+          || type.isErroneous()
+          || type.getKind().isPrimitive()
+          || type.getKind() == TypeKind.VOID
+          || type.getKind() == TypeKind.NULL) {
+        return;
+      }
+      List<Object> key = accessPath(path, trees);
+      if (key != null) {
+        ExpressionTree read = inner;
+        while (read instanceof TypeCastTree || read instanceof ParenthesizedTree) {
+          read =
+              read instanceof TypeCastTree cast
+                  ? cast.getExpression()
+                  : ((ParenthesizedTree) read).getExpression();
+        }
+        Integer last = lastUses.getOrDefault(scopeOf(path), Map.of()).get(key);
+        if (last == null || last != parsed.start(read)) {
+          return;
+        }
+      }
+      changes.add(
+          Change.of(
+              unit,
+              new TextEdit(parsed.start(e), parsed.start(e), IDENTITY_CALL),
+              new TextEdit(parsed.end(e), parsed.end(e), ")")));
+    }
+
+    /**
+     * Returns whether the current tree, a call or a field read, yields a primitive or nothing, so
+     * no nullness fact about its result depends on its receiver.
+     */
+    private boolean yieldsNoReference() {
+      Type type = ((JCTree.JCExpression) getCurrentPath().getLeaf()).type;
+      return type != null && (type.isPrimitive() || type.getKind() == TypeKind.VOID);
+    }
+
+    /**
+     * Returns whether the current call, through {@code @RequiresNonNull} or
+     * {@code @EnsuresNonNull}, reads or sets the nullness of fields of its receiver, which NullAway
+     * keys on the receiver's access path.
+     */
+    private boolean readsReceiverFields() {
+      Element method = trees.getElement(getCurrentPath());
+      return method != null
+          && method.getAnnotationMirrors().stream()
+              .map(a -> a.getAnnotationType().asElement().getSimpleName().toString())
+              .anyMatch(n -> n.equals("RequiresNonNull") || n.equals("EnsuresNonNull"));
+    }
+
+    @Override
+    public Void visitMethodInvocation(MethodInvocationTree t, Void unused) {
+      if (t.getMethodSelect() instanceof MemberSelectTree select
+          && yieldsNoReference()
+          && !readsReceiverFields()) {
+        wrap(new TreePath(getCurrentPath(), select), select.getExpression());
+      }
+      if (accessPath(getCurrentPath(), trees) == null) {
+        t.getArguments().forEach(this::wrap);
+      }
+      return super.visitMethodInvocation(t, null);
+    }
+
+    @Override
+    public Void visitNewClass(NewClassTree t, Void unused) {
+      t.getArguments().forEach(this::wrap);
+      return super.visitNewClass(t, null);
+    }
+
+    @Override
+    public Void visitMemberSelect(MemberSelectTree t, Void unused) {
+      Tree parent = getCurrentPath().getParentPath().getLeaf();
+      boolean methodSelect =
+          parent instanceof MethodInvocationTree call && call.getMethodSelect().equals(t);
+      boolean assigned =
+          (parent instanceof AssignmentTree a && a.getVariable().equals(t))
+              || (parent instanceof CompoundAssignmentTree c && c.getVariable().equals(t))
+              || (parent instanceof UnaryTree u
+                  && u.getExpression().equals(t)
+                  && INCREMENTS.contains(u.getKind()));
+      Element element = trees.getElement(getCurrentPath());
+      if (!methodSelect
+          && !assigned
+          && element != null
+          && element.getKind() == ElementKind.FIELD
+          && !element.getModifiers().contains(Modifier.STATIC)
+          && yieldsNoReference()) {
+        wrap(t.getExpression());
+      }
+      return super.visitMemberSelect(t, null);
+    }
+
+    @Override
+    public Void visitReturn(ReturnTree t, Void unused) {
+      wrap(t.getExpression());
+      return super.visitReturn(t, null);
+    }
+
+    @Override
+    public Void visitVariable(VariableTree t, Void unused) {
+      if ((((JCTree.JCVariableDecl) t).mods.flags & Flags.ENUM) == 0) {
+        wrap(t.getInitializer());
+      }
+      return super.visitVariable(t, null);
+    }
+
+    @Override
+    public Void visitAssignment(AssignmentTree t, Void unused) {
+      wrap(t.getExpression());
+      return super.visitAssignment(t, null);
+    }
+  }
 
   /** Returns the source name of {@code type} if {@link #CAST} may cast to it, else null. */
   private static @Nullable String castableName(@Nullable TypeMirror type) {

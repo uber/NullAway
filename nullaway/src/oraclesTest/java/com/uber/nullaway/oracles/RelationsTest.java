@@ -3,6 +3,7 @@ package com.uber.nullaway.oracles;
 import static com.google.common.truth.Truth.assertThat;
 
 import com.google.common.collect.ImmutableList;
+import java.util.Map;
 import org.junit.Test;
 
 /**
@@ -552,5 +553,301 @@ public class RelationsTest {
         .containsExactly(
             "import java.util.List; class A { java.lang.Object java = null; java.lang.Object g ="
                 + " List.of(); }");
+  }
+
+  @Test
+  public void genericIdentityWrapsReceiversArgumentsReturnsInitializersAndAssignedValues() {
+    assertThat(
+            rewritten(
+                AttributedRelations.GENERIC_IDENTITY,
+                """
+                class A {
+                  Object o;
+                  int n;
+                  static void sink(Object x) {}
+                  int f(A a, Object x, Object y, Object z, Object w) {
+                    sink(x);
+                    Object v = y;
+                    o = z;
+                    w.hashCode();
+                    return a.n;
+                  }
+                }
+                """))
+        .isEqualTo(
+            """
+            class A {
+              Object o;
+              int n;
+              static void sink(Object x) {}
+              int f(A a, Object x, Object y, Object z, Object w) {
+                sink(oracles__.Id__.id__(x));
+                Object v = oracles__.Id__.id__(y);
+                o = oracles__.Id__.id__(z);
+                oracles__.Id__.id__(w).hashCode();
+                return oracles__.Id__.id__(a).n;
+              }
+            }
+            """);
+  }
+
+  @Test
+  public void genericIdentityAddsTheUnitThatDeclaresTheIdentityMethod() {
+    ImmutableList<Source> variant =
+        variants(
+                AttributedRelations.GENERIC_IDENTITY,
+                new Source("A.java", "class A { Object f(Object x) { return x; } }"))
+            .get(0);
+    assertThat(variant)
+        .containsExactly(
+            new Source(
+                "A.java", "class A { Object f(Object x) { return oracles__.Id__.id__(x); } }"),
+            AttributedRelations.IDENTITY_UNIT)
+        .inOrder();
+  }
+
+  @Test
+  public void genericIdentityWrapsAnAccessPathOnlyWhereItAppearsLastInItsMethod() {
+    // o and this.o are one access path, and so are (Object) q and q.
+    assertThat(
+            rewritten(
+                AttributedRelations.GENERIC_IDENTITY,
+                """
+                class A {
+                  Object o;
+                  static void sink(Object x) {}
+                  void f(Object p, Object q) {
+                    p.hashCode();
+                    p.hashCode();
+                    o.hashCode();
+                    this.o.hashCode();
+                    sink((Object) q);
+                    sink(q);
+                  }
+                }
+                """))
+        .isEqualTo(
+            """
+            class A {
+              Object o;
+              static void sink(Object x) {}
+              void f(Object p, Object q) {
+                p.hashCode();
+                oracles__.Id__.id__(p).hashCode();
+                o.hashCode();
+                oracles__.Id__.id__(this.o).hashCode();
+                sink((Object) q);
+                sink(oracles__.Id__.id__(q));
+              }
+            }
+            """);
+  }
+
+  @Test
+  public void genericIdentityLeavesTheReceiverAndTheKeyOfAReadThatYieldsAReference() {
+    // NullAway refines m.get(k) and a.o through facts it keys on m, k, and a.
+    assertThat(
+            rewritten(
+                AttributedRelations.GENERIC_IDENTITY,
+                """
+                import java.util.Map;
+                class A {
+                  Object o;
+                  void f(Map<String, Object> m, String k, A a) {
+                    m.get(k).hashCode();
+                    a.o.hashCode();
+                  }
+                }
+                """))
+        .isEqualTo(
+            """
+            import java.util.Map;
+            class A {
+              Object o;
+              void f(Map<String, Object> m, String k, A a) {
+                oracles__.Id__.id__(m.get(k)).hashCode();
+                oracles__.Id__.id__(a.o).hashCode();
+              }
+            }
+            """);
+  }
+
+  @Test
+  public void genericIdentityLeavesTheKeysAndTheReceiverThatNullAwayReadsFactsThrough() {
+    // NullAway reads Long.valueOf(42) as a constant key, and checks or refines c.item through c.
+    assertThat(
+            rewritten(
+                AttributedRelations.GENERIC_IDENTITY,
+                """
+                import java.util.Map;
+                class A {
+                  @interface RequiresNonNull { String value(); }
+                  @interface EnsuresNonNull { String value(); }
+                  static class C {
+                    Object item;
+                    @RequiresNonNull("item") void run() {}
+                    @EnsuresNonNull("item") void init() {}
+                    void plain() {}
+                  }
+                  static native Object o(Object k);
+                  void f(Map<Object, Object> m, C c, C d, C e) {
+                    m.put(Long.valueOf(42), e);
+                    m.get((Long) Long.valueOf(42)).hashCode();
+                    o(Integer.valueOf(7)).hashCode();
+                    c.init();
+                    d.run();
+                    e.plain();
+                  }
+                }
+                """))
+        .isEqualTo(
+            """
+            import java.util.Map;
+            class A {
+              @interface RequiresNonNull { String value(); }
+              @interface EnsuresNonNull { String value(); }
+              static class C {
+                Object item;
+                @RequiresNonNull("item") void run() {}
+                @EnsuresNonNull("item") void init() {}
+                void plain() {}
+              }
+              static native Object o(Object k);
+              void f(Map<Object, Object> m, C c, C d, C e) {
+                m.put(Long.valueOf(42), e);
+                oracles__.Id__.id__(m.get((Long) Long.valueOf(42))).hashCode();
+                oracles__.Id__.id__(o(Integer.valueOf(7))).hashCode();
+                c.init();
+                d.run();
+                oracles__.Id__.id__(e).plain();
+              }
+            }
+            """);
+  }
+
+  @Test
+  public void genericIdentityLeavesAnExpressionWithoutAStandaloneReferenceType() {
+    assertThat(
+            rewritten(
+                AttributedRelations.GENERIC_IDENTITY,
+                """
+                import java.util.ArrayList;
+                import java.util.List;
+                class A {
+                  static final String C = "c";
+                  static void sink(Object x) {}
+                  static void run(Runnable r) {}
+                  void f(Integer boxed, int i, boolean b, String s, String t) {
+                    sink(i);
+                    sink(C);
+                    sink(null);
+                    run(() -> {});
+                    run(this::hashCode);
+                    sink(b ? s : t);
+                    List<String> l = List.of();
+                    List<String> m = new ArrayList<>();
+                    String[] a = {"a"};
+                    sink(boxed);
+                  }
+                }
+                """))
+        .isEqualTo(
+            """
+            import java.util.ArrayList;
+            import java.util.List;
+            class A {
+              static final String C = "c";
+              static void sink(Object x) {}
+              static void run(Runnable r) {}
+              void f(Integer boxed, int i, boolean b, String s, String t) {
+                sink(i);
+                sink(C);
+                sink(null);
+                run(() -> {});
+                run(this::hashCode);
+                sink(b ? s : t);
+                List<String> l = List.of();
+                List<String> m = new ArrayList<>();
+                String[] a = {"a"};
+                sink(oracles__.Id__.id__(boxed));
+              }
+            }
+            """);
+  }
+
+  @Test
+  public void genericIdentityLeavesThisTypeNamesAndAssignedFields() {
+    assertThat(
+            rewritten(
+                AttributedRelations.GENERIC_IDENTITY,
+                """
+                class A {
+                  int n;
+                  int f(A a, A b, String s) {
+                    a.n += 1;
+                    b.n++;
+                    return this.hashCode() + Integer.parseInt(s);
+                  }
+                }
+                """))
+        .isEqualTo(
+            """
+            class A {
+              int n;
+              int f(A a, A b, String s) {
+                a.n += 1;
+                b.n++;
+                return this.hashCode() + Integer.parseInt(oracles__.Id__.id__(s));
+              }
+            }
+            """);
+  }
+
+  @Test
+  public void genericIdentityLeavesAnExpressionThatSpansSeveralLines() {
+    assertThat(
+            rewritten(
+                AttributedRelations.GENERIC_IDENTITY,
+                """
+                class A {
+                  static void sink(Object x) {}
+                  void f(String s, String t) {
+                    sink(s
+                        .trim());
+                    sink(t);
+                  }
+                }
+                """))
+        .isEqualTo(
+            """
+            class A {
+              static void sink(Object x) {}
+              void f(String s, String t) {
+                sink(s
+                    .trim());
+                sink(oracles__.Id__.id__(t));
+              }
+            }
+            """);
+  }
+
+  @Test
+  public void genericIdentityAppliesOnlyWhereNullAwayRunsInJSpecifyMode() {
+    assertThat(
+            OracleRunner.CONFIGS.entrySet().stream()
+                .filter(e -> AttributedRelations.GENERIC_IDENTITY.appliesUnder(e.getValue()))
+                .map(Map.Entry::getKey)
+                .toList())
+        .containsExactly("jspecify", "jspecify-nullmarked", "jspecify-experimental");
+  }
+
+  @Test
+  public void genericIdentityComparesLinesAndReadsALostWarningAsUnsound() {
+    Relation relation = AttributedRelations.GENERIC_IDENTITY;
+    assertThat(relation.comparesLinesOnly()).isTrue();
+    assertThat(relation.sideMeaning("left"))
+        .isEqualTo("lost through the generic call: unsound inference");
+    assertThat(relation.sideMeaning("right"))
+        .isEqualTo("added by the generic call: imprecise inference");
   }
 }

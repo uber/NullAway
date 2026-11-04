@@ -156,4 +156,158 @@ public class OracleRunnerReportTest {
     OracleRunner runner = afterACrash(KnownFindings.parse(List.of("crash\t" + SIGNATURE + "\t#1")));
     assertThat(runner.failed()).isFalse();
   }
+
+  /**
+   * Adds a dereference of {@code null} to {@link #SEED}, so that only the rewrite gets a warning,
+   * and is compared only under {@code jspecify-nullmarked}.
+   */
+  private static final Relation NULL_MARKED_ONLY =
+      new Relation() {
+        @Override
+        public String name() {
+          return "null-marked-only";
+        }
+
+        @Override
+        public ImmutableList<ImmutableList<Source>> variants(Seed seed) {
+          return ImmutableList.of(
+              ImmutableList.of(
+                  new Source(
+                      "com/uber/A.java",
+                      "package com.uber; @org.jspecify.annotations.NullMarked class A { void f() {"
+                          + " Object o = null; o.hashCode(); } }")));
+        }
+
+        @Override
+        public boolean appliesUnder(List<String> options) {
+          return options.equals(OracleRunner.CONFIGS.get("jspecify-nullmarked"));
+        }
+
+        @Override
+        public String sideMeaning(String side) {
+          return "meaning of " + side;
+        }
+      };
+
+  @Test
+  public void aRelationIsComparedOnlyUnderTheConfigurationsItAppliesUnder() throws Exception {
+    Path out = temporaryFolder.getRoot().toPath();
+    OracleRunner runner = new OracleRunner(KnownFindings.parse(List.of()), new Compiler());
+    runner.check(
+        new Seed(
+            "A.java#a",
+            ImmutableList.of(
+                new Source(
+                    "com/uber/A.java",
+                    "package com.uber; @org.jspecify.annotations.NullMarked class A { void f() {}"
+                        + " }"))),
+        List.of("legacy", "jspecify-nullmarked"),
+        ImmutableList.of(NULL_MARKED_ONLY),
+        false,
+        1,
+        0);
+    runner.writeReport(out, 1, 1, Duration.ZERO);
+    assertThat(Files.readString(out.resolve("report.md")))
+        .contains(
+            "| null-marked-only | `A.java#a` | right (meaning of right) |"
+                + " `[NullAway] dereferenced expression '_' is @Nullable` | jspecify-nullmarked |");
+  }
+
+  @Test
+  public void aRelationThatAppliesUnderNoConfigurationOfTheRunIsNotAskedForVariants()
+      throws Exception {
+    Relation throwingUnderNone =
+        new Relation() {
+          @Override
+          public String name() {
+            return "throwing-under-none";
+          }
+
+          @Override
+          public ImmutableList<ImmutableList<Source>> variants(Seed seed) {
+            throw new IllegalStateException("thrown by the relation");
+          }
+
+          @Override
+          public boolean appliesUnder(List<String> options) {
+            return false;
+          }
+        };
+    OracleRunner runner =
+        afterACrash(KnownFindings.parse(List.of()), ImmutableList.of(throwingUnderNone, THROWING));
+    String summary = runner.writeReport(temporaryFolder.getRoot().toPath(), 1, 1, Duration.ZERO);
+    assertThat(summary).contains("A relation or a mutator threw 1 times");
+  }
+
+  /**
+   * Rewrites {@link #SEED_WITH_TWO_DEREFERENCES} so that the warning on line 5 changes its message
+   * and the one on line 6 goes away, and compares only the lines that carry a warning.
+   */
+  private static final Relation LINES_ONLY =
+      new Relation() {
+        @Override
+        public String name() {
+          return "lines-only";
+        }
+
+        @Override
+        public ImmutableList<ImmutableList<Source>> variants(Seed seed) {
+          return ImmutableList.of(
+              ImmutableList.of(
+                  new Source(
+                      "com/uber/A.java",
+                      """
+                      package com.uber;
+                      class A {
+                        static void sink(Object o) {}
+                        void f(@javax.annotation.Nullable Object o, @javax.annotation.Nullable Object p) {
+                          sink(o);
+                          p = new Object(); p.hashCode();
+                        }
+                      }
+                      """)));
+        }
+
+        @Override
+        public boolean comparesLinesOnly() {
+          return true;
+        }
+      };
+
+  private static final Seed SEED_WITH_TWO_DEREFERENCES =
+      new Seed(
+          "A.java#two",
+          ImmutableList.of(
+              new Source(
+                  "com/uber/A.java",
+                  """
+                  package com.uber;
+                  class A {
+                    static void sink(Object o) {}
+                    void f(@javax.annotation.Nullable Object o, @javax.annotation.Nullable Object p) {
+                      o.hashCode();
+                      p.hashCode();
+                    }
+                  }
+                  """)));
+
+  @Test
+  public void aRelationThatComparesLinesReportsOnlyALineThatLostEveryWarning() throws Exception {
+    Path out = temporaryFolder.getRoot().toPath();
+    OracleRunner runner = new OracleRunner(KnownFindings.parse(List.of()), new Compiler());
+    runner.check(
+        SEED_WITH_TWO_DEREFERENCES, List.of("legacy"), ImmutableList.of(LINES_ONLY), false, 1, 0);
+    runner.writeReport(out, 1, 1, Duration.ZERO);
+    assertThat(Files.readString(out.resolve("lines-only-1/README.md")))
+        .endsWith(
+            """
+            Only in `left`:
+
+            - `com/uber/A.java:6 | [NullAway] dereferenced expression '_' is @Nullable`
+
+            Only in `right`:
+
+            - nothing
+            """);
+  }
 }
