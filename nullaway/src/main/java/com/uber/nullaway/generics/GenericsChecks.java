@@ -148,13 +148,13 @@ public final class GenericsChecks {
   private final Map<Tree, CallInferenceResult> inferredTypeVarNullabilityForGenericCalls =
       new LinkedHashMap<>();
 
-  /** Calls for which a generic inference failure diagnostic has already been reported. */
+  /**
+   * Calls and method references for which a generic inference failure diagnostic has already been
+   * reported.
+   */
   private final Set<Tree> callsWithReportedInferenceFailures = new LinkedHashSet<>();
 
-  /**
-   * Maps poly expressions for which we have computed a context-derived type to that type, if
-   * inference succeeded.
-   */
+  /** Maps poly expressions for which we have computed a context-derived type to that type. */
   private final Map<Tree, Type> inferredPolyExpressionTypes = new LinkedHashMap<>();
 
   /**
@@ -2983,8 +2983,9 @@ public final class GenericsChecks {
               if (actualParameterWithoutParentheses instanceof MemberReferenceTree) {
                 // The formal parameter supplies the expected functional interface type. Preserve
                 // its nullability annotations in the cached method reference expression type;
-                // Later, when we visit the MemberReferenceTree directly, checkMethodReference()
-                // uses that type to check the referenced method's parameter and return nullability.
+                // Later, when we visit the MemberReferenceTree directly,
+                // inferAndCheckMethodReferenceNullability() uses that type to check the referenced
+                // method's parameter and return nullability.
                 maybeStorePolyExpressionTypeFromTarget(
                     actualParameterWithoutParentheses, formalParameter, state);
                 // Return early: the type of the method reference itself is derived from the formal
@@ -3160,20 +3161,22 @@ public final class GenericsChecks {
    * @param reportFailure whether to report inference failures; false for unannotated targets whose
    *     nested nullability is unspecified
    * @param state visitor state whose path ends at the reference
-   * @return the {@code CallInferenceResult} capturing the inference result for the call, or {@code
-   *     null} if inference is not run
+   * @return the result cached by enclosing call inference or an earlier visit, if it records a
+   *     failure or inferred nullability for this reference's type variables; otherwise, the result
+   *     of running inference now. Returns {@code null} only for a non-generic method or explicit
+   *     type arguments.
    */
   private @Nullable CallInferenceResult inferMethodReferenceTypeArguments(
       MemberReferenceTree tree, Type targetType, boolean reportFailure, VisitorState state) {
     Symbol.MethodSymbol referencedMethod = castToNonNull(ASTHelpers.getSymbol(tree));
-    // return if the reference is to a non-generic method, has explicit type arguments, or if we
-    // already ran inference for the reference
+    // Return if the reference is to a non-generic method or has explicit type arguments.
     if (!(referencedMethod.type instanceof Type.ForAll) || tree.getTypeArguments() != null) {
       return null;
     }
+    // Reuse the cached result if inference already failed or inferred this method's type variables.
+    // Enclosing call inference can record a success without inferring those variables, e.g., when
+    // a lambda returns the reference as an unconstrained type variable.
     CallInferenceResult result = inferredTypeVarNullabilityForGenericCalls.get(tree);
-    // Enclosing call inference can record a success without inferring this method's type
-    // variables, e.g., when a lambda returns the reference as an unconstrained type variable.
     if (result != null
         && (!(result instanceof InferenceSuccess success)
             || !success.typeVarNullabilityForSite(tree).isEmpty())) {
@@ -3195,15 +3198,14 @@ public final class GenericsChecks {
   }
 
   /**
-   * For a generic method reference, if it is being called in a context that requires type argument
-   * nullability inference, return the method type with inferred nullability for type parameters.
-   * Otherwise, return the original method type.
+   * Returns a generic method reference's method type with type parameter nullability from a cached
+   * successful inference result, or the original method type when no successful result is cached.
    *
    * @param methodType the original method type
    * @param state the visitor state (generic method reference should be leaf of {@code
    *     state.getPath()})
-   * @return the method type with inferred nullability for type parameters if inference was
-   *     performed, or the original method type otherwise
+   * @return the method type with type parameter nullability from a cached successful inference
+   *     result, or {@code methodType} when no successful result is cached
    */
   private Type.MethodType getInferredMethodTypeForGenericMethodReference(
       Type.MethodType methodType, VisitorState state) {
