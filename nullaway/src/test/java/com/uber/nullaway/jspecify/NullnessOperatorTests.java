@@ -1197,6 +1197,9 @@ public class NullnessOperatorTests extends NullAwayTestsBase {
               static <T extends @Nullable Object> Box<T> wrap(Box<? extends T> box) {
                 return () -> box.get();
               }
+              static <T extends @Nullable Object> Box<T> wrapByReference(Box<? extends T> box) {
+                return box::get;
+              }
             }
             """)
         .doTest();
