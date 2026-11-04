@@ -216,6 +216,101 @@ public class NullnessOperatorTests extends NullAwayTestsBase {
         .doTest();
   }
 
+  /**
+   * A value of type {@code T} that a generic call returns or a field of type {@code T} holds is
+   * non-null, like a parameter of type {@code T}, even where a wildcard result went into it.
+   */
+  @Test
+  public void typeVariableValueTakenFromWildcardResultIsNonNull() {
+    makeHelper()
+        .addSourceLines(
+            "Test.java",
+            """
+            import org.jspecify.annotations.NullMarked;
+            import org.jspecify.annotations.Nullable;
+            @NullMarked
+            class Test<T extends @Nullable Object> {
+              interface Box<R extends @Nullable Object> {
+                R get();
+              }
+              interface Sink<E extends @Nullable Object> {
+                void put(E e);
+              }
+              static <E extends @Nullable Object> E identity(E e) {
+                return e;
+              }
+              T field;
+              Test(T initial) {
+                field = initial;
+              }
+              void dereferenceDirectly(Box<? extends T> box) {
+                // BUG: Diagnostic contains: dereferenced expression 'box.get()' is @Nullable
+                box.get().hashCode();
+              }
+              void dereferenceThroughIdentity(Box<? extends T> box) {
+                identity(box.get()).hashCode();
+              }
+              void dereferenceLocalThroughIdentity(Box<? extends T> box) {
+                T value = box.get();
+                identity(value).hashCode();
+              }
+              void dereferenceFieldAfterStore(Box<? extends T> box) {
+                field = box.get();
+                field.hashCode();
+              }
+              Object returnDirectlyAsObject(Box<? extends T> box) {
+                // BUG: Diagnostic contains: returning @Nullable expression
+                return box.get();
+              }
+              Object returnThroughIdentityAsObject(Box<? extends T> box) {
+                return identity(box.get());
+              }
+              void passThroughIdentityAsObject(Box<? extends T> box, Sink<Object> sink) {
+                sink.put(identity(box.get()));
+              }
+              void dereferenceObjectLocalFromIdentity(Box<? extends T> box) {
+                Object value = identity(box.get());
+                value.hashCode();
+              }
+            }
+            """)
+        .doTest();
+  }
+
+  @Test
+  public void noChangeValueIsNotUnboxable() {
+    makeHelper()
+        .addSourceLines(
+            "Test.java",
+            """
+            import java.util.List;
+            import org.jspecify.annotations.NullMarked;
+            import org.jspecify.annotations.Nullable;
+            @NullMarked
+            class Test {
+              interface Box<R extends @Nullable Object> {
+                R get();
+              }
+              static <N extends @Nullable Integer> int unboxWildcardResult(Box<? extends N> box) {
+                // BUG: Diagnostic contains: unboxing of a @Nullable expression
+                return box.get();
+              }
+              static <N extends @Nullable Integer> int unboxLoopVariable(List<N> list) {
+                int sum = 0;
+                for (N value : list) {
+                  // BUG: Diagnostic contains: unboxing of a @Nullable expression
+                  sum += value;
+                }
+                return sum;
+              }
+              static <N extends Integer> int unboxNonNullBoundWildcardResult(Box<? extends N> box) {
+                return box.get();
+              }
+            }
+            """)
+        .doTest();
+  }
+
   @Test
   public void nonNullTypeVariableReadsIgnoreNullableUpperBound() {
     makeHelper()
@@ -409,6 +504,22 @@ public class NullnessOperatorTests extends NullAwayTestsBase {
               }
               static <U extends @Nullable Object> void pass(List<? extends U> list, Sink<U> sink) {
                 sink.accept(list.get(0));
+              }
+              interface MultiSink<E extends @Nullable Object> {
+                void acceptAll(E... es);
+              }
+              static <U extends @Nullable Object> void passToVarargs(
+                  List<? extends U> list, MultiSink<U> sink) {
+                sink.acceptAll(list.get(0));
+              }
+              static <U extends @Nullable Object> void passToVarargsAfterAnotherArgument(
+                  U first, List<? extends U> list, MultiSink<U> sink) {
+                sink.acceptAll(first, list.get(0));
+              }
+              static <U extends @Nullable Object> void passToObjectVarargs(
+                  List<? extends U> list, MultiSink<Object> sink) {
+                // BUG: Diagnostic contains: passing @Nullable parameter 'list.get(0)'
+                sink.acceptAll(list.get(0));
               }
             }
             """)
@@ -1378,6 +1489,26 @@ public class NullnessOperatorTests extends NullAwayTestsBase {
                   sink.accept(holder.field);
                 }
               }
+              static class ArrayHolder<R extends @Nullable Object> {
+                @Nullable R[] array;
+                ArrayHolder(@Nullable R[] array) {
+                  this.array = array;
+                }
+              }
+              @SuppressWarnings("unchecked")
+              static <T extends @Nullable Object, S extends T> void equalThroughCastArrayHolder(
+                  ArrayHolder<S> holder, Box<? extends T> box, Sink<S> sink) {
+                if (((ArrayHolder<T>) (Object) holder).array[0] == box.get()) {
+                  // BUG: Diagnostic contains: passing @Nullable parameter 'holder.array[0]'
+                  sink.accept(holder.array[0]);
+                }
+              }
+              static <T extends @Nullable Object> void equalThroughPlainArrayHolder(
+                  ArrayHolder<T> holder, Box<? extends T> box, Sink<T> sink) {
+                if (holder.array[0] == box.get()) {
+                  sink.accept(holder.array[0]);
+                }
+              }
               interface Getter {
                 <U extends @Nullable Object> @Nullable U get();
               }
@@ -1386,6 +1517,15 @@ public class NullnessOperatorTests extends NullAwayTestsBase {
                 if (getter.<T>get() == box.get()) {
                   // BUG: Diagnostic contains: passing @Nullable parameter 'getter.<S>get()'
                   sink.accept(getter.<S>get());
+                }
+              }
+              interface PlainGetter<R extends @Nullable Object> {
+                @Nullable R get();
+              }
+              static <T extends @Nullable Object> void equalThroughNonGenericMethod(
+                  PlainGetter<T> getter, Box<? extends T> box, Sink<T> sink) {
+                if (getter.get() == box.get()) {
+                  sink.accept(getter.get());
                 }
               }
               static <T extends @Nullable Object> void equalThroughPlainReceiver(
@@ -1426,6 +1566,20 @@ public class NullnessOperatorTests extends NullAwayTestsBase {
                   // BUG: Diagnostic contains: dereferenced expression 'array[0]' is @Nullable
                   array[0].toString();
                 }
+              }
+              static <T extends @Nullable Object> void dereferenceLocal(
+                  @Nullable T[] array, Box<? extends T> box) {
+                if (array[0] == box.get()) {
+                  T value = array[0];
+                  // BUG: Diagnostic contains: dereferenced expression 'value' is @Nullable
+                  value.hashCode();
+                }
+              }
+              static <T extends @Nullable Object> void dereferenceLocalWithoutEqualityTest(
+                  @Nullable T[] array) {
+                T value = array[0];
+                // BUG: Diagnostic contains: dereferenced expression 'value' is @Nullable
+                value.hashCode();
               }
               static <T extends @Nullable Object> void passToTypeVariable(
                   @Nullable T[] array, Box<? extends T> box, Sink<T> sink) {
