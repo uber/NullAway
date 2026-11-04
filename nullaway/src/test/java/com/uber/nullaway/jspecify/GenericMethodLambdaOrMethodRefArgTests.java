@@ -422,6 +422,10 @@ public class GenericMethodLambdaOrMethodRefArgTests extends NullAwayTestsBase {
               static <T extends @Nullable Object> List<T> identity(List<T> values) {
                 return values;
               }
+              static <T> List<T> wrapList(List<T> values) { return values; }
+              static <R extends @Nullable Object> R gen(Supplier<R> supplier) {
+                return supplier.get();
+              }
               static void acceptNullable(
                   Function<List<@Nullable String>, List<@Nullable String>> function) {}
               static void acceptIncompatible(
@@ -475,6 +479,10 @@ public class GenericMethodLambdaOrMethodRefArgTests extends NullAwayTestsBase {
               Supplier<Function<List<@Nullable String>, List<String>>> incompatibleLambdaReturn() {
                 // BUG: Diagnostic contains: inference failure: type variable T constrained to be both
                 return () -> Test::identity;
+              }
+              void incompatibleLambdaReturnInGenericCall() {
+                // BUG: Diagnostic contains: inference failure: type variable T is constrained to be @Nullable
+                Function<List<@Nullable String>, List<String>> function = gen(() -> Test::wrapList);
               }
               void nullableArgument() {
                 acceptNullable(Test::identity);

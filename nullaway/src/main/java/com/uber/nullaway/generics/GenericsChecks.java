@@ -3128,7 +3128,11 @@ public final class GenericsChecks {
       return null;
     }
     CallInferenceResult result = inferredTypeVarNullabilityForGenericCalls.get(tree);
-    if (result != null) {
+    // Enclosing call inference can record a success without inferring this method's type
+    // variables, e.g., when a lambda returns the reference as an unconstrained type variable.
+    if (result != null
+        && (!(result instanceof InferenceSuccess success)
+            || !success.typeVarNullabilityForSite(tree).isEmpty())) {
       return result;
     }
     ConstraintSolver solver = makeSolver(state, analysis);
