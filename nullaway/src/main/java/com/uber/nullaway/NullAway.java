@@ -289,7 +289,7 @@ public class NullAway extends BugChecker
       new LinkedHashMap<>();
 
   /**
-   * dynamically computer/overriden nullness facts for certain expressions, such as specific method
+   * dynamically computer/overridden nullness facts for certain expressions, such as specific method
    * calls where we can infer a more precise set of facts than those given by the method's
    * annotations.
    */
