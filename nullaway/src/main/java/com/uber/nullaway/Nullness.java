@@ -135,10 +135,11 @@ public enum Nullness implements AbstractValue<Nullness> {
     if (isNoChangeOrNonNull(this) && isNoChangeOrNonNull(other)) {
       return NONNULL;
     }
-    // Not a lattice meet: Null and No-change are incomparable, but a no-change value may be null,
-    // so an equality test against null refines it to Null rather than to Bottom.
+    // Not a lattice meet: Null and No-change are incomparable, so the meet would be Bottom. A
+    // no-change value equal to null is null only because its type variable admits null, so it stays
+    // No-change: a location of that type variable still accepts it, and a dereference is reported.
     if ((this == NULL && other == NO_CHANGE) || (this == NO_CHANGE && other == NULL)) {
-      return NULL;
+      return NO_CHANGE;
     }
     // They disagree, and neither is nullable.
     return BOTTOM;

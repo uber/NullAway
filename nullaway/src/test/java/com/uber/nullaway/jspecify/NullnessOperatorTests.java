@@ -454,6 +454,7 @@ public class NullnessOperatorTests extends NullAwayTestsBase {
                 R get();
               }
               static <T extends @Nullable Object> void sink(T value) {}
+              static void objectSink(Object value) {}
               static <T extends @Nullable Object> void dereferenceWhenNonNull(Box<? extends T> box) {
                 T value = box.get();
                 if (value != null) {
@@ -463,9 +464,49 @@ public class NullnessOperatorTests extends NullAwayTestsBase {
               static <T extends @Nullable Object> void passWhenNull(Box<? extends T> box) {
                 T value = box.get();
                 if (value == null) {
-                  // BUG: Diagnostic contains: passing @Nullable parameter 'value'
                   Test.<T>sink(value);
                 }
+              }
+              static <T extends @Nullable Object> void dereferenceWhenNull(Box<? extends T> box) {
+                T value = box.get();
+                if (value == null) {
+                  // BUG: Diagnostic contains: dereferenced expression 'value' is @Nullable
+                  value.hashCode();
+                }
+              }
+              static <T extends @Nullable Object> void passAsObjectWhenNull(Box<? extends T> box) {
+                T value = box.get();
+                if (value == null) {
+                  // BUG: Diagnostic contains: passing @Nullable parameter 'value'
+                  objectSink(value);
+                }
+              }
+              static <T extends @Nullable Object> T returnWhenNull(Box<? extends T> box) {
+                T value = box.get();
+                if (value == null) {
+                  return value;
+                }
+                return value;
+              }
+              static <T extends @Nullable Object> T returnAfterEmptyNullCheck(Box<? extends T> box) {
+                T value = box.get();
+                if (value == null) {}
+                return value;
+              }
+              static <T extends @Nullable Object> T returnAfterDereferenceWhenNonNull(
+                  Box<? extends T> box) {
+                T value = box.get();
+                if (value != null) {
+                  value.hashCode();
+                }
+                return value;
+              }
+              static <T extends @Nullable Object> Object returnAsObjectAfterNullCheck(
+                  Box<? extends T> box) {
+                T value = box.get();
+                if (value == null) {}
+                // BUG: Diagnostic contains: returning @Nullable expression
+                return value;
               }
             }
             """)

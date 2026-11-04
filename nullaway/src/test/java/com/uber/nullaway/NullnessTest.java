@@ -10,7 +10,8 @@ import org.junit.Test;
 
 /**
  * {@link Nullness#NO_CHANGE} lies between {@link Nullness#NONNULL} and {@link Nullness#NULLABLE},
- * and meets {@link Nullness#NULL} at {@code NULL}, since a no-change value may be null.
+ * and meets {@link Nullness#NULL} at {@code NO_CHANGE}: a no-change value equal to null is null
+ * only where its type variable admits null.
  */
 public class NullnessTest {
 
@@ -33,9 +34,9 @@ public class NullnessTest {
   }
 
   @Test
-  public void meetingNoChangeWithNullIsNull() {
-    assertThat(NO_CHANGE.greatestLowerBound(NULL)).isEqualTo(NULL);
-    assertThat(NULL.greatestLowerBound(NO_CHANGE)).isEqualTo(NULL);
+  public void meetingNoChangeWithNullKeepsNoChange() {
+    assertThat(NO_CHANGE.greatestLowerBound(NULL)).isEqualTo(NO_CHANGE);
+    assertThat(NULL.greatestLowerBound(NO_CHANGE)).isEqualTo(NO_CHANGE);
   }
 
   @Test
