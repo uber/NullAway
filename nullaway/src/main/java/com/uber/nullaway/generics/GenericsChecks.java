@@ -3413,23 +3413,23 @@ public final class GenericsChecks {
   }
 
   /**
-   * Returns the type of the implicit receiver of a call of {@code method} at {@code path}. For a
-   * method, this is the innermost enclosing class that has the method as a member, as javac
-   * resolves the call, so a private method binds to the class that declares it rather than to an
-   * anonymous subclass. Where that class is an anonymous class that does not declare the method,
-   * this is its supertype as the class instance creation writes it, so the annotations on its type
-   * arguments are kept. For a {@code super(...)} or {@code this(...)} constructor call, this is the
-   * innermost enclosing class.
+   * Returns the type of the implicit receiver of {@code member}, a method or field named by its
+   * simple name at {@code path}. For a method or field, this is the innermost enclosing class that
+   * has it as a member, as javac resolves the name, so a private member binds to the class that
+   * declares it rather than to an anonymous subclass. Where that class is an anonymous class that
+   * does not declare the member, this is its supertype as the class instance creation writes it, so
+   * the annotations on its type arguments are kept. For a {@code super(...)} or {@code this(...)}
+   * constructor call, this is the innermost enclosing class.
    *
-   * @param method the invoked method or constructor
-   * @param path the path to the call
+   * @param method the invoked method or constructor, or the field
+   * @param path the path to the call or the field name
    * @param state the visitor state
    * @param calledFromDataflow whether this method is being called from dataflow analysis
    * @return the receiver type, or {@code null} outside a class or where the type of the anonymous
    *     class's instance creation cannot be computed
    */
   private @Nullable Type getImplicitReceiverType(
-      Symbol.MethodSymbol method, TreePath path, VisitorState state, boolean calledFromDataflow) {
+      Symbol method, TreePath path, VisitorState state, boolean calledFromDataflow) {
     Symbol.ClassSymbol owner = method.enclClass();
     Type innermostType = null;
     // JLS 15.12.1: an unqualified call names a member of an enclosing class, so the loop returns
@@ -4823,6 +4823,99 @@ public final class GenericsChecks {
     }
     return declaredType instanceof Type.TypeVar
         && GenericsUtils.upperBoundIsNullable(declaredType.tsym, config, handler, state);
+  }
+
+  /**
+   * Returns the type of the variable that {@code target} names, with the type-use annotations that
+   * its declaration writes and that the type arguments of the supertypes it is inherited through
+   * supply. A field has javac's type with those annotations restored, an array element is the
+   * component of its array's type, and any other variable is typed by {@link #getTreeType(Tree,
+   * VisitorState)}.
+   *
+   * @param target the left-hand side of an assignment, or an array expression inside it
+   * @param path the path to {@code target}
+   * @param state the visitor state
+   * @return the type, or {@code null} where it cannot be computed
+   */
+  public @Nullable Type getAssignedVariableType(
+      ExpressionTree target, TreePath path, VisitorState state) {
+    ExpressionTree variable = ASTHelpers.stripParentheses(target);
+    if (variable instanceof ArrayAccessTree arrayAccess) {
+      ExpressionTree array = arrayAccess.getExpression();
+      Type arrayType =
+          getAssignedVariableType(
+              array, pathWithLeaf(pathWithLeaf(path, arrayAccess), array), state);
+      return arrayType instanceof Type.ArrayType arrayTypeWithComponent
+          ? arrayTypeWithComponent.getComponentType()
+          // diff-coverage: ignore -- the array of an array access has an array type
+          : null;
+    }
+    Symbol symbol = ASTHelpers.getSymbol(variable);
+    Type javacType = ASTHelpers.getType(variable);
+    if (symbol != null
+        && symbol.getKind() == ElementKind.FIELD
+        && !ASTHelpers.isStatic(symbol)
+        && javacType != null) {
+      Type receiverType =
+          variable instanceof MemberSelectTree memberSelect
+              ? ASTHelpers.getType(memberSelect.getExpression())
+              : getImplicitReceiverType(symbol, path, state, false);
+      if (receiverType != null) {
+        // the field as a member of the receiver's class as declared, so that annotations NullAway
+        // infers for the receiver's own type arguments do not enter
+        Type declaredFieldType =
+            TypeSubstitutionUtils.memberType(
+                state.getTypes(), receiverType.tsym.type, symbol, config);
+        return TypeSubstitutionUtils.restoreExplicitNullabilityAnnotations(
+            declaredFieldType, javacType, state.getTypes(), config);
+      }
+    }
+    return getTreeType(target, state.withPath(path));
+  }
+
+  /**
+   * Returns {@code formalParamType}, javac's type at {@code call} of the parameter at {@code
+   * paramIndex}, with the type-use annotations that the parameter's declaration and the type
+   * arguments of the supertypes of the receiver's class supply, which javac's substitution drops.
+   *
+   * @param methodSymbol the invoked method or constructor
+   * @param call the method invocation or class instance creation, the leaf of the current path
+   * @param formalParamType javac's type of the parameter at the call; for an argument passed
+   *     individually to a varargs parameter, the component type
+   * @param paramIndex index of the declared parameter receiving the argument
+   * @param individualVarargsArgument whether the argument is passed individually to a varargs
+   *     parameter
+   * @param state the visitor state
+   * @return the parameter type with its annotations
+   */
+  public Type getParameterTypeAtCall(
+      Symbol.MethodSymbol methodSymbol,
+      Tree call,
+      Type formalParamType,
+      int paramIndex,
+      boolean individualVarargsArgument,
+      VisitorState state) {
+    Type receiverType = null;
+    if (call instanceof MethodInvocationTree invocation && !ASTHelpers.isStatic(methodSymbol)) {
+      ExpressionTree methodSelect = ASTHelpers.stripParentheses(invocation.getMethodSelect());
+      receiverType =
+          methodSelect instanceof MemberSelectTree memberSelect
+              ? ASTHelpers.getType(memberSelect.getExpression())
+              : getImplicitReceiverType(methodSymbol, state.getPath(), state, false);
+    }
+    // the method as a member of the receiver's class as declared, as for a field in
+    // getAssignedVariableType
+    Type declaredMethodType =
+        receiverType != null
+            ? TypeSubstitutionUtils.memberType(
+                state.getTypes(), receiverType.tsym.type, methodSymbol, config)
+            : methodSymbol.type;
+    Type annotationSource = declaredMethodType.asMethodType().getParameterTypes().get(paramIndex);
+    if (individualVarargsArgument && annotationSource instanceof Type.ArrayType arrayType) {
+      annotationSource = arrayType.getComponentType();
+    }
+    return TypeSubstitutionUtils.restoreExplicitNullabilityAnnotations(
+        annotationSource, formalParamType, state.getTypes(), config);
   }
 
   /**

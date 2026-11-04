@@ -463,6 +463,58 @@ public class NullnessOperatorTests extends NullAwayTestsBase {
                   inheritedTypeUseArray[0] = box.get();
                 }
               }
+              static class Holder<H extends @Nullable Object> {
+                H field;
+                H[] array;
+                Holder(H field, H[] array) {
+                  this.field = field;
+                  this.array = array;
+                }
+                void set(H value) {}
+                @SafeVarargs
+                final void setAll(H... values) {}
+              }
+              static class NonNullHolder<S extends @Nullable Object> extends Holder<@NonNull S> {
+                NonNullHolder(@NonNull S field, @NonNull S[] array) {
+                  super(field, array);
+                }
+                void storeThroughInheritedMembers(Box<? extends S> box) {
+                  // BUG: Diagnostic contains: assigning @Nullable expression to @NonNull field
+                  field = box.get();
+                  // BUG: Diagnostic contains: Writing @Nullable expression into array with @NonNull contents
+                  array[0] = box.get();
+                  // BUG: Diagnostic contains: passing @Nullable parameter 'box.get()'
+                  set(box.get());
+                  // BUG: Diagnostic contains: passing @Nullable parameter 'box.get()'
+                  setAll(box.get());
+                }
+              }
+              static class PlainHolder<S extends @Nullable Object> extends Holder<S> {
+                PlainHolder(S field, S[] array) {
+                  super(field, array);
+                }
+                void storeThroughInheritedMembers(Box<? extends S> box) {
+                  field = box.get();
+                  array[0] = box.get();
+                  set(box.get());
+                  setAll(box.get());
+                }
+              }
+              void storeThroughSupertypeArguments(
+                  NonNullHolder<T> nonNullHolder, PlainHolder<T> plainHolder, Box<? extends T> box) {
+                // BUG: Diagnostic contains: assigning @Nullable expression to @NonNull field
+                nonNullHolder.field = box.get();
+                // BUG: Diagnostic contains: Writing @Nullable expression into array with @NonNull contents
+                nonNullHolder.array[0] = box.get();
+                // BUG: Diagnostic contains: passing @Nullable parameter 'box.get()'
+                nonNullHolder.set(box.get());
+                // BUG: Diagnostic contains: passing @Nullable parameter 'box.get()'
+                nonNullHolder.setAll(box.get());
+                plainHolder.field = box.get();
+                plainHolder.array[0] = box.get();
+                plainHolder.set(box.get());
+                plainHolder.setAll(box.get());
+              }
             }
             """)
         .doTest();
