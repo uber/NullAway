@@ -396,6 +396,45 @@ public class GenericInferenceErrorReportingTests extends NullAwayTestsBase {
               void classTypeVariableFailure(Receiver<String> receiver) {
                 BiFn<@Nullable String, List<@Nullable String>> f = receiver::consume; // 2 warnings: T inference failure, value parameter mismatch.
               }
+
+              static <T> String takes(List<String> l) { return ""; }
+              static <U> void pairList(Fn<List<@Nullable String>, String> f, U u) {}
+              void unrelatedArgumentNestedParameterFailure() {
+                pairList(Test::takes, null); // 3 warnings: U inference failure, nullable argument, nested parameter mismatch.
+              }
+              void unrelatedArgumentNestedParameterControl() {
+                pairList(Test::takes, "x"); // 1 warning: nested parameter mismatch.
+              }
+
+              static <T> void both(T t, List<String> l) {}
+              static <T> void bothNullableElements(T t, List<@Nullable String> l) {}
+              static void accept(BiFn<@Nullable String, List<@Nullable String>> f) {}
+              void independentNestedParameterArgumentFailure() {
+                accept(Test::both); // 2 warnings: T inference failure, nested parameter mismatch.
+              }
+              void independentNestedParameterArgumentControl() {
+                accept(Test::bothNullableElements); // 1 warning: T inference failure.
+              }
+              void independentNestedParameterAssignmentFailure() {
+                BiFn<@Nullable String, List<@Nullable String>> f = Test::both; // 2 warnings: T inference failure, nested parameter mismatch.
+              }
+              void independentNestedParameterAssignmentControl() {
+                BiFn<@Nullable String, List<@Nullable String>> f = Test::bothNullableElements; // 1 warning: T inference failure.
+              }
+
+              static <T> List<@Nullable String> nestedResult(T t) { return List.of(); }
+              static <T> List<String> nonNullNestedResult(T t) { return List.of(); }
+              void independentNestedReturnFailure() {
+                Fn<@Nullable String, List<String>> f = Test::nestedResult; // 2 warnings: T inference failure, nested return mismatch.
+              }
+              void independentNestedReturnControl() {
+                Fn<@Nullable String, List<String>> f = Test::nonNullNestedResult; // 1 warning: T inference failure.
+              }
+
+              static <T> List<@Nullable T> nullableElements(T t) { return List.of(); }
+              void dependentNestedReturnFailure() {
+                Fn<@Nullable String, List<String>> f = Test::nullableElements; // 1 warning: T inference failure, duplicate nested return mismatch suppressed.
+              }
             }
             """);
 
@@ -425,7 +464,39 @@ public class GenericInferenceErrorReportingTests extends NullAwayTestsBase {
                 + " @Nullable, but its upper bound requires it to be @NonNull",
             "Test.java:40: [NullAway] parameter value of referenced method is @NonNull, but"
                 + " parameter in functional interface method"
-                + " com.uber.Test.BiFn.apply(@Nullable String,List<@Nullable String>) is @Nullable");
+                + " com.uber.Test.BiFn.apply(@Nullable String,List<@Nullable String>) is @Nullable",
+            "Test.java:46: [NullAway] inference failure: type variable U is constrained to be"
+                + " @Nullable, but its upper bound requires it to be @NonNull",
+            "Test.java:46: [NullAway] passing @Nullable parameter 'null' where @NonNull is required",
+            "Test.java:46: [NullAway] parameter type of referenced method is List<String>, but"
+                + " parameter in functional interface method has type List<@Nullable String>, which"
+                + " has mismatched type parameter nullability",
+            "Test.java:49: [NullAway] parameter type of referenced method is List<String>, but"
+                + " parameter in functional interface method has type List<@Nullable String>, which"
+                + " has mismatched type parameter nullability",
+            "Test.java:56: [NullAway] inference failure: type variable T is constrained to be"
+                + " @Nullable, but its upper bound requires it to be @NonNull",
+            "Test.java:56: [NullAway] parameter type of referenced method is List<String>, but"
+                + " parameter in functional interface method has type List<@Nullable String>, which"
+                + " has mismatched type parameter nullability",
+            "Test.java:59: [NullAway] inference failure: type variable T is constrained to be"
+                + " @Nullable, but its upper bound requires it to be @NonNull",
+            "Test.java:62: [NullAway] inference failure: type variable T is constrained to be"
+                + " @Nullable, but its upper bound requires it to be @NonNull",
+            "Test.java:62: [NullAway] parameter type of referenced method is List<String>, but"
+                + " parameter in functional interface method has type List<@Nullable String>, which"
+                + " has mismatched type parameter nullability",
+            "Test.java:65: [NullAway] inference failure: type variable T is constrained to be"
+                + " @Nullable, but its upper bound requires it to be @NonNull",
+            "Test.java:71: [NullAway] inference failure: type variable T is constrained to be"
+                + " @Nullable, but its upper bound requires it to be @NonNull",
+            "Test.java:71: [NullAway] referenced method returns List<@Nullable String>, but functional"
+                + " interface method returns List<String>, which has mismatched type parameter"
+                + " nullability",
+            "Test.java:74: [NullAway] inference failure: type variable T is constrained to be"
+                + " @Nullable, but its upper bound requires it to be @NonNull",
+            "Test.java:79: [NullAway] inference failure: type variable T is constrained to be"
+                + " @Nullable, but its upper bound requires it to be @NonNull");
   }
 
   @Test

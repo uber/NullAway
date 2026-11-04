@@ -3026,15 +3026,24 @@ public final class GenericsChecks {
     if (unannotatedTarget) {
       return false;
     }
-    if (inferenceResult instanceof InferenceFailure && config.warnOnGenericInferenceFailure()) {
-      return true;
-    }
+    boolean warnedAboutInferenceFailure =
+        inferenceResult instanceof InferenceFailure && config.warnOnGenericInferenceFailure();
+    Symbol.MethodSymbol referencedMethod = castToNonNull(ASTHelpers.getSymbol(tree));
     GenericsUtils.processMethodRefTypeRelations(
         this,
         groundTargetType,
         tree,
         state,
         (subtype, supertype, relationKind) -> {
+          // A relation involving the method's own type variables need not be checked if an
+          // inference failure was already reported. Other relations are still checked to report
+          // independent nested nullability mismatches.
+          Type referencedType =
+              relationKind == MethodRefTypeRelationKind.RETURN ? subtype : supertype;
+          if (warnedAboutInferenceFailure
+              && containsMethodTypeVariable(referencedType, referencedMethod)) {
+            return;
+          }
           if (!subtypeParameterNullability(supertype, subtype, state)) {
             if (relationKind == MethodRefTypeRelationKind.RETURN) {
               reportInvalidMethodReferenceReturnTypeError(tree, supertype, subtype, state);
@@ -3043,6 +3052,18 @@ public final class GenericsChecks {
             }
           }
         });
+    return warnedAboutInferenceFailure;
+  }
+
+  /** Returns whether {@code type} contains a type variable declared by {@code method} itself. */
+  private static boolean containsMethodTypeVariable(Type type, Symbol.MethodSymbol method) {
+    for (Symbol.TypeVariableSymbol typeVariable : method.getTypeParameters()) {
+      TypeVarWithSymbolCollector collector = new TypeVarWithSymbolCollector(typeVariable);
+      type.accept(collector, null);
+      if (!collector.getMatches().isEmpty()) {
+        return true;
+      }
+    }
     return false;
   }
 
