@@ -309,19 +309,13 @@ public final class AccessPath implements MapKey {
    */
   static @Nullable TypeMirror holderType(Node node) {
     node = stripCasts(node);
-    Node current = node;
-    while (true) {
-      Node receiver;
-      if (current instanceof FieldAccessNode fieldAccess) {
-        receiver = fieldAccess.getReceiver();
-      } else if (current instanceof ArrayAccessNode arrayAccess) {
-        receiver = arrayAccess.getArray();
-      } else if (current instanceof MethodInvocationNode invocation) {
-        if (!invocation.getTarget().getMethod().getTypeParameters().isEmpty()) {
-          return null;
-        }
-        receiver = invocation.getTarget().getReceiver();
-      } else {
+    for (Node current = node; ; ) {
+      if (current instanceof MethodInvocationNode invocation
+          && !invocation.getTarget().getMethod().getTypeParameters().isEmpty()) {
+        return null;
+      }
+      Node receiver = receiverOf(current);
+      if (receiver == null) {
         return node.getType();
       }
       if (receiver instanceof TypeCastNode) {
@@ -329,6 +323,22 @@ public final class AccessPath implements MapKey {
       }
       current = receiver;
     }
+  }
+
+  /**
+   * Returns the node whose access path {@code node} extends: the receiver of a field access or a
+   * method call, or the array of an array access. Returns {@code null} for any other node, which is
+   * the root of its path or has none.
+   */
+  private static @Nullable Node receiverOf(Node node) {
+    if (node instanceof FieldAccessNode fieldAccess) {
+      return fieldAccess.getReceiver();
+    } else if (node instanceof ArrayAccessNode arrayAccess) {
+      return arrayAccess.getArray();
+    } else if (node instanceof MethodInvocationNode invocation) {
+      return invocation.getTarget().getReceiver();
+    }
+    return null;
   }
 
   /**
@@ -579,10 +589,10 @@ public final class AccessPath implements MapKey {
         elements.push(new FieldOrMethodCallElement(fieldAccess.getElement()));
         result =
             buildAccessPathRecursive(
-                stripCasts(fieldAccess.getReceiver()), elements, apContext, mapKey);
+                stripCasts(castToNonNull(receiverOf(fieldAccess))), elements, apContext, mapKey);
       }
     } else if (node instanceof ArrayAccessNode arrayAccess) {
-      Node arrayNode = stripCasts(arrayAccess.getArray());
+      Node arrayNode = stripCasts(castToNonNull(receiverOf(arrayAccess)));
       Node indexNode = stripCasts(arrayAccess.getIndex());
       Element arrayElement = getElementFromArrayNode(arrayNode);
       Element indexElement = getElementFromArrayNode(indexNode);
@@ -685,7 +695,7 @@ public final class AccessPath implements MapKey {
       elements.push(accessPathElement);
       result =
           buildAccessPathRecursive(
-              stripCasts(accessNode.getReceiver()), elements, apContext, mapKey);
+              stripCasts(castToNonNull(receiverOf(invocation))), elements, apContext, mapKey);
     } else if (node instanceof LocalVariableNode localVariableNode) {
       result =
           new AccessPath(localVariableNode.getElement(), ImmutableList.copyOf(elements), mapKey);
