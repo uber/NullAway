@@ -1600,6 +1600,106 @@ public class JSpecifyArrayTests extends NullAwayTestsBase {
         .doTest();
   }
 
+  @Test
+  public void arrayAccessTakesTypeFromArrayExpression() {
+    makeHelper()
+        .addSourceLines(
+            "Test.java",
+            """
+            package com.uber;
+            import java.util.List;
+            import java.util.function.Consumer;
+            import org.jspecify.annotations.Nullable;
+            class Test {
+              static @Nullable String[][] nullableElements2d = {};
+              static String[][] nonNullElements2d = {};
+              static class Box<T extends @Nullable Object> {
+                T[][] elements2d;
+                Box(T[][] elements2d) {
+                  this.elements2d = elements2d;
+                }
+              }
+              void writeNullIntoNullableElementOfNestedFieldArray() {
+                nullableElements2d[0][1] = null;
+              }
+              void writeNullIntoNonNullElementOfNestedFieldArray() {
+                // BUG: Diagnostic contains: Writing @Nullable expression into array with @NonNull contents
+                nonNullElements2d[0][1] = null;
+              }
+              void writeNullIntoNullableElementOfNestedParameterArray(@Nullable String[][] param) {
+                param[0][1] = null;
+              }
+              void writeNullIntoNonNullElementOfNestedParameterArray(String[][] param) {
+                // BUG: Diagnostic contains: Writing @Nullable expression into array with @NonNull contents
+                param[0][1] = null;
+              }
+              void writeNullIntoNullableElementOfNestedFieldOfParameterizedReceiver(
+                  Box<@Nullable String> box) {
+                box.elements2d[0][1] = null;
+              }
+              void writeNullIntoNonNullElementOfNestedFieldOfParameterizedReceiver(Box<String> box) {
+                // BUG: Diagnostic contains: Writing @Nullable expression into array with @NonNull contents
+                box.elements2d[0][1] = null;
+              }
+              void writeNullIntoNullableElementOfNestedLocalArray() {
+                @Nullable String[][] local = new @Nullable String[1][1];
+                local[0][1] = null;
+              }
+              void writeNullIntoNonNullElementOfNestedLocalArray() {
+                String[][] local = new String[1][1];
+                // BUG: Diagnostic contains: Writing @Nullable expression into array with @NonNull contents
+                local[0][1] = null;
+              }
+              void writeNullIntoNullableElementOfParenthesizedNestedLocalArray() {
+                @Nullable String[][] local = new @Nullable String[1][1];
+                ((local)[0])[1] = null;
+              }
+              void writeNullIntoNullableElementOfNestedLambdaParameterArray() {
+                Consumer<@Nullable String[][]> c =
+                    (@Nullable String[][] lambdaParam) -> lambdaParam[0][1] = null;
+              }
+              void writeNullIntoNonNullElementOfNestedLambdaParameterArray() {
+                Consumer<String[][]> c =
+                    (String[][] lambdaParam) ->
+                        // BUG: Diagnostic contains: Writing @Nullable expression into array with @NonNull contents
+                        lambdaParam[0][1] = null;
+              }
+              void writeNullIntoNullableElementOfVarLoopVariableOverNestedLocalArray() {
+                @Nullable String[][][] local = new @Nullable String[1][1][1];
+                for (var a : local[0]) {
+                  a[0] = null;
+                }
+              }
+              void writeNullIntoNonNullElementOfVarLoopVariableOverNestedLocalArray() {
+                String[][][] local = new String[1][1][1];
+                for (var a : local[0]) {
+                  // BUG: Diagnostic contains: Writing @Nullable expression into array with @NonNull contents
+                  a[0] = null;
+                }
+              }
+              void assignNullableTypeArgumentElementOfLocalArray() {
+                List<@Nullable String>[] local = new List[1];
+                // BUG: Diagnostic contains: incompatible types
+                List<String> l = local[0];
+              }
+              void assignMatchingTypeArgumentElementOfLocalArray() {
+                List<@Nullable String>[] local = new List[1];
+                List<@Nullable String> l = local[0];
+              }
+              void dereferenceNullableTypeArgumentOfLocalArrayElement() {
+                List<@Nullable String>[] local = new List[1];
+                // BUG: Diagnostic contains: dereferenced expression 'local[0].get(0)' is @Nullable
+                local[0].get(0).length();
+              }
+              void dereferenceNonNullTypeArgumentOfLocalArrayElement() {
+                List<String>[] local = new List[1];
+                local[0].get(0).length();
+              }
+            }
+            """)
+        .doTest();
+  }
+
   private CompilationTestHelper makeHelper() {
     return makeTestHelperWithArgs(
         JSpecifyJavacConfig.withJSpecifyModeArgs(

@@ -867,22 +867,19 @@ public final class GenericsChecks {
         if (result != null && !(result instanceof Type.TypeVar)) {
           result = symbol.type;
         }
+      } else if (tree instanceof ArrayAccessTree arrayAccess) {
+        result = getArrayAccessType(arrayAccess, state, calledFromDataflow);
       } else if (tree instanceof AssignmentTree assignmentTree) {
         // The type on the tree itself can be missing nested annotations, so prefer the declared
-        // type of the assigned location. For an array access, javac capture-converts the component
-        // type; recover the pre-capture component type from the array expression instead.
+        // type of the assigned location, or for an array element, the component of the array type.
         ExpressionTree lhs = assignmentTree.getVariable();
         Symbol lhsSymbol = ASTHelpers.getSymbol(lhs);
         if (lhs instanceof ArrayAccessTree arrayAccess) {
-          ExpressionTree arrayExpression = arrayAccess.getExpression();
-          TreePath arrayExpressionPath =
-              pathWithLeaf(pathWithLeaf(state.getPath(), arrayAccess), arrayExpression);
-          Type arrayType =
-              getTreeType(arrayExpression, state.withPath(arrayExpressionPath), calledFromDataflow);
           result =
-              arrayType instanceof Type.ArrayType arrayTypeWithComponent
-                  ? arrayTypeWithComponent.getComponentType()
-                  : ASTHelpers.getType(assignmentTree);
+              getArrayAccessType(
+                  arrayAccess,
+                  state.withPath(pathWithLeaf(state.getPath(), arrayAccess)),
+                  calledFromDataflow);
         } else if (lhsSymbol != null) {
           Type inferredVarLocalType = getInferredVarLocalType(lhsSymbol, state, calledFromDataflow);
           result = inferredVarLocalType != null ? inferredVarLocalType : lhsSymbol.type;
@@ -949,6 +946,31 @@ public final class GenericsChecks {
       return null;
     }
     return type;
+  }
+
+  /**
+   * Returns the type of an array access as the component type of its array expression's {@link
+   * #getTreeType} type, so it keeps the nested annotations of that type. javac's own type for the
+   * access is capture-converted, and before JDK 27 it lacks the nested annotations of the declared
+   * type of a local variable or an explicitly typed lambda parameter (JDK-8371155).
+   *
+   * @param arrayAccess the array access
+   * @param state visitor state whose path points to {@code arrayAccess}
+   * @param calledFromDataflow whether this method was called as part of dataflow analysis
+   * @return the component type, or javac's type of {@code arrayAccess} where the array expression
+   *     has no array type
+   */
+  private @Nullable Type getArrayAccessType(
+      ArrayAccessTree arrayAccess, VisitorState state, boolean calledFromDataflow) {
+    ExpressionTree arrayExpression = arrayAccess.getExpression();
+    Type arrayType =
+        getTreeType(
+            arrayExpression,
+            state.withPath(pathWithLeaf(state.getPath(), arrayExpression)),
+            calledFromDataflow);
+    return arrayType instanceof Type.ArrayType arrayTypeWithComponent
+        ? arrayTypeWithComponent.getComponentType()
+        : ASTHelpers.getType(arrayAccess); // diff-coverage: ignore -- the array has an array type
   }
 
   /**
