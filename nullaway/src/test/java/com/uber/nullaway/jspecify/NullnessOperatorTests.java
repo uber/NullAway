@@ -576,6 +576,13 @@ public class NullnessOperatorTests extends NullAwayTestsBase {
                 // BUG: Diagnostic contains: passing @Nullable parameter '(T) value'
                 Test.<T>sink((T) value);
               }
+              @SuppressWarnings("unchecked")
+              static <T extends @Nullable Object> void passConditional(
+                  boolean flag, Box<? extends T> box) {
+                T value = (T) (flag ? box.get() : "default");
+                // BUG: Diagnostic contains: passing @Nullable parameter 'value'
+                Test.<T>sink(value);
+              }
             }
             """)
         .doTest();

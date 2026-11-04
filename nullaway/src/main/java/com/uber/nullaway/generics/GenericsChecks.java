@@ -4772,7 +4772,7 @@ public final class GenericsChecks {
       return true;
     }
     if (!(type instanceof Type.TypeVar)) {
-      // diff-coverage: ignore -- only a type-variable-typed value is assignable to a type variable
+      // diff-coverage: ignore -- dataflow keeps NO_CHANGE only in a holder whose type reaches one
       return false;
     }
     Type upperBound = type.getUpperBound();
