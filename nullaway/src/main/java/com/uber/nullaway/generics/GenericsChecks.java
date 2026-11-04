@@ -51,6 +51,7 @@ import com.uber.nullaway.ErrorBuilder;
 import com.uber.nullaway.ErrorMessage;
 import com.uber.nullaway.InvocationArguments;
 import com.uber.nullaway.LibraryModels.PolyNullLocation;
+import com.uber.nullaway.MethodParameterNullness;
 import com.uber.nullaway.NullAway;
 import com.uber.nullaway.NullabilityUtil;
 import com.uber.nullaway.Nullness;
@@ -4782,31 +4783,59 @@ public final class GenericsChecks {
   }
 
   /**
-   * Returns whether the declared type of the parameter that receives an argument may admit null: it
-   * carries no {@code @NonNull} annotation, and when it is a type variable, that variable has a
-   * nullable upper bound. An argument passed individually to a varargs parameter is received by the
-   * component type of the varargs array.
+   * Returns whether the parameter that receives an argument is a type variable that may admit null,
+   * as its declaration and the handlers state it: the declared type is a type variable with a
+   * nullable upper bound, it carries no {@code @NonNull} annotation, and no handler, such as a
+   * library model, requires a non-null argument there. An argument passed individually to a varargs
+   * parameter is received by the component type of the varargs array.
    *
    * @param methodSymbol the invoked method
+   * @param isMethodAnnotated whether NullAway treats the invoked method as annotated
    * @param paramIndex index of the declared parameter receiving the argument
    * @param individualVarargsArgument whether the argument is one element passed individually to the
    *     varargs parameter
    * @param state visitor state
    */
-  public boolean declaredParameterAdmitsNull(
+  public boolean parameterAdmitsNull(
       Symbol.MethodSymbol methodSymbol,
+      boolean isMethodAnnotated,
       int paramIndex,
       boolean individualVarargsArgument,
       VisitorState state) {
-    if (Nullness.paramHasNonNullAnnotation(methodSymbol, paramIndex, config)) {
+    if (Nullness.paramHasNonNullAnnotation(methodSymbol, paramIndex, config)
+        || handlerRequiresNonNullArgument(methodSymbol, isMethodAnnotated, paramIndex, state)) {
       return false;
     }
     Type declaredType = methodSymbol.getParameters().get(paramIndex).type;
     if (individualVarargsArgument && declaredType instanceof Type.ArrayType arrayType) {
       declaredType = arrayType.getComponentType();
     }
-    return !(declaredType instanceof Type.TypeVar)
-        || GenericsUtils.upperBoundIsNullable(declaredType.tsym, config, handler, state);
+    return declaredType instanceof Type.TypeVar
+        && GenericsUtils.upperBoundIsNullable(declaredType.tsym, config, handler, state);
+  }
+
+  /**
+   * Returns whether a handler, such as a library model, requires a non-null argument at a parameter
+   * position, whatever the declaration says. The handlers are given no nullness for any position,
+   * so a non-null position in their answer is one they impose.
+   *
+   * @param methodSymbol the invoked method
+   * @param isMethodAnnotated whether NullAway treats the invoked method as annotated
+   * @param paramIndex index of the declared parameter receiving the argument
+   * @param state visitor state
+   */
+  private boolean handlerRequiresNonNullArgument(
+      Symbol.MethodSymbol methodSymbol,
+      boolean isMethodAnnotated,
+      int paramIndex,
+      VisitorState state) {
+    MethodParameterNullness required =
+        handler.onOverrideMethodInvocationParametersNullability(
+            state.context,
+            methodSymbol,
+            isMethodAnnotated,
+            MethodParameterNullness.create(methodSymbol));
+    return Nullness.NONNULL.equals(required.getParameterNullness(paramIndex));
   }
 
   /**

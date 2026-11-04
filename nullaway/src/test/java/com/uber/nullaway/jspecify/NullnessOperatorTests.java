@@ -13,16 +13,17 @@ import org.junit.Test;
  *
  * <p>Such a value carries the JSpecify {@code NO_CHANGE} nullness operator. Wherever the same type
  * variable, or a capture of {@code ? super} it, is expected, it is accepted: as an argument, a
- * return, a field or array store, and a field initializer. A type variable that the value's type
- * reaches only through a {@code @Nullable} bound does not accept it. It stays unsafe to dereference
- * while that type variable has a nullable upper bound. An explicit {@code @Nullable}, declared on
- * the member or supplied by a library model, overrides that and is reported at every sink.
+ * return, a field or array store, and a field initializer. An argument is not accepted where a
+ * library model requires a non-null one. A type variable that the value's type reaches only through
+ * a {@code @Nullable} bound does not accept it. It stays unsafe to dereference while that type
+ * variable has a nullable upper bound. An explicit {@code @Nullable}, declared on the member or
+ * supplied by a library model, overrides that and is reported at every sink.
  *
- * <p>The tests that expect a diagnostic pin where the value stays nullable: a dereference, a target
- * of a concrete type such as {@code Object}, a {@code @NonNull T} target or bound, a {@code null}
- * assigned over it, a {@code @Contract} or {@code @EnsuresNonNull} postcondition, and an explicit
- * {@code @Nullable}. They fail if the value is treated as non-null to let it reach a {@code T}
- * sink.
+ * <p>The tests that expect a diagnostic pin where the value stays nullable: a dereference,
+ * unboxing, a target of a concrete type such as {@code Object}, a {@code @NonNull T} target or
+ * bound, a parameter a library model makes non-null, a {@code null} assigned over it, a
+ * {@code @Contract} or {@code @EnsuresNonNull} postcondition, and an explicit {@code @Nullable}.
+ * They fail if the value is treated as non-null to let it reach a {@code T} sink.
  *
  * <p>The ignored test describes the defect that remains from issue #1727: a dereference of a value
  * typed by a type variable with a nullable upper bound goes unreported. It involves no wildcard.
@@ -520,6 +521,35 @@ public class NullnessOperatorTests extends NullAwayTestsBase {
                   List<? extends U> list, MultiSink<Object> sink) {
                 // BUG: Diagnostic contains: passing @Nullable parameter 'list.get(0)'
                 sink.acceptAll(list.get(0));
+              }
+            }
+            """)
+        .doTest();
+  }
+
+  @Test
+  public void libraryModelNonNullParameterRejectsWildcardResult() {
+    makeHelper()
+        .addSourceLines(
+            "Test.java",
+            """
+            import org.jspecify.annotations.NullMarked;
+            import org.jspecify.annotations.Nullable;
+            @NullMarked
+            class Test {
+              interface Box<R extends @Nullable Object> {
+                R get();
+              }
+              interface Fn<F extends @Nullable Object> {
+                String apply(F f);
+              }
+              static <T extends @Nullable Object> void modeledNonNull(
+                  Box<? extends T> box, com.google.common.base.Function<T, String> f) {
+                // BUG: Diagnostic contains: passing @Nullable parameter 'box.get()'
+                f.apply(box.get());
+              }
+              static <T extends @Nullable Object> void unmodeled(Box<? extends T> box, Fn<T> f) {
+                f.apply(box.get());
               }
             }
             """)

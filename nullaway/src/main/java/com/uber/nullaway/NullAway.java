@@ -2530,8 +2530,12 @@ public class NullAway extends BugChecker
           if (!isTopLevelNullnessCompatible(
               actual,
               () ->
-                  genericsChecks.declaredParameterAdmitsNull(
-                          methodSymbol, paramIndex, individualVarargsArgument, state)
+                  genericsChecks.parameterAdmitsNull(
+                          methodSymbol,
+                          isMethodAnnotated,
+                          paramIndex,
+                          individualVarargsArgument,
+                          state)
                       ? formalParamType
                       : null,
               Nullness.NONNULL,
@@ -3156,10 +3160,10 @@ public class NullAway extends BugChecker
    *
    * @param expression expression being assigned, passed, or returned
    * @param targetType supplies the destination type after call-site substitutions, or {@code null}
-   *     if unknown or if the declared destination excludes null whatever the substitution; for
-   *     array writes and individually passed varargs, this is the component type. It is called only
-   *     for a {@link Nullness#NO_CHANGE} value, which is compatible only with a type variable
-   *     destination, see {@link GenericsChecks#acceptsNoChangeValue}.
+   *     if unknown or if the destination excludes null whatever the substitution; for array writes
+   *     and individually passed varargs, this is the component type. It is called only for a {@link
+   *     Nullness#NO_CHANGE} value, which is compatible only with a type variable destination, see
+   *     {@link GenericsChecks#acceptsNoChangeValue}.
    * @param targetNullness destination's nullness after applying context-specific rules and handlers
    * @param state visitor state at the pseudo-assignment
    * @return whether the top-level nullness is compatible
