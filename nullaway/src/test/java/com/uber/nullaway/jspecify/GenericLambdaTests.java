@@ -9,6 +9,59 @@ import org.junit.Test;
 public class GenericLambdaTests extends NullAwayTestsBase {
 
   /**
+   * Nested lambda returns use the instantiated functional-interface return type when preserving
+   * nullable type-variable annotations in returned lambdas and method references.
+   */
+  @Test
+  public void nestedLambdaReturnsPreserveInstantiatedTargets() {
+    makeHelper()
+        .addSourceLines(
+            "Test.java",
+            """
+            package com.uber;
+            import java.util.List;
+            import java.util.function.Consumer;
+            import java.util.function.Supplier;
+            import org.jspecify.annotations.Nullable;
+            class Test<T> {
+              interface Factory<E> { Supplier<Supplier<List<@Nullable E>>> create(); }
+              interface ConsumerFactory<E> { Supplier<Consumer<List<@Nullable E>>> create(); }
+              List<@Nullable T> nullableValues() { throw new UnsupportedOperationException(); }
+
+              static Factory<String> compatibleReferenceExpression(Test<String> target) {
+                return () -> () -> target::nullableValues;
+              }
+              static Factory<String> compatibleReferenceBlock(Test<String> target) {
+                return () -> { return () -> { return target::nullableValues; }; };
+              }
+              static Factory<String> compatibleParenthesizedReference(Test<String> target) {
+                return () -> { return () -> { return ((target::nullableValues)); }; };
+              }
+              static Supplier<Supplier<List<String>>> incompatibleReference(Test<String> target) {
+                // BUG: Diagnostic contains: referenced method returns
+                return () -> target::nullableValues;
+              }
+              static ConsumerFactory<String> compatibleLambdaExpression() {
+                return () -> () -> (List<@Nullable String> values) -> {};
+              }
+              static ConsumerFactory<String> compatibleLambdaBlock() {
+                return () -> { return () -> { return (List<@Nullable String> values) -> {}; }; };
+              }
+              static ConsumerFactory<String> compatibleParenthesizedLambda() {
+                return () -> { return () -> { return (((List<@Nullable String> values) -> {})); }; };
+              }
+              static ConsumerFactory<String> implicitlyNullableLambdaParameter() {
+                return () -> () -> values -> {
+                  // BUG: Diagnostic contains: dereferenced expression
+                  values.get(0).length();
+                };
+              }
+            }
+            """)
+        .doTest();
+  }
+
+  /**
    * Method references returned from expression or block lambdas retain nested target nullability,
    * accepting nullable list elements and rejecting methods that require non-null elements.
    */

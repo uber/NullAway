@@ -2451,7 +2451,17 @@ public final class GenericsChecks {
     if (retExprWithoutParentheses instanceof LambdaExpressionTree
         || retExprWithoutParentheses instanceof MemberReferenceTree) {
       // Preserve nested target annotations before checking a returned lambda or method reference.
-      maybeStorePolyExpressionTypeFromTarget(retExprWithoutParentheses, formalReturnType, state);
+      // A lambda's declared return type may be an unsubstituted type variable, so recover its
+      // instantiated return type from the parent context before caching the returned expression.
+      Type recoveredTarget =
+          getTargetTypeFromParentContext(retExprWithoutParentheses, pathToRetExpr, state, false)
+              .typeFromAssignmentContext();
+      maybeStorePolyExpressionTypeFromTarget(
+          retExprWithoutParentheses,
+          recoveredTarget != null // diff-coverage: ignore -- valid returns have a target
+              ? recoveredTarget
+              : formalReturnType, // diff-coverage: ignore -- defensive fallback
+          state);
     }
     Type returnExpressionType = getTreeType(retExpr, state.withPath(pathToRetExpr));
     if (returnExpressionType != null) {
