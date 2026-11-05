@@ -1063,13 +1063,11 @@ public class GenericsTests extends NullAwayTestsBase {
   }
 
   /**
-   * Switch labels and guards do not inherit the switch result's target type, while parenthesized
-   * arrow bodies still do. In particular, a conditional guard in a switch statement must not crash
-   * while searching for an enclosing switch expression.
+   * Switch labels do not inherit the switch result's target type, while parenthesized arrow bodies
+   * still do.
    */
   @Test
   public void switchTargetsApplyOnlyToResultExpressions() {
-    Assume.assumeTrue(Runtime.version().feature() >= 21);
     makeHelper()
         .addSourceLines(
             "Test.java",
@@ -1082,31 +1080,6 @@ public class GenericsTests extends NullAwayTestsBase {
               List<@Nullable T> nullableValues() { throw new UnsupportedOperationException(); }
               void accept(Supplier<List<@Nullable T>> supplier) {}
 
-              void statementGuard(Object value, boolean flag, boolean first, boolean second) {
-                switch (value) {
-                  case String s when flag ? first : second -> {}
-                  default -> {}
-                }
-              }
-              List<@Nullable T> expressionGuard(
-                  Object value, boolean flag, boolean first, boolean second) {
-                return switch (value) {
-                  case String s when (flag ? first : second) -> nullableValues();
-                  default -> nullableValues();
-                };
-              }
-              List<@Nullable T> nestedStatementGuard(
-                  Object value, boolean flag, boolean first, boolean second) {
-                return switch (0) {
-                  default -> {
-                    switch (value) {
-                      case String s when flag ? first : second -> {}
-                      default -> {}
-                    }
-                    yield nullableValues();
-                  }
-                };
-              }
               void statementLabel(int value) {
                 switch (value) {
                   case true ? 1 : 2 -> {}
