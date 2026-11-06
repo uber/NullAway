@@ -3297,7 +3297,8 @@ public class GenericMethodTests extends NullAwayTestsBase {
   /**
    * Inference keeps only the top-level nullability of a type argument (issue #1585), so the
    * qualifier's {@code @Nullable} type argument is lost from {@code X}, and the argument no longer
-   * matches the inferred parameter type.
+   * matches the inferred parameter type. Both expected errors are false positives, kept until
+   * inference keeps nested nullness (issues #1585 and #2098).
    */
   @Test
   public void qualifiedInnerCreationAsGenericArgumentLosesNestedNullness() {
@@ -3323,7 +3324,7 @@ public class GenericMethodTests extends NullAwayTestsBase {
               void nullableQualifier(Outer<@Nullable String> o) {
                 // BUG: Diagnostic contains: incompatible types: Outer<@Nullable String>.Inner cannot be converted to Outer<String>.Inner
                 id(o.new Inner(""));
-                // BUG: Diagnostic contains: incompatible types
+                // BUG: Diagnostic contains: incompatible types: Outer<@Nullable String>.GInner<String> cannot be converted to Outer<String>.GInner<String>
                 id(o.new GInner<String>(""));
               }
               void nonNullQualifier(Outer<String> o) {

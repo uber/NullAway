@@ -71,7 +71,7 @@ public class TypeSubstitutionUtils {
     if (asSuper == null) {
       return null;
     }
-    Type inheritingType = upperBoundIfTypeVariable(subtype);
+    Type inheritingType = types.skipTypeVars(subtype, false);
     if (inheritingType.tsym.equals(superTypeSymbol)) {
       return asSuper;
     }
@@ -83,18 +83,6 @@ public class TypeSubstitutionUtils {
       return asSuper;
     }
     return restoreExplicitNullabilityAnnotations(annotatedSupertype, asSuper, types, config);
-  }
-
-  /**
-   * Returns the upper bound of {@code type} if it is a type variable, repeated until the result is
-   * not a type variable, or {@code type} itself otherwise.
-   */
-  private static Type upperBoundIfTypeVariable(Type type) {
-    Type result = type;
-    while (result instanceof Type.TypeVar typeVar) {
-      result = typeVar.getUpperBound();
-    }
-    return result;
   }
 
   /**
@@ -111,12 +99,12 @@ public class TypeSubstitutionUtils {
     Type memberType = types.memberType(t, sym);
     Type annotationSource = origType;
     if (sym.owner instanceof Symbol.ClassSymbol owner
-        && upperBoundIfTypeVariable(t) instanceof DeclaredType declaredType
-        && !((Type) declaredType).tsym.equals(owner)) {
+        && types.skipTypeVars(t, false) instanceof Type.ClassType classType
+        && !classType.tsym.equals(owner)) {
       // annotatedOwner is the type of the class containing sym (a supertype of t), capturing any
-      // annotations in extends / inherits clauses on the inheritance path from subtype t, or from
-      // its upper bound if t is a type variable
-      Type annotatedOwner = getAnnotatedSupertype(declaredType, owner, types, config);
+      // annotations in extends and implements clauses on the inheritance path from subtype t, or
+      // from its upper bound if t is a type variable
+      Type annotatedOwner = getAnnotatedSupertype(classType, owner, types, config);
       if (annotatedOwner instanceof Type.ClassType annotatedOwnerClassType) {
         Type asMemberOfAnnotatedOwner = types.memberType(annotatedOwnerClassType, sym);
         // this call restores any explicit nullability annotations from the member itself, e.g.,

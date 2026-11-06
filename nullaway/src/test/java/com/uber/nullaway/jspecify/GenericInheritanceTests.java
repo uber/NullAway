@@ -261,12 +261,25 @@ public class GenericInheritanceTests extends NullAwayTestsBase {
                 z.get().hashCode();
                 z.new Inner(null);
               }
+              <Y extends Outer<String> & Runnable> void nonNullThroughIntersectionBound(Y y) {
+                // BUG: Diagnostic contains: passing @Nullable parameter 'null' where @NonNull is required
+                y.new Inner(null);
+              }
+              <Z extends Y, Y extends Outer<String>> void nonNullThroughBoundOfBound(Z z) {
+                // BUG: Diagnostic contains: passing @Nullable parameter 'null' where @NonNull is required
+                z.new Inner(null);
+              }
               void nullableThroughCapturedWildcard(List<? extends Sub<String>> l) {
                 // BUG: Diagnostic contains: dereferenced expression 'l.get(0).get()' is @Nullable
                 l.get(0).get().hashCode();
+                // BUG: Diagnostic contains: incompatible types: capture of ? extends Sub<String> cannot be converted to Outer<String>
+                Outer<String> nonNull = l.get(0);
+                Outer<@Nullable String> nullable = l.get(0);
               }
               void nonNullThroughCapturedWildcard(List<? extends Outer<String>> l) {
                 l.get(0).get().hashCode();
+                // BUG: Diagnostic contains: passing @Nullable parameter 'null' where @NonNull is required
+                l.get(0).new Inner(null);
               }
               <Y extends Outer<String>> void nonNullBound(Y y) {
                 y.get().hashCode();

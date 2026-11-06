@@ -1763,6 +1763,11 @@ public class GenericsTests extends NullAwayTestsBase {
                 class GInner<G extends @Nullable Object> {
                   GInner(O o) {}
                 }
+                class Mid {
+                  class Deeper {
+                    Deeper(O o) {}
+                  }
+                }
                 void implicitThisQualifier(O oValue) {
                   new Inner(oValue);
                 }
@@ -1825,6 +1830,13 @@ public class GenericsTests extends NullAwayTestsBase {
                 // BUG: Diagnostic contains: passing @Nullable parameter 'null' where @NonNull is required
                 o.new GInner<String>(null);
               }
+              void nullableNestedQualifier(Outer<@Nullable String> n) {
+                n.new Mid().new Deeper(null);
+              }
+              void nonNullNestedQualifier(Outer<String> n) {
+                // BUG: Diagnostic contains: passing @Nullable parameter 'null' where @NonNull is required
+                n.new Mid().new Deeper(null);
+              }
               void nonNullTypeVariableQualifier(Outer<@NonNull T> o, @Nullable T x) {
                 // BUG: Diagnostic contains: passing @Nullable parameter 'x' where @NonNull is required
                 o.new Inner(x);
@@ -1878,6 +1890,13 @@ public class GenericsTests extends NullAwayTestsBase {
                 o.new Inner(null);
                 o.new Inner(null) {};
               }
+              @SuppressWarnings({"rawtypes", "unchecked"})
+              static class RawSub extends Outer {}
+              @SuppressWarnings({"rawtypes", "unchecked"})
+              <Y extends Outer> void rawViewQualifier(RawSub rs, Y y) {
+                Outer<String>.GInner<@Nullable String> fromRawSubclass = rs.new GInner(null);
+                Outer<String>.GInner<@Nullable String> fromRawBound = y.new GInner(null);
+              }
               void nonNullWildcardQualifier(Outer<? extends String> o) {
                 // BUG: Diagnostic contains: passing @Nullable parameter 'null' where @NonNull is required
                 o.new Inner(null);
@@ -1891,9 +1910,11 @@ public class GenericsTests extends NullAwayTestsBase {
               static class Box<B extends @Nullable Object> {
                 Box(B b) {}
               }
-              void constructorArgumentKeepsTargetType(Outer<List<@Nullable String>> o) {
+              void constructorArgumentKeepsTargetType(
+                  boolean b, Outer<List<@Nullable String>> o, List<@Nullable String> l) {
                 new Box<List<@Nullable String>>(Collections.emptyList());
                 o.new Inner(Collections.emptyList());
+                o.new Inner(b ? (b ? l : l) : l);
               }
             }
             """)

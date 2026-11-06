@@ -988,9 +988,10 @@ public final class GenericsChecks {
   }
 
   /**
-   * Returns whether {@code tree}, with parentheses stripped, is the qualifying enclosing-instance
-   * expression of {@code newClassTree}, such as {@code someExpr} in {@code someExpr.new Inner()}. A
-   * qualifier is a standalone expression, so the constructor call gives it no target type.
+   * Returns whether the qualifying enclosing-instance expression of {@code newClassTree}, with
+   * parentheses stripped, is {@code tree}, such as {@code someExpr} in {@code someExpr.new
+   * Inner()}. A qualifier is a standalone expression, so the constructor call gives it no target
+   * type.
    */
   @SuppressWarnings("ReferenceEquality") // deliberate reference equality check
   private static boolean isQualifierOf(NewClassTree newClassTree, Tree tree) {
@@ -2632,8 +2633,8 @@ public final class GenericsChecks {
    * @param state the visitor state
    * @param calledFromDataflow true if the type is being computed as part of dataflow analysis
    * @return {@code type} with its enclosing type corrected, or {@code null} if there is no
-   *     qualifying expression or its type as the class declaring {@code Inner} could not be
-   *     determined
+   *     qualifying expression, or its type as the class declaring {@code Inner} could not be
+   *     determined or is raw
    */
   private @Nullable Type withEnclosingTypeFromQualifier(
       Type type, NewClassTree newClassTree, VisitorState state, boolean calledFromDataflow) {
@@ -2649,14 +2650,15 @@ public final class GenericsChecks {
     }
     Type.ClassType classType = (Type.ClassType) type;
     // null when Inner is declared in an anonymous class, since getTreeType gives a qualified
-    // anonymous class instance the type of its superclass
+    // anonymous class instance the type of its superclass; raw when the qualifier's type extends
+    // the raw declaring class, directly or through the bound of a type variable
     Type enclosingType =
         TypeSubstitutionUtils.asSuper(
             state.getTypes(),
             enclosingExprType,
             castToNonNull(ASTHelpers.enclosingClass(classType.tsym)),
             config);
-    if (enclosingType == null) {
+    if (enclosingType == null || enclosingType.isRaw()) {
       return null;
     }
     return TYPE_METADATA_BUILDER.createClassType(
