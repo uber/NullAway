@@ -12,12 +12,12 @@ import org.junit.Test;
  * captured against one.
  *
  * <p>Such a value carries the JSpecify {@code NO_CHANGE} nullness operator. Wherever the same type
- * variable, or a capture of {@code ? super} it, is expected, it is accepted: as an argument, a
- * return, a field or array store, and a field initializer. An argument is not accepted where a
- * library model requires a non-null one. A type variable that the value's type reaches only through
- * a {@code @Nullable} bound does not accept it. It stays unsafe to dereference while that type
- * variable has a nullable upper bound. An explicit {@code @Nullable}, declared on the member or
- * supplied by a library model, overrides that and is reported at every sink.
+ * variable {@code T}, or a capture of {@code ? super T}, is expected, it is accepted: as an
+ * argument, a return, a field or array store, and a field initializer. An argument is not accepted
+ * where a library model requires a non-null one. A type variable that the value's type reaches only
+ * through a {@code @Nullable} bound does not accept it. It stays unsafe to dereference while that
+ * type variable has a nullable upper bound. An explicit {@code @Nullable}, declared on the member
+ * or supplied by a library model, overrides that and is reported at every sink.
  *
  * <p>The tests that expect a diagnostic pin where the value stays nullable: a dereference,
  * unboxing, a target of a concrete type such as {@code Object}, a {@code @NonNull T} target or
@@ -220,9 +220,10 @@ public class NullnessOperatorTests extends NullAwayTestsBase {
   /**
    * A value of type {@code T} that a generic call returns or a field of type {@code T} holds is
    * non-null, like a parameter of type {@code T}, even where a wildcard result went into it. The
-   * cases that expect no report here are the dereference false negative of issue #1727 that {@link
+   * dereferences that expect no report here are the false negative of issue #1727 that {@link
    * #issue1727NullableBoundDereferenceFalseNegative()} describes, and they expect reports once it
-   * is fixed.
+   * is fixed. A generic call that returns its {@code T} argument also passes as non-null where
+   * {@code Object} is expected.
    */
   @Test
   public void typeVariableValueTakenFromWildcardResultIsNonNull() {
@@ -369,9 +370,11 @@ public class NullnessOperatorTests extends NullAwayTestsBase {
   }
 
   /**
-   * A field, return, or parameter of type {@code T} rejects a wildcard read when it is annotated
-   * {@code @NonNull}, whether the annotation is a type-use annotation or a declaration annotation
-   * such as JSR-305 {@code @Nonnull}.
+   * A location of type {@code T} rejects a wildcard read when its type is {@code @NonNull T}, as
+   * written or as a supertype's type argument supplies it, or when its declaration carries a
+   * declaration annotation such as JSR-305 {@code @Nonnull}. The location may be a field, a return,
+   * a parameter, or an element of a {@code T[]} or {@code T[][]}, reached through an explicit,
+   * implicit, type-variable, captured, or anonymous-class receiver.
    */
   @Test
   public void nonNullTargetRejectsWildcardResult() {
@@ -551,14 +554,21 @@ public class NullnessOperatorTests extends NullAwayTestsBase {
                   }
                 };
               }
+              void storeThroughConstructorArgument(Box<? extends T> box, @NonNull T[] values) {
+                // BUG: Diagnostic contains: passing @Nullable parameter 'box.get()'
+                new Holder<@NonNull T>(box.get(), values);
+                new Holder<T>(box.get(), values);
+                Holder<T> inferred = new Holder<>(box.get(), values);
+                new Holder<>(box.get(), values);
+              }
             }
             """)
         .doTest();
   }
 
   /**
-   * Repeats {@link WildcardTests#wildcardCaptureLocals()} with a wildcard bounded by a type
-   * variable rather than by {@code Object}.
+   * Repeats the nullable extends-bound case of {@link WildcardTests#wildcardCaptureLocals()} with a
+   * wildcard bounded by a type variable rather than by {@code @Nullable Object}.
    */
   @Test
   public void localHoldingWildcardResultIsNotDereferenceable() {
@@ -874,6 +884,11 @@ public class NullnessOperatorTests extends NullAwayTestsBase {
                 // BUG: Diagnostic contains: Method get has @Contract
                 return box.get();
               }
+              @Contract("null, _ -> !null")
+              static <T extends @Nullable Object> @Nullable T fromParameter(
+                  @Nullable Object key, T value) {
+                return value;
+              }
             }
             """)
         .doTest();
@@ -896,6 +911,8 @@ public class NullnessOperatorTests extends NullAwayTestsBase {
                 throw new UnsupportedOperationException();
               }
               private final T current = Test.<T>box().get();
+              // BUG: Diagnostic contains: assigning @Nullable expression to @NonNull field
+              private final Object object = Test.<T>box().get();
             }
             """)
         .doTest();
@@ -934,6 +951,16 @@ public class NullnessOperatorTests extends NullAwayTestsBase {
                   Box<? extends T> box) {
                 // BUG: Diagnostic contains: returning @Nullable expression
                 return (Test.<T>holder().field = box.get());
+              }
+              @SuppressWarnings("unchecked")
+              static <T extends @Nullable Object> T throughCastArray(Object array, Box<? extends T> box) {
+                return (((T[]) array)[0] = box.get());
+              }
+              @SuppressWarnings("unchecked")
+              static <T extends @Nullable Object> T throughObjectArray(
+                  Object[] array, Box<? extends T> box) {
+                // BUG: Diagnostic contains: returning @Nullable expression
+                return (T) (array[0] = box.get());
               }
             }
             """)
@@ -1094,10 +1121,26 @@ public class NullnessOperatorTests extends NullAwayTestsBase {
               interface Box<R extends @Nullable Object> {
                 R get();
               }
+              static class Holder<H extends @Nullable Object> {
+                H field;
+                Holder(H field) {
+                  this.field = field;
+                }
+              }
               private Object field = new Object();
+              private static Object staticField = new Object();
               void store(Box<? extends T> box) {
                 // BUG: Diagnostic contains: assigning @Nullable expression to @NonNull field
                 field = box.get();
+              }
+              void storeStatic(Box<? extends T> box) {
+                // BUG: Diagnostic contains: assigning @Nullable expression to @NonNull field
+                staticField = box.get();
+              }
+              @SuppressWarnings("rawtypes")
+              void storeThroughRawReceiver(Holder raw, Box<? extends T> box) {
+                // BUG: Diagnostic contains: assigning @Nullable expression to @NonNull field
+                raw.field = box.get();
               }
             }
             """)
@@ -1123,6 +1166,10 @@ public class NullnessOperatorTests extends NullAwayTestsBase {
               // BUG: Diagnostic contains: fails to ensure the following fields are non-null
               void init(Box<? extends T> box) {
                 field = box.get();
+              }
+              @EnsuresNonNull("field")
+              void initFromParameter(T value) {
+                field = value;
               }
             }
             """)
@@ -1229,6 +1276,10 @@ public class NullnessOperatorTests extends NullAwayTestsBase {
               static <T extends @Nullable Object> T unwrap(Box<? extends T> box) {
                 return box.get();
               }
+              static <T extends @Nullable Object> Object unwrapAsObject(Box<? extends T> box) {
+                // BUG: Diagnostic contains: returning @Nullable expression
+                return box.get();
+              }
             }
             """)
         .doTest();
@@ -1248,9 +1299,15 @@ public class NullnessOperatorTests extends NullAwayTestsBase {
                 R get();
               }
               static <T extends @Nullable Object> void sink(T value) {}
+              static void objectSink(Object value) {}
               static <T extends @Nullable Object> void pass(Box<? extends T> box) {
                 T value = box.get();
                 Test.<T>sink(value);
+              }
+              static <T extends @Nullable Object> void passAsObject(Box<? extends T> box) {
+                T value = box.get();
+                // BUG: Diagnostic contains: passing @Nullable parameter 'value'
+                objectSink(value);
               }
             }
             """)
@@ -1277,6 +1334,21 @@ public class NullnessOperatorTests extends NullAwayTestsBase {
                 boolean changed = false;
                 for (E element : elements) {
                   if (add(element)) {
+                    changed = true;
+                  }
+                }
+                return changed;
+              }
+
+              boolean addObject(Object element) {
+                return false;
+              }
+
+              boolean addAllAsObjects(Collection<? extends E> elements) {
+                boolean changed = false;
+                for (E element : elements) {
+                  // BUG: Diagnostic contains: passing @Nullable parameter 'element'
+                  if (addObject(element)) {
                     changed = true;
                   }
                 }
@@ -1309,6 +1381,13 @@ public class NullnessOperatorTests extends NullAwayTestsBase {
                 }
                 return map;
               }
+              <E extends @Nullable Object> void applyToObjects(
+                  Iterable<E> elems, Function<Object, Object> function) {
+                for (E e : elems) {
+                  // BUG: Diagnostic contains: passing @Nullable parameter 'e'
+                  function.apply(e);
+                }
+              }
             }
             """)
         .doTest();
@@ -1328,8 +1407,13 @@ public class NullnessOperatorTests extends NullAwayTestsBase {
                 R get();
               }
               static <T extends @Nullable Object> void sink(T value) {}
+              static void objectSink(Object value) {}
               static <T extends @Nullable Object> void pass(Box<? extends T> box) {
                 Test.<T>sink(box.get());
+              }
+              static <T extends @Nullable Object> void passAsObject(Box<? extends T> box) {
+                // BUG: Diagnostic contains: passing @Nullable parameter 'box.get()'
+                objectSink(box.get());
               }
             }
             """)
@@ -1351,6 +1435,7 @@ public class NullnessOperatorTests extends NullAwayTestsBase {
               }
               private final Box<? extends T> box;
               private T current;
+              private Object last = new Object();
               // Neither assignment is reported, nor is the field reported as uninitialized.
               Test(Box<? extends T> box) {
                 this.box = box;
@@ -1358,6 +1443,10 @@ public class NullnessOperatorTests extends NullAwayTestsBase {
               }
               void advance() {
                 current = box.get();
+              }
+              void advanceAsObject() {
+                // BUG: Diagnostic contains: assigning @Nullable expression to @NonNull field
+                last = box.get();
               }
             }
             """)
@@ -1377,6 +1466,7 @@ public class NullnessOperatorTests extends NullAwayTestsBase {
             class Test<T extends @Nullable Object> {
               private final Iterator<? extends T> iterator;
               private T current;
+              private Object last = new Object();
               // Neither assignment is reported, nor is the field reported as uninitialized.
               Test(Iterator<? extends T> iterator) {
                 this.iterator = iterator;
@@ -1384,6 +1474,10 @@ public class NullnessOperatorTests extends NullAwayTestsBase {
               }
               void advance() {
                 current = iterator.next();
+              }
+              void advanceAsObject() {
+                // BUG: Diagnostic contains: assigning @Nullable expression to @NonNull field
+                last = iterator.next();
               }
             }
             """)
@@ -1411,6 +1505,11 @@ public class NullnessOperatorTests extends NullAwayTestsBase {
                 }
                 return result;
               }
+              static <S, A extends @Nullable Object> Object aggregateFirstAsObject(
+                  S element, A seed, Fn2<A, S, ? extends A> function) {
+                // BUG: Diagnostic contains: returning @Nullable expression
+                return function.apply(seed, element);
+              }
             }
             """)
         .doTest();
@@ -1434,6 +1533,10 @@ public class NullnessOperatorTests extends NullAwayTestsBase {
               }
               static <T extends @Nullable Object> Box<T> wrapByReference(Box<? extends T> box) {
                 return box::get;
+              }
+              static <T extends @Nullable Object> Box<Object> wrapAsObject(Box<? extends T> box) {
+                // BUG: Diagnostic contains: returning @Nullable expression
+                return () -> box.get();
               }
             }
             """)
@@ -1503,6 +1606,16 @@ public class NullnessOperatorTests extends NullAwayTestsBase {
               }
               static <T, U extends @Nullable T> void arrayStore(T[] array, Box<? extends U> box) {
                 // BUG: Diagnostic contains: Writing @Nullable expression into array
+                array[0] = box.get();
+              }
+              static <T, U extends T> T returnedThroughUnannotatedBound(Box<? extends U> box) {
+                return box.get();
+              }
+              static <T, U extends T> T returnedThroughCastAndUnannotatedBound(Box<? extends U> box) {
+                return (T) box.get();
+              }
+              static <T, U extends T> void arrayStoreThroughUnannotatedBound(
+                  T[] array, Box<? extends U> box) {
                 array[0] = box.get();
               }
               static <T extends @Nullable Object, U extends @Nullable T> void enhancedFor(
@@ -1624,6 +1737,11 @@ public class NullnessOperatorTests extends NullAwayTestsBase {
                   Map<K, T> map, K key, Box<? extends T> box, Sink<T> sink) {
                 map.put(key, box.get());
                 // BUG: Diagnostic contains: passing @Nullable parameter 'map.get(key)'
+                sink.accept(map.get(key));
+              }
+              static <K, T extends @Nullable Object> void throughMapFromParameter(
+                  Map<K, T> map, K key, T value, Sink<T> sink) {
+                map.put(key, value);
                 sink.accept(map.get(key));
               }
             }

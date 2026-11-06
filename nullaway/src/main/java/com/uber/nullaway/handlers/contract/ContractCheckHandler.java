@@ -173,7 +173,8 @@ public class ContractCheckHandler implements Handler {
           for (TreePath expressionPath : allPossiblyReturnedExpressions) {
             Nullness nullness =
                 nullnessAnalysis.getNullnessForContractDataflow(expressionPath, state.context);
-            if (nullness != null && NullabilityUtil.nullnessToBool(nullness)) {
+            if (nullness != null // diff-coverage: ignore -- dataflow computes every returned value
+                && NullabilityUtil.nullnessToBool(nullness)) {
               if (nullnessAnalysis.isUnreachableForContractDataflow(
                   expressionPath, state.context)) {
                 // The contract antecedent makes this branch unreachable.

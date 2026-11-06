@@ -61,7 +61,6 @@ import javax.annotation.CheckReturnValue;
 import javax.lang.model.element.ElementKind;
 import javax.lang.model.element.VariableElement;
 import javax.lang.model.type.TypeKind;
-import javax.lang.model.type.TypeMirror;
 import org.checkerframework.nullaway.dataflow.analysis.ConditionalTransferResult;
 import org.checkerframework.nullaway.dataflow.analysis.ForwardTransferFunction;
 import org.checkerframework.nullaway.dataflow.analysis.RegularTransferResult;
@@ -542,9 +541,9 @@ public class AccessPathNullnessPropagation
 
     // Where the operands are equal, each access path holds the value of the other operand
     Nullness leftEqualBranchValue =
-        leftVal.greatestLowerBound(valueHeldAs(rightVal, rightOperand, realLeftNode));
+        leftVal.greatestLowerBound(valueHeldByPath(rightVal, rightOperand, realLeftNode));
     Nullness rightEqualBranchValue =
-        rightVal.greatestLowerBound(valueHeldAs(leftVal, leftOperand, realRightNode));
+        rightVal.greatestLowerBound(valueHeldByPath(leftVal, leftOperand, realRightNode));
 
     AccessPath leftAP = AccessPath.getAccessPathForNode(realLeftNode, state, apContext);
     if (leftAP != null) {
@@ -606,11 +605,10 @@ public class AccessPathNullnessPropagation
     Node rhs = node.getExpression();
     Node target = node.getTarget();
     Nullness rhsValue = values(input).valueOfSubNode(rhs);
-    // The access path may lose the target's type where valueHeldAs cannot trust it, but the
-    // assignment expression itself always has the target's type
-    Nullness value = valueHeldAs(rhsValue, rhs, target);
-    Nullness result =
-        valueHeldAs(rhsValue, rhs, node.getType(), AccessPath.holderDeclaration(target));
+    // The assignment expression always has the target's type, while the access path of the target
+    // may lose it
+    Nullness result = valueHeldAs(rhsValue, rhs, () -> holderTarget(target));
+    Nullness value = AccessPath.hasStableType(target) ? result : result.withoutNoChange();
 
     if (target instanceof LocalVariableNode localVariableNode
         && !castToNonNull(ASTHelpers.getType(target.getTree())).isPrimitive()) {
@@ -989,8 +987,8 @@ public class AccessPathNullnessPropagation
             : valueHeldAs(
                 values.valueOfSubNode(node.getOperand()),
                 node.getOperand(),
-                node.getType(),
-                /* holderDeclaration= */ null);
+                () ->
+                    GenericsChecks.ValueTarget.of((Type) node.getType(), /* declaration= */ null));
     // (boolean) (x != null) has the truth value of x != null, so the branch facts of x != null hold
     if (input.containsTwoStores()) {
       return new ConditionalTransferResult<>(nullness, input.getThenStore(), input.getElseStore());
@@ -1180,10 +1178,8 @@ public class AccessPathNullnessPropagation
     } else if (AccessPath.isMapPut(callee, state)) {
       AccessPath getAccessPath = AccessPath.getForMapInvocation(node, state, apContext);
       if (getAccessPath != null) {
-        Node valueArgument = arguments.get(1);
         // The get() call has no node here, so a NO_CHANGE value is stored as NULLABLE
-        bothUpdates.set(
-            getAccessPath, valueHeldAs(inputs.valueOfSubNode(valueArgument), valueArgument, null));
+        bothUpdates.set(getAccessPath, inputs.valueOfSubNode(arguments.get(1)).withoutNoChange());
       }
     } else if (AccessPath.isMapComputeIfAbsent(callee, state)) {
       AccessPath getAccessPath = AccessPath.getForMapInvocation(node, state, apContext);
@@ -1239,20 +1235,30 @@ public class AccessPathNullnessPropagation
     return methodSymbol.getReturnType().getTag() == TypeTag.BOOLEAN;
   }
 
+  /**
+   * Returns the nullness of the value that {@code node} returns: the handlers' hint first, then the
+   * element nullness for the element read of an enhanced-for loop, then the declared and generic
+   * return nullness, refined by a dataflow fact where one exists. The result may be {@link
+   * Nullness#NO_CHANGE}.
+   *
+   * @param node the method invocation
+   * @param input the transfer input at the invocation
+   * @param returnValueNullnessHint the handlers' hint for the return value
+   */
   Nullness returnValueNullness(
       MethodInvocationNode node,
       TransferInput<Nullness, NullnessStore> input,
       NullnessHint returnValueNullnessHint) {
     Nullness nullness;
     Nullness enhancedForLoopElementNullness = enhancedForLoopElementNullness(node);
-    if (node != null && returnValueNullnessHint == NullnessHint.FORCE_NONNULL) {
+    if (returnValueNullnessHint == NullnessHint.FORCE_NONNULL) {
       // A handler says this is definitely non-null; trust it. Note that FORCE_NONNULL is quite
       // dangerous, since it
       // ignores our analysis' own best judgement, so both this value and the annotations that cause
       // it (e.g.
       // @Contract ) should be used with care.
       nullness = NONNULL;
-    } else if (node != null && returnValueNullnessHint == NullnessHint.HINT_NULLABLE) {
+    } else if (returnValueNullnessHint == NullnessHint.HINT_NULLABLE) {
       // we have a model saying return value is nullable.
       // still, rely on dataflow fact if there is one available
       nullness = input.getRegularStore().valueOfMethodCall(node, state, NULLABLE, apContext);
@@ -1260,7 +1266,7 @@ public class AccessPathNullnessPropagation
       // The CFG represents a read from an Iterable in an enhanced-for loop as a synthetic call to
       // Iterator.next(); use the nullness of the element type
       nullness = enhancedForLoopElementNullness;
-    } else if (node == null || methodReturnsNonNull.test(node)) {
+    } else if (methodReturnsNonNull.test(node)) {
       // definite non-null return
       nullness = NONNULL;
     } else {
@@ -1278,63 +1284,88 @@ public class AccessPathNullnessPropagation
   }
 
   /**
-   * Returns the nullness of {@code value}, the value of {@code source}, once {@code holder} holds
-   * it, as {@link #valueHeldAs(Nullness, Node, TypeMirror, Symbol)} computes it for the type and
-   * the declaration of {@code holder}.
+   * Returns the nullness of {@code value}, the value of {@code source}, once the access path of
+   * {@code holder} holds it. That is the value {@link #valueHeldAs} computes for {@code holder}'s
+   * location where every node with that path has {@code holder}'s type, as {@link
+   * AccessPath#hasStableType} decides, and {@link Nullness#withoutNoChange()} otherwise.
    *
    * @param value nullness of {@code source}
    * @param source node whose value moves
-   * @param holder variable or expression receiving the value, or {@code null} if unknown
+   * @param holder node whose access path receives the value
    */
-  private Nullness valueHeldAs(Nullness value, Node source, @Nullable Node holder) {
-    return holder == null
-        ? valueHeldAs(value, source, null, null)
-        : valueHeldAs(
-            value, source, AccessPath.holderType(holder), AccessPath.holderDeclaration(holder));
+  private Nullness valueHeldByPath(Nullness value, Node source, Node holder) {
+    Nullness held = valueHeldAs(value, source, () -> holderTarget(holder));
+    return AccessPath.hasStableType(holder) ? held : held.withoutNoChange();
   }
 
   /**
-   * Returns the nullness of {@code value}, the value of {@code source}, once a variable or
-   * expression of type {@code holderType} holds it. A value for which {@link Nullness#isNoChange()}
-   * holds keeps its nullness only where {@link GenericsChecks#acceptsNoChangeValue} accepts it for
-   * {@code holderType} and {@code holderDeclaration}, and becomes {@link
+   * Returns the nullness of {@code value}, the value of {@code source}, once {@code target} holds
+   * it. A value for which {@link Nullness#isNoChange()} holds keeps its nullness only where {@link
+   * GenericsChecks#acceptsNoChangeValue} accepts it for {@code target}, and becomes {@link
    * Nullness#withoutNoChange()} otherwise; any other value is unchanged.
    *
    * @param value nullness of {@code source}
    * @param source node whose value moves
-   * @param holderType static type of the variable or expression receiving the value, or {@code
-   *     null} if unknown
-   * @param holderDeclaration the field receiving the value, or {@code null} for any other holder
+   * @param target supplies the location receiving the value; called only for a {@code NO_CHANGE}
+   *     value
    */
   private Nullness valueHeldAs(
-      Nullness value,
-      Node source,
-      @Nullable TypeMirror holderType,
-      @Nullable Symbol holderDeclaration) {
+      Nullness value, Node source, java.util.function.Supplier<GenericsChecks.ValueTarget> target) {
     if (!value.isNoChange()) {
       return value;
     }
-    Type valueType = valueTypeOf(source);
-    return valueType != null
-            && genericsChecks.acceptsNoChangeValue(
-                valueType, (Type) holderType, holderDeclaration, state)
+    return genericsChecks.acceptsNoChangeValue(valueTypeOf(source), target.get(), state)
         ? value
         : value.withoutNoChange();
   }
 
   /**
-   * Returns the static type of the value of {@code node}, or {@code null} if it is unknown. For the
-   * element read of an enhanced-for loop, this is the element type of the iterable: the CFG builds
-   * that read as a synthetic {@code Iterator.next()} call whose type may lack the capture of the
-   * iterable's type argument.
+   * Returns the location that {@code holder}, without enclosing casts, names, as {@link
+   * #locationOf} computes it.
+   *
+   * @param holder the node receiving a value
    */
-  private @Nullable Type valueTypeOf(Node node) {
+  private GenericsChecks.ValueTarget holderTarget(Node holder) {
+    return locationOf(AccessPath.stripCasts(holder));
+  }
+
+  /**
+   * Returns the location that {@code node} names, built from the same {@link GenericsChecks}
+   * factories that the sinks use: an instance field typed as a member of the type of its receiver
+   * node, an array element typed by the location of its array, and any other node, a cast included,
+   * typed by its static type. A field is the declaration of its location.
+   *
+   * @param node the node naming a location
+   */
+  private GenericsChecks.ValueTarget locationOf(Node node) {
+    if (node instanceof ArrayAccessNode arrayAccess) {
+      return GenericsChecks.ValueTarget.arrayElement(locationOf(arrayAccess.getArray()).type());
+    }
+    if (node instanceof FieldAccessNode fieldAccess) {
+      Symbol field = (Symbol) fieldAccess.getElement();
+      return fieldAccess.isStatic()
+          ? GenericsChecks.ValueTarget.of((Type) node.getType(), field)
+          : genericsChecks.getFieldTarget(
+              (Type) fieldAccess.getReceiver().getType(), field, (Type) node.getType(), state);
+    }
+    return GenericsChecks.ValueTarget.of((Type) node.getType(), /* declaration= */ null);
+  }
+
+  /**
+   * Returns the static type of the value of {@code node}, a value for which {@link
+   * Nullness#isNoChange()} holds. For the element read of an enhanced-for loop, this is the element
+   * type of the iterable, which {@link GenericsChecks#getEnhancedForLoopElementNullness} has
+   * resolved to give the read that nullness: the CFG builds that read as a synthetic {@code
+   * Iterator.next()} call whose type may lack the capture of the iterable's type argument.
+   */
+  private Type valueTypeOf(Node node) {
     if (node instanceof MethodInvocationNode invocation
         && invocation.getIterableExpression() != null) {
-      return genericsChecks.getEnhancedForLoopElementType(
-          invocation.getIterableExpression(),
-          state.withPath(enhancedForLoopIterablePath(invocation)),
-          /* calledFromDataflow= */ true);
+      return castToNonNull(
+          genericsChecks.getEnhancedForLoopElementType(
+              invocation.getIterableExpression(),
+              state.withPath(enhancedForLoopIterablePath(invocation)),
+              /* calledFromDataflow= */ true));
     }
     return (Type) node.getType();
   }

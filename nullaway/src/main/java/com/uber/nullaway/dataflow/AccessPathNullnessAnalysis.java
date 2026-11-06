@@ -40,6 +40,7 @@ import com.uber.nullaway.handlers.contract.ContractNullnessStoreInitializer;
 import java.util.Collections;
 import java.util.LinkedHashSet;
 import java.util.Set;
+import java.util.function.Function;
 import java.util.function.Predicate;
 import javax.lang.model.element.Element;
 import javax.lang.model.element.ElementKind;
@@ -169,13 +170,7 @@ public final class AccessPathNullnessAnalysis {
    * @return fields guaranteed to be nonnull at exit of method (or initializer block)
    */
   public Set<Element> getNonnullFieldsOfReceiverAtExit(TreePath path, Context context) {
-    NullnessStore nullnessResult = dataFlow.finalResult(path, context, nullnessPropagation);
-    if (nullnessResult == null) {
-      // this case can occur if the method always throws an exception
-      // be conservative and say nothing is initialized
-      return Collections.emptySet();
-    }
-    return nullnessResult.getNonNullReceiverFields();
+    return receiverFieldsAtExit(path, context, NullnessStore::getNonNullReceiverFields);
   }
 
   /**
@@ -188,13 +183,26 @@ public final class AccessPathNullnessAnalysis {
    * @return fields of the receiver initialized at exit of the method (or initializer block)
    */
   public Set<Element> getInitializedFieldsOfReceiverAtExit(TreePath path, Context context) {
+    return receiverFieldsAtExit(path, context, NullnessStore::getInitializedReceiverFields);
+  }
+
+  /**
+   * Applies {@code fields} to the store at exit from a method or initializer block.
+   *
+   * @param path tree path of method, or initializer block
+   * @param context Javac context
+   * @param fields selects receiver fields from a store
+   * @return the selected fields, or an empty set where no store reaches the exit
+   */
+  private Set<Element> receiverFieldsAtExit(
+      TreePath path, Context context, Function<NullnessStore, Set<Element>> fields) {
     NullnessStore nullnessResult = dataFlow.finalResult(path, context, nullnessPropagation);
     if (nullnessResult == null) {
       // this case can occur if the method always throws an exception
       // be conservative and say nothing is initialized
       return Collections.emptySet();
     }
-    return nullnessResult.getInitializedReceiverFields();
+    return fields.apply(nullnessResult);
   }
 
   /**
@@ -206,11 +214,39 @@ public final class AccessPathNullnessAnalysis {
    * @return fields of the receiver initialized before the expression is evaluated
    */
   public Set<Element> getInitializedFieldsOfReceiverBefore(TreePath path, Context context) {
+    return receiverFieldsBefore(path, context, NullnessStore::getInitializedReceiverFields);
+  }
+
+  /**
+   * Gets the fields of the receiver that hold a non-null value before the current expression.
+   *
+   * @param path tree path of some expression
+   * @param context Javac context
+   * @return fields of receiver guaranteed to be nonnull before expression is evaluated
+   * @deprecated use {@link #getInitializedFieldsOfReceiverBefore}, which also returns a field that
+   *     holds a value for which {@link Nullness#isNoChange()} holds
+   */
+  @Deprecated
+  public Set<Element> getNonnullFieldsOfReceiverBefore(TreePath path, Context context) {
+    return receiverFieldsBefore( // diff-coverage: ignore -- kept for callers outside NullAway
+        path, context, NullnessStore::getNonNullReceiverFields);
+  }
+
+  /**
+   * Applies {@code fields} to the store before the current expression.
+   *
+   * @param path tree path of some expression
+   * @param context Javac context
+   * @param fields selects receiver fields from a store
+   * @return the selected fields, or an empty set where no store reaches the expression
+   */
+  private Set<Element> receiverFieldsBefore(
+      TreePath path, Context context, Function<NullnessStore, Set<Element>> fields) {
     NullnessStore store = dataFlow.resultBeforeExpr(path, context, nullnessPropagation);
     if (store == null) {
       return Collections.emptySet();
     }
-    return store.getInitializedReceiverFields();
+    return fields.apply(store);
   }
 
   /**

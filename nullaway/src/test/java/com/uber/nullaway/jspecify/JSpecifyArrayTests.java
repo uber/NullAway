@@ -224,6 +224,45 @@ public class JSpecifyArrayTests extends NullAwayTestsBase {
   }
 
   @Test
+  public void inheritedArrayElementTakesNullnessFromSupertypeArgument() {
+    makeHelper()
+        .addSourceLines(
+            "Test.java",
+            """
+            package com.uber;
+            import org.jspecify.annotations.NullMarked;
+            import org.jspecify.annotations.Nullable;
+            @NullMarked
+            class Test {
+              static class Holder<T extends @Nullable Object> {
+                T[] array;
+                Holder(T[] array) {
+                  this.array = array;
+                }
+              }
+              static class NullableHolder extends Holder<@Nullable String> {
+                NullableHolder(@Nullable String[] array) {
+                  super(array);
+                }
+                void store() {
+                  array[0] = null;
+                }
+              }
+              static class NonNullHolder extends Holder<String> {
+                NonNullHolder(String[] array) {
+                  super(array);
+                }
+                void store() {
+                  // BUG: Diagnostic contains: Writing @Nullable expression into array with @NonNull contents
+                  array[0] = null;
+                }
+              }
+            }
+            """)
+        .doTest();
+  }
+
+  @Test
   public void nullableAssignmentNullableArray() {
     makeHelper()
         .addSourceLines(

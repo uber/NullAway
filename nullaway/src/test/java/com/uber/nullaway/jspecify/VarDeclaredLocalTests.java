@@ -585,7 +585,8 @@ public class VarDeclaredLocalTests extends NullAwayTestsBase {
             Arrays.asList(
                 JSpecifyJavacConfig.JSPECIFY_MODE_FLAG,
                 JSpecifyJavacConfig.ADD_TYPE_ANNOTATIONS_FLAG,
-                "-XepOpt:NullAway:AnnotatedPackages=com.uber"))
+                "-XepOpt:NullAway:AnnotatedPackages=com.uber",
+                "-XepOpt:NullAway:HandleWildcardGenerics=false"))
         .addSourceLines(
             "Test.java",
             """

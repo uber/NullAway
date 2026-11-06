@@ -8,7 +8,10 @@ import static com.uber.nullaway.Nullness.NULL;
 import static com.uber.nullaway.Nullness.NULLABLE;
 import static com.uber.nullaway.Nullness.NULL_NO_CHANGE;
 
+import com.google.common.collect.ImmutableMap;
 import com.google.common.truth.Expect;
+import java.util.EnumSet;
+import java.util.Set;
 import org.junit.Rule;
 import org.junit.Test;
 
@@ -93,25 +96,42 @@ public class NullnessTest {
   }
 
   @Test
+  public void joinAndMeetTableListsEveryPairOfDistinctValues() {
+    int valueCount = Nullness.values().length;
+    assertThat(JOIN_AND_MEET.length).isEqualTo(valueCount * (valueCount - 1) / 2);
+  }
+
+  @Test
   public void onlyNullAndNullNoChangeAreKnownNull() {
-    expect.that(NULL.isNull()).isTrue();
-    expect.that(NULL_NO_CHANGE.isNull()).isTrue();
-    expect.that(NO_CHANGE.isNull()).isFalse();
-    expect.that(NULLABLE.isNull()).isFalse();
+    Set<Nullness> knownNull = EnumSet.of(NULL, NULL_NO_CHANGE);
+    for (Nullness value : Nullness.values()) {
+      expect
+          .withMessage("%s.isNull()", value)
+          .that(value.isNull())
+          .isEqualTo(knownNull.contains(value));
+    }
   }
 
   @Test
   public void onlyNoChangeAndNullNoChangeAreAcceptedByTheirTypeVariable() {
-    expect.that(NO_CHANGE.isNoChange()).isTrue();
-    expect.that(NULL_NO_CHANGE.isNoChange()).isTrue();
-    expect.that(NULL.isNoChange()).isFalse();
-    expect.that(NONNULL.isNoChange()).isFalse();
+    Set<Nullness> noChange = EnumSet.of(NO_CHANGE, NULL_NO_CHANGE);
+    for (Nullness value : Nullness.values()) {
+      expect
+          .withMessage("%s.isNoChange()", value)
+          .that(value.isNoChange())
+          .isEqualTo(noChange.contains(value));
+    }
   }
 
   @Test
   public void aHolderThatRejectsNoChangeKeepsWhetherTheValueIsKnownNull() {
-    expect.that(NO_CHANGE.withoutNoChange()).isEqualTo(NULLABLE);
-    expect.that(NULL_NO_CHANGE.withoutNoChange()).isEqualTo(NULL);
-    expect.that(NONNULL.withoutNoChange()).isEqualTo(NONNULL);
+    ImmutableMap<Nullness, Nullness> changed =
+        ImmutableMap.of(NO_CHANGE, NULLABLE, NULL_NO_CHANGE, NULL);
+    for (Nullness value : Nullness.values()) {
+      expect
+          .withMessage("%s.withoutNoChange()", value)
+          .that(value.withoutNoChange())
+          .isEqualTo(changed.getOrDefault(value, value));
+    }
   }
 }

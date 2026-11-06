@@ -345,10 +345,7 @@ public class NullnessStore implements Store<NullnessStore> {
    * @return the initialized receiver fields
    */
   public Set<Element> getInitializedReceiverFields() {
-    Set<Element> result = getReceiverFields(Nullness.NONNULL);
-    result.addAll(getReceiverFields(Nullness.NO_CHANGE));
-    result.addAll(getReceiverFields(Nullness.NULL_NO_CHANGE));
-    return result;
+    return getReceiverFields(value -> value == Nullness.NONNULL || value.isNoChange());
   }
 
   /**
@@ -376,11 +373,21 @@ public class NullnessStore implements Store<NullnessStore> {
    * @return Set of fields (represented as {@code Element}s) with the given {@code nullness}.
    */
   public Set<Element> getReceiverFields(Nullness nullness) {
-    Set<AccessPath> nonnullAccessPaths = this.getAccessPathsWithValue(nullness);
+    return getReceiverFields(nullness::equals);
+  }
+
+  /**
+   * Returns the fields of the receiver whose nullness satisfies {@code predicate}.
+   *
+   * @param predicate test on the nullness a field holds
+   * @return the matching receiver fields
+   */
+  private Set<Element> getReceiverFields(Predicate<Nullness> predicate) {
     Set<Element> result = new LinkedHashSet<>();
-    for (AccessPath ap : nonnullAccessPaths) {
+    for (Map.Entry<AccessPath, Nullness> entry : contents.entrySet()) {
+      AccessPath ap = entry.getKey();
       // A null root represents the receiver
-      if (ap.getRoot() == null) {
+      if (predicate.test(entry.getValue()) && ap.getRoot() == null) {
         ImmutableList<AccessPathElement> elements = ap.getElements();
         if (elements.size() == 1) {
           Element elem = elements.get(0).getJavaElement();

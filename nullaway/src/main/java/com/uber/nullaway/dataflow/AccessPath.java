@@ -286,7 +286,7 @@ public final class AccessPath implements MapKey {
    * @param node a node
    * @return {@code node} with every enclosing value-preserving cast removed
    */
-  private static Node stripCasts(Node node) {
+  static Node stripCasts(Node node) {
     while (node instanceof TypeCastNode typeCastNode
         && (!typeCastNode.getType().getKind().isPrimitive()
             || typeCastNode.getType().getKind() == typeCastNode.getOperand().getType().getKind())) {
@@ -296,30 +296,28 @@ public final class AccessPath implements MapKey {
   }
 
   /**
-   * Returns the static type of the value held by the access path of {@code node}, or {@code null}
-   * when that type may differ between two nodes with the same path.
+   * Returns whether every node with the access path of {@code node} has the static type of {@code
+   * node} without enclosing casts.
    *
    * <p>A path keeps no cast on a receiver and no type argument of a method call, so {@code
    * ((Holder<T>) holder).field} and {@code holder.field} share one path, as do {@code g.<T>get()}
    * and {@code g.<S>get()}, while their types differ.
    *
    * @param node a node that may have an access path
-   * @return the type of {@code node} without enclosing casts, or {@code null} if a receiver on the
-   *     path is cast or a method on it is generic
+   * @return {@code false} if a receiver on the path is cast or a method on it is generic
    */
-  static @Nullable TypeMirror holderType(Node node) {
-    node = stripCasts(node);
-    for (Node current = node; ; ) {
+  static boolean hasStableType(Node node) {
+    for (Node current = stripCasts(node); ; ) {
       if (current instanceof MethodInvocationNode invocation
           && !invocation.getTarget().getMethod().getTypeParameters().isEmpty()) {
-        return null;
+        return false;
       }
       Node receiver = receiverOf(current);
       if (receiver == null) {
-        return node.getType();
+        return true;
       }
       if (receiver instanceof TypeCastNode) {
-        return null;
+        return false;
       }
       current = receiver;
     }
@@ -339,16 +337,6 @@ public final class AccessPath implements MapKey {
       return invocation.getTarget().getReceiver();
     }
     return null;
-  }
-
-  /**
-   * Returns the field whose declaration governs what {@code node} may hold, or {@code null} where
-   * {@code node}, with casts removed, is not a field access.
-   */
-  static @Nullable Symbol holderDeclaration(Node node) {
-    return stripCasts(node) instanceof FieldAccessNode fieldAccess
-        ? (Symbol) fieldAccess.getElement()
-        : null;
   }
 
   /**

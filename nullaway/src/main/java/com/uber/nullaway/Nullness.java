@@ -18,9 +18,13 @@
 
 package com.uber.nullaway;
 
+import static com.uber.nullaway.NullabilityUtil.castToNonNull;
+
 import com.sun.tools.javac.code.Symbol;
 import com.sun.tools.javac.code.Type;
 import com.sun.tools.javac.util.List;
+import java.util.EnumMap;
+import java.util.Map;
 import java.util.stream.Stream;
 import javax.lang.model.element.AnnotationMirror;
 import javax.lang.model.element.ElementKind;
@@ -54,19 +58,17 @@ public enum Nullness implements AbstractValue<Nullness> {
    * of {@code Box<? extends T>.get()} or an enhanced-for element of type {@code T}, which is null
    * only when {@code T} is instantiated with a nullable type argument. This is the JSpecify {@code
    * NO_CHANGE} nullness operator applied to {@code T}. NullAway computes it only with {@code
-   * HandleWildcardGenerics} on; with that option off, such a value is {@link #NONNULL}. Such a
-   * value is treated as nullable, except that a location of type {@code T} accepts it, it
-   * initializes a field of type {@code T}, and generic method inference takes {@code T} from it. A
-   * location of type {@code T} is a field, a method return, or an array element whose type is
-   * {@code T} with no {@code @NonNull} annotation, or a parameter for which {@link
-   * com.uber.nullaway.generics.GenericsChecks#parameterAdmitsNull} holds. A parameter of type
-   * {@code T} is {@link #NONNULL}, not {@code NO_CHANGE}.
+   * HandleWildcardGenerics} on; with that option off, such a value is {@link #NONNULL}. A read of a
+   * parameter of type {@code T} is {@link #NONNULL}, not {@code NO_CHANGE}.
    *
-   * <p>A {@code NO_CHANGE} fact holds relative to the static type of the variable or expression
-   * that holds the value. Dataflow keeps the fact when the value moves to a holder of another type
-   * only where {@link com.uber.nullaway.generics.GenericsChecks#acceptsNoChangeValue} accepts the
-   * value for the holder's type and declaration; otherwise the value becomes {@link
-   * #withoutNoChange()}.
+   * <p>Such a value is treated as nullable, except where {@link
+   * com.uber.nullaway.generics.GenericsChecks#acceptsNoChangeValue} accepts it: there a location of
+   * type {@code T} receives it, it initializes a field, and generic method inference takes {@code
+   * T} from it. A {@code NO_CHANGE} fact holds relative to the static type of the variable or
+   * expression that holds the value: where the value moves to a holder that rule rejects, it
+   * becomes {@link #withoutNoChange()}. As the nullness of a parameter in the {@link
+   * MethodParameterNullness} built for a call of an annotated method or constructor, it marks a
+   * parameter that accepts such an argument.
    *
    * @see <a href="https://jspecify.dev/docs/spec/#nullness-operator">JSpecify: nullness
    *     operator</a>
@@ -112,9 +114,6 @@ public enum Nullness implements AbstractValue<Nullness> {
         annot -> isNullableAnnotation(annot, config) || isMonotonicNonNullAnnotation(annot));
   }
 
-  /** All values, each listed after every value above it in the lattice. */
-  private static final Nullness[] TOP_DOWN = values();
-
   /** Returns whether this value is below {@code other} in the lattice, or equal to it. */
   private boolean isAtMost(Nullness other) {
     return this == other
@@ -124,31 +123,56 @@ public enum Nullness implements AbstractValue<Nullness> {
         || (this == NONNULL && other == NO_CHANGE);
   }
 
-  @Override
-  public Nullness leastUpperBound(Nullness other) {
-    if (this == other) {
-      return this;
-    }
-    // The first upper bound met going up is below every other upper bound
-    for (int i = TOP_DOWN.length - 1; ; i--) {
-      Nullness candidate = TOP_DOWN[i];
-      if (isAtMost(candidate) && other.isAtMost(candidate)) {
-        return candidate;
+  /** Least upper bound of every pair of values. */
+  private static final Map<Nullness, Map<Nullness, Nullness>> LEAST_UPPER_BOUNDS =
+      boundsTable(/* upper= */ true);
+
+  /** Greatest lower bound of every pair of values. */
+  private static final Map<Nullness, Map<Nullness, Nullness>> GREATEST_LOWER_BOUNDS =
+      boundsTable(/* upper= */ false);
+
+  /**
+   * Computes the least upper bound, or the greatest lower bound, of every pair of values from
+   * {@link #isAtMost}.
+   *
+   * @param upper {@code true} for least upper bounds, {@code false} for greatest lower bounds
+   * @return the bound of each pair of values
+   */
+  private static Map<Nullness, Map<Nullness, Nullness>> boundsTable(boolean upper) {
+    Nullness[] values = values();
+    Map<Nullness, Map<Nullness, Nullness>> table = new EnumMap<>(Nullness.class);
+    for (Nullness a : values) {
+      Map<Nullness, Nullness> row = new EnumMap<>(Nullness.class);
+      table.put(a, row);
+      for (Nullness b : values) {
+        Nullness best = null;
+        for (Nullness candidate : values) {
+          boolean isBound =
+              upper
+                  ? a.isAtMost(candidate) && b.isAtMost(candidate)
+                  : candidate.isAtMost(a) && candidate.isAtMost(b);
+          if (isBound
+              && (best == null || (upper ? candidate.isAtMost(best) : best.isAtMost(candidate)))) {
+            best = candidate;
+          }
+        }
+        row.put(b, castToNonNull(best));
       }
     }
+    return table;
   }
 
+  @Override
+  public Nullness leastUpperBound(Nullness other) {
+    return castToNonNull(castToNonNull(LEAST_UPPER_BOUNDS.get(this)).get(other));
+  }
+
+  /**
+   * Returns the greatest lower bound of this value and {@code other} in the lattice: the most
+   * precise value that holds wherever both of them hold.
+   */
   public Nullness greatestLowerBound(Nullness other) {
-    if (this == other) {
-      return this;
-    }
-    // The first lower bound met going down is above every other lower bound
-    for (int i = 0; ; i++) {
-      Nullness candidate = TOP_DOWN[i];
-      if (candidate.isAtMost(this) && candidate.isAtMost(other)) {
-        return candidate;
-      }
-    }
+    return castToNonNull(castToNonNull(GREATEST_LOWER_BOUNDS.get(this)).get(other));
   }
 
   /**

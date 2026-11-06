@@ -43,7 +43,8 @@ import javax.lang.model.element.ElementKind;
  * com.uber.nullaway.Nullness#isNoChange()} holds and that the field's type and declaration accept.
  * This information can be used by an inference tool to detect initializer methods in classes.
  *
- * <p>Note that the above two conditions are both needed to eliminate the cases below:
+ * <p>Note that both conditions of the heuristic, the assignment and the field initialized on
+ * return, are needed to eliminate the cases below:
  *
  * <ul>
  *   <li>Methods that initialize a field conditionally through only some of their execution paths
