@@ -1901,6 +1901,37 @@ public class GenericsTests extends NullAwayTestsBase {
   }
 
   @Test
+  public void genericCallQualifierOfDiamondInnerKeepsItsOwnNullness() {
+    makeHelper()
+        .addSourceLines(
+            "Test.java",
+            """
+            package com.uber;
+            import org.jspecify.annotations.Nullable;
+            class Test {
+              static <T extends @Nullable Object> T id(T t) {
+                return t;
+              }
+              static class Outer {
+                class GInner<G extends @Nullable Object> {
+                  GInner(G g) {}
+                }
+              }
+              void nullableArgument(@Nullable Outer y) {
+                // BUG: Diagnostic contains: dereferenced expression 'id(y)' is @Nullable
+                id(y).new GInner<>("");
+                // BUG: Diagnostic contains: dereferenced expression 'id(y)' is @Nullable
+                id(y).new GInner<String>("");
+              }
+              void nonNullArgument(Outer x) {
+                id(x).new GInner<>("");
+              }
+            }
+            """)
+        .doTest();
+  }
+
+  @Test
   public void subclassEnclosingNullabilityWithWildcardHandlingDisabled() {
     checkSubclassEnclosingNullability(false);
   }

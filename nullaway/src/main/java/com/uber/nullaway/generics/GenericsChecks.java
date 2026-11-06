@@ -3751,7 +3751,9 @@ public final class GenericsChecks {
       parent = parentPath.getLeaf();
     }
     if (parent instanceof ExpressionTree parentCall
-        && (parentCall instanceof MethodInvocationTree || parentCall instanceof NewClassTree)
+        && (parentCall instanceof MethodInvocationTree
+            || (parentCall instanceof NewClassTree parentConstructorCall
+                && !isQualifierOf(parentConstructorCall, path.getLeaf())))
         && isCallNeedingInference(parentCall)) {
       // This is a nested generic call, such as id(id(x)) or id(new Box<>(x)). Find the
       // outermost call requiring inference because its assignment context is the relevant one.
