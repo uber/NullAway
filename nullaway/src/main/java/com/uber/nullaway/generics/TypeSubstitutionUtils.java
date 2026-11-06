@@ -55,7 +55,8 @@ public class TypeSubstitutionUtils {
 
   /**
    * Like {@link Types#asSuper(Type, Symbol)}, but restores explicit nullability annotations on type
-   * arguments from the subtype's inheritance path to the resulting supertype.
+   * arguments from the subtype's inheritance path to the resulting supertype. For a type variable,
+   * the path starts at its upper bound.
    *
    * @param types the {@link Types} instance
    * @param subtype the subtype
@@ -70,17 +71,30 @@ public class TypeSubstitutionUtils {
     if (asSuper == null) {
       return null;
     }
-    if (subtype.tsym.equals(superTypeSymbol)) {
+    Type inheritingType = upperBoundIfTypeVariable(subtype);
+    if (inheritingType.tsym.equals(superTypeSymbol)) {
       return asSuper;
     }
     Type annotatedSupertype =
-        subtype instanceof DeclaredType declaredType
+        inheritingType instanceof DeclaredType declaredType
             ? getAnnotatedSupertype(declaredType, superTypeSymbol, types, config)
             : null;
     if (annotatedSupertype == null) {
       return asSuper;
     }
     return restoreExplicitNullabilityAnnotations(annotatedSupertype, asSuper, types, config);
+  }
+
+  /**
+   * Returns the upper bound of {@code type} if it is a type variable, repeated until the result is
+   * not a type variable, or {@code type} itself otherwise.
+   */
+  private static Type upperBoundIfTypeVariable(Type type) {
+    Type result = type;
+    while (result instanceof Type.TypeVar typeVar) {
+      result = typeVar.getUpperBound();
+    }
+    return result;
   }
 
   /**
@@ -96,11 +110,12 @@ public class TypeSubstitutionUtils {
     Type origType = sym.type;
     Type memberType = types.memberType(t, sym);
     Type annotationSource = origType;
-    if (t instanceof DeclaredType declaredType
-        && sym.owner instanceof Symbol.ClassSymbol owner
-        && !t.tsym.equals(owner)) {
+    if (sym.owner instanceof Symbol.ClassSymbol owner
+        && upperBoundIfTypeVariable(t) instanceof DeclaredType declaredType
+        && !((Type) declaredType).tsym.equals(owner)) {
       // annotatedOwner is the type of the class containing sym (a supertype of t), capturing any
-      // annotations in extends / inherits clauses on the inheritance path from subtype t
+      // annotations in extends / inherits clauses on the inheritance path from subtype t, or from
+      // its upper bound if t is a type variable
       Type annotatedOwner = getAnnotatedSupertype(declaredType, owner, types, config);
       if (annotatedOwner instanceof Type.ClassType annotatedOwnerClassType) {
         Type asMemberOfAnnotatedOwner = types.memberType(annotatedOwnerClassType, sym);

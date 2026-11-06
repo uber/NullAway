@@ -222,6 +222,63 @@ public class GenericInheritanceTests extends NullAwayTestsBase {
         .doTest();
   }
 
+  @Test
+  public void typeVariableTakesAnnotationsInheritedByItsBound() {
+    makeHelper()
+        .addSourceLines(
+            "Test.java",
+            """
+            import java.util.List;
+            import org.jspecify.annotations.NullMarked;
+            import org.jspecify.annotations.Nullable;
+            @NullMarked
+            class Test {
+              static class Outer<O extends @Nullable Object> {
+                class Inner {
+                  Inner(O o) {}
+                }
+                O get() {
+                  throw new RuntimeException();
+                }
+              }
+              static class Sub<S extends @Nullable Object> extends Outer<@Nullable S> {}
+              <Y extends Sub<String>> void nullableThroughBound(Y y) {
+                // BUG: Diagnostic contains: dereferenced expression 'y.get()' is @Nullable
+                y.get().hashCode();
+                // BUG: Diagnostic contains: incompatible types: Y cannot be converted to Outer<String>
+                Outer<String> nonNull = y;
+                Outer<@Nullable String> nullable = y;
+                y.new Inner(null);
+                y.new Inner(null) {};
+              }
+              <Y extends Sub<String> & Runnable> void nullableThroughIntersectionBound(Y y) {
+                // BUG: Diagnostic contains: dereferenced expression 'y.get()' is @Nullable
+                y.get().hashCode();
+                y.new Inner(null);
+              }
+              <Z extends Y, Y extends Sub<String>> void nullableThroughBoundOfBound(Z z) {
+                // BUG: Diagnostic contains: dereferenced expression 'z.get()' is @Nullable
+                z.get().hashCode();
+                z.new Inner(null);
+              }
+              void nullableThroughCapturedWildcard(List<? extends Sub<String>> l) {
+                // BUG: Diagnostic contains: dereferenced expression 'l.get(0).get()' is @Nullable
+                l.get(0).get().hashCode();
+              }
+              void nonNullThroughCapturedWildcard(List<? extends Outer<String>> l) {
+                l.get(0).get().hashCode();
+              }
+              <Y extends Outer<String>> void nonNullBound(Y y) {
+                y.get().hashCode();
+                Outer<String> nonNull = y;
+                // BUG: Diagnostic contains: passing @Nullable parameter 'null' where @NonNull is required
+                y.new Inner(null);
+              }
+            }
+            """)
+        .doTest();
+  }
+
   /** For issue 1264. Checks that we don't crash when overriding with raw types. */
   @Test
   public void overrideWithRawTypes() {
