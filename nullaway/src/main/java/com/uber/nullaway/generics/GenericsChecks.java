@@ -819,8 +819,22 @@ public final class GenericsChecks {
       if (newClassTree.getIdentifier() instanceof ParameterizedTypeTree paramTypedTree
           && !paramTypedTree.getTypeArguments().isEmpty()) {
         Type typeFromIdentifier = typeWithPreservedAnnotations(paramTypedTree);
-        return withEnclosingTypeFromQualifier(
-            typeFromIdentifier, newClassTree, state, calledFromDataflow);
+        Type withQualifier =
+            withEnclosingTypeFromQualifier(
+                typeFromIdentifier, newClassTree, state, calledFromDataflow);
+        return withQualifier != null ? withQualifier : typeFromIdentifier;
+      }
+      // the identifier names the constructed class, or the superclass for an anonymous class,
+      // and a qualifier determines its enclosing type
+      Type typeFromIdentifier =
+          typeOrNullIfRawNonArray(ASTHelpers.getType(newClassTree.getIdentifier()));
+      if (typeFromIdentifier != null) {
+        Type withQualifier =
+            withEnclosingTypeFromQualifier(
+                typeFromIdentifier, newClassTree, state, calledFromDataflow);
+        if (withQualifier != null) {
+          return withQualifier;
+        }
       }
       return typeOrNullIfRawNonArray(ASTHelpers.getType(tree));
     } else if (tree instanceof NewArrayTree
@@ -971,6 +985,17 @@ public final class GenericsChecks {
     return arrayType instanceof Type.ArrayType arrayTypeWithComponent
         ? arrayTypeWithComponent.getComponentType()
         : ASTHelpers.getType(arrayAccess); // diff-coverage: ignore -- the array has an array type
+  }
+
+  /**
+   * Returns whether {@code tree}, with parentheses stripped, is the qualifying enclosing-instance
+   * expression of {@code newClassTree}, such as {@code someExpr} in {@code someExpr.new Inner()}. A
+   * qualifier is a standalone expression, so the constructor call gives it no target type.
+   */
+  @SuppressWarnings("ReferenceEquality") // deliberate reference equality check
+  private static boolean isQualifierOf(NewClassTree newClassTree, Tree tree) {
+    ExpressionTree qualifier = newClassTree.getEnclosingExpression();
+    return qualifier != null && ASTHelpers.stripParentheses(qualifier) == tree;
   }
 
   /**
@@ -2591,13 +2616,14 @@ public final class GenericsChecks {
   }
 
   /**
-   * For a {@code NewClassTree} with a qualifying enclosing-instance expression, e.g. {@code
-   * (someExpr).new Inner<T>() { ... }}, replaces {@code type}'s enclosing type (which, coming from
-   * {@code baseType.getEnclosingType()} in {@link PreservedAnnotationTreeVisitor}, is just {@code
-   * Inner}'s statically-declared enclosing type, unrelated to the actual enclosing instance the
-   * qualifier expression evaluates to) with the properly-annotated, substituted type of the
-   * qualifier expression itself. If there is no qualifying expression, or we cannot determine its
-   * type, {@code type} is returned unchanged.
+   * Replaces the enclosing type of {@code type} with the type of the qualifying enclosing-instance
+   * expression of {@code newClassTree}, such as {@code someExpr} in {@code someExpr.new Inner()},
+   * viewed as the class that declares {@code Inner}.
+   *
+   * <p>The enclosing type of {@code type} does not carry the nullability of the qualifier's type
+   * arguments. For an identifier with explicit type arguments, {@link
+   * PreservedAnnotationTreeVisitor} takes it from {@code Inner}'s declaration. For any other
+   * identifier, javac attributes it from the qualifier without type-use annotations.
    *
    * @param type the type computed for the {@code NewClassTree}'s identifier, to be given the
    *     correct enclosing type
@@ -2605,24 +2631,36 @@ public final class GenericsChecks {
    *     expression
    * @param state the visitor state
    * @param calledFromDataflow true if the type is being computed as part of dataflow analysis
-   * @return {@code type} with its enclosing type corrected, or {@code type} unchanged if there is
-   *     no qualifying expression or its type could not be determined
+   * @return {@code type} with its enclosing type corrected, or {@code null} if there is no
+   *     qualifying expression or its type as the class declaring {@code Inner} could not be
+   *     determined
    */
   private @Nullable Type withEnclosingTypeFromQualifier(
       Type type, NewClassTree newClassTree, VisitorState state, boolean calledFromDataflow) {
     ExpressionTree enclosingExpr = newClassTree.getEnclosingExpression();
     if (enclosingExpr == null) {
-      return type;
+      return null;
     }
     TreePath pathToEnclosingExpr = new TreePath(state.getPath(), enclosingExpr);
     Type enclosingExprType =
         getTreeType(enclosingExpr, state.withPath(pathToEnclosingExpr), calledFromDataflow);
     if (enclosingExprType == null) {
-      return type;
+      return null;
     }
     Type.ClassType classType = (Type.ClassType) type;
+    // null when Inner is declared in an anonymous class, since getTreeType gives a qualified
+    // anonymous class instance the type of its superclass
+    Type enclosingType =
+        TypeSubstitutionUtils.asSuper(
+            state.getTypes(),
+            enclosingExprType,
+            castToNonNull(ASTHelpers.enclosingClass(classType.tsym)),
+            config);
+    if (enclosingType == null) {
+      return null;
+    }
     return TYPE_METADATA_BUILDER.createClassType(
-        classType, enclosingExprType, classType.getTypeArguments());
+        classType, enclosingType, classType.getTypeArguments());
   }
 
   /**
@@ -2846,7 +2884,8 @@ public final class GenericsChecks {
       }
     }
     // (Also 2c, but for constructors)
-    if (parent instanceof NewClassTree parentConstructorCall) {
+    if (parent instanceof NewClassTree parentConstructorCall
+        && !isQualifierOf(parentConstructorCall, expressionTree)) {
       Type parentClassType = getTreeType(parentConstructorCall, parentState, calledFromDataflow);
       if (parentClassType != null) {
         Symbol parentCtorSymbol = ASTHelpers.getSymbol(parentConstructorCall);
@@ -3806,7 +3845,8 @@ public final class GenericsChecks {
             call,
             targetTypeAndAssignmentKind.typeFromAssignmentContext(),
             targetTypeAndAssignmentKind.assignedToLocal());
-      } else if (exprParent instanceof NewClassTree parentConstructorCall) {
+      } else if (exprParent instanceof NewClassTree parentConstructorCall
+          && !isQualifierOf(parentConstructorCall, call)) {
         Type parentClassType;
         if (isCallNeedingInference(parentConstructorCall)) {
           CallAndContext parentContext =

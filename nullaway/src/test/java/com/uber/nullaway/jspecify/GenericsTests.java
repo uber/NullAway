@@ -1744,6 +1744,163 @@ public class GenericsTests extends NullAwayTestsBase {
   }
 
   @Test
+  public void innerClassConstructorParameterTakesTypeArgumentOfQualifier() {
+    makeHelper()
+        .addSourceLines(
+            "Test.java",
+            """
+            package com.uber;
+            import java.util.Collections;
+            import java.util.List;
+            import java.util.function.Consumer;
+            import org.jspecify.annotations.NonNull;
+            import org.jspecify.annotations.Nullable;
+            class Test<T extends @Nullable Object> {
+              static class Outer<O extends @Nullable Object> {
+                class Inner {
+                  Inner(O o) {}
+                }
+                class GInner<G extends @Nullable Object> {
+                  GInner(O o) {}
+                }
+                void implicitThisQualifier(O oValue) {
+                  new Inner(oValue);
+                }
+              }
+              static class NullableSub extends Outer<@Nullable String> {
+                void implicitThisQualifier() {
+                  new Inner(null);
+                }
+              }
+              static class NonNullSub extends Outer<String> {
+                void implicitThisQualifier() {
+                  // BUG: Diagnostic contains: passing @Nullable parameter 'null' where @NonNull is required
+                  new Inner(null);
+                }
+              }
+              static class SwappedSub<B extends @Nullable Object, A extends @Nullable Object>
+                  extends Outer<B> {}
+              void nullableSubclassQualifier(NullableSub s) {
+                s.new Inner(null);
+                s.new Inner(null) {};
+              }
+              void nonNullSubclassQualifier(NonNullSub s) {
+                // BUG: Diagnostic contains: passing @Nullable parameter 'null' where @NonNull is required
+                s.new Inner(null);
+                // BUG: Diagnostic contains: passing @Nullable parameter 'null' where @NonNull is required
+                s.new Inner(null) {};
+              }
+              void nullableGenericSubclassQualifier(SwappedSub<@Nullable String, String> s) {
+                s.new Inner(null);
+              }
+              void nonNullGenericSubclassQualifier(SwappedSub<String, @Nullable String> s) {
+                // BUG: Diagnostic contains: passing @Nullable parameter 'null' where @NonNull is required
+                s.new Inner(null);
+              }
+              <X extends Outer<@Nullable String>> void nullableBoundedTypeVariableQualifier(X x) {
+                x.new Inner(null);
+              }
+              <Y extends Outer<String>> void nonNullBoundedTypeVariableQualifier(Y y) {
+                // BUG: Diagnostic contains: passing @Nullable parameter 'null' where @NonNull is required
+                y.new Inner(null);
+              }
+              void nullableQualifier(Outer<@Nullable String> o) {
+                o.new Inner(null);
+              }
+              void nonNullQualifier(Outer<String> o) {
+                // BUG: Diagnostic contains: passing @Nullable parameter 'null' where @NonNull is required
+                o.new Inner(null);
+              }
+              void nullableQualifierAnonymous(Outer<@Nullable String> o) {
+                o.new Inner(null) {};
+              }
+              void nonNullQualifierAnonymous(Outer<String> o) {
+                // BUG: Diagnostic contains: passing @Nullable parameter 'null' where @NonNull is required
+                o.new Inner(null) {};
+              }
+              void nullableQualifierGenericInner(Outer<@Nullable String> o) {
+                o.new GInner<String>(null);
+              }
+              void nonNullQualifierGenericInner(Outer<String> o) {
+                // BUG: Diagnostic contains: passing @Nullable parameter 'null' where @NonNull is required
+                o.new GInner<String>(null);
+              }
+              void nonNullTypeVariableQualifier(Outer<@NonNull T> o, @Nullable T x) {
+                // BUG: Diagnostic contains: passing @Nullable parameter 'x' where @NonNull is required
+                o.new Inner(x);
+              }
+              void nonNullTypeVariableQualifierExplicitConstructorTypeArgs(
+                  Outer<@NonNull T> o, @Nullable T x) {
+                // BUG: Diagnostic contains: passing @Nullable parameter 'x' where @NonNull is required
+                o.new <String>GInner<String>(x);
+              }
+              void conditionalQualifier(boolean b, Outer<String> o1, Outer<String> o2) {
+                // BUG: Diagnostic contains: passing @Nullable parameter 'null' where @NonNull is required
+                (b ? o1 : o2).new Inner(null);
+              }
+              void diamondQualifier() {
+                // BUG: Diagnostic contains: passing @Nullable parameter 'null' where @NonNull is required
+                new Outer<>().new Inner(null);
+              }
+              static <U extends @Nullable Object> Outer<U> make() {
+                throw new RuntimeException();
+              }
+              void genericCallQualifier() {
+                Test.<@Nullable String>make().new Inner(null);
+                // BUG: Diagnostic contains: passing @Nullable parameter 'null' where @NonNull is required
+                Test.<String>make().new Inner(null);
+                // BUG: Diagnostic contains: passing @Nullable parameter 'null' where @NonNull is required
+                make().new Inner(null);
+              }
+              void lambdaParameterQualifier() {
+                Consumer<? super Outer<@Nullable String>> nullable = p -> p.new Inner(null);
+                // BUG: Diagnostic contains: passing @Nullable parameter 'null' where @NonNull is required
+                Consumer<? super Outer<String>> nonNull = p -> p.new Inner(null);
+              }
+              void anonymousClassQualifier(Outer<String> o) {
+                var a =
+                    o.new Inner("") {
+                      class Deep<D extends @Nullable Object> {
+                        Deep(String s) {}
+                        D get() {
+                          throw new RuntimeException();
+                        }
+                      }
+                    };
+                a.new Deep<String>("").get().hashCode();
+                // BUG: Diagnostic contains: dereferenced expression 'a.new Deep<@Nullable String>("").get()' is @Nullable
+                a.new Deep<@Nullable String>("").get().hashCode();
+                // BUG: Diagnostic contains: passing @Nullable parameter 'null' where @NonNull is required
+                a.new Deep<String>(null);
+              }
+              @SuppressWarnings("rawtypes")
+              void rawQualifier(Outer o) {
+                o.new Inner(null);
+                o.new Inner(null) {};
+              }
+              void nonNullWildcardQualifier(Outer<? extends String> o) {
+                // BUG: Diagnostic contains: passing @Nullable parameter 'null' where @NonNull is required
+                o.new Inner(null);
+              }
+              void inferredQualifierOfDiamondInner() {
+                // BUG: Diagnostic contains: passing @Nullable parameter 'null' where @NonNull is required
+                make().new GInner<>(null);
+                // BUG: Diagnostic contains: passing @Nullable parameter 'null' where @NonNull is required
+                new Outer<>().new GInner<>(null);
+              }
+              static class Box<B extends @Nullable Object> {
+                Box(B b) {}
+              }
+              void constructorArgumentKeepsTargetType(Outer<List<@Nullable String>> o) {
+                new Box<List<@Nullable String>>(Collections.emptyList());
+                o.new Inner(Collections.emptyList());
+              }
+            }
+            """)
+        .doTest();
+  }
+
+  @Test
   public void subclassEnclosingNullabilityWithWildcardHandlingDisabled() {
     checkSubclassEnclosingNullability(false);
   }

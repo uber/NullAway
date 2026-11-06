@@ -3278,8 +3278,7 @@ public class GenericMethodTests extends NullAwayTestsBase {
                 takeNonNullConsumer(Test::refNonNull);
               }
               void anonymousSubclass() {
-                // False negative: javac erases the enclosing type in the supertype of an anonymous
-                // class, so the @Nullable type argument of the outer instance does not reach T
+                // BUG: Diagnostic contains: dereferenced expression 'valueOf(new Outer<@Nullable String>().new Inner() {})' is @Nullable
                 valueOf(new Outer<@Nullable String>().new Inner() {}).hashCode();
                 valueOf(new Outer<String>().new Inner() {}).hashCode();
               }
