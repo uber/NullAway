@@ -3294,6 +3294,47 @@ public class GenericMethodTests extends NullAwayTestsBase {
         .doTest();
   }
 
+  /**
+   * Inference keeps only the top-level nullability of a type argument (issue #1585), so the
+   * qualifier's {@code @Nullable} type argument is lost from {@code X}, and the argument no longer
+   * matches the inferred parameter type.
+   */
+  @Test
+  public void qualifiedInnerCreationAsGenericArgumentLosesNestedNullness() {
+    makeHelper()
+        .addSourceLines(
+            "Test.java",
+            """
+            import org.jspecify.annotations.NullMarked;
+            import org.jspecify.annotations.Nullable;
+            @NullMarked
+            class Test {
+              static class Outer<O extends @Nullable Object> {
+                class Inner {
+                  Inner(O o) {}
+                }
+                class GInner<G extends @Nullable Object> {
+                  GInner(O o) {}
+                }
+              }
+              static <X extends @Nullable Object> X id(X x) {
+                return x;
+              }
+              void nullableQualifier(Outer<@Nullable String> o) {
+                // BUG: Diagnostic contains: incompatible types: Outer<@Nullable String>.Inner cannot be converted to Outer<String>.Inner
+                id(o.new Inner(""));
+                // BUG: Diagnostic contains: incompatible types
+                id(o.new GInner<String>(""));
+              }
+              void nonNullQualifier(Outer<String> o) {
+                id(o.new Inner(""));
+                id(o.new GInner<String>(""));
+              }
+            }
+            """)
+        .doTest();
+  }
+
   @Test
   public void anonymousInnerClassOfGenericOuterAsArgument() {
     makeHelper()
