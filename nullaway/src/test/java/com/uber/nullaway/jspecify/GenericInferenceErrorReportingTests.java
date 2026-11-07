@@ -16,6 +16,133 @@ import org.junit.Test;
  */
 public class GenericInferenceErrorReportingTests extends NullAwayTestsBase {
 
+  /** Inference must wait for later arguments' conditional return nullness before reporting. */
+  @Test
+  public void inferenceFailuresRequireCompletedArgumentDataflow() {
+    makeHelper()
+        .addSourceLines(
+            "Test.java",
+            """
+            package com.uber;
+            import java.util.Optional;
+            import java.util.function.Function;
+            import org.jspecify.annotations.NullMarked;
+            import org.jspecify.annotations.Nullable;
+            @NullMarked
+            class Test {
+              static <T> T id(T value) { return value; }
+              static <T> void sink(T first, T second) {}
+              static <T> T first(T first, T second) { return first; }
+              static <T extends @Nullable Object> T nullableId(T value) { return value; }
+              static <R> R apply(String value, Function<String, R> function) {
+                return function.apply(value);
+              }
+
+              String initialized = first(id("first"), Optional.<String>empty().orElse("fallback"));
+
+              void nonNullFallback(String first, String fallback, Optional<String> optional) {
+                sink(id(first), optional.orElse(fallback));
+              }
+              void nonNullFallbackFirst(String first, String fallback, Optional<String> optional) {
+                sink(optional.orElse(fallback), id(first));
+              }
+              void nullableFallback(String first, @Nullable String fallback, Optional<String> optional) {
+                // BUG: Diagnostic contains: inference failure
+                sink(id(first), optional.orElse(fallback));
+              }
+              void nullableFallbackFirst(String first, @Nullable String fallback, Optional<String> optional) {
+                // BUG: Diagnostic contains: inference failure
+                sink(optional.orElse(fallback), id(first));
+              }
+              void nullFallback(String first, Optional<String> optional) {
+                // BUG: Diagnostic contains: inference failure
+                sink(id(first), optional.orElse(null));
+              }
+              void plainFirstArgument(String first, String fallback, Optional<String> optional) {
+                sink(first, optional.orElse(fallback));
+              }
+              void fallbackSupplier(String first, String fallback, Optional<String> optional) {
+                sink(id(first), optional.orElseGet(() -> fallback));
+              }
+              void localFallback(String first, String fallback, Optional<String> optional) {
+                String result = optional.orElse(fallback);
+                sink(id(first), result);
+              }
+              void mappedOptional(String first, String fallback, Optional<String> optional) {
+                sink(id(first), optional.map(value -> value).orElse(fallback));
+              }
+              void propertyFallback(String key, String fallback) {
+                sink(id(key), System.getProperty(key, fallback));
+              }
+              void propertyFallbackFirst(String key, String fallback) {
+                sink(System.getProperty(key, fallback), id(key));
+              }
+              void nullablePropertyFallback(String key, @Nullable String fallback) {
+                // BUG: Diagnostic contains: inference failure
+                sink(id(key), System.getProperty(key, fallback));
+              }
+              void nullableGenericResult(String first, @Nullable String second) {
+                // BUG: Diagnostic contains: inference failure
+                sink(id(first), nullableId(second));
+              }
+              String lambdaResult(String value, String fallback, Optional<String> optional) {
+                return apply(value, parameter -> first(id(parameter), optional.orElse(fallback)));
+              }
+              String nullableLambdaResult(String value, @Nullable String fallback, Optional<String> optional) {
+                // BUG: Diagnostic contains: inference failure
+                return apply(value, parameter -> first(id(parameter), optional.orElse(fallback)));
+              }
+
+              interface Visitor<R extends @Nullable Object> { R visit(Node node); }
+              interface Node { <R extends @Nullable Object> R accept(Visitor<R> visitor); }
+              static class NullableVoidVisitor implements Visitor<@Nullable Void> {
+                public Void visit(Node node) {
+                  // Ordinary return checking skips Void; dataflow must still report this.
+                  // BUG: Diagnostic contains: inference failure
+                  return node.accept(this);
+                }
+              }
+            }
+            """)
+        .doTest();
+  }
+
+  /** Repeated inference must report a true failure only once in its source file. */
+  @Test
+  public void nestedGenericInferenceFailureReportedOnceInCorrectFile() {
+    JavaFileObject callerSource =
+        FileObjects.forSourceLines(
+            "Caller.java",
+            """
+            package com.uber;
+            import java.util.Optional;
+            import org.jspecify.annotations.NullMarked;
+            import org.jspecify.annotations.Nullable;
+            @NullMarked
+            class Caller {
+              static <T> T id(T value) { return value; }
+              static <T> void sink(T first, T second) {}
+              void nonNullFallback(String first, String fallback, Optional<String> optional) {
+                sink(id(first), optional.orElse(fallback));
+              }
+              void nullableFallback(String first, @Nullable String fallback, Optional<String> optional) {
+                sink(id(first), optional.orElse(fallback));
+              }
+            }
+            """);
+    assertThat(
+            compileAndReportDiagnostics(
+                    List.of(
+                        FileObjects.forSourceLines("Unrelated.java", PADDED_FIRST_COMPILATION_UNIT),
+                        callerSource))
+                .stream()
+                .filter(diagnostic -> diagnostic.contains("inference failure:"))
+                .toList())
+        .containsExactly(
+            "Caller.java:13: [NullAway] inference failure: type variable T is constrained to be @Nullable, "
+                + "but its upper bound requires it to be @NonNull");
+  }
+
   /**
    * Tests that the error message we get at a call to Arrays.copyOf does not erroneously suggest we
    * are trying to infer the nullability of a type variable from the caller method

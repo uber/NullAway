@@ -3696,6 +3696,10 @@ public final class GenericsChecks {
    * {@link TreePath} to the inner call, we want to return the outer call, since its assignment
    * context is required for inference.
    *
+   * <p>During dataflow, infer a nested call independently of an enclosing generic call: later
+   * arguments of that enclosing call may not have dataflow values yet. Direct assignment and return
+   * contexts are still used.
+   *
    * @param path the path to the invocation
    * @param state the visitor state
    * @param calledFromDataflow true if this inference is being done as part of dataflow analysis
@@ -3714,6 +3718,11 @@ public final class GenericsChecks {
     if (parent instanceof ExpressionTree parentCall
         && (parentCall instanceof MethodInvocationTree || parentCall instanceof NewClassTree)
         && isCallNeedingInference(parentCall)) {
+      if (calledFromDataflow) {
+        // Dataflow evaluates arguments before their enclosing call. Inferring that call here
+        // would inspect later arguments before their dataflow values are available (#2126).
+        return new CallAndContext((ExpressionTree) path.getLeaf(), null, false);
+      }
       // This is a nested generic call, such as id(id(x)) or id(new Box<>(x)). Find the
       // outermost call requiring inference because its assignment context is the relevant one.
       return getCallAndContextForInference(
