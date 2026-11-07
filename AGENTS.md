@@ -46,6 +46,25 @@ Our `CHANGELOG.md` file should be formatted as follows:
 * Don't credit `@msridhar` in changelog entries, but credit all other contributors
 * Under maintenance, list sub-bullets with a `-` rather than a `*`
 
+# Performance
+
+NullAway must not repeat work on the same input once per lookup, nesting level, or link of a chain when its cost grows
+with the code it checks or the types that code uses, such as a method's dataflow, an inference over a call chain, or a
+walk of a bound graph (#1327, #1896, #2093 still open); compute it once and pass it down, or cache it.
+`DataFlow.CfgParams` keys a dataflow run on the path to the code being analyzed: by leaf for constructors, initializer
+blocks, and field initializers (#2079), and by `TreePath` identity for other methods, lambdas, and anonymous-class
+methods (on purpose for lambdas, see its Javadoc). So a new `TreePath` whose leaf is such a method or lambda reruns it,
+even when appended to the scanner's path, and so does a path rebuilt with `TreePath.getPath(CompilationUnitTree, Tree)`.
+A path to an expression reuses the run keyed on the path `NullabilityUtil.findEnclosingMethodOrLambdaOrInitializer`
+returns for it, so it reruns only when that path is a new key. Some existing sites need the rerun and some do not;
+#2137 lists those measured so far. Flag a diff that adds a rerun on the same input or reaches a redundant site more
+often. Bounds can form cycles (`S extends Settings<? extends S>`, #1760), and inference can return to a `var`
+initializer from a later use of the local (#2090), so recursion along bounds or through inference stops at, or cannot
+reach, a question already in progress. A fix for repeated work gets a test that fails without it: a timeout for
+exponential growth, a count of the repeated work otherwise; a fix for a cycle gets a test that overflows the stack
+without it. A new cache or cycle guard also needs a test that shows it hits, because javac and capture conversion create
+new `Type` objects for the same type and `TreePath` has no `equals`.
+
 # Coding style
 
 Do not add top-level `@Nullable` annotations on local variables.  NullAway infers the nullability of local variables and
