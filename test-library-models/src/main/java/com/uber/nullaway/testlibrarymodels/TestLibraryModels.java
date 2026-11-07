@@ -92,6 +92,10 @@ public class TestLibraryModels implements LibraryModels {
                     "com.uber.lib.unannotated.UnannotatedWithModels",
                     "isNonNull(java.lang.Object)"),
                 0,
+                methodRef(
+                    "com.uber.lib.unannotated.UnannotatedWithModels",
+                    "returnsListWithModeledParameter(java.lang.Object)"),
+                0,
                 methodRef("com.uber.lib.unannotated.Box", "orElse(T)"),
                 0))
         .put(polyNullOverrideMethod("NullableOverride", "top"), 0)
@@ -627,6 +631,22 @@ public class TestLibraryModels implements LibraryModels {
                 "com.uber.lib.unannotated.NestedAnnots", "<T>genericMethod(java.lang.Class<T>)"),
             ImmutableSetMultimap.of(
                 0,
+                new NestedAnnotationInfo(
+                    Annotation.NONNULL, ImmutableList.of(new TypePathEntry(TYPE_ARGUMENT, 0)))))
+        .put(
+            methodRef(
+                "com.uber.lib.unannotated.UnannotatedWithModels",
+                "returnsListWithNullableElements()"),
+            ImmutableSetMultimap.of(
+                -1,
+                new NestedAnnotationInfo(
+                    Annotation.NULLABLE, ImmutableList.of(new TypePathEntry(TYPE_ARGUMENT, 0)))))
+        .put(
+            methodRef(
+                "com.uber.lib.unannotated.UnannotatedWithModels",
+                "returnsListWithNonNullElements()"),
+            ImmutableSetMultimap.of(
+                -1,
                 new NestedAnnotationInfo(
                     Annotation.NONNULL, ImmutableList.of(new TypePathEntry(TYPE_ARGUMENT, 0)))))
         .put(
