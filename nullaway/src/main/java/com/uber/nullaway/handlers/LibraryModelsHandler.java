@@ -1001,9 +1001,6 @@ public class LibraryModelsHandler implements Handler {
                     "com.google.common.util.concurrent.SettableFuture",
                     "setException(java.lang.Throwable)"),
                 0)
-            .put(methodRef("com.google.common.base.Function", "apply(F)"), 0)
-            .put(methodRef("com.google.common.base.Predicate", "apply(T)"), 0)
-            .put(methodRef("com.google.common.util.concurrent.AsyncFunction", "apply(I)"), 0)
             .put(methodRef("java.io.File", "File(java.lang.String)"), 0)
             .put(methodRef("java.lang.Class", "getResource(java.lang.String)"), 0)
             .put(methodRef("java.lang.Class", "isAssignableFrom(java.lang.Class<?>)"), 0)
@@ -1201,12 +1198,40 @@ public class LibraryModelsHandler implements Handler {
     private static final ImmutableSet<MethodRef> NULLABLE_RETURNS_JSPECIFY_MODE_DISABLED =
         ImmutableSet.of(methodRef("java.util.concurrent.atomic.AtomicReference", "get()"));
 
+    /**
+     * Parameters of Guava functional interfaces that NullAway models as non-null outside JSpecify
+     * mode. Guava marks them {@code @ParametricNullness}, which NullAway reads as {@code @Nullable}
+     * outside JSpecify mode. In JSpecify mode NullAway ignores {@code @ParametricNullness}, and the
+     * type arguments decide the nullness of these parameters.
+     */
+    private static final ImmutableSetMultimap<MethodRef, Integer>
+        NON_NULL_PARAMETERS_JSPECIFY_MODE_DISABLED =
+            new ImmutableSetMultimap.Builder<MethodRef, Integer>()
+                .put(methodRef("com.google.common.base.Function", "apply(F)"), 0)
+                .put(methodRef("com.google.common.base.Predicate", "apply(T)"), 0)
+                .put(methodRef("com.google.common.util.concurrent.AsyncFunction", "apply(I)"), 0)
+                .putAll(
+                    methodRef(
+                        "com.google.common.collect.Maps.EntryTransformer", "transformEntry(K,V1)"),
+                    0,
+                    1)
+                .build();
+
+    /**
+     * Returns of the methods in {@link #NON_NULL_PARAMETERS_JSPECIFY_MODE_DISABLED}, which NullAway
+     * models as non-null outside JSpecify mode. In JSpecify mode the type arguments decide the
+     * nullness of these returns.
+     */
+    private static final ImmutableSet<MethodRef> NONNULL_RETURNS_JSPECIFY_MODE_DISABLED =
+        ImmutableSet.of(
+            methodRef("com.google.common.base.Function", "apply(F)"),
+            methodRef("com.google.common.base.Predicate", "apply(T)"),
+            methodRef("com.google.common.util.concurrent.AsyncFunction", "apply(I)"),
+            methodRef("com.google.common.collect.Maps.EntryTransformer", "transformEntry(K,V1)"));
+
     private static final ImmutableSet<MethodRef> NONNULL_RETURNS =
         new ImmutableSet.Builder<MethodRef>()
             .add(methodRef("com.google.gson", "<T>fromJson(String,Class)"))
-            .add(methodRef("com.google.common.base.Function", "apply(F)"))
-            .add(methodRef("com.google.common.base.Predicate", "apply(T)"))
-            .add(methodRef("com.google.common.util.concurrent.AsyncFunction", "apply(I)"))
             .add(methodRef("android.app.Activity", "<T>findViewById(int)"))
             .add(methodRef("android.view.View", "<T>findViewById(int)"))
             .add(methodRef("android.view.View", "getResources()"))
@@ -1342,6 +1367,12 @@ public class LibraryModelsHandler implements Handler {
      */
     private final ImmutableSet<MethodRef> nullableReturnsForConfig;
 
+    /** Methods with non-null parameters for the current configuration. */
+    private final ImmutableSetMultimap<MethodRef, Integer> nonNullParametersForConfig;
+
+    /** Methods with non-null returns for the current configuration. */
+    private final ImmutableSet<MethodRef> nonNullReturnsForConfig;
+
     /** Built-in PolyNull models, enabled only with JSpecify JDK models. */
     private final ImmutableSetMultimap<MethodRef, PolyNullLocation> polyNullLocationsForConfig;
 
@@ -1352,6 +1383,21 @@ public class LibraryModelsHandler implements Handler {
         builder.addAll(NULLABLE_RETURNS_JSPECIFY_MODE_DISABLED);
       }
       nullableReturnsForConfig = builder.build();
+      if (config.isJSpecifyMode()) {
+        nonNullParametersForConfig = NON_NULL_PARAMETERS;
+        nonNullReturnsForConfig = NONNULL_RETURNS;
+      } else {
+        nonNullParametersForConfig =
+            ImmutableSetMultimap.<MethodRef, Integer>builder()
+                .putAll(NON_NULL_PARAMETERS)
+                .putAll(NON_NULL_PARAMETERS_JSPECIFY_MODE_DISABLED)
+                .build();
+        nonNullReturnsForConfig =
+            ImmutableSet.<MethodRef>builder()
+                .addAll(NONNULL_RETURNS)
+                .addAll(NONNULL_RETURNS_JSPECIFY_MODE_DISABLED)
+                .build();
+      }
       polyNullLocationsForConfig =
           config.isJSpecifyJDKModels() ? POLY_NULL_LOCATIONS : ImmutableSetMultimap.of();
     }
@@ -1368,7 +1414,7 @@ public class LibraryModelsHandler implements Handler {
 
     @Override
     public ImmutableSetMultimap<MethodRef, Integer> nonNullParameters() {
-      return NON_NULL_PARAMETERS;
+      return nonNullParametersForConfig;
     }
 
     @Override
@@ -1398,7 +1444,7 @@ public class LibraryModelsHandler implements Handler {
 
     @Override
     public ImmutableSet<MethodRef> nonNullReturns() {
-      return NONNULL_RETURNS;
+      return nonNullReturnsForConfig;
     }
 
     @Override
