@@ -54,21 +54,27 @@ public enum Nullness implements AbstractValue<Nullness> {
   NULLABLE("Nullable"),
   NULL("Null"),
   /**
-   * A value read through a type variable {@code T} with a nullable upper bound, such as the result
-   * of {@code Box<? extends T>.get()} or an enhanced-for element of type {@code T}, which is null
-   * only when {@code T} is instantiated with a nullable type argument. This is the JSpecify {@code
-   * NO_CHANGE} nullness operator applied to {@code T}. NullAway computes it only with {@code
-   * HandleWildcardGenerics} on; with that option off, such a value is {@link #NONNULL}. A read of a
-   * parameter of type {@code T} is {@link #NONNULL}, not {@code NO_CHANGE}.
+   * The JSpecify {@code NO_CHANGE} nullness operator applied to a type variable {@code T} with a
+   * nullable upper bound: the value is null only where {@code T} is instantiated with a nullable
+   * type argument. NullAway gives this nullness to a value read through a wildcard or capture
+   * bounded by {@code T}, such as the result of {@code Box<? extends T>.get()}, and to an
+   * enhanced-for element of type {@code T}. It follows the chain of bounds, so for {@code <T
+   * extends @Nullable Object, U extends T>} a read through {@code Box<? extends U>} is {@code
+   * NO_CHANGE}. Where every bound on the chain is non-null, every instantiation of {@code T}
+   * excludes null, so the value is {@link #NONNULL}. Any other value of type {@code T}, such as a
+   * parameter, a field, or the result of {@code List<T>.get()}, is {@link #NONNULL}, so its
+   * dereference is not reported (issue #1727).
    *
-   * <p>Such a value is treated as nullable, except where {@link
-   * com.uber.nullaway.generics.GenericsChecks#acceptsNoChangeValue} accepts it: there a location of
-   * type {@code T} receives it, it initializes a field, and generic method inference takes {@code
-   * T} from it. A {@code NO_CHANGE} fact holds relative to the static type of the variable or
-   * expression that holds the value: where the value moves to a holder that rule rejects, it
-   * becomes {@link #withoutNoChange()}. As the nullness of a parameter in the {@link
-   * MethodParameterNullness} built for a call of an annotated method or constructor, it marks a
-   * parameter that accepts such an argument.
+   * <p>A dereference of the value is reported, since the value is not null-exclusive under every
+   * parameterization. An assignment, an argument, a return, or an array store accepts the value
+   * where nullness subtyping holds: where the target's type is {@code T}, or a capture of {@code ?
+   * super T}, without {@code @NonNull}, as {@link
+   * com.uber.nullaway.generics.GenericsChecks#acceptsNoChangeValue} decides. At any other target
+   * the value is {@link #NULLABLE}, as it is in a holder of another type that dataflow moves it to.
+   * Generic method inference takes no nullness constraint from the value and infers {@code T}.
+   *
+   * <p>NullAway computes this nullness only with {@code HandleWildcardGenerics} on; with that
+   * option off, such a value is {@link #NONNULL}.
    *
    * @see <a href="https://jspecify.dev/docs/spec/#nullness-operator">JSpecify: nullness
    *     operator</a>
@@ -76,9 +82,9 @@ public enum Nullness implements AbstractValue<Nullness> {
   NO_CHANGE("No-change"),
   /**
    * A {@link #NO_CHANGE} value that dataflow has found equal to null, such as inside {@code if
-   * (value == null)}. A location of its type variable accepts it, as it accepts a {@code NO_CHANGE}
-   * value, and everywhere else it is {@link #NULL}: a dereference is reported, and generic method
-   * inference takes {@code @Nullable T} from it. Where it moves to a holder that {@link
+   * (value == null)}. A target that accepts a {@code NO_CHANGE} value accepts it too, and
+   * everywhere else it is {@link #NULL}: a dereference is reported, and generic method inference
+   * takes a nullable {@code T} from it. Where it moves to a holder that {@link
    * com.uber.nullaway.generics.GenericsChecks#acceptsNoChangeValue} rejects, it becomes {@link
    * #NULL}.
    */
@@ -176,8 +182,8 @@ public enum Nullness implements AbstractValue<Nullness> {
   }
 
   /**
-   * Returns whether a location of the value's type variable accepts this value although it may be
-   * null: true for {@link #NO_CHANGE} and {@link #NULL_NO_CHANGE}.
+   * Returns whether this value is {@link #NO_CHANGE} or {@link #NULL_NO_CHANGE}, which a target
+   * accepts where {@link com.uber.nullaway.generics.GenericsChecks#acceptsNoChangeValue} does.
    */
   public boolean isNoChange() {
     return this == NO_CHANGE || this == NULL_NO_CHANGE;

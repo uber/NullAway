@@ -10,7 +10,9 @@ import static com.uber.nullaway.Nullness.NULL_NO_CHANGE;
 
 import com.google.common.collect.ImmutableMap;
 import com.google.common.truth.Expect;
+import java.util.ArrayList;
 import java.util.EnumSet;
+import java.util.List;
 import java.util.Set;
 import org.junit.Rule;
 import org.junit.Test;
@@ -96,9 +98,46 @@ public class NullnessTest {
   }
 
   @Test
-  public void joinAndMeetTableListsEveryPairOfDistinctValues() {
-    int valueCount = Nullness.values().length;
-    assertThat(JOIN_AND_MEET.length).isEqualTo(valueCount * (valueCount - 1) / 2);
+  public void joinAndMeetTableListsEveryPairOfDistinctValuesOnce() {
+    List<Set<Nullness>> listed = new ArrayList<>();
+    for (Nullness[] row : JOIN_AND_MEET) {
+      listed.add(EnumSet.of(row[0], row[1]));
+    }
+    List<Set<Nullness>> distinctPairs = new ArrayList<>();
+    Nullness[] values = Nullness.values();
+    for (int i = 0; i < values.length; i++) {
+      for (int j = i + 1; j < values.length; j++) {
+        distinctPairs.add(EnumSet.of(values[i], values[j]));
+      }
+    }
+    assertThat(listed).containsExactlyElementsIn(distinctPairs);
+  }
+
+  @Test
+  public void joinAndMeetOfAValueWithItselfIsThatValue() {
+    for (Nullness a : Nullness.values()) {
+      expect.withMessage("%s.leastUpperBound(%s)", a, a).that(a.leastUpperBound(a)).isEqualTo(a);
+      expect
+          .withMessage("%s.greatestLowerBound(%s)", a, a)
+          .that(a.greatestLowerBound(a))
+          .isEqualTo(a);
+    }
+  }
+
+  @Test
+  public void joinAndMeetAbsorbEachOther() {
+    for (Nullness a : Nullness.values()) {
+      for (Nullness b : Nullness.values()) {
+        expect
+            .withMessage("%s.leastUpperBound(%s.greatestLowerBound(%s))", a, a, b)
+            .that(a.leastUpperBound(a.greatestLowerBound(b)))
+            .isEqualTo(a);
+        expect
+            .withMessage("%s.greatestLowerBound(%s.leastUpperBound(%s))", a, a, b)
+            .that(a.greatestLowerBound(a.leastUpperBound(b)))
+            .isEqualTo(a);
+      }
+    }
   }
 
   @Test
