@@ -75,6 +75,9 @@ asm-tree = { module = "org.ow2.asm:asm-tree", version.ref = "asm" }
 error-prone-check-api = { module = "com.google.errorprone:error_prone_check_api", version.ref = "errorProne" }
 error-prone-core = { module = "com.google.errorprone:error_prone_core", version.ref = "errorProne" }
 error-prone-test-helpers = { module = "com.google.errorprone:error_prone_test_helpers", version.ref = "errorProne" }
+error-prone-check-api-oldest = { module = "com.google.errorprone:error_prone_check_api", version.ref = "errorProneOldest" }
+error-prone-core-oldest = { module = "com.google.errorprone:error_prone_core", version.ref = "errorProneOldest" }
+error-prone-core-jdk17 = { module = "com.google.errorprone:error_prone_core", version.ref = "errorProneJdk17" }
 
 # Dataflow & Utils
 checker-dataflow = { module = "org.checkerframework:dataflow-nullaway", version.ref = "checker-framework" }

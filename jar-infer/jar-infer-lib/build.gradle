@@ -24,13 +24,19 @@ repositories {
     //maven { url "https://raw.github.com/msridhar/maven-jars/mvn-repo/" }
 }
 
+configurations {
+    compileClasspath {
+        extendsFrom oldestErrorProne
+    }
+}
+
 dependencies {
     api libs.asm
     api libs.asm.tree
     api libs.bundles.wala
     api libs.guava
     api libs.commons.io
-    compileOnly libs.error.prone.check.api
+    compileOnly libs.error.prone.check.api.oldest
     implementation project(":library-model:library-model-generator")
 
     testImplementation libs.junit4

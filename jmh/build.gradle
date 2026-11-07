@@ -37,8 +37,7 @@ dependencies {
     // can still be loaded via the processor path, but it gets reloaded on each run of compilation, skewing
     // performance measurements
     implementation project(':nullaway')
-    // use the same version of Error Prone Core that we are compiling NullAway against, so we can
-    // benchmark against different versions of Error Prone
+    // benchmark against the Error Prone release the test task runs on; change this line to benchmark another one
     implementation libs.error.prone.core
     api libs.jspecify
 
