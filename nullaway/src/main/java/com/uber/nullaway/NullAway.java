@@ -289,6 +289,15 @@ public class NullAway extends BugChecker
       new LinkedHashMap<>();
 
   /**
+   * Fields of the receiver that each safe-init method leaves non-null at its exit, keyed by the
+   * method. The set depends only on the method's body, so it is computed once however many
+   * constructors call the method and however many field reads are checked against it. Cleared in
+   * {@link #matchCompilationUnit(CompilationUnitTree, VisitorState)}.
+   */
+  private final Map<Element, ImmutableSet<Element>> safeInitMethodToNonnullFieldsAtExit =
+      new LinkedHashMap<>();
+
+  /**
    * dynamically computer/overridden nullness facts for certain expressions, such as specific method
    * calls where we can infer a more precise set of facts than those given by the method's
    * annotations.
@@ -2148,6 +2157,7 @@ public class NullAway extends BugChecker
     initTree2PrevFieldInit.clear();
     class2Entities.clear();
     class2ConstructorUninit.clear();
+    safeInitMethodToNonnullFieldsAtExit.clear();
     computedNullnessMap.clear();
     genericsChecks.clearCache();
     EnclosingEnvironmentNullness.instance(stateForNewCompilationUnit.context).clear();
@@ -2874,10 +2884,16 @@ public class NullAway extends BugChecker
       AccessPathNullnessAnalysis nullnessAnalysis,
       ImmutableSet.Builder<Element> guaranteedNonNullBuilder) {
     for (Element invoked : safeInitMethods) {
-      Tree invokedTree = trees.getTree(invoked);
-      guaranteedNonNullBuilder.addAll(
-          nullnessAnalysis.getNonnullFieldsOfReceiverAtExit(
-              new TreePath(state.getPath(), invokedTree), state.context));
+      ImmutableSet<Element> nonnullAtExit = safeInitMethodToNonnullFieldsAtExit.get(invoked);
+      if (nonnullAtExit == null) {
+        Tree invokedTree = trees.getTree(invoked);
+        nonnullAtExit =
+            ImmutableSet.copyOf(
+                nullnessAnalysis.getNonnullFieldsOfReceiverAtExit(
+                    new TreePath(state.getPath(), invokedTree), state.context));
+        safeInitMethodToNonnullFieldsAtExit.put(invoked, nonnullAtExit);
+      }
+      guaranteedNonNullBuilder.addAll(nonnullAtExit);
     }
   }
 
