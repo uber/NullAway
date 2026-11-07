@@ -1276,7 +1276,10 @@ public final class GenericsChecks {
    * @param state visitor state whose path points to {@code expression}
    * @param calledFromDataflow whether this method was called as part of dataflow analysis
    * @return the element nullness, or {@link Nullness#NONNULL} if the element type cannot be
-   *     resolved
+   *     resolved; when {@code HandleWildcardGenerics} is on, {@link Nullness#NO_CHANGE} for an
+   *     element whose type is a type variable with a nullable upper bound or is bounded by one, and
+   *     when it is off, {@link Nullness#NONNULL} for such an element, like any other value whose
+   *     type is a type variable
    */
   public Nullness getEnhancedForLoopElementNullness(
       ExpressionTree expression, VisitorState state, boolean calledFromDataflow) {
@@ -1302,7 +1305,7 @@ public final class GenericsChecks {
    * @return the element type for the loop variable of the enhanced-for, or {@code null} if it can't
    *     be found
    */
-  private @Nullable Type getEnhancedForLoopElementType(
+  public @Nullable Type getEnhancedForLoopElementType(
       ExpressionTree expression, VisitorState state, boolean calledFromDataflow) {
     Type expressionType = getTreeType(expression, state, calledFromDataflow);
     if (expressionType instanceof Type.ArrayType arrayType) {
@@ -2437,7 +2440,11 @@ public final class GenericsChecks {
   }
 
   /**
-   * Returns {@code type} with its top-level nullness updated to {@code nullness}.
+   * Returns {@code type} with its top-level nullness updated to {@code nullness}. A {@link
+   * Nullness#NO_CHANGE} value has the nullness of its type, which is a type variable or capture as
+   * {@link #acceptsNoChangeValue} requires, so a top-level {@code @Nullable} is removed from it as
+   * from a non-null value. A {@link Nullness#NULL_NO_CHANGE} value is null, and the type becomes
+   * {@code @Nullable}.
    *
    * @param state the current visitor state
    * @param type the type to update
@@ -2445,14 +2452,15 @@ public final class GenericsChecks {
    * @return the updated type
    */
   Type updateTypeWithNullness(VisitorState state, Type type, Nullness nullness) {
-    if (NullabilityUtil.nullnessToBool(nullness)) {
+    if (NullabilityUtil.nullnessToBool(nullness) && nullness != Nullness.NO_CHANGE) {
       // refine to @Nullable
       if (isNullableAnnotated(type)) {
         return type;
       }
       return TypeSubstitutionUtils.typeWithAnnot(type, getSyntheticNullableAnnotType(state));
     } else {
-      // refine to @NonNull, by removing the top-level @Nullable annotation if present.
+      // refine to @NonNull, or to the type variable itself for NO_CHANGE, by removing the top-level
+      // @Nullable annotation if present.
       if (!isNullableAnnotated(type)) {
         return type;
       }
@@ -3399,39 +3407,39 @@ public final class GenericsChecks {
   }
 
   /**
-   * Returns the type of the implicit receiver of a call of {@code method} at {@code path}. For a
-   * method, this is the innermost enclosing class that has the method as a member, as javac
-   * resolves the call, so a private method binds to the class that declares it rather than to an
-   * anonymous subclass. Where that class is an anonymous class that does not declare the method,
-   * this is its supertype as the class instance creation writes it, so the annotations on its type
-   * arguments are kept. For a {@code super(...)} or {@code this(...)} constructor call, this is the
-   * innermost enclosing class.
+   * Returns the type of the implicit receiver of {@code member}, a method or field named by its
+   * simple name at {@code path}. For a method or field, this is the innermost enclosing class that
+   * has it as a member, as javac resolves the name, so a private member binds to the class that
+   * declares it rather than to an anonymous subclass. Where that class is an anonymous class that
+   * does not declare the member, this is its supertype as the class instance creation writes it, so
+   * the annotations on its type arguments are kept. For a {@code super(...)} or {@code this(...)}
+   * constructor call, this is the innermost enclosing class.
    *
-   * @param method the invoked method or constructor
-   * @param path the path to the call
+   * @param member the invoked method or constructor, or the field
+   * @param path the path to the call or the field name
    * @param state the visitor state
    * @param calledFromDataflow whether this method is being called from dataflow analysis
    * @return the receiver type, or {@code null} outside a class or where the type of the anonymous
    *     class's instance creation cannot be computed
    */
   private @Nullable Type getImplicitReceiverType(
-      Symbol.MethodSymbol method, TreePath path, VisitorState state, boolean calledFromDataflow) {
-    Symbol.ClassSymbol owner = method.enclClass();
+      Symbol member, TreePath path, VisitorState state, boolean calledFromDataflow) {
+    Symbol.ClassSymbol owner = member.enclClass();
     Type innermostType = null;
-    // JLS 15.12.1: an unqualified call names a member of an enclosing class, so the loop returns
-    // before it runs out of classes
+    // JLS 15.12.1 and 6.5.6.1: an unqualified call or field name names a member of an enclosing
+    // class, so the loop returns before it runs out of classes
     TreePath p = path;
-    while (p != null) { // diff-coverage: ignore -- JLS 15.12.1
+    while (p != null) { // diff-coverage: ignore -- JLS 15.12.1, 6.5.6.1
       if (p.getLeaf() instanceof ClassTree classTree) {
         Symbol.ClassSymbol classSymbol = ASTHelpers.getSymbol(classTree);
         Type classType = castToNonNull(ASTHelpers.getType(classTree));
         if (innermostType == null) {
           innermostType = classType;
-          if (method.isConstructor()) {
+          if (member.isConstructor()) {
             return innermostType;
           }
         }
-        if (method.isMemberOf(classSymbol, state.getTypes())) {
+        if (member.isMemberOf(classSymbol, state.getTypes())) {
           if (classSymbol.isAnonymous() && !owner.equals(classSymbol)) {
             return getTypeForSymbol(classSymbol, state.withPath(p), calledFromDataflow);
           }
@@ -3440,7 +3448,7 @@ public final class GenericsChecks {
       }
       p = p.getParentPath();
     }
-    return innermostType; // diff-coverage: ignore -- JLS 15.12.1
+    return innermostType; // diff-coverage: ignore -- JLS 15.12.1, 6.5.6.1
   }
 
   /**
@@ -3494,6 +3502,17 @@ public final class GenericsChecks {
     return symbol.type;
   }
 
+  /**
+   * Returns the nullness of the return type of {@code method} as a member of {@code enclosingType}.
+   *
+   * @param method the generic method
+   * @param enclosingType the type in which we want to know {@code method}'s return type
+   *     nullability, or {@code null} if it is unknown
+   * @param state visitor state
+   * @return {@link Nullness#NULLABLE} for a {@code @Nullable} return type, {@link
+   *     Nullness#NO_CHANGE} for a wildcard bounded by a type variable with a nullable upper bound,
+   *     and {@link Nullness#NONNULL} otherwise
+   */
   public Nullness getGenericMethodReturnTypeNullness(
       Symbol.MethodSymbol method, @Nullable Type enclosingType, VisitorState state) {
     if (enclosingType == null) {
@@ -3543,7 +3562,9 @@ public final class GenericsChecks {
    * @param state the visitor state
    * @param calledFromDataflow whether this method is being called from dataflow analysis
    * @return nullness of the resolved invocation return type, or {@code NONNULL} when neither
-   *     generic substitution nor a PolyNull model can affect it
+   *     generic substitution nor a PolyNull model can affect it; {@link Nullness#NO_CHANGE} for a
+   *     wildcard such as {@code ? extends T} whose bound is a type variable with a nullable upper
+   *     bound
    */
   public Nullness getGenericReturnNullnessAtInvocation(
       Symbol.MethodSymbol invokedMethodSymbol,
@@ -4531,7 +4552,8 @@ public final class GenericsChecks {
    *
    * @param type type from which a value is read
    * @param state visitor state
-   * @return nullness of a value read from {@code type}
+   * @return nullness of a value read from {@code type}; {@link Nullness#NO_CHANGE} for a wildcard
+   *     whose effective upper bound is a type variable with a nullable upper bound
    */
   private Nullness getTypeNullnessForRead(Type type, VisitorState state) {
     return getTypeNullnessForRead(
@@ -4553,9 +4575,9 @@ public final class GenericsChecks {
    */
   public static NullnessHint getTypeNullnessHint(
       Type type, VisitorState state, Config config, Handler handler) {
-    if (getTypeNullnessForRead(
+    if (!getTypeNullnessForRead(
             type, state, config, handler, /* followUnsubstitutedTypeVarUpperBound= */ false)
-        .equals(Nullness.NULLABLE)) {
+        .equals(Nullness.NONNULL)) {
       return NullnessHint.HINT_NULLABLE;
     }
     if (type instanceof Type.TypeVar typeVar
@@ -4576,7 +4598,10 @@ public final class GenericsChecks {
    * @param handler NullAway extension handler
    * @param followUnsubstitutedTypeVarUpperBound whether to use the upper bound when {@code type} is
    *     an unsubstituted type variable
-   * @return nullness of a value read from {@code type}
+   * @return nullness of a value read from {@code type}; with {@code HandleWildcardGenerics} on,
+   *     {@link Nullness#NO_CHANGE} when the value can be null only because a type variable reached
+   *     through the bounds has a nullable upper bound, and with it off, {@link Nullness#NONNULL}
+   *     for such a value
    */
   private static Nullness getTypeNullnessForRead(
       Type type,
@@ -4602,12 +4627,17 @@ public final class GenericsChecks {
           handler,
           /* followUnsubstitutedTypeVarUpperBound= */ true);
     }
-    if (followUnsubstitutedTypeVarUpperBound && type instanceof Type.TypeVar typeVar) {
-      Type upperBound = typeVar.getUpperBound();
-      if (upperBound != null) {
-        return getTypeNullnessForRead(
-            upperBound, state, config, handler, /* followUnsubstitutedTypeVarUpperBound= */ true);
-      }
+    if (config.handleWildcardGenerics()
+        && followUnsubstitutedTypeVarUpperBound
+        && type instanceof Type.TypeVar typeVar
+        && !getTypeNullnessForRead(
+                typeVar.getUpperBound(),
+                state,
+                config,
+                handler,
+                /* followUnsubstitutedTypeVarUpperBound= */ true)
+            .equals(Nullness.NONNULL)) {
+      return Nullness.NO_CHANGE;
     }
     return Nullness.NONNULL;
   }
@@ -4705,6 +4735,240 @@ public final class GenericsChecks {
 
   public boolean isNullableAnnotated(Type type) {
     return GenericsUtils.isAnnotatedAsNullable(type, config);
+  }
+
+  /**
+   * A location that receives a value: a field, an array element, a method's return, a parameter, a
+   * cast, or a local variable. {@link #acceptsNoChangeValue} decides from it whether the location
+   * accepts a value for which {@link Nullness#isNoChange()} holds.
+   *
+   * @param type the location's type, with the type-use annotations that its declaration writes and
+   *     that the type arguments of the supertypes it is inherited through supply; {@code null} if
+   *     it cannot be computed
+   * @param declaration the field, the method whose return receives the value, or the parameter
+   *     whose declaration annotations apply to the location; {@code null} for any other location
+   * @param excludesNull whether the location excludes null whatever its type, as a parameter does
+   *     where a handler, such as a library model, requires a non-null argument
+   */
+  public record ValueTarget(
+      @Nullable Type type, @Nullable Symbol declaration, boolean excludesNull) {
+
+    /** A location that excludes null whatever its type. */
+    public static final ValueTarget EXCLUDES_NULL = new ValueTarget(null, null, true);
+
+    /**
+     * Returns the location of type {@code type} whose declaration is {@code declaration}.
+     *
+     * @param type the location's type, or {@code null} if it cannot be computed
+     * @param declaration the declaration whose annotations apply to the location, or {@code null}
+     */
+    public static ValueTarget of(@Nullable Type type, @Nullable Symbol declaration) {
+      return new ValueTarget(type, declaration, false);
+    }
+
+    /**
+     * Returns the element of an array of type {@code arrayType}.
+     *
+     * @param arrayType the array's type, or {@code null} if it cannot be computed
+     */
+    public static ValueTarget arrayElement(@Nullable Type arrayType) {
+      return of(
+          arrayType instanceof Type.ArrayType array // diff-coverage: ignore -- an array has a type
+              ? array.getComponentType()
+              : null,
+          /* declaration= */ null);
+    }
+  }
+
+  /**
+   * Returns whether {@code target} accepts a value of type {@code valueType} for which {@link
+   * Nullness#isNoChange()} holds. Such a value is null only when a type variable {@code T} is
+   * instantiated with a nullable type argument. A location accepts it when its type is {@code T},
+   * or a capture of {@code ? super T}, that neither the type nor the location's declaration
+   * annotates {@code @NonNull}, and {@code valueType} is {@code T} or reaches {@code T} through
+   * upper bounds none of which is nullable. Then the location admits null whenever the value may be
+   * null. In {@code <U extends @Nullable T>}, the bound of {@code U} breaks the chain, since {@code
+   * U} may be nullable while {@code T} is not.
+   *
+   * <p>Every sink, and dataflow wherever a value moves to another holder, must apply this test to
+   * the {@link ValueTarget} of the receiving location, so that a {@code NO_CHANGE} fact always
+   * holds relative to the static type of its holder.
+   *
+   * @param valueType static type of the expression or variable that holds the value
+   * @param target the location receiving the value
+   * @param state visitor state
+   */
+  public boolean acceptsNoChangeValue(Type valueType, ValueTarget target, VisitorState state) {
+    Type targetType = target.type();
+    Symbol declaration = target.declaration();
+    // A capture of ? super T accepts every value of type T
+    Type typeVariable =
+        targetType instanceof Type.CapturedType capturedType
+            ? capturedType.getLowerBound()
+            : targetType;
+    if (target.excludesNull()
+        || !(typeVariable instanceof Type.TypeVar)
+        || GenericsUtils.isAnnotatedAsNonNull(typeVariable, config)
+        || (declaration != null && Nullness.hasNonNullAnnotation(declaration, config))) {
+      return false;
+    }
+    return reachesThroughNonNullableBounds(valueType, typeVariable, state);
+  }
+
+  /**
+   * Returns whether {@code type} is {@code typeVariable}, or a type variable or capture whose chain
+   * of upper bounds reaches {@code typeVariable} with no nullable bound along the way. A type
+   * variable's bound is nullable by the rule of {@link GenericsUtils#declaredUpperBoundIsNullable},
+   * and a capture's bound where it is annotated {@code @Nullable}.
+   */
+  private boolean reachesThroughNonNullableBounds(
+      Type type, Type typeVariable, VisitorState state) {
+    if (state.getTypes().isSameType(type, typeVariable)) {
+      return true;
+    }
+    if (!(type instanceof Type.TypeVar)) { // diff-coverage: ignore -- NO_CHANGE implies a TypeVar
+      return false; // diff-coverage: ignore -- dataflow keeps NO_CHANGE only in such a holder
+    }
+    Type upperBound = type.getUpperBound();
+    boolean nullableBound =
+        type instanceof Type.CapturedType
+            ? isNullableAnnotated(upperBound)
+            : GenericsUtils.declaredUpperBoundIsNullable(type.tsym, config, handler, state);
+    return !nullableBound && reachesThroughNonNullableBounds(upperBound, typeVariable, state);
+  }
+
+  /**
+   * Returns the type of the variable that {@code target} names, with the type-use annotations that
+   * its declaration writes and that the type arguments of the supertypes it is inherited through
+   * supply. An instance field has the type that {@link #getFieldTarget} computes for the type of
+   * its receiver, explicit or implicit; an array element is the component of its array's type; and
+   * a static field or any other variable is typed by {@link #getTreeType(Tree, VisitorState)}.
+   *
+   * @param target the left-hand side of an assignment, or an array expression inside it
+   * @param path the path to {@code target}
+   * @param state the visitor state
+   * @return the type, or {@code null} where it cannot be computed
+   */
+  public @Nullable Type getAssignedVariableType(
+      ExpressionTree target, TreePath path, VisitorState state) {
+    ExpressionTree variable = ASTHelpers.stripParentheses(target);
+    if (variable instanceof ArrayAccessTree arrayAccess) {
+      ExpressionTree array = arrayAccess.getExpression();
+      return ValueTarget.arrayElement(
+              getAssignedVariableType(
+                  array, pathWithLeaf(pathWithLeaf(path, arrayAccess), array), state))
+          .type();
+    }
+    Symbol symbol = ASTHelpers.getSymbol(variable);
+    if (symbol != null && symbol.getKind() == ElementKind.FIELD && !ASTHelpers.isStatic(symbol)) {
+      Type receiverType =
+          variable instanceof MemberSelectTree memberSelect
+              ? ASTHelpers.getType(memberSelect.getExpression())
+              : getImplicitReceiverType(symbol, path, state, false);
+      if (receiverType != null) { // diff-coverage: ignore -- a field is named inside a class
+        return getFieldTarget(
+                receiverType, symbol, castToNonNull(ASTHelpers.getType(variable)), state)
+            .type();
+      }
+    }
+    return getTreeType(target, state.withPath(path));
+  }
+
+  /**
+   * Returns the location of {@code field} as a member of {@code receiverType}. Its type is {@code
+   * javacType} with the annotations restored that {@link TypeSubstitutionUtils#memberType} keeps,
+   * so it holds the same captures as the expression whose type javac computed.
+   *
+   * @param receiverType the type of the receiver of the field access
+   * @param field an instance field
+   * @param javacType javac's type of the field access
+   * @param state the visitor state
+   */
+  public ValueTarget getFieldTarget(
+      Type receiverType, Symbol field, Type javacType, VisitorState state) {
+    return ValueTarget.of(
+        TypeSubstitutionUtils.restoreExplicitNullabilityAnnotations(
+            TypeSubstitutionUtils.memberType(state.getTypes(), receiverType, field, config),
+            javacType,
+            state.getTypes(),
+            config),
+        field);
+  }
+
+  /**
+   * Returns whether the parameter at {@code paramIndex} of {@code methodSymbol} accepts an argument
+   * for which {@link Nullness#isNoChange()} holds, as its declaration states it: its type, or for a
+   * varargs parameter the component type, is a type variable with a nullable upper bound, and the
+   * parameter carries no {@code @NonNull} annotation. Always false with {@code
+   * HandleWildcardGenerics} off, which computes no such argument. The caller records this in {@link
+   * com.uber.nullaway.MethodParameterNullness} as {@link Nullness#NO_CHANGE}, before the handlers,
+   * so that a handler that requires a non-null argument there replaces it.
+   *
+   * @param methodSymbol the invoked method
+   * @param paramIndex index of the declared parameter
+   * @param state visitor state
+   */
+  public boolean parameterAdmitsNoChangeValue(
+      Symbol.MethodSymbol methodSymbol, int paramIndex, VisitorState state) {
+    if (!config.handleWildcardGenerics()
+        || Nullness.paramHasNonNullAnnotation(methodSymbol, paramIndex, config)) {
+      return false;
+    }
+    Type declaredType = methodSymbol.getParameters().get(paramIndex).type;
+    if (methodSymbol.isVarArgs() && paramIndex == methodSymbol.getParameters().size() - 1) {
+      declaredType = ((Type.ArrayType) declaredType).getComponentType();
+    }
+    return declaredType instanceof Type.TypeVar
+        && GenericsUtils.upperBoundIsNullable(declaredType.tsym, config, handler, state);
+  }
+
+  /**
+   * Returns the parameter at {@code paramIndex} of {@code methodSymbol} as the location that
+   * receives an argument at {@code call}. Its type is {@code formalParamType}, javac's type of the
+   * parameter at the call, with the type-use annotations that javac's substitution drops: those the
+   * parameter's declaration writes, and those the type arguments of the receiver's type, or the
+   * explicit type arguments of the type a constructor call creates, supply through its supertypes.
+   *
+   * @param methodSymbol the invoked method or constructor
+   * @param call the method invocation or class instance creation, the leaf of the current path
+   * @param formalParamType javac's type of the parameter at the call; for an argument passed
+   *     individually to a varargs parameter, the component type
+   * @param paramIndex index of the declared parameter receiving the argument
+   * @param individualVarargsArgument whether the argument is passed individually to a varargs
+   *     parameter
+   * @param state the visitor state
+   */
+  public ValueTarget getParameterTarget(
+      Symbol.MethodSymbol methodSymbol,
+      Tree call,
+      Type formalParamType,
+      int paramIndex,
+      boolean individualVarargsArgument,
+      VisitorState state) {
+    Type receiverType = null;
+    if (call instanceof MethodInvocationTree invocation && !ASTHelpers.isStatic(methodSymbol)) {
+      ExpressionTree methodSelect = ASTHelpers.stripParentheses(invocation.getMethodSelect());
+      receiverType =
+          methodSelect instanceof MemberSelectTree memberSelect
+              ? ASTHelpers.getType(memberSelect.getExpression())
+              : getImplicitReceiverType(methodSymbol, state.getPath(), state, false);
+    } else if (call instanceof NewClassTree newClass && !isDiamondConstructorCall(newClass)) {
+      // Only explicit type arguments supply annotations; inference for a diamond picks @NonNull
+      // for a type variable that the argument leaves open, which would reject the argument
+      receiverType = getTreeType(newClass, state);
+    }
+    Type memberType =
+        receiverType != null
+            ? TypeSubstitutionUtils.memberType(state.getTypes(), receiverType, methodSymbol, config)
+            : methodSymbol.type;
+    Type annotationSource = memberType.asMethodType().getParameterTypes().get(paramIndex);
+    if (individualVarargsArgument) {
+      annotationSource = ((Type.ArrayType) annotationSource).getComponentType();
+    }
+    return ValueTarget.of(
+        TypeSubstitutionUtils.restoreExplicitNullabilityAnnotations(
+            annotationSource, formalParamType, state.getTypes(), config),
+        methodSymbol.getParameters().get(paramIndex));
   }
 
   /**

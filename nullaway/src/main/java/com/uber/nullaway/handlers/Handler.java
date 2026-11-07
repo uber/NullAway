@@ -243,7 +243,12 @@ public interface Handler {
    *     usually since the parameter is from unannotated code. For a varargs parameter, the formal
    *     parameter slot stores the nullness for when individual parameters are passed in the varargs
    *     position, while {@link MethodParameterNullness#getVarargsArrayNullness()} stores the
-   *     nullness of the varargs array itself.
+   *     nullness of the varargs array itself. With {@code HandleWildcardGenerics} on, at a call of
+   *     an annotated method or constructor, the base analysis stores {@link Nullness#NO_CHANGE} for
+   *     a parameter with no {@code @NonNull} annotation whose type, or component type for a varargs
+   *     parameter, is a type variable with a nullable upper bound: the parameter accepts a value
+   *     for which {@link Nullness#isNoChange()} holds where its type accepts that value. A handler
+   *     that requires a non-null argument there stores {@link Nullness#NONNULL}.
    * @return The updated nullness info for each argument position, as computed by the current
    *     handler.
    */
@@ -417,7 +422,9 @@ public interface Handler {
   }
 
   /**
-   * Called when a method writes a {@code @NonNull} value to a class field.
+   * Called when a method writes a value to a {@code @NonNull} class field and the field accepts it:
+   * the value is non-null, or {@link com.uber.nullaway.Nullness#isNoChange()} holds for it and the
+   * field's type and declaration accept it.
    *
    * @param field Symbol of the initialized class field.
    * @param analysis nullness dataflow analysis

@@ -173,6 +173,38 @@ public class JSpecifyArrayTests extends NullAwayTestsBase {
   }
 
   @Test
+  public void nullableElementReadKeepsWhatDataflowKnows() {
+    makeHelper()
+        .addSourceLines(
+            "Test.java",
+            """
+            package com.uber;
+            import org.jspecify.annotations.Nullable;
+            class Test {
+              static void readWithoutCheck(@Nullable String[] array) {
+                String element = array[0];
+                // BUG: Diagnostic contains: dereferenced expression 'element' is @Nullable
+                element.hashCode();
+              }
+              static void readWhenNull(@Nullable String[] array) {
+                if (array[0] == null) {
+                  String element = array[0];
+                  // BUG: Diagnostic contains: dereferenced expression 'element' is @Nullable
+                  element.hashCode();
+                }
+              }
+              static void readWhenNonNull(@Nullable String[] array) {
+                if (array[0] != null) {
+                  String element = array[0];
+                  element.hashCode();
+                }
+              }
+            }
+            """)
+        .doTest();
+  }
+
+  @Test
   public void nullableAssignmentNonnullArray() {
     makeHelper()
         .addSourceLines(
@@ -185,6 +217,45 @@ public class JSpecifyArrayTests extends NullAwayTestsBase {
               static void foo() {
                 // BUG: Diagnostic contains: Writing @Nullable expression into array with @NonNull contents
                 foo[1] = null;
+              }
+            }
+            """)
+        .doTest();
+  }
+
+  @Test
+  public void inheritedArrayElementTakesNullnessFromSupertypeArgument() {
+    makeHelper()
+        .addSourceLines(
+            "Test.java",
+            """
+            package com.uber;
+            import org.jspecify.annotations.NullMarked;
+            import org.jspecify.annotations.Nullable;
+            @NullMarked
+            class Test {
+              static class Holder<T extends @Nullable Object> {
+                T[] array;
+                Holder(T[] array) {
+                  this.array = array;
+                }
+              }
+              static class NullableHolder extends Holder<@Nullable String> {
+                NullableHolder(@Nullable String[] array) {
+                  super(array);
+                }
+                void store() {
+                  array[0] = null;
+                }
+              }
+              static class NonNullHolder extends Holder<String> {
+                NonNullHolder(String[] array) {
+                  super(array);
+                }
+                void store() {
+                  // BUG: Diagnostic contains: Writing @Nullable expression into array with @NonNull contents
+                  array[0] = null;
+                }
               }
             }
             """)

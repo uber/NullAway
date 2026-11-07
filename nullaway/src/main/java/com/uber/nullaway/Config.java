@@ -315,7 +315,12 @@ public interface Config {
   /** Should PolyNull library models be enabled? */
   boolean isPolyNullLibraryModelsEnabled();
 
-  /** Should wildcard-aware generic nullability checks be enabled? */
+  /**
+   * Should wildcard-aware generic nullability checks be enabled? These also compute {@link
+   * Nullness#NO_CHANGE} for a value read through a type variable with a nullable upper bound, such
+   * as the result of {@code Box<? extends T>.get()} or an enhanced-for element of type {@code T};
+   * with the option off, such a value is {@link Nullness#NONNULL}.
+   */
   boolean handleWildcardGenerics();
 
   /**
