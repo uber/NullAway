@@ -1062,6 +1062,60 @@ public class GenericsTests extends NullAwayTestsBase {
         .doTest();
   }
 
+  /**
+   * Switch labels do not inherit the switch result's target type, while parenthesized arrow bodies
+   * still do.
+   */
+  @Test
+  public void switchTargetsApplyOnlyToResultExpressions() {
+    makeHelper()
+        .addSourceLines(
+            "Test.java",
+            """
+            package com.uber;
+            import java.util.List;
+            import java.util.function.Supplier;
+            import org.jspecify.annotations.Nullable;
+            class Test<T> {
+              List<@Nullable T> nullableValues() { throw new UnsupportedOperationException(); }
+              void accept(Supplier<List<@Nullable T>> supplier) {}
+
+              void statementLabel(int value) {
+                switch (value) {
+                  case true ? 1 : 2 -> {}
+                  default -> {}
+                }
+              }
+              List<@Nullable T> expressionLabel(int value) {
+                return switch (value) {
+                  case true ? 1 : 2 -> nullableValues();
+                  default -> nullableValues();
+                };
+              }
+              static void parenthesizedArrowBody(Test<String> target, int value) {
+                target.accept(switch (value) { default -> (target::nullableValues); });
+              }
+              static void conditionalArrowBody(Test<String> target, int value, boolean flag) {
+                target.accept(switch (value) {
+                  default -> (flag ? target::nullableValues : target::nullableValues);
+                });
+              }
+              static void nestedSwitchArrowBody(Test<String> target, int value) {
+                target.accept(switch (value) {
+                  default -> (switch (value) { default -> target::nullableValues; });
+                });
+              }
+              static Supplier<List<String>> incompatibleArrowBody(Test<String> target, int value) {
+                return switch (value) {
+                  // BUG: Diagnostic contains: referenced method returns List<@Nullable String>
+                  default -> (target::nullableValues);
+                };
+              }
+            }
+            """)
+        .doTest();
+  }
+
   @Test
   public void ternaryOperatorComplexSubtyping() {
     makeHelper()

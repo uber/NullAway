@@ -798,7 +798,12 @@ public class NullAway extends BugChecker
               tree, methodSymbol, closestOverriddenMethod, modeledOverriddenMethodType, state);
         }
         return checkOverriding(
-            closestOverriddenMethod, methodSymbol, modeledOverriddenMethodType, null, state);
+            closestOverriddenMethod,
+            methodSymbol,
+            modeledOverriddenMethodType,
+            null,
+            /* warnedAboutInferenceFailure= */ false,
+            state);
       }
     }
     return Description.NO_MATCH;
@@ -818,6 +823,10 @@ public class NullAway extends BugChecker
   public Description matchSwitchExpression(SwitchExpressionTree tree, VisitorState state) {
     if (!withinAnnotatedCode(state)) {
       return Description.NO_MATCH;
+    }
+    if (config.isJSpecifyMode()) {
+      genericsChecks.checkTypeParameterNullnessForSwitchExpression(
+          tree, getSwitchExpressionResults(tree), state);
     }
     // A switch expression of primitive type unboxes each boxed result, and the checks on the
     // enclosing expression skip it because its type is primitive.
@@ -946,6 +955,8 @@ public class NullAway extends BugChecker
    *     ordinary override, lambda, or unsupported reference
    * @param modeledOverriddenMethodType overridden method type after substitution and application of
    *     library models, for a regular override in JSpecify mode; otherwise {@code null}
+   * @param warnedAboutInferenceFailure whether method-reference inference already reported a
+   *     failure, so top-level checks on the referenced method's own type variables would repeat it
    * @param state visitor state
    * @param overridingMethod if available, the symbol for the overriding method
    * @return discovered error, or {@link Description#NO_MATCH} if no error
@@ -957,6 +968,7 @@ public class NullAway extends BugChecker
       @Nullable MemberReferenceTree memberReferenceTree,
       @Nullable ResolvedMethodReference resolvedReference,
       @Nullable Type modeledOverriddenMethodType,
+      boolean warnedAboutInferenceFailure,
       VisitorState state,
       Symbol.@Nullable MethodSymbol overridingMethod) {
     com.sun.tools.javac.util.List<VarSymbol> superParamSymbols = overriddenMethod.getParameters();
@@ -1099,6 +1111,10 @@ public class NullAway extends BugChecker
       int methodParamInd =
           getMemberRefParamIndex(i - startParam, overridingMethod, memberReferenceTree);
       VarSymbol paramSymbol = overridingParamSymbols.get(methodParamInd);
+      if (warnedAboutInferenceFailure
+          && isMethodTypeVariable(paramSymbol.type, castToNonNull(overridingMethod))) {
+        continue;
+      }
       boolean paramIsNonNull =
           paramOfOverridingMethodIsNonNull(
               paramSymbol,
@@ -1427,6 +1443,7 @@ public class NullAway extends BugChecker
             /* memberReferenceTree= */ null,
             /* resolvedReference= */ null,
             /* modeledOverriddenMethodType= */ null,
+            /* warnedAboutInferenceFailure= */ false,
             state,
             /* overridingMethod= */ null);
     if (!description.equals(Description.NO_MATCH)) {
@@ -1453,8 +1470,11 @@ public class NullAway extends BugChecker
     if (!withinAnnotatedCode(state)) {
       return Description.NO_MATCH;
     }
+    boolean warnedAboutInferenceFailure = false;
     if (config.isJSpecifyMode()) {
       genericsChecks.maybeStoreLibraryModeledPolyExpressionType(tree, state);
+      warnedAboutInferenceFailure =
+          genericsChecks.inferAndCheckMethodReferenceNullability(tree, state);
     }
     // Technically the qualifier expression of a method reference gets passed to
     // Objects.requireNonNull, but it's fine to treat it as a dereference for error-checking
@@ -1468,7 +1488,8 @@ public class NullAway extends BugChecker
     Symbol.MethodSymbol funcInterfaceSymbol =
         NullabilityUtil.getFunctionalInterfaceMethod(tree, state.getTypes());
     handler.onMatchMethodReference(tree, new MethodAnalysisContext(this, state, referencedMethod));
-    return checkOverriding(funcInterfaceSymbol, referencedMethod, null, tree, state);
+    return checkOverriding(
+        funcInterfaceSymbol, referencedMethod, null, tree, warnedAboutInferenceFailure, state);
   }
 
   /**
@@ -1481,6 +1502,8 @@ public class NullAway extends BugChecker
    *     library models, for a regular override in JSpecify mode; otherwise {@code null}
    * @param memberReferenceTree if override is via a method reference, the relevant {@link
    *     MemberReferenceTree}; otherwise {@code null}
+   * @param warnedAboutInferenceFailure whether method-reference inference already reported a
+   *     failure, so top-level checks on the referenced method's own type variables would repeat it
    * @param state visitor state.
    * @return discovered error, or {@link Description#NO_MATCH} if no error
    */
@@ -1489,6 +1512,7 @@ public class NullAway extends BugChecker
       Symbol.MethodSymbol overridingMethod,
       @Nullable Type modeledOverriddenMethodType,
       @Nullable MemberReferenceTree memberReferenceTree,
+      boolean warnedAboutInferenceFailure,
       VisitorState state) {
     ResolvedMethodReference resolvedReference = null;
     if (memberReferenceTree != null) {
@@ -1507,6 +1531,8 @@ public class NullAway extends BugChecker
     // included, so the return type of String @Nullable []::new carries @Nullable; we still want to
     // ignore that annotation since the result is always non-null.
     if (!overridingMethod.isConstructor()
+        && !(warnedAboutInferenceFailure
+            && isMethodTypeVariable(overridingMethod.getReturnType(), overridingMethod))
         && overriddenMethodReturnsNonNull(
             overriddenMethod,
             overridingMethod.owner,
@@ -1555,8 +1581,14 @@ public class NullAway extends BugChecker
         memberReferenceTree,
         resolvedReference,
         modeledOverriddenMethodType,
+        warnedAboutInferenceFailure,
         state,
         overridingMethod);
+  }
+
+  /** Returns whether {@code type} is a type variable declared by {@code method} itself. */
+  private static boolean isMethodTypeVariable(Type type, Symbol.MethodSymbol method) {
+    return type.getKind() == TypeKind.TYPEVAR && type.tsym.owner.equals(method);
   }
 
   /**
