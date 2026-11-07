@@ -816,24 +816,26 @@ public final class GenericsChecks {
             directContext.assignedToLocal,
             calledFromDataflow);
       }
-      if (newClassTree.getIdentifier() instanceof ParameterizedTypeTree paramTypedTree
-          && !paramTypedTree.getTypeArguments().isEmpty()) {
-        Type typeFromIdentifier = typeWithPreservedAnnotations(paramTypedTree);
-        Type withQualifier =
-            withEnclosingTypeFromQualifier(
-                typeFromIdentifier, newClassTree, state, calledFromDataflow);
-        return withQualifier != null ? withQualifier : typeFromIdentifier;
-      }
       // the identifier names the constructed class, or the superclass for an anonymous class,
       // and a qualifier determines its enclosing type
+      Tree identifier = newClassTree.getIdentifier();
+      boolean hasExplicitTypeArgs =
+          identifier instanceof ParameterizedTypeTree paramTypedTree
+              && !paramTypedTree.getTypeArguments().isEmpty();
       Type typeFromIdentifier =
-          typeOrNullIfRawNonArray(ASTHelpers.getType(newClassTree.getIdentifier()));
+          hasExplicitTypeArgs
+              ? typeWithPreservedAnnotations(identifier)
+              : typeOrNullIfRawNonArray(ASTHelpers.getType(identifier));
       if (typeFromIdentifier != null) {
         Type withQualifier =
             withEnclosingTypeFromQualifier(
                 typeFromIdentifier, newClassTree, state, calledFromDataflow);
         if (withQualifier != null) {
           return withQualifier;
+        }
+        // javac's type of the expression drops the annotations on explicit type arguments
+        if (hasExplicitTypeArgs) {
+          return typeFromIdentifier;
         }
       }
       return typeOrNullIfRawNonArray(ASTHelpers.getType(tree));
