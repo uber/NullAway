@@ -280,3 +280,75 @@ tasks.register('buildWithNullAway', JavaCompile) {
 project.tasks.named('check').configure {
     dependsOn 'buildWithNullAway'
 }
+
+// The crash, metamorphic, and growth oracles: a harness that runs NullAway over sources taken from its own tests and over
+// variants of them (see com.uber.nullaway.oracles.OracleRunner).  The harness and its unit tests live in source sets
+// of their own, so that `test`, diffCoverage, and pitestDiff never see them.  The harness compiles seeds against the
+// classpath it runs with, which therefore holds every jar the NullAway tests reference.
+sourceSets {
+    oracles {
+        compileClasspath += sourceSets.main.output
+        runtimeClasspath += sourceSets.main.output
+    }
+    oraclesTest {
+        compileClasspath += sourceSets.main.output + sourceSets.oracles.output
+        runtimeClasspath += sourceSets.main.output + sourceSets.oracles.output
+    }
+}
+
+configurations {
+    oraclesImplementation.extendsFrom testImplementation
+    oraclesRuntimeOnly.extendsFrom testRuntimeOnly
+    oraclesTestImplementation.extendsFrom oraclesImplementation
+    oraclesTestRuntimeOnly.extendsFrom oraclesRuntimeOnly
+}
+
+def oraclesJvmArgs = [
+    "--add-exports=jdk.compiler/com.sun.tools.javac.api=ALL-UNNAMED",
+    "--add-exports=jdk.compiler/com.sun.tools.javac.file=ALL-UNNAMED",
+    "--add-exports=jdk.compiler/com.sun.tools.javac.main=ALL-UNNAMED",
+    "--add-exports=jdk.compiler/com.sun.tools.javac.model=ALL-UNNAMED",
+    "--add-exports=jdk.compiler/com.sun.tools.javac.parser=ALL-UNNAMED",
+    "--add-exports=jdk.compiler/com.sun.tools.javac.processing=ALL-UNNAMED",
+    "--add-exports=jdk.compiler/com.sun.tools.javac.tree=ALL-UNNAMED",
+    "--add-exports=jdk.compiler/com.sun.tools.javac.util=ALL-UNNAMED",
+    "--add-opens=jdk.compiler/com.sun.tools.javac.code=ALL-UNNAMED",
+    "--add-opens=jdk.compiler/com.sun.tools.javac.comp=ALL-UNNAMED",
+    "--add-opens=jdk.compiler/com.sun.tools.javac.jvm=ALL-UNNAMED",
+]
+
+// The harness's unit tests take seconds, so `check` runs them and a change to NullAway that breaks the harness fails
+// the pull request that makes it rather than the next oracle run on master.
+def oraclesTest = tasks.register('oraclesTest', Test) {
+    description = "Runs the unit tests of the oracle harness"
+    group = LifecycleBasePlugin.VERIFICATION_GROUP
+    testClassesDirs = sourceSets.oraclesTest.output.classesDirs
+    classpath = sourceSets.oraclesTest.runtimeClasspath
+    maxHeapSize = "1024m"
+    jvmArgs += oraclesJvmArgs
+}
+
+tasks.named('check').configure {
+    dependsOn oraclesTest
+}
+
+// Runs the oracles and writes the report under build/oracles.  Pass arguments with --args, for example
+// ./gradlew :nullaway:runOracles --args="--limit 200 --configs jspecify"
+// The task fails when the run finds a crash signature that src/oracles/known-findings.tsv does not list.
+// The javac of the JDK it runs on decides which sources are valid, and the known findings were recorded on JDK 21;
+// -PoraclesJdk=<version> picks another one.
+tasks.register('runOracles', JavaExec) {
+    description = "Runs NullAway's crash, metamorphic, and growth oracles over seeds taken from its tests"
+    group = LifecycleBasePlugin.VERIFICATION_GROUP
+    def oraclesJdk = providers.gradleProperty("oraclesJdk").getOrElse("21") as int
+    javaLauncher = javaToolchains.launcherFor {
+        languageVersion = JavaLanguageVersion.of(oraclesJdk)
+    }
+    classpath = sourceSets.oracles.runtimeClasspath
+    mainClass = 'com.uber.nullaway.oracles.OracleRunner'
+    workingDir = projectDir
+    maxHeapSize = "2g"
+    jvmArgs += oraclesJvmArgs
+    // Without it, a NullPointerException thrown often enough loses its stack trace, and the crash its signature.
+    jvmArgs += "-XX:-OmitStackTraceInFastThrow"
+}
