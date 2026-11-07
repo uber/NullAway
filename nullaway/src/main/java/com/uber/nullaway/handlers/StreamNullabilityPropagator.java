@@ -30,6 +30,7 @@ import com.google.common.collect.LinkedHashMultimap;
 import com.google.common.collect.SetMultimap;
 import com.google.errorprone.VisitorState;
 import com.google.errorprone.util.ASTHelpers;
+import com.sun.source.tree.BlockTree;
 import com.sun.source.tree.ClassTree;
 import com.sun.source.tree.CompilationUnitTree;
 import com.sun.source.tree.ExpressionTree;
@@ -41,12 +42,11 @@ import com.sun.source.tree.MethodTree;
 import com.sun.source.tree.NewClassTree;
 import com.sun.source.tree.ReturnTree;
 import com.sun.source.tree.Tree;
-import com.sun.source.util.TreePath;
+import com.sun.source.util.TreeScanner;
 import com.sun.tools.javac.code.Symbol;
 import com.sun.tools.javac.code.Type;
 import com.sun.tools.javac.tree.JCTree;
 import com.uber.nullaway.NullAway;
-import com.uber.nullaway.NullabilityUtil;
 import com.uber.nullaway.Nullness;
 import com.uber.nullaway.dataflow.AccessPath;
 import com.uber.nullaway.dataflow.AccessPathElement;
@@ -530,6 +530,10 @@ class StreamNullabilityPropagator implements Handler {
 
   @Override
   public void onMatchMethod(MethodTree tree, MethodAnalysisContext methodAnalysisContext) {
+    BlockTree body = tree.getBody();
+    if (filterMethodOrLambdaSet.contains(tree) && body != null) {
+      analyzeFilterWithReturns(tree, body, methodAnalysisContext);
+    }
     if (mapOrCollectRecordToFilterMap.containsKey(tree)) {
       bodyToMethodOrLambda.put(tree.getBody(), tree);
     }
@@ -542,15 +546,57 @@ class StreamNullabilityPropagator implements Handler {
     if (filterMethodOrLambdaSet.contains(tree)
         && tree.getBodyKind().equals(LambdaExpressionTree.BodyKind.EXPRESSION)) {
       expressionBodyToFilterLambda.put((ExpressionTree) tree.getBody(), tree);
-      // Single expression lambda, onMatchReturn will not be triggered, force the dataflow analysis
-      // here
+      // An expression lambda has no return statement; this run records its body through
+      // onDataflowVisitLambdaResultExpression
       AccessPathNullnessAnalysis nullnessAnalysis =
           methodAnalysisContext.analysis().getNullnessAnalysis(state);
       nullnessAnalysis.forceRunOnMethod(state.getPath(), state.context);
+    } else if (filterMethodOrLambdaSet.contains(tree)) {
+      analyzeFilterWithReturns(tree, tree.getBody(), methodAnalysisContext);
     }
     if (mapOrCollectRecordToFilterMap.containsKey(tree)) {
       bodyToMethodOrLambda.put(tree.getBody(), tree);
     }
+  }
+
+  /**
+   * Maps every return statement of a filter method or block lambda to the filter, then runs
+   * dataflow over the filter once, so that {@link #onDataflowVisitReturn} sees each reachable
+   * return before any callback after the filter in the chain is analyzed.
+   *
+   * <p>A return inside a lambda or class nested in {@code body} returns from that lambda or class
+   * and is not mapped. The run uses the scanner's path to the filter, which the later checks of the
+   * filter's own expressions also reach, so they reuse its result.
+   *
+   * @param filter the filter method or lambda, the leaf of the state's path
+   * @param body the filter's body
+   * @param methodAnalysisContext the context of the scanner's visit of {@code filter}
+   */
+  private void analyzeFilterWithReturns(
+      Tree filter, Tree body, MethodAnalysisContext methodAnalysisContext) {
+    new TreeScanner<@Nullable Void, @Nullable Void>() {
+      @Override
+      public @Nullable Void visitReturn(ReturnTree returnTree, @Nullable Void unused) {
+        returnToEnclosingMethodOrLambda.put(returnTree, filter);
+        return super.visitReturn(returnTree, null);
+      }
+
+      @Override
+      public @Nullable Void visitLambdaExpression(
+          LambdaExpressionTree lambda, @Nullable Void unused) {
+        return null;
+      }
+
+      @Override
+      public @Nullable Void visitClass(ClassTree classTree, @Nullable Void unused) {
+        return null;
+      }
+    }.scan(body, null);
+    VisitorState state = methodAnalysisContext.state();
+    methodAnalysisContext
+        .analysis()
+        .getNullnessAnalysis(state)
+        .forceRunOnMethod(state.getPath(), state.context);
   }
 
   @Override
@@ -611,32 +657,6 @@ class StreamNullabilityPropagator implements Handler {
    */
   private boolean canBooleanExpressionEvalToTrue(ExpressionTree expressionTree) {
     return !Boolean.FALSE.equals(ASTHelpers.constValue(expressionTree, Boolean.class));
-  }
-
-  @Override
-  public void onMatchReturn(NullAway analysis, ReturnTree tree, VisitorState state) {
-    // Figure out the enclosing method node
-    TreePath enclosingMethodOrLambda =
-        NullabilityUtil.findEnclosingMethodOrLambdaOrInitializer(state.getPath());
-    if (enclosingMethodOrLambda == null) {
-      throw new RuntimeException("no enclosing method, lambda or initializer!");
-    }
-    if (!(enclosingMethodOrLambda.getLeaf() instanceof MethodTree
-        || enclosingMethodOrLambda.getLeaf() instanceof LambdaExpressionTree)) {
-      throw new RuntimeException(
-          "return statement outside of a method or lambda! (e.g. in an initializer block)");
-    }
-    Tree leaf = enclosingMethodOrLambda.getLeaf();
-    if (filterMethodOrLambdaSet.contains(leaf)) {
-      returnToEnclosingMethodOrLambda.put(tree, leaf);
-      // We need to manually trigger the dataflow analysis to run on the filter method,
-      // this ensures onDataflowVisitReturn(...) gets called for all return statements in this
-      // method before
-      // onDataflowInitialStore(...) is called for all successor methods in the observable chain.
-      // Caching should prevent us from re-analyzing any given method.
-      AccessPathNullnessAnalysis nullnessAnalysis = analysis.getNullnessAnalysis(state);
-      nullnessAnalysis.forceRunOnMethod(new TreePath(state.getPath(), leaf), state.context);
-    }
   }
 
   @Override
