@@ -608,7 +608,7 @@ public class AccessPathNullnessPropagation
     // The assignment expression always has the target's type, while the access path of the target
     // may lose it
     Nullness result = valueHeldAs(rhsValue, rhs, () -> holderTarget(target));
-    Nullness value = AccessPath.hasStableType(target) ? result : result.withoutNoChange();
+    Nullness value = keptByPath(result, target);
 
     if (target instanceof LocalVariableNode localVariableNode
         && !castToNonNull(ASTHelpers.getType(target.getTree())).isPrimitive()) {
@@ -1237,9 +1237,9 @@ public class AccessPathNullnessPropagation
 
   /**
    * Returns the nullness of the value that {@code node} returns: the handlers' hint first, then the
-   * element nullness for the element read of an enhanced-for loop, then the declared and generic
-   * return nullness, refined by a dataflow fact where one exists. The result may be {@link
-   * Nullness#NO_CHANGE}.
+   * element nullness for the element read of an enhanced-for loop, then {@link Nullness#NONNULL}
+   * for a call of an unannotated method, and otherwise the declared and generic return nullness,
+   * refined by a dataflow fact where one exists. The result may be {@link Nullness#NO_CHANGE}.
    *
    * @param node the method invocation
    * @param input the transfer input at the invocation
@@ -1285,16 +1285,23 @@ public class AccessPathNullnessPropagation
 
   /**
    * Returns the nullness of {@code value}, the value of {@code source}, once the access path of
-   * {@code holder} holds it. That is the value {@link #valueHeldAs} computes for {@code holder}'s
-   * location where every node with that path has {@code holder}'s type, as {@link
-   * AccessPath#hasStableType} decides, and {@link Nullness#withoutNoChange()} otherwise.
+   * {@code holder} holds it: the value {@link #valueHeldAs} computes for {@code holder}'s location,
+   * as {@link #keptByPath} keeps it.
    *
    * @param value nullness of {@code source}
    * @param source node whose value moves
    * @param holder node whose access path receives the value
    */
   private Nullness valueHeldByPath(Nullness value, Node source, Node holder) {
-    Nullness held = valueHeldAs(value, source, () -> holderTarget(holder));
+    return keptByPath(valueHeldAs(value, source, () -> holderTarget(holder)), holder);
+  }
+
+  /**
+   * Returns {@code held}, the nullness of the value of {@code holder}, as the access path of {@code
+   * holder} keeps it: unchanged where every node with that path has {@code holder}'s type, as
+   * {@link AccessPath#hasStableType} decides, and {@link Nullness#withoutNoChange()} otherwise.
+   */
+  private static Nullness keptByPath(Nullness held, Node holder) {
     return AccessPath.hasStableType(holder) ? held : held.withoutNoChange();
   }
 

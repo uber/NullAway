@@ -34,6 +34,7 @@ import com.sun.source.util.TreePath;
 import com.sun.tools.javac.util.Context;
 import com.uber.nullaway.Config;
 import com.uber.nullaway.NullAway;
+import com.uber.nullaway.NullabilityUtil;
 import com.uber.nullaway.Nullness;
 import com.uber.nullaway.handlers.Handler;
 import com.uber.nullaway.handlers.contract.ContractNullnessStoreInitializer;
@@ -223,8 +224,9 @@ public final class AccessPathNullnessAnalysis {
    * @param path tree path of some expression
    * @param context Javac context
    * @return fields of receiver guaranteed to be nonnull before expression is evaluated
-   * @deprecated use {@link #getInitializedFieldsOfReceiverBefore}, which also returns a field that
-   *     holds a value for which {@link Nullness#isNoChange()} holds
+   * @deprecated for an initialization check, use {@link #getInitializedFieldsOfReceiverBefore},
+   *     which also returns a field that holds a value for which {@link Nullness#isNoChange()}
+   *     holds. Such a value may be null, so that method gives no non-null guarantee.
    */
   @Deprecated
   public Set<Element> getNonnullFieldsOfReceiverBefore(TreePath path, Context context) {
@@ -401,7 +403,7 @@ public final class AccessPathNullnessAnalysis {
       Nullness nullness = store.getNullnessOfAccessPath(accessPath);
       // field is non-null if at least one access path referring to it exists with non-null
       // nullness.
-      if (!nullness.equals(Nullness.NULLABLE)) {
+      if (!NullabilityUtil.nullnessToBool(nullness)) {
         return nullness;
       }
     }

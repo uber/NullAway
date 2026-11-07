@@ -277,6 +277,18 @@ public class NullnessOperatorTests extends NullAwayTestsBase {
                 Object value = identity(box.get());
                 value.hashCode();
               }
+              Object objectField = new Object();
+              Object[] objects = new Object[1];
+              void storeThroughIdentityAsObject(Box<? extends T> box) {
+                objectField = identity(box.get());
+                objects[0] = identity(box.get());
+              }
+              void storeDirectlyAsObject(Box<? extends T> box) {
+                // BUG: Diagnostic contains: assigning @Nullable expression to @NonNull field
+                objectField = box.get();
+                // BUG: Diagnostic contains: Writing @Nullable expression into array with @NonNull contents
+                objects[0] = box.get();
+              }
             }
             """)
         .doTest();
@@ -476,6 +488,9 @@ public class NullnessOperatorTests extends NullAwayTestsBase {
                 void set(H value) {}
                 @SafeVarargs
                 final void setAll(H... values) {}
+                static <M extends @Nullable Object> Holder<M> make(M field, M[] array) {
+                  return new Holder<>(field, array);
+                }
               }
               static class NonNullHolder<S extends @Nullable Object> extends Holder<@NonNull S> {
                 NonNullHolder(@NonNull S field, @NonNull S[] array) {
@@ -560,6 +575,58 @@ public class NullnessOperatorTests extends NullAwayTestsBase {
                 new Holder<T>(box.get(), values);
                 Holder<T> inferred = new Holder<>(box.get(), values);
                 new Holder<>(box.get(), values);
+              }
+              void storeThroughVarReceiver(@NonNull T value, @NonNull T[] values, Box<? extends T> box) {
+                var nonNullHolder = new Holder<@NonNull T>(value, values);
+                // BUG: Diagnostic contains: assigning @Nullable expression to @NonNull field
+                nonNullHolder.field = box.get();
+                // BUG: Diagnostic contains: Writing @Nullable expression into array with @NonNull contents
+                nonNullHolder.array[0] = box.get();
+                // BUG: Diagnostic contains: passing @Nullable parameter 'box.get()'
+                nonNullHolder.set(box.get());
+                var plainHolder = new Holder<T>(value, values);
+                plainHolder.field = box.get();
+                plainHolder.array[0] = box.get();
+                plainHolder.set(box.get());
+              }
+              void storeThroughGenericCallReceiver(
+                  @NonNull T value, @NonNull T[] values, Box<? extends T> box) {
+                // BUG: Diagnostic contains: assigning @Nullable expression to @NonNull field
+                Holder.<@NonNull T>make(value, values).field = box.get();
+                // BUG: Diagnostic contains: passing @Nullable parameter 'box.get()'
+                Holder.<@NonNull T>make(value, values).set(box.get());
+                Holder.<T>make(value, values).field = box.get();
+                Holder.<T>make(value, values).set(box.get());
+              }
+              static class Outer<O extends @Nullable Object> {
+                class Inner<I extends @Nullable Object> {
+                  Inner(O value, I other) {}
+                }
+              }
+              static class NonNullOuter<X extends @Nullable Object> extends Outer<@NonNull X> {}
+              void constructInnerThroughQualifier(
+                  Outer<@NonNull T> nonNullOuter,
+                  NonNullOuter<T> nonNullSubOuter,
+                  Outer<T> plainOuter,
+                  T other,
+                  Box<? extends T> box) {
+                // BUG: Diagnostic contains: passing @Nullable parameter 'box.get()'
+                nonNullSubOuter.new Inner<>(box.get(), other);
+                // BUG: Diagnostic contains: passing @Nullable parameter 'box.get()'
+                nonNullOuter.new Inner<>(box.get(), other);
+                // BUG: Diagnostic contains: passing @Nullable parameter 'box.get()'
+                nonNullOuter.new Inner<T>(box.get(), other);
+                plainOuter.new Inner<>(box.get(), other);
+                plainOuter.new Inner<T>(box.get(), other);
+              }
+              void storeThroughInferredCallReceiver(
+                  @NonNull T value, @NonNull T[] values, Box<? extends T> box) {
+                // BUG: Diagnostic contains: assigning @Nullable expression to @NonNull field
+                Holder.make(value, values).field = box.get();
+                // BUG: Diagnostic contains: Writing @Nullable expression into array with @NonNull contents
+                Holder.make(value, values).array[0] = box.get();
+                // BUG: Diagnostic contains: passing @Nullable parameter 'box.get()'
+                Holder.make(value, values).set(box.get());
               }
             }
             """)
@@ -745,7 +812,8 @@ public class NullnessOperatorTests extends NullAwayTestsBase {
   /**
    * Inside {@code if (value == null)} a wildcard read is null, and a location of its type variable
    * still accepts it. Generic method inference takes {@code @Nullable T} from it, so a call such as
-   * {@code identity(value)} returns a nullable value.
+   * {@code identity(value)} returns a nullable value, which a location of type {@code T} rejects.
+   * An explicit type argument {@code <T>} gives the call the type {@code T}.
    */
   @Test
   public void nullTestedWildcardLocalIsNullExceptWhereItsTypeVariableIsExpected() {
@@ -765,6 +833,9 @@ public class NullnessOperatorTests extends NullAwayTestsBase {
               static void objectSink(Object value) {}
               static <X extends @Nullable Object> X identity(X x) {
                 return x;
+              }
+              interface Sink<E extends @Nullable Object> {
+                void accept(E e);
               }
               static <T extends @Nullable Object> void dereferenceWhenNonNull(Box<? extends T> box) {
                 T value = box.get();
@@ -825,6 +896,22 @@ public class NullnessOperatorTests extends NullAwayTestsBase {
                 if (value == null) {
                   // BUG: Diagnostic contains: dereferenced expression 'identity(value)' is @Nullable
                   identity(value).hashCode();
+                }
+              }
+              static <T extends @Nullable Object> void dereferenceExplicitIdentityWhenNull(
+                  Box<? extends T> box) {
+                T value = box.get();
+                if (value == null) {
+                  Test.<T>identity(value).hashCode();
+                }
+              }
+              static <T extends @Nullable Object> void passIdentityToTypeVariableWhenNull(
+                  Box<? extends T> box, Sink<T> sink) {
+                T value = box.get();
+                if (value == null) {
+                  sink.accept(value);
+                  // BUG: Diagnostic contains: passing @Nullable parameter 'identity(value)'
+                  sink.accept(identity(value));
                 }
               }
               static <T extends @Nullable Object> Object returnIdentityAsObjectWhenNull(
@@ -1359,6 +1446,61 @@ public class NullnessOperatorTests extends NullAwayTestsBase {
         .doTest();
   }
 
+  /**
+   * With {@code HandleWildcardGenerics} on, the element of an enhanced-for loop over a {@code
+   * List<T>} is a {@code NO_CHANGE} value, as a read through {@code ? extends T} is.
+   */
+  @Test
+  public void enhancedForElementOfTypeVariableIsAcceptedWhereItsTypeVariableIsExpected() {
+    makeHelper()
+        .addSourceLines(
+            "Test.java",
+            """
+            import java.util.List;
+            import org.jspecify.annotations.NullMarked;
+            import org.jspecify.annotations.Nullable;
+            @NullMarked
+            class Test<T extends @Nullable Object> {
+              T field;
+              T unassigned;
+              Object objectField = new Object();
+              // BUG: Diagnostic contains: does not guarantee @NonNull field 'unassigned'
+              Test(List<T> list) {
+                for (T element : list) {
+                  field = element;
+                  return;
+                }
+                throw new IllegalArgumentException();
+              }
+              T returnElement(List<T> list) {
+                for (T element : list) {
+                  return element;
+                }
+                throw new IllegalArgumentException();
+              }
+              Object returnElementAsObject(List<T> list) {
+                for (T element : list) {
+                  // BUG: Diagnostic contains: returning @Nullable expression
+                  return element;
+                }
+                throw new IllegalArgumentException();
+              }
+              void storeElement(List<T> list) {
+                for (T element : list) {
+                  field = element;
+                }
+              }
+              void storeElementAsObject(List<T> list) {
+                for (T element : list) {
+                  // BUG: Diagnostic contains: assigning @Nullable expression to @NonNull field
+                  objectField = element;
+                }
+              }
+            }
+            """)
+        .doTest();
+  }
+
   @Test
   public void issue1799EnhancedForLoopFunctionArgumentFalsePositive() {
     makeHelper()
@@ -1521,6 +1663,7 @@ public class NullnessOperatorTests extends NullAwayTestsBase {
         .addSourceLines(
             "Test.java",
             """
+            import org.jspecify.annotations.NonNull;
             import org.jspecify.annotations.NullMarked;
             import org.jspecify.annotations.Nullable;
             @NullMarked
@@ -1537,6 +1680,93 @@ public class NullnessOperatorTests extends NullAwayTestsBase {
               static <T extends @Nullable Object> Box<Object> wrapAsObject(Box<? extends T> box) {
                 // BUG: Diagnostic contains: returning @Nullable expression
                 return () -> box.get();
+              }
+              interface NonNullBox<S extends @Nullable Object> extends Box<@NonNull S> {}
+              static <T extends @Nullable Object> NonNullBox<T> wrapAsNonNullSubtype(Box<? extends T> box) {
+                // BUG: Diagnostic contains: returning @Nullable expression
+                return () -> box.get();
+              }
+              static <U extends @Nullable Object> void take(Box<@NonNull U> b) {}
+              static <U extends @Nullable Object> void takePlain(Box<U> b) {}
+              @SafeVarargs
+              static <U extends @Nullable Object> void takeAll(Box<@NonNull U>... boxes) {}
+              static class Taker<V extends @Nullable Object> {
+                Taker() {}
+                Taker(Box<@NonNull V> b) {}
+                void take(Box<@NonNull V> b) {}
+              }
+              static class NonNullTaker<W extends @Nullable Object> extends Taker<@NonNull W> {
+                void takePlain(Box<W> b) {}
+              }
+              static <T extends @Nullable Object> void passToParameter(
+                  Box<? extends T> box, Taker<T> taker, NonNullTaker<T> nonNullTaker) {
+                // BUG: Diagnostic contains: returning @Nullable expression
+                Test.<T>take(() -> box.get());
+                // BUG: Diagnostic contains: returning @Nullable expression
+                taker.take(() -> box.get());
+                // BUG: Diagnostic contains: returning @Nullable expression
+                nonNullTaker.take(() -> box.get());
+                // BUG: Diagnostic contains: returning @Nullable expression
+                take(() -> box.get());
+                Test.<T>takePlain(() -> box.get());
+                nonNullTaker.takePlain(() -> box.get());
+              }
+              static <T extends @Nullable Object> void passInOtherForms(Box<? extends T> box) {
+                Test.<T>take(
+                    () -> {
+                      // BUG: Diagnostic contains: returning @Nullable expression
+                      return box.get();
+                    });
+                // BUG: Diagnostic contains: returning @Nullable expression
+                Test.<T>take((() -> box.get()));
+                // BUG: Diagnostic contains: returning @Nullable expression
+                Test.<T>takeAll(() -> box.get());
+                // BUG: Diagnostic contains: returning @Nullable expression
+                new Taker<T>(() -> box.get());
+              }
+              static class Holder<V extends @Nullable Object> {
+                Box<@NonNull V> nonNullField = () -> { throw new RuntimeException(); };
+                Box<V> plainField = () -> { throw new RuntimeException(); };
+              }
+              static <T extends @Nullable Object> void passWhereTargetIsUnknown(
+                  boolean flag, Box<? extends T> box, Holder<T> holder) {
+                // BUG: Diagnostic contains: returning @Nullable expression
+                Test.<T>take(flag ? () -> box.get() : () -> null);
+                // BUG: Diagnostic contains: returning @Nullable expression
+                new Taker<T>(() -> box.get()) {};
+                // BUG: Diagnostic contains: returning @Nullable expression
+                holder.nonNullField = () -> box.get();
+                // A conditional or an assignment hides the target's annotations, so a lambda there
+                // is checked as if its return type excluded null
+                // BUG: Diagnostic contains: returning @Nullable expression
+                holder.plainField = () -> box.get();
+                Box<T> local = () -> box.get();
+                // BUG: Diagnostic contains: returning @Nullable expression
+                Box<@NonNull T> nonNullLocal = () -> box.get();
+              }
+              static <T extends @Nullable Object> Box<@NonNull T> returnNonNullBox(Box<? extends T> box) {
+                // BUG: Diagnostic contains: returning @Nullable expression
+                return () -> box.get();
+              }
+              interface Maker<M extends @Nullable Object> {
+                Box<@NonNull M> make();
+              }
+              static <M extends @Nullable Object> void takeMaker(Maker<M> maker) {}
+              static <T extends @Nullable Object> void returnFromEnclosingLambda(Box<? extends T> box) {
+                Maker<T> maker =
+                    () -> {
+                      // BUG: Diagnostic contains: returning @Nullable expression
+                      return () -> box.get();
+                    };
+                Test.<T>takeMaker(
+                    () -> {
+                      // BUG: Diagnostic contains: returning @Nullable expression
+                      return () -> box.get();
+                    });
+              }
+              static <T extends @Nullable Object> Box<? extends T> returnNull() {
+                // BUG: Diagnostic contains: returning @Nullable expression
+                return () -> null;
               }
             }
             """)
@@ -1590,6 +1820,14 @@ public class NullnessOperatorTests extends NullAwayTestsBase {
               static <T extends @Nullable Object, U extends T> void unannotatedBound(
                   Box<? extends U> box, Sink<T> sink) {
                 sink.accept(box.get());
+              }
+              static <T extends @Nullable Object, U extends T> void dereferenceThroughUnannotatedBound(
+                  Box<? extends U> box) {
+                // BUG: Diagnostic contains: dereferenced expression 'box.get()' is @Nullable
+                box.get().hashCode();
+              }
+              static <T, U extends T> void dereferenceThroughNonNullBounds(Box<? extends U> box) {
+                box.get().hashCode();
               }
               static <T extends @Nullable Object, U extends @Nullable T> void argument(
                   Box<? extends U> box, Sink<T> sink) {
@@ -1750,8 +1988,9 @@ public class NullnessOperatorTests extends NullAwayTestsBase {
   }
 
   /**
-   * Each class has a field that only a {@code NO_CHANGE} value initializes, which is not reported,
-   * and a field that nothing initializes before it is read or the initialization ends, which is.
+   * Each class has a field that only a {@code NO_CHANGE} or {@code NULL_NO_CHANGE} value
+   * initializes, which is not reported, and a field that nothing initializes before it is read or
+   * the initialization ends, which is.
    */
   @Test
   public void noChangeValueInitializesFieldOfItsTypeVariable() {
@@ -1815,6 +2054,18 @@ public class NullnessOperatorTests extends NullAwayTestsBase {
                   current = box.get();
                 }
               }
+              static class AssignedNullTestedValue<T extends @Nullable Object> {
+                T current;
+                T unassigned;
+                // BUG: Diagnostic contains: does not guarantee @NonNull field 'unassigned'
+                AssignedNullTestedValue(Box<? extends T> box) {
+                  T value = box.get();
+                  if (value != null) {
+                    throw new IllegalArgumentException();
+                  }
+                  current = value;
+                }
+              }
             }
             """)
         .doTest();
@@ -1871,10 +2122,12 @@ public class NullnessOperatorTests extends NullAwayTestsBase {
               }
               @SuppressWarnings("unchecked")
               static <T extends @Nullable Object, S extends T> void assignedThroughCastReceiver(
-                  Holder<S> holder, Box<? extends T> box, Sink<S> sink) {
+                  Holder<S> holder, Box<? extends T> box, Sink<S> sink, Sink<T> tSink) {
                 ((Holder<T>) (Object) holder).field = box.get();
                 // BUG: Diagnostic contains: passing @Nullable parameter 'holder.field'
                 sink.accept(holder.field);
+                // BUG: Diagnostic contains: passing @Nullable parameter '((Holder<T>) (Object) holder).field'
+                tSink.accept(((Holder<T>) (Object) holder).field);
               }
               @SuppressWarnings("unchecked")
               static <T extends @Nullable Object, S extends T> void equalOnRightThroughCastReceiver(
@@ -1908,10 +2161,12 @@ public class NullnessOperatorTests extends NullAwayTestsBase {
                 <U extends @Nullable Object> @Nullable U get();
               }
               static <T extends @Nullable Object, S extends T> void equalThroughGenericMethod(
-                  Getter getter, Box<? extends T> box, Sink<S> sink) {
+                  Getter getter, Box<? extends T> box, Sink<S> sink, Sink<T> tSink) {
                 if (getter.<T>get() == box.get()) {
                   // BUG: Diagnostic contains: passing @Nullable parameter 'getter.<S>get()'
                   sink.accept(getter.<S>get());
+                  // BUG: Diagnostic contains: passing @Nullable parameter 'getter.<T>get()'
+                  tSink.accept(getter.<T>get());
                 }
               }
               interface PlainGetter<R extends @Nullable Object> {

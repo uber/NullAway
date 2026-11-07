@@ -232,6 +232,10 @@ public interface Handler {
    * considered isAnnotated or not. We use a mutable map for performance, but it should not outlive
    * the chain of handler invocations.
    *
+   * <p>A position that a handler sets, even to the value it already holds, is that handler's
+   * decision: NONNULL there requires a non-null argument whatever the parameter's type, so a
+   * handler sets only the positions it decides.
+   *
    * @param context The current context.
    * @param methodSymbol The method symbol for the method in question.
    * @param isAnnotated A boolean flag indicating whether the called method is considered to be
@@ -243,12 +247,7 @@ public interface Handler {
    *     usually since the parameter is from unannotated code. For a varargs parameter, the formal
    *     parameter slot stores the nullness for when individual parameters are passed in the varargs
    *     position, while {@link MethodParameterNullness#getVarargsArrayNullness()} stores the
-   *     nullness of the varargs array itself. With {@code HandleWildcardGenerics} on, at a call of
-   *     an annotated method or constructor, the base analysis stores {@link Nullness#NO_CHANGE} for
-   *     a parameter with no {@code @NonNull} annotation whose type, or component type for a varargs
-   *     parameter, is a type variable with a nullable upper bound: the parameter accepts a value
-   *     for which {@link Nullness#isNoChange()} holds where its type accepts that value. A handler
-   *     that requires a non-null argument there stores {@link Nullness#NONNULL}.
+   *     nullness of the varargs array itself.
    * @return The updated nullness info for each argument position, as computed by the current
    *     handler.
    */

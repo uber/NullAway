@@ -481,7 +481,7 @@ public class GenericsUtils {
    * href="https://docs.oracle.com/javase/specs/jls/se21/html/jls-9.html#jls-9.9">9.9</a>.
    */
   @SuppressWarnings({"ReferenceEquality", "TypeEquals"}) // deliberate reference equality checks
-  static Type groundTargetType(
+  public static Type groundTargetType(
       Type targetType, VisitorState state, Config config, Handler handler) {
     if (!config.handleWildcardGenerics()) {
       return targetType;

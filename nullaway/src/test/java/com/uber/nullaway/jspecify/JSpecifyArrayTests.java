@@ -236,25 +236,34 @@ public class JSpecifyArrayTests extends NullAwayTestsBase {
             class Test {
               static class Holder<T extends @Nullable Object> {
                 T[] array;
-                Holder(T[] array) {
+                T[][] matrix;
+                Holder(T[] array, T[][] matrix) {
                   this.array = array;
+                  this.matrix = matrix;
                 }
               }
               static class NullableHolder extends Holder<@Nullable String> {
-                NullableHolder(@Nullable String[] array) {
-                  super(array);
+                NullableHolder(@Nullable String[] array, @Nullable String[][] matrix) {
+                  super(array, matrix);
                 }
                 void store() {
                   array[0] = null;
                 }
+                void storeIntoInnerArray() {
+                  matrix[0][0] = null;
+                }
               }
               static class NonNullHolder extends Holder<String> {
-                NonNullHolder(String[] array) {
-                  super(array);
+                NonNullHolder(String[] array, String[][] matrix) {
+                  super(array, matrix);
                 }
                 void store() {
                   // BUG: Diagnostic contains: Writing @Nullable expression into array with @NonNull contents
                   array[0] = null;
+                }
+                void storeIntoInnerArray() {
+                  // BUG: Diagnostic contains: Writing @Nullable expression into array with @NonNull contents
+                  matrix[0][0] = null;
                 }
               }
             }
