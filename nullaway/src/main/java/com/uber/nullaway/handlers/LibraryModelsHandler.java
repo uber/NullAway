@@ -1324,6 +1324,20 @@ public class LibraryModelsHandler implements Handler {
                     "java.util.Map",
                     "computeIfAbsent(K,java.util.function.Function<? super K,? extends V>)"),
                 new PolyNullLocation(new Return(), ImmutableList.of()))
+            .put(
+                methodRef(
+                    "java.util.Map",
+                    "compute(K,java.util.function.BiFunction<? super K,? super V,? extends V>)"),
+                new PolyNullLocation(
+                    new Parameter(1),
+                    ImmutableList.of(
+                        new NestedAnnotationInfo.TypePathEntry(TYPE_ARGUMENT, 2),
+                        new NestedAnnotationInfo.TypePathEntry(WILDCARD_BOUND, 0))))
+            .put(
+                methodRef(
+                    "java.util.Map",
+                    "compute(K,java.util.function.BiFunction<? super K,? super V,? extends V>)"),
+                new PolyNullLocation(new Return(), ImmutableList.of()))
             .build();
 
     private static final ImmutableSet<String> NULLMARKED_CLASSES =

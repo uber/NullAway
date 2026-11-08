@@ -2561,6 +2561,60 @@ public class CoreTests extends NullAwayTestsBase {
   }
 
   @Test
+  public void mapComputeOutsideJSpecifyModePreservesLegacyNullness() {
+    makeTestHelperWithArgs(
+            Arrays.asList(
+                "-XepOpt:NullAway:AnnotatedPackages=com.uber",
+                "-XepOpt:NullAway:JSpecifyMode=false"))
+        .addSourceLines(
+            "Test.java",
+            """
+            package com.uber;
+            import java.util.Map;
+            import java.util.function.BiFunction;
+            import org.jspecify.annotations.Nullable;
+
+            class Test {
+              String nonNullCallbackResult(Map<String, String> map) {
+                return map.compute("key", (key, existingValue) -> "value");
+              }
+
+              String nullableCallbackResult(Map<String, String> map) {
+                return map.compute("key", (key, existingValue) -> null);
+              }
+
+              void existingValueKeepsLegacyNullness(Map<String, String> map) {
+                map.compute("key", (key, existingValue) -> existingValue.toString());
+              }
+
+              void nonNullResultDoesNotEstablishEntry(Map<String, String> map) {
+                map.compute("key", (key, existingValue) -> "value");
+                // BUG: Diagnostic contains: dereferenced expression 'map.get("key")' is @Nullable
+                map.get("key").hashCode();
+              }
+
+              void nullableResultDoesNotInvalidateKnownEntry(Map<String, String> map) {
+                if (map.containsKey("key")) {
+                  map.compute("key", (key, existingValue) -> null);
+                  map.get("key").hashCode();
+                }
+              }
+            }
+
+            abstract class NullableOverride implements Map<String, String> {
+              @Override
+              public @Nullable String compute(
+                  String key,
+                  BiFunction<? super String, ? super @Nullable String, ? extends @Nullable String>
+                      remappingFunction) {
+                return null;
+              }
+            }
+            """)
+        .doTest();
+  }
+
+  @Test
   public void testMapWithMapGetKey() {
     defaultCompilationHelper
         .addSourceLines(

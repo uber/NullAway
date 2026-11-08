@@ -392,7 +392,14 @@ public class JSpecifyJDKModelsTest extends NullAwayTestsBase {
 
   @Test
   public void mapComputeOverrideUsesJSpecifyModel() {
-    makeHelper()
+    // Check the fixed JDK model without the experimental PolyNull model replacing its locations.
+    makeTestHelperWithArgs(
+            List.of(
+                "-XepOpt:NullAway:OnlyNullMarked=true",
+                JSpecifyJavacConfig.JSPECIFY_MODE_FLAG,
+                JSpecifyJavacConfig.ADD_TYPE_ANNOTATIONS_FLAG,
+                JSpecifyJavacConfig.HANDLE_WILDCARD_GENERICS_FLAG,
+                "-XepOpt:NullAway:JSpecifyJDKModels=true"))
         .addSourceLines(
             "Test.java",
             """

@@ -242,6 +242,10 @@ public class LibraryModelsHandlerTest {
         methodRef(
             "java.util.Map",
             "computeIfAbsent(K,java.util.function.Function<? super K,? extends V>)");
+    MethodRef compute =
+        methodRef(
+            "java.util.Map",
+            "compute(K,java.util.function.BiFunction<? super K,? super V,? extends V>)");
     ImmutableSetMultimap<MethodRef, PolyNullLocation> expected =
         ImmutableSetMultimap.of(
             OPTIONAL_OR_ELSE_GET,
@@ -252,6 +256,13 @@ public class LibraryModelsHandlerTest {
                 ImmutableList.of(
                     new TypePathEntry(TYPE_ARGUMENT, 1), new TypePathEntry(WILDCARD_BOUND, 0))),
             computeIfAbsent,
+            new PolyNullLocation(new Return(), ImmutableList.of()),
+            compute,
+            new PolyNullLocation(
+                new Parameter(1),
+                ImmutableList.of(
+                    new TypePathEntry(TYPE_ARGUMENT, 2), new TypePathEntry(WILDCARD_BOUND, 0))),
+            compute,
             new PolyNullLocation(new Return(), ImmutableList.of()));
     for (ImmutableList<LibraryModels> providers :
         ImmutableList.of(ImmutableList.of(defaults, user), ImmutableList.of(user, defaults))) {
