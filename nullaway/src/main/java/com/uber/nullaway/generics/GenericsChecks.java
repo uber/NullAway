@@ -3183,6 +3183,10 @@ public final class GenericsChecks {
    * <p>The {@link Type.ForAll} wrapper must be retained for subsequent checks of method type
    * variable bounds, while handlers operate on its underlying {@link Type.MethodType}.
    *
+   * <p>PolyNull locations are interpreted as nullable for declaration compatibility. This permits
+   * nullable override signatures without inferring a call-specific nullness or verifying the
+   * overriding implementation's linked-nullness contract.
+   *
    * @param overridingMethod symbol of the overriding method
    * @param overriddenMethod symbol of the overridden method
    * @param state visitor state
@@ -3203,6 +3207,14 @@ public final class GenericsChecks {
     Type.MethodType methodType = substitutedMethodType.asMethodType();
     Type.MethodType modeledMethodType =
         handler.onOverrideMethodType(overriddenMethod, methodType, state, null);
+    ImmutableSet<PolyNullLocation> polyNullLocations =
+        handler.onGetPolyNullLocations(overriddenMethod, state);
+    if (!polyNullLocations.isEmpty()) {
+      // make all the @PolyNull locations @Nullable for the purposes of override checking
+      modeledMethodType =
+          PolyNullInference.applyToMethodType(
+              modeledMethodType, polyNullLocations, getSyntheticNullableAnnotType(state));
+    }
     if (modeledMethodType == methodType) {
       return substitutedMethodType;
     }

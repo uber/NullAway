@@ -629,6 +629,119 @@ public class PolyNullLibraryModelsTests extends NullAwayTestsBase {
   }
 
   @Test
+  public void mapComputeIfAbsentOverrideAcceptsNullableModelLocations() {
+    makeHelper()
+        .addSourceLines(
+            "Test.java",
+            """
+            import java.util.Map;
+            import java.util.function.Function;
+            import org.jspecify.annotations.NullMarked;
+            import org.jspecify.annotations.Nullable;
+
+            @NullMarked
+            abstract class NullableResult implements Map<String, String> {
+              @Override
+              public @Nullable String computeIfAbsent(
+                  String key,
+                  Function<? super String, ? extends @Nullable String> mappingFunction) {
+                return Map.super.computeIfAbsent(key, mappingFunction);
+              }
+            }
+
+            @NullMarked
+            abstract class NonNullResult implements Map<String, String> {
+              @Override
+              public String computeIfAbsent(
+                  String key,
+                  Function<? super String, ? extends @Nullable String> mappingFunction) {
+                return "value";
+              }
+            }
+
+            @NullMarked
+            abstract class NarrowCallback implements Map<String, String> {
+              @Override
+              public @Nullable String computeIfAbsent(
+                  String key,
+                  // BUG: Diagnostic contains: Parameter has type Function<? super String, ? extends String>, but overridden method has parameter type Function<? super String, ? extends @Nullable String>
+                  Function<? super String, ? extends String> mappingFunction) {
+                return mappingFunction.apply(key);
+              }
+            }
+            """)
+        .doTest();
+  }
+
+  @Test
+  public void overrideDeclarationsApplyOnlyInheritedPolyNullLocations() {
+    makeHelper()
+        .addSourceLines(
+            "Test.java",
+            """
+            import com.uber.lib.unannotated.PolyNullOverrides.Base;
+            import com.uber.lib.unannotated.PolyNullOverrides.NullableOverride;
+            import java.util.List;
+            import java.util.function.Supplier;
+            import org.jspecify.annotations.NullMarked;
+            import org.jspecify.annotations.Nullable;
+
+            @NullMarked
+            class NullableLocations extends NullableOverride {
+              @Override
+              public @Nullable Object top(
+                  @Nullable Object linked, @Nullable Object allowed, Object required,
+                  Supplier<? extends @Nullable Object> nested) {
+                return super.top(linked, allowed, required, nested);
+              }
+
+              @Override
+              public <T> @Nullable Object generic(
+                  Supplier<? extends @Nullable T> nested, @Nullable Object linked) {
+                return linked;
+              }
+
+              @Override
+              public @Nullable List<@Nullable Object> nested(
+                  List<@Nullable Object> linked, List<@Nullable Object> unrelated) {
+                return super.nested(linked, unrelated);
+              }
+            }
+
+            @NullMarked
+            class NarrowUnrelatedParameter extends NullableOverride {
+              @Override
+              public @Nullable Object top(
+                  @Nullable Object linked,
+                  // BUG: Diagnostic contains: parameter allowed is @NonNull, but parameter in superclass method
+                  Object allowed,
+                  Object required,
+                  Supplier<? extends @Nullable Object> nested) {
+                return super.top(linked, allowed, required, nested);
+              }
+            }
+
+            @NullMarked
+            class NonNullUnmodeledReturn extends Base {
+              @Override
+              public Object inputOnly(List<@Nullable Object> linked) {
+                return linked;
+              }
+            }
+
+            @NullMarked
+            class NullableUnmodeledReturn extends Base {
+              @Override
+              // BUG: Diagnostic contains: method returns @Nullable, but superclass method
+              public @Nullable Object inputOnly(List<@Nullable Object> linked) {
+                return linked;
+              }
+            }
+            """)
+        .doTest();
+  }
+
+  @Test
   public void mapComputeIfAbsentModelAppliesToOverride() {
     makeHelper()
         .addSourceLines(

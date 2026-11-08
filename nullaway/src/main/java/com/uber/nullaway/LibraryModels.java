@@ -158,6 +158,10 @@ public interface LibraryModels {
    * method type arguments are substituted first, and at a modeled location the linked nullness
    * replaces the nullness the type argument supplied.
    *
+   * <p>Override declarations treat modeled locations as {@code @Nullable}. This checks signature
+   * compatibility without verifying that the overriding implementation preserves the
+   * linked-nullness relationship.
+   *
    * <p>This model is used only when {@code JSpecifyMode} and {@code JSpecifyExperimental} are
    * enabled. A PolyNull location takes precedence over any fixed nullable or non-null library model
    * for the same location, including models on overriding methods when the PolyNull model is
