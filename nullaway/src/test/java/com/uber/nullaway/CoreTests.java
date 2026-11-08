@@ -2615,6 +2615,49 @@ public class CoreTests extends NullAwayTestsBase {
   }
 
   @Test
+  public void mapMergeOutsideJSpecifyModePreservesLegacyNullness() {
+    makeTestHelperWithArgs(
+            Arrays.asList(
+                "-XepOpt:NullAway:AnnotatedPackages=com.uber",
+                "-XepOpt:NullAway:JSpecifyMode=false"))
+        .addSourceLines(
+            "Test.java",
+            """
+            package com.uber;
+            import java.util.Map;
+            import org.jspecify.annotations.Nullable;
+
+            class Test {
+              String nonNullCallbackResult(Map<String, String> map) {
+                return map.merge("key", "value", (oldValue, newValue) -> "value");
+              }
+
+              String nullableCallbackResult(Map<String, String> map) {
+                return map.merge("key", "value", (oldValue, newValue) -> null);
+              }
+
+              void nullableSuppliedValue(Map<String, String> map, @Nullable String value) {
+                map.merge("key", value, (oldValue, newValue) -> "value");
+              }
+
+              void nonNullResultDoesNotEstablishEntry(Map<String, String> map) {
+                map.merge("key", "value", (oldValue, newValue) -> "value");
+                // BUG: Diagnostic contains: dereferenced expression 'map.get("key")' is @Nullable
+                map.get("key").hashCode();
+              }
+
+              void nullableResultDoesNotInvalidateKnownEntry(Map<String, String> map) {
+                if (map.containsKey("key")) {
+                  map.merge("key", "value", (oldValue, newValue) -> null);
+                  map.get("key").hashCode();
+                }
+              }
+            }
+            """)
+        .doTest();
+  }
+
+  @Test
   public void testMapWithMapGetKey() {
     defaultCompilationHelper
         .addSourceLines(

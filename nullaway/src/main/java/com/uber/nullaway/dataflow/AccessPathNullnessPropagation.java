@@ -1172,7 +1172,7 @@ public class AccessPathNullnessPropagation
         Nullness value = inputs.valueOfSubNode(arguments.get(1));
         bothUpdates.set(getAccessPath, value);
       }
-    } else if (AccessPath.isMapCompute(callee, state)) {
+    } else if (AccessPath.isMapCompute(callee, state) || AccessPath.isMapMerge(callee, state)) {
       if (config.isJSpecifyMode() && genericsChecks.hasPolyNullModel(callee, state)) {
         AccessPath getAccessPath = AccessPath.getForMapInvocation(node, state, apContext);
         if (getAccessPath != null) {

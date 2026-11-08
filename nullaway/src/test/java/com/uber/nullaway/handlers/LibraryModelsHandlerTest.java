@@ -246,24 +246,35 @@ public class LibraryModelsHandlerTest {
         methodRef(
             "java.util.Map",
             "compute(K,java.util.function.BiFunction<? super K,? super V,? extends V>)");
+    MethodRef merge =
+        methodRef(
+            "java.util.Map",
+            "merge(K,V,java.util.function.BiFunction<? super V,? super V,? extends V>)");
     ImmutableSetMultimap<MethodRef, PolyNullLocation> expected =
-        ImmutableSetMultimap.of(
-            OPTIONAL_OR_ELSE_GET,
-            OPTIONAL_SUPPLIER_RESULT,
-            computeIfAbsent,
-            new PolyNullLocation(
-                new Parameter(1),
-                ImmutableList.of(
-                    new TypePathEntry(TYPE_ARGUMENT, 1), new TypePathEntry(WILDCARD_BOUND, 0))),
-            computeIfAbsent,
-            new PolyNullLocation(new Return(), ImmutableList.of()),
-            compute,
-            new PolyNullLocation(
-                new Parameter(1),
-                ImmutableList.of(
-                    new TypePathEntry(TYPE_ARGUMENT, 2), new TypePathEntry(WILDCARD_BOUND, 0))),
-            compute,
-            new PolyNullLocation(new Return(), ImmutableList.of()));
+        ImmutableSetMultimap.<MethodRef, PolyNullLocation>builder()
+            .put(OPTIONAL_OR_ELSE_GET, OPTIONAL_SUPPLIER_RESULT)
+            .put(
+                computeIfAbsent,
+                new PolyNullLocation(
+                    new Parameter(1),
+                    ImmutableList.of(
+                        new TypePathEntry(TYPE_ARGUMENT, 1), new TypePathEntry(WILDCARD_BOUND, 0))))
+            .put(computeIfAbsent, new PolyNullLocation(new Return(), ImmutableList.of()))
+            .put(
+                compute,
+                new PolyNullLocation(
+                    new Parameter(1),
+                    ImmutableList.of(
+                        new TypePathEntry(TYPE_ARGUMENT, 2), new TypePathEntry(WILDCARD_BOUND, 0))))
+            .put(compute, new PolyNullLocation(new Return(), ImmutableList.of()))
+            .put(
+                merge,
+                new PolyNullLocation(
+                    new Parameter(2),
+                    ImmutableList.of(
+                        new TypePathEntry(TYPE_ARGUMENT, 2), new TypePathEntry(WILDCARD_BOUND, 0))))
+            .put(merge, new PolyNullLocation(new Return(), ImmutableList.of()))
+            .build();
     for (ImmutableList<LibraryModels> providers :
         ImmutableList.of(ImmutableList.of(defaults, user), ImmutableList.of(user, defaults))) {
       LibraryModelsHandler.CombinedLibraryModels combined =
