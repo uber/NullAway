@@ -392,15 +392,7 @@ public class JSpecifyJDKModelsTest extends NullAwayTestsBase {
 
   @Test
   public void mapComputeOverrideUsesJSpecifyModel() {
-    // Check the fixed JDK model for now. TODO: Enable JSpecifyExperimental once PolyNull override
-    // checking is fixed: https://github.com/uber/NullAway/issues/2142
-    makeTestHelperWithArgs(
-            List.of(
-                "-XepOpt:NullAway:OnlyNullMarked=true",
-                JSpecifyJavacConfig.JSPECIFY_MODE_FLAG,
-                JSpecifyJavacConfig.ADD_TYPE_ANNOTATIONS_FLAG,
-                JSpecifyJavacConfig.HANDLE_WILDCARD_GENERICS_FLAG,
-                "-XepOpt:NullAway:JSpecifyJDKModels=true"))
+    makeHelper()
         .addSourceLines(
             "Test.java",
             """
