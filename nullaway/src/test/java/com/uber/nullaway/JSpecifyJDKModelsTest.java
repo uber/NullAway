@@ -392,7 +392,8 @@ public class JSpecifyJDKModelsTest extends NullAwayTestsBase {
 
   @Test
   public void mapComputeOverrideUsesJSpecifyModel() {
-    // Check the fixed JDK model without the experimental PolyNull model replacing its locations.
+    // Check the fixed JDK model for now. TODO: Enable JSpecifyExperimental once PolyNull override
+    // checking is fixed: https://github.com/uber/NullAway/issues/2142
     makeTestHelperWithArgs(
             List.of(
                 "-XepOpt:NullAway:OnlyNullMarked=true",
