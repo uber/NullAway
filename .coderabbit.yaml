@@ -1,9 +1,9 @@
 language: en-US
-tone_instructions: ''
+tone_instructions: 'Be terse. No thanks or acknowledgements. State the defect, the trigger, and the fix; do not restate code.'
 early_access: false
 enable_free_tier: true
 reviews:
-  profile: assertive
+  profile: chill
   request_changes_workflow: false
   high_level_summary: false
   high_level_summary_placeholder: ''
@@ -11,6 +11,7 @@ reviews:
   auto_title_placeholder: '@coderabbitai'
   auto_title_instructions: ''
   review_status: false
+  review_info: false
   commit_status: true
   fail_commit_status: false
   collapse_walkthrough: false
@@ -20,11 +21,11 @@ reviews:
   assess_linked_issues: true
   related_issues: true
   related_prs: true
-  suggested_labels: true
+  suggested_labels: false
   auto_apply_labels: false
-  suggested_reviewers: true
+  suggested_reviewers: false
   auto_assign_reviewers: false
-  in_progress_fortune: true
+  in_progress_fortune: false
   poem: false
   enable_prompt_for_ai_agents: false
   labeling_instructions: []
@@ -44,20 +45,20 @@ reviews:
     autofix:
       enabled: false
     docstrings:
-      enabled: true
+      enabled: false
     unit_tests:
-      enabled: true
+      enabled: false
   pre_merge_checks:
     docstrings:
-      mode: warning
+      mode: 'off'
       threshold: 80
     title:
-      mode: warning
+      mode: 'off'
       requirements: ''
     description:
-      mode: warning
+      mode: 'off'
     issue_assessment:
-      mode: warning
+      mode: 'off'
     custom_checks: []
   tools:
     ast-grep:
@@ -75,7 +76,7 @@ reviews:
       enabled: true
       timeout_ms: 90000
     languagetool:
-      enabled: true
+      enabled: false
       enabled_rules: []
       disabled_rules: []
       enabled_categories: []
@@ -150,7 +151,7 @@ reviews:
     osvScanner:
       enabled: true
 chat:
-  art: true
+  art: false
   auto_reply: true
   integrations:
     jira:
