@@ -422,12 +422,13 @@ public class JSpecifyJDKModelsTest extends NullAwayTestsBase {
               }
             }
             @NullMarked
-            abstract class InvalidTest implements Map<String, String> {
+            abstract class NonNullCallbackResult implements Map<String, String> {
               @Override
               public @Nullable String compute(
                   String key,
+                  // The callback result is a trusted PolyNull location. The non-null input
+                  // bound widens the accepted callbacks, so it is also valid for an override.
                   BiFunction<? super String, ? super String, ? extends String>
-                      // BUG: Diagnostic contains: Parameter has type BiFunction<? super String, ? super String, ? extends String>, but overridden method has parameter type BiFunction<? super String, ? super @Nullable String, ? extends @Nullable String>
                       remappingFunction) {
                 return null;
               }

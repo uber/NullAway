@@ -766,6 +766,16 @@ public final class AccessPath implements MapKey {
     return NullabilityUtil.isMapMethod(symbol, state, "computeIfAbsent", 2);
   }
 
+  /** Returns whether the method is {@link java.util.Map#compute}. */
+  public static boolean isMapCompute(Symbol.MethodSymbol symbol, VisitorState state) {
+    return NullabilityUtil.isMapMethod(symbol, state, "compute", 2);
+  }
+
+  /** Returns whether the method is {@link java.util.Map#merge}. */
+  public static boolean isMapMerge(Symbol.MethodSymbol symbol, VisitorState state) {
+    return NullabilityUtil.isMapMethod(symbol, state, "merge", 3);
+  }
+
   private record StringMapKey(String key) implements MapKey {}
 
   /**

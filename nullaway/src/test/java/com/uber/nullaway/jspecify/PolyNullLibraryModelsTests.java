@@ -503,6 +503,166 @@ public class PolyNullLibraryModelsTests extends NullAwayTestsBase {
   }
 
   @Test
+  public void mapComputeReturnNullnessTracksCallback() {
+    makeHelper()
+        .addSourceLines(
+            "Test.java",
+            """
+            import java.util.HashMap;
+            import java.util.Map;
+            import org.jspecify.annotations.NullMarked;
+
+            @NullMarked
+            class Test {
+              String nonNullLambdaResult() {
+                Map<String, String> values = new HashMap<>();
+                return values.compute("key", (key, existingValue) -> "value");
+              }
+
+              void nullableLambdaResult(Map<String, String> map) {
+                // BUG: Diagnostic contains: dereferenced expression 'map.compute("key", (key, existingValue) -> null)' is @Nullable
+                map.compute("key", (key, existingValue) -> null).hashCode();
+              }
+
+              void existingValueIsNullable(Map<String, String> map) {
+                map.compute("key", (key, existingValue) -> {
+                  key.hashCode();
+                  // BUG: Diagnostic contains: dereferenced expression 'existingValue' is @Nullable
+                  existingValue.hashCode();
+                  return "value";
+                }).hashCode();
+              }
+            }
+            """)
+        .doTest();
+  }
+
+  @Test
+  public void mapComputeUpdatesKeyPresence() {
+    makeHelper()
+        .addSourceLines(
+            "Test.java",
+            """
+            import java.util.HashMap;
+            import java.util.Map;
+            import org.jspecify.annotations.NullMarked;
+
+            @NullMarked
+            class Test {
+              void nonNullResultEstablishesEntry(Map<String, String> map) {
+                map.compute("key", (key, existingValue) -> "value");
+                map.get("key").hashCode();
+              }
+
+              void nullableResultDoesNotEstablishEntry(Map<String, String> map) {
+                map.compute("key", (key, existingValue) -> null);
+                // BUG: Diagnostic contains: dereferenced expression 'map.get("key")' is @Nullable
+                map.get("key").hashCode();
+              }
+
+              void nullableResultInvalidatesKnownEntry(Map<String, String> map) {
+                if (map.containsKey("key")) {
+                  map.compute("key", (key, existingValue) -> null);
+                  // BUG: Diagnostic contains: dereferenced expression 'map.get("key")' is @Nullable
+                  map.get("key").hashCode();
+                }
+              }
+
+              void nullableResultPreservesOtherEntries(Map<String, String> map) {
+                if (map.containsKey("other")) {
+                  map.compute("key", (key, existingValue) -> null);
+                  map.get("other").hashCode();
+                }
+              }
+
+              String nonNullResultWithoutStableReceiver() {
+                return new HashMap<String, String>().compute("key", (key, existingValue) -> "value");
+              }
+            }
+            """)
+        .doTest();
+  }
+
+  @Test
+  public void mapMergeReturnNullnessTracksCallback() {
+    makeHelper()
+        .addSourceLines(
+            "Test.java",
+            """
+            import java.util.Map;
+            import org.jspecify.annotations.NullMarked;
+            import org.jspecify.annotations.Nullable;
+
+            @NullMarked
+            class Test {
+              String nonNullResult(Map<String, String> map) {
+                return map.merge("key", "value", (oldValue, newValue) -> oldValue + newValue);
+              }
+
+              void nullableResult(Map<String, String> map) {
+                // BUG: Diagnostic contains: dereferenced expression 'map.merge("key", "value", (oldValue, newValue) -> null)' is @Nullable
+                map.merge("key", "value", (oldValue, newValue) -> null).hashCode();
+              }
+
+              String nonNullInputsForNullableValues(Map<String, @Nullable String> map) {
+                return map.merge("key", "value", (oldValue, newValue) -> {
+                  oldValue.hashCode();
+                  newValue.hashCode();
+                  return "value";
+                });
+              }
+
+              void nullSuppliedValueRejected(Map<String, String> map) {
+                // BUG: Diagnostic contains: passing @Nullable parameter
+                map.merge("key", null, (oldValue, newValue) -> "value");
+              }
+            }
+            """)
+        .doTest();
+  }
+
+  @Test
+  public void mapMergeUpdatesKeyPresence() {
+    makeHelper()
+        .addSourceLines(
+            "Test.java",
+            """
+            import java.util.Map;
+            import org.jspecify.annotations.NullMarked;
+
+            @NullMarked
+            class Test {
+              void nonNullResultEstablishesEntry(Map<String, String> map) {
+                map.merge("key", "value", (oldValue, newValue) -> "value");
+                map.get("key").hashCode();
+              }
+
+              void nullableResultDoesNotEstablishEntry(Map<String, String> map) {
+                map.merge("key", "value", (oldValue, newValue) -> null);
+                // BUG: Diagnostic contains: dereferenced expression 'map.get("key")' is @Nullable
+                map.get("key").hashCode();
+              }
+
+              void nullableResultInvalidatesKnownEntry(Map<String, String> map) {
+                if (map.containsKey("key")) {
+                  map.merge("key", "value", (oldValue, newValue) -> null);
+                  // BUG: Diagnostic contains: dereferenced expression 'map.get("key")' is @Nullable
+                  map.get("key").hashCode();
+                }
+              }
+
+              void nullableResultPreservesOtherEntries(Map<String, String> map) {
+                if (map.containsKey("other")) {
+                  map.merge("key", "value", (oldValue, newValue) -> null);
+                  map.get("other").hashCode();
+                }
+              }
+            }
+            """)
+        .doTest();
+  }
+
+  @Test
   public void mapComputeIfAbsentWithNamedFunction() {
     makeHelper()
         .addSourceLines(
