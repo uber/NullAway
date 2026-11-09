@@ -18,7 +18,7 @@ reviews:
   changed_files_summary: false
   sequence_diagrams: false
   estimate_code_review_effort: false
-  assess_linked_issues: true
+  assess_linked_issues: false
   related_issues: true
   related_prs: true
   suggested_labels: false
