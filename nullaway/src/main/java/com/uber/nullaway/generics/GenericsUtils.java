@@ -346,6 +346,10 @@ public class GenericsUtils {
       VisitorState state,
       Config config,
       Handler handler) {
+    if (OverrideNullnessMask.isMasked(upperBound)) {
+      // Declaration defaults must not replace an override comparison's location mask.
+      return upperBound;
+    }
     Type declaredUpperBound = formalTypeVar.getUpperBound();
     // A dependent bound such as U extends T can be replaced entirely by capture conversion, in
     // which case the substituted type supplies its own nullability. A recursive class bound such as

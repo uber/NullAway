@@ -629,7 +629,7 @@ public class PolyNullLibraryModelsTests extends NullAwayTestsBase {
   }
 
   @Test
-  public void mapComputeIfAbsentOverrideAcceptsNullableModelLocations() {
+  public void mapComputeIfAbsentOverridesTrustModeledLocations() {
     makeHelper()
         .addSourceLines(
             "Test.java",
@@ -660,11 +660,21 @@ public class PolyNullLibraryModelsTests extends NullAwayTestsBase {
             }
 
             @NullMarked
+            abstract class NarrowUnmodeledInput implements Map<String, String> {
+              @Override
+              public String computeIfAbsent(
+                  String key,
+                  // BUG: Diagnostic contains: mismatched type parameter nullability
+                  Function<? super @Nullable String, ? extends String> mappingFunction) {
+                return "value";
+              }
+            }
+
+            @NullMarked
             abstract class NarrowCallback implements Map<String, String> {
               @Override
               public @Nullable String computeIfAbsent(
                   String key,
-                  // BUG: Diagnostic contains: Parameter has type Function<? super String, ? extends String>, but overridden method has parameter type Function<? super String, ? extends @Nullable String>
                   Function<? super String, ? extends String> mappingFunction) {
                 return mappingFunction.apply(key);
               }
@@ -709,6 +719,76 @@ public class PolyNullLibraryModelsTests extends NullAwayTestsBase {
             }
 
             @NullMarked
+            class NonNullLocations extends NullableOverride {
+              @Override
+              public Object top(
+                  Object linked, @Nullable Object allowed, Object required,
+                  Supplier<? extends Object> nested) {
+                // Body checking still uses the declared non-null supplier result.
+                return nested.get();
+              }
+
+              @Override
+              public <T> Object generic(Supplier<? extends T> nested, Object linked) {
+                return linked;
+              }
+
+              @Override
+              public java.util.ArrayList<Object> nested(
+                  List<Object> linked, List<@Nullable Object> unrelated) {
+                return new java.util.ArrayList<>(linked);
+              }
+            }
+
+            @NullMarked
+            class MixedLocations extends Base {
+              @Override
+              public @Nullable Object top(
+                  Object linked, @Nullable Object allowed, @Nullable Object required,
+                  Supplier<? extends @Nullable Object> nested) {
+                return nested.get();
+              }
+
+              @Override
+              public List<@Nullable Object> nested(
+                  List<Object> linked, List<Object> unrelated) {
+                return new java.util.ArrayList<>();
+              }
+            }
+
+            @NullMarked
+            class UnmodeledSupplierNullness extends Base {
+              @Override
+              public Object top(
+                  Object linked, @Nullable Object allowed, @Nullable Object required,
+                  @Nullable Supplier<? extends Object> nested) {
+                // BUG: Diagnostic contains: dereferenced expression 'nested' is @Nullable
+                return nested.get();
+              }
+            }
+
+            @NullMarked
+            class NarrowUnrelatedTypeArgument extends NullableOverride {
+              @Override
+              public List<Object> nested(
+                  List<Object> linked,
+                  // BUG: Diagnostic contains: Parameter has type List<Object>, but overridden method has parameter type List<@Nullable Object>
+                  List<Object> unrelated) {
+                return linked;
+              }
+            }
+
+            @NullMarked
+            class NullableUnmodeledOuterReturn extends Base {
+              @Override
+              // BUG: Diagnostic contains: method returns @Nullable, but superclass method
+              public @Nullable List<Object> nested(
+                  List<Object> linked, List<Object> unrelated) {
+                return null;
+              }
+            }
+
+            @NullMarked
             class NarrowUnrelatedParameter extends NullableOverride {
               @Override
               public @Nullable Object top(
@@ -735,6 +815,48 @@ public class PolyNullLibraryModelsTests extends NullAwayTestsBase {
               // BUG: Diagnostic contains: method returns @Nullable, but superclass method
               public @Nullable Object inputOnly(List<@Nullable Object> linked) {
                 return linked;
+              }
+            }
+            """)
+        .doTest();
+  }
+
+  @Test
+  public void polyNullOverridesStillCheckUnmodeledNestedReturnsAndBounds() {
+    makeHelper()
+        .addSourceLines(
+            "com/uber/lib/unannotated/PolyNullOverrides.java",
+            """
+            package com.uber.lib.unannotated;
+
+            import java.util.List;
+            import java.util.function.Supplier;
+            import org.jspecify.annotations.NullMarked;
+            import org.jspecify.annotations.Nullable;
+
+            @NullMarked
+            class PolyNullOverrides {
+              abstract static class Base {
+                abstract List<Object> inputOnly(List<Object> linked);
+
+                abstract <T extends @Nullable Object> Object generic(
+                    Supplier<? extends T> nested, Object linked);
+              }
+
+              abstract static class InvalidUnmodeledReturn extends Base {
+                @Override
+                // BUG: Diagnostic contains: mismatched type parameter nullability
+                List<@Nullable Object> inputOnly(List<Object> linked) {
+                  throw new UnsupportedOperationException();
+                }
+              }
+
+              abstract static class NarrowedTypeVariableBound extends Base {
+                @Override
+                // BUG: Diagnostic contains: upper bound
+                <T> Object generic(Supplier<? extends T> nested, Object linked) {
+                  return linked;
+                }
               }
             }
             """)

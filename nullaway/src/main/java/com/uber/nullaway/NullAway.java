@@ -99,6 +99,7 @@ import com.sun.tools.javac.code.Type;
 import com.sun.tools.javac.processing.JavacProcessingEnvironment;
 import com.sun.tools.javac.tree.JCTree;
 import com.uber.nullaway.ErrorMessage.MessageTypes;
+import com.uber.nullaway.LibraryModels.PolyNullLocation;
 import com.uber.nullaway.dataflow.AccessPathNullnessAnalysis;
 import com.uber.nullaway.dataflow.EnclosingEnvironmentNullness;
 import com.uber.nullaway.generics.GenericsChecks;
@@ -1089,6 +1090,15 @@ public class NullAway extends BugChecker
     int startParam = unboundMemberRef ? 1 : 0;
 
     for (int i = 0; i < superParamSymbols.size(); i++) {
+      if (modeledOverriddenMethodType != null
+          && handler
+              .onGetPolyNullLocations(overriddenMethod, state)
+              .contains(
+                  new PolyNullLocation(new PolyNullLocation.Parameter(i), ImmutableList.of()))) {
+        // The inherited PolyNull relationship is trusted, rather than checked against this
+        // declaration's fixed nullness. Other locations in the signature are still checked.
+        continue;
+      }
       Nullness overriddenParameterNullness =
           overriddenParameterNullness(overriddenMethod, overriddenMethodArgumentNullness, i);
       if (!Objects.equals(overriddenParameterNullness, Nullness.NULLABLE)) {
@@ -1592,6 +1602,11 @@ public class NullAway extends BugChecker
       return false;
     }
     if (modeledOverriddenMethodType != null) {
+      if (handler
+          .onGetPolyNullLocations(overriddenMethod, state)
+          .contains(new PolyNullLocation(new PolyNullLocation.Return(), ImmutableList.of()))) {
+        return false;
+      }
       Type modeledReturnType = modeledOverriddenMethodType.getReturnType();
       if (Nullness.hasNullableAnnotation(
           modeledReturnType.getAnnotationMirrors().stream(), config)) {
