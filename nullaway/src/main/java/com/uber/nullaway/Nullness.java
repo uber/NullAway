@@ -70,8 +70,8 @@ public enum Nullness implements AbstractValue<Nullness> {
    * where nullness subtyping holds: where the target's type is {@code T}, or a capture of {@code ?
    * super T}, without {@code @NonNull}, as {@link
    * com.uber.nullaway.generics.GenericsChecks#acceptsNoChangeValue} decides. At any other target
-   * the value is {@link #NULLABLE}, as it is in a holder of another type that dataflow moves it to.
-   * Generic method inference takes no nullness constraint from the value and infers {@code T}.
+   * the value is {@link #NULLABLE}, and so is a variable of another type that dataflow assigns it
+   * to. Generic method inference takes no nullness constraint from the value and infers {@code T}.
    *
    * <p>NullAway computes this nullness only with {@code HandleWildcardGenerics} on; with that
    * option off, such a value is {@link #NONNULL}.
@@ -84,9 +84,7 @@ public enum Nullness implements AbstractValue<Nullness> {
    * A {@link #NO_CHANGE} value that dataflow has found equal to null, such as inside {@code if
    * (value == null)}. A target that accepts a {@code NO_CHANGE} value accepts it too, and
    * everywhere else it is {@link #NULL}: a dereference is reported, and generic method inference
-   * takes a nullable {@code T} from it. Where it moves to a holder that {@link
-   * com.uber.nullaway.generics.GenericsChecks#acceptsNoChangeValue} rejects, it becomes {@link
-   * #NULL}.
+   * takes a nullable {@code T} from it.
    */
   NULL_NO_CHANGE("Null (no-change)"),
   NONNULL("Non-null"),
@@ -121,7 +119,7 @@ public enum Nullness implements AbstractValue<Nullness> {
   }
 
   /** Returns whether this value is below {@code other} in the lattice, or equal to it. */
-  private boolean isAtMost(Nullness other) {
+  private boolean isLessThanOrEqualTo(Nullness other) {
     return this == other
         || this == BOTTOM
         || other == NULLABLE
@@ -139,7 +137,7 @@ public enum Nullness implements AbstractValue<Nullness> {
 
   /**
    * Computes the least upper bound, or the greatest lower bound, of every pair of values from
-   * {@link #isAtMost}.
+   * {@link #isLessThanOrEqualTo}.
    *
    * @param upper {@code true} for least upper bounds, {@code false} for greatest lower bounds
    * @return the bound of each pair of values
@@ -155,10 +153,13 @@ public enum Nullness implements AbstractValue<Nullness> {
         for (Nullness candidate : values) {
           boolean isBound =
               upper
-                  ? a.isAtMost(candidate) && b.isAtMost(candidate)
-                  : candidate.isAtMost(a) && candidate.isAtMost(b);
+                  ? a.isLessThanOrEqualTo(candidate) && b.isLessThanOrEqualTo(candidate)
+                  : candidate.isLessThanOrEqualTo(a) && candidate.isLessThanOrEqualTo(b);
           if (isBound
-              && (best == null || (upper ? candidate.isAtMost(best) : best.isAtMost(candidate)))) {
+              && (best == null
+                  || (upper
+                      ? candidate.isLessThanOrEqualTo(best)
+                      : best.isLessThanOrEqualTo(candidate)))) {
             best = candidate;
           }
         }
@@ -198,8 +199,8 @@ public enum Nullness implements AbstractValue<Nullness> {
   }
 
   /**
-   * Returns the nullness of this value once it moves to a holder that does not accept a {@code
-   * NO_CHANGE} value: {@link #NULLABLE} for {@link #NO_CHANGE}, {@link #NULL} for {@link
+   * Returns the nullness of this value once it is assigned to a location that does not accept a
+   * {@code NO_CHANGE} value: {@link #NULLABLE} for {@link #NO_CHANGE}, {@link #NULL} for {@link
    * #NULL_NO_CHANGE}, and this value for any other.
    */
   public Nullness withoutNoChange() {

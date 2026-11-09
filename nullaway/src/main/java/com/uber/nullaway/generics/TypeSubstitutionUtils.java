@@ -97,6 +97,9 @@ public class TypeSubstitutionUtils {
    * @return the type of {@code sym} as a member of {@code t}
    */
   public static Type memberType(Types types, Type t, Symbol sym, Config config) {
+    // javac's memberType needs a class type: a type variable or capture is replaced by its upper
+    // bound, captured as javac does for a member access, so a wildcard in the bound such as
+    // B extends Box<? extends T> gives the member the capture of that wildcard
     Type site = t instanceof DeclaredType ? t : types.capture(types.skipTypeVars(t, true));
     Type origType = sym.type;
     Type memberType = types.memberType(site, sym);

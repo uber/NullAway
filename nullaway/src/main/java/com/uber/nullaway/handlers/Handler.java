@@ -232,9 +232,11 @@ public interface Handler {
    * considered isAnnotated or not. We use a mutable map for performance, but it should not outlive
    * the chain of handler invocations.
    *
-   * <p>A position that a handler sets, even to the value it already holds, is that handler's
-   * decision: NONNULL there requires a non-null argument whatever the parameter's type, so a
-   * handler sets only the positions it decides.
+   * <p>Where every handler leaves a position unset, a parameter whose type is a type variable
+   * {@code T}, declared without {@code @NonNull} as a type variable whose upper bound is nullable,
+   * accepts a value for which {@link com.uber.nullaway.Nullness#isNoChange()} holds, such as {@code
+   * box.get()} on a {@code Box<? extends T>}. A position that a handler sets to NONNULL, even to
+   * the value it already holds, rejects that value, so a handler sets only the positions it models.
    *
    * @param context The current context.
    * @param methodSymbol The method symbol for the method in question.

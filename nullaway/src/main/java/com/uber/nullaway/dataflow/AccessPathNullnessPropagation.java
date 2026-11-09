@@ -541,9 +541,11 @@ public class AccessPathNullnessPropagation
 
     // Where the operands are equal, each access path holds the value of the other operand
     Nullness leftEqualBranchValue =
-        leftVal.greatestLowerBound(valueHeldByPath(rightVal, rightOperand, realLeftNode));
+        leftVal.greatestLowerBound(
+            adaptNullnessForAccessPath(rightVal, rightOperand, realLeftNode));
     Nullness rightEqualBranchValue =
-        rightVal.greatestLowerBound(valueHeldByPath(leftVal, leftOperand, realRightNode));
+        rightVal.greatestLowerBound(
+            adaptNullnessForAccessPath(leftVal, leftOperand, realRightNode));
 
     AccessPath leftAP = AccessPath.getAccessPathForNode(realLeftNode, state, apContext);
     if (leftAP != null) {
@@ -607,8 +609,8 @@ public class AccessPathNullnessPropagation
     Nullness rhsValue = values(input).valueOfSubNode(rhs);
     // The assignment expression always has the target's type, while the access path of the target
     // may lose it
-    Nullness result = valueHeldAs(rhsValue, rhs, () -> holderTarget(target));
-    Nullness value = keptByPath(result, target);
+    Nullness result = nullnessAdaptedToTarget(rhsValue, rhs, () -> holderTarget(target));
+    Nullness value = adaptNullnessForAccessPath(rhsValue, rhs, target);
 
     if (target instanceof LocalVariableNode localVariableNode
         && !castToNonNull(ASTHelpers.getType(target.getTree())).isPrimitive()) {
@@ -984,7 +986,7 @@ public class AccessPathNullnessPropagation
     Nullness nullness =
         hasPrimitiveType(node)
             ? NONNULL
-            : valueHeldAs(
+            : nullnessAdaptedToTarget(
                 values.valueOfSubNode(node.getOperand()),
                 node.getOperand(),
                 () ->
@@ -1284,39 +1286,37 @@ public class AccessPathNullnessPropagation
   }
 
   /**
-   * Returns the nullness of {@code value}, the value of {@code source}, once the access path of
-   * {@code holder} holds it: the value {@link #valueHeldAs} computes for {@code holder}'s location,
-   * as {@link #keptByPath} keeps it.
+   * Adapts the source's nullness for use as a fact about the holder's access path.
    *
-   * @param value nullness of {@code source}
-   * @param source node whose value moves
-   * @param holder node whose access path receives the value
+   * <p>Keeps a value for which {@link Nullness#isNoChange()} holds only if {@link
+   * #nullnessAdaptedToTarget} keeps it for the holder's type and declaration, and expressions
+   * sharing the holder's access path cannot have different static types (due to receiver casts or
+   * generic method calls; see {@link AccessPath#hasStableType}). Otherwise, removes the {@code
+   * NO_CHANGE} information using {@link Nullness#withoutNoChange()}. Other nullness values are
+   * unchanged.
+   *
+   * @param value nullness of the source value
+   * @param source node supplying the value
+   * @param holder node whose access path is the target of the pseudo-assignment
    */
-  private Nullness valueHeldByPath(Nullness value, Node source, Node holder) {
-    return keptByPath(valueHeldAs(value, source, () -> holderTarget(holder)), holder);
-  }
-
-  /**
-   * Returns {@code held}, the nullness of the value of {@code holder}, as the access path of {@code
-   * holder} keeps it: unchanged where every node with that path has {@code holder}'s type, as
-   * {@link AccessPath#hasStableType} decides, and {@link Nullness#withoutNoChange()} otherwise.
-   */
-  private static Nullness keptByPath(Nullness held, Node holder) {
+  private Nullness adaptNullnessForAccessPath(Nullness value, Node source, Node holder) {
+    Nullness held = nullnessAdaptedToTarget(value, source, () -> holderTarget(holder));
     return AccessPath.hasStableType(holder) ? held : held.withoutNoChange();
   }
 
   /**
-   * Returns the nullness of {@code value}, the value of {@code source}, once {@code target} holds
-   * it. A value for which {@link Nullness#isNoChange()} holds keeps its nullness only where {@link
-   * GenericsChecks#acceptsNoChangeValue} accepts it for {@code target}, and becomes {@link
-   * Nullness#withoutNoChange()} otherwise; any other value is unchanged.
+   * Adapts the source's nullness to the target of a pseudo-assignment.
    *
-   * @param value nullness of {@code source}
-   * @param source node whose value moves
-   * @param target supplies the location receiving the value; called only for a {@code NO_CHANGE}
-   *     value
+   * <p>Keeps a value for which {@link Nullness#isNoChange()} holds only where {@link
+   * GenericsChecks#acceptsNoChangeValue} accepts it for the target. Otherwise, removes the {@code
+   * NO_CHANGE} information using {@link Nullness#withoutNoChange()}. Other nullness values are
+   * unchanged.
+   *
+   * @param value nullness of the source value
+   * @param source node supplying the value
+   * @param target supplies the target; called only for a {@code NO_CHANGE} value
    */
-  private Nullness valueHeldAs(
+  private Nullness nullnessAdaptedToTarget(
       Nullness value, Node source, java.util.function.Supplier<GenericsChecks.ValueTarget> target) {
     if (!value.isNoChange()) {
       return value;
@@ -1327,26 +1327,26 @@ public class AccessPathNullnessPropagation
   }
 
   /**
-   * Returns the location that {@code holder}, without enclosing casts, names, as {@link
-   * #locationOf} computes it.
+   * Returns the target that {@code holder}, without enclosing casts, names, as {@link #targetOf}
+   * computes it.
    *
-   * @param holder the node receiving a value
+   * @param holder the node whose access path is assigned a value
    */
   private GenericsChecks.ValueTarget holderTarget(Node holder) {
-    return locationOf(AccessPath.stripCasts(holder));
+    return targetOf(AccessPath.stripCasts(holder));
   }
 
   /**
-   * Returns the location that {@code node} names, built from the same {@link GenericsChecks}
-   * factories that the sinks use: an instance field typed as a member of the type of its receiver
-   * node, an array element typed by the location of its array, and any other node, a cast included,
-   * typed by its static type. A field is the declaration of its location.
+   * Returns the target that {@code node} names, built from the same {@link GenericsChecks}
+   * factories that the checks of pseudo-assignments use: an instance field typed as a member of the
+   * type of its receiver node, an array element typed by the target of its array, and any other
+   * node, a cast included, typed by its static type. A field is the declaration of its target.
    *
-   * @param node the node naming a location
+   * @param node the node naming a target
    */
-  private GenericsChecks.ValueTarget locationOf(Node node) {
+  private GenericsChecks.ValueTarget targetOf(Node node) {
     if (node instanceof ArrayAccessNode arrayAccess) {
-      return GenericsChecks.ValueTarget.arrayElement(locationOf(arrayAccess.getArray()).type());
+      return GenericsChecks.ValueTarget.arrayElement(targetOf(arrayAccess.getArray()).type());
     }
     if (node instanceof FieldAccessNode fieldAccess) {
       Symbol field = (Symbol) fieldAccess.getElement();

@@ -219,16 +219,14 @@ public final class AccessPathNullnessAnalysis {
   }
 
   /**
-   * Gets the fields of the receiver that hold a non-null value before the current expression.
+   * Gets the fields of the receiver that hold a non-null value before the current expression. For
+   * an initialization check, use {@link #getInitializedFieldsOfReceiverBefore}, which also counts a
+   * field that holds a value for which {@link Nullness#isNoChange()} holds.
    *
    * @param path tree path of some expression
    * @param context Javac context
    * @return fields of receiver guaranteed to be nonnull before expression is evaluated
-   * @deprecated for an initialization check, use {@link #getInitializedFieldsOfReceiverBefore},
-   *     which also returns a field that holds a value for which {@link Nullness#isNoChange()}
-   *     holds. Such a value may be null, so that method gives no non-null guarantee.
    */
-  @Deprecated
   public Set<Element> getNonnullFieldsOfReceiverBefore(TreePath path, Context context) {
     return receiverFieldsBefore( // diff-coverage: ignore -- kept for callers outside NullAway
         path, context, NullnessStore::getNonNullReceiverFields);

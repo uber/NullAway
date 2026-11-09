@@ -102,9 +102,7 @@ import com.uber.nullaway.ErrorMessage.MessageTypes;
 import com.uber.nullaway.dataflow.AccessPathNullnessAnalysis;
 import com.uber.nullaway.dataflow.EnclosingEnvironmentNullness;
 import com.uber.nullaway.generics.GenericsChecks;
-import com.uber.nullaway.generics.GenericsUtils;
 import com.uber.nullaway.generics.JSpecifyJavacConfig;
-import com.uber.nullaway.generics.TypeSubstitutionUtils;
 import com.uber.nullaway.handlers.Handler;
 import com.uber.nullaway.handlers.Handlers;
 import com.uber.nullaway.handlers.MethodAnalysisContext;
@@ -1333,10 +1331,8 @@ public class NullAway extends BugChecker
   }
 
   /**
-   * Returns the location that receives a returned expression: the method's return type, or for a
-   * lambda return, the return type of the functional interface type that {@link
-   * #lambdaTypeAtTarget} finds, with the annotations that a supertype's type arguments supply.
-   * Where that type is unknown, the location excludes null.
+   * Returns the target of a returned expression: the method's return type, or for a lambda return,
+   * the target {@link #lambdaReturnTarget} finds.
    */
   private GenericsChecks.ValueTarget returnTargetAtReturn(
       Symbol.MethodSymbol methodSymbol,
@@ -1345,30 +1341,33 @@ public class NullAway extends BugChecker
     if (lambdaTree == null) {
       return GenericsChecks.ValueTarget.of(methodSymbol.getReturnType(), methodSymbol);
     }
-    Type lambdaType = lambdaTypeAtTarget(lambdaTree, state);
-    return lambdaType == null
-        ? GenericsChecks.ValueTarget.EXCLUDES_NULL
-        : GenericsChecks.ValueTarget.of(
-            TypeSubstitutionUtils.memberType(state.getTypes(), lambdaType, methodSymbol, config)
-                .getReturnType(),
-            methodSymbol);
+    return lambdaReturnTarget(lambdaTree, methodSymbol, state);
   }
 
   /**
-   * Returns the functional interface type of {@code lambdaTree} where it is known with the
-   * annotations of the declaration that sets it: for an argument of a call or of a constructor with
-   * no class body, the ground type of the receiving parameter as {@link
-   * GenericsChecks#getParameterTarget} types it; for a lambda that initializes a variable, or that
-   * a return statement outside any lambda returns, javac's type of the lambda, which is the
-   * declared type unsubstituted. Elsewhere, such as in a conditional expression, a return inside a
-   * lambda body, or an assignment through a generic receiver, javac's substitution may have dropped
-   * a {@code @NonNull}, and the result is {@code null}.
+   * Returns the target of a value that {@code lambdaTree} returns, typed by the functional
+   * interface type of the lambda where that type is known with the annotations of the declaration
+   * that sets it. For an argument of a call or of a constructor with no class body, {@link
+   * GenericsChecks#getLambdaArgumentReturnTarget} types it from the receiving parameter. For a
+   * lambda that initializes a variable, or that a return statement outside any lambda returns, it
+   * is javac's type of the lambda, which is the declared type unsubstituted. Elsewhere, such as in
+   * a conditional expression, a return inside a lambda body, or an assignment through a generic
+   * receiver, javac's substitution may have dropped a {@code @NonNull}, and the target excludes
+   * null.
+   *
+   * <p>The parameter's type takes the method type arguments javac infers, not those NullAway
+   * infers: NullAway infers {@code @NonNull T} for a type variable that an argument of type {@code
+   * T} also fixes, where the type variable may still be nullable.
    *
    * @param lambdaTree a lambda on the current path
+   * @param functionalInterfaceMethod the method of the lambda's functional interface
    * @param state the visitor state
    */
   @SuppressWarnings("ReferenceEquality") // the argument is the lambda tree itself
-  private @Nullable Type lambdaTypeAtTarget(LambdaExpressionTree lambdaTree, VisitorState state) {
+  private GenericsChecks.ValueTarget lambdaReturnTarget(
+      LambdaExpressionTree lambdaTree,
+      Symbol.MethodSymbol functionalInterfaceMethod,
+      VisitorState state) {
     TreePath lambdaPath = state.getPath();
     while (lambdaPath != null && lambdaPath.getLeaf() != lambdaTree) {
       lambdaPath = lambdaPath.getParentPath();
@@ -1381,39 +1380,35 @@ public class NullAway extends BugChecker
     if (parent instanceof VariableTree
         || (parent instanceof ReturnTree
             && ASTHelpers.findEnclosingNode(parentPath, LambdaExpressionTree.class) == null)) {
-      return ASTHelpers.getType(lambdaTree);
+      return genericsChecks.getLambdaReturnTarget(
+          ASTHelpers.getType(lambdaTree), functionalInterfaceMethod, state);
     }
     if (!(parent instanceof MethodInvocationTree
             || (parent instanceof NewClassTree newClass && newClass.getClassBody() == null))
         || !(ASTHelpers.getSymbol(parent) instanceof Symbol.MethodSymbol callee)) {
-      return null;
+      return GenericsChecks.ValueTarget.EXCLUDES_NULL;
     }
     Tree call = parent;
     VisitorState callState = state.withPath(parentPath);
-    List<Type> targets = new ArrayList<>(1);
+    List<GenericsChecks.ValueTarget> targets = new ArrayList<>(1);
     new InvocationArguments(call, invokedMethodTypeAtCall(call, callee))
         .forEach(
             (actual, argPos, formalParamType, varArgsPassedAsArray) -> {
               if (ASTHelpers.stripParentheses(actual) == lambdaTree) {
                 int paramIndex = Math.min(argPos, callee.getParameters().size() - 1);
-                Type parameterType =
-                    genericsChecks
-                        .getParameterTarget(
-                            callee,
-                            call,
-                            formalParamType,
-                            paramIndex,
-                            isVarargsPosition(callee, paramIndex) && !varArgsPassedAsArray,
-                            callState)
-                        .type();
-                if (parameterType != null) {
-                  targets.add(parameterType);
-                }
+                targets.add(
+                    genericsChecks.getLambdaArgumentReturnTarget(
+                        callee,
+                        call,
+                        formalParamType,
+                        paramIndex,
+                        isVarargsPosition(callee, paramIndex) && !varArgsPassedAsArray,
+                        functionalInterfaceMethod,
+                        callState));
               }
             });
-    return targets.isEmpty()
-        ? null
-        : GenericsUtils.groundTargetType(targets.get(0), state, config, handler);
+    // diff-coverage: ignore -- the lambda is one of the call's arguments
+    return targets.isEmpty() ? GenericsChecks.ValueTarget.EXCLUDES_NULL : targets.get(0);
   }
 
   /**
@@ -3242,10 +3237,10 @@ public class NullAway extends BugChecker
    * distinction matters for handlers that are notified only of successful nonnull field writes.
    *
    * @param expression expression being assigned, passed, or returned
-   * @param target supplies the destination after call-site substitutions; for array writes and
-   *     individually passed varargs, this is the component. It is called only for a value for which
-   *     {@link Nullness#isNoChange()} holds, and {@link GenericsChecks#acceptsNoChangeValue} then
-   *     decides whether the destination accepts that value
+   * @param target supplies the assigned location after call-site substitutions; for array writes
+   *     and individually passed varargs, this is the component. It is called only for a value for
+   *     which {@link Nullness#isNoChange()} holds, and {@link GenericsChecks#acceptsNoChangeValue}
+   *     then decides whether that location accepts the value
    * @param targetNullness destination's nullness after applying context-specific rules and handlers
    * @param state visitor state at the pseudo-assignment
    * @return whether the top-level nullness is compatible

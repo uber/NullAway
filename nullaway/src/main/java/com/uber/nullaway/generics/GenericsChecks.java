@@ -1293,7 +1293,7 @@ public final class GenericsChecks {
     return elementType == null
         ? Nullness.NONNULL
         : getTypeNullnessForRead(
-            elementType, state, config, handler, /* followUnsubstitutedTypeVarUpperBound= */ true);
+            elementType, state, config, handler, /* typeVarIsNoChange= */ true);
   }
 
   /**
@@ -4573,8 +4573,7 @@ public final class GenericsChecks {
    *     whose effective upper bound is a type variable with a nullable upper bound
    */
   private Nullness getTypeNullnessForRead(Type type, VisitorState state) {
-    return getTypeNullnessForRead(
-        type, state, config, handler, /* followUnsubstitutedTypeVarUpperBound= */ false);
+    return getTypeNullnessForRead(type, state, config, handler, /* typeVarIsNoChange= */ false);
   }
 
   /**
@@ -4592,8 +4591,7 @@ public final class GenericsChecks {
    */
   public static NullnessHint getTypeNullnessHint(
       Type type, VisitorState state, Config config, Handler handler) {
-    if (!getTypeNullnessForRead(
-            type, state, config, handler, /* followUnsubstitutedTypeVarUpperBound= */ false)
+    if (!getTypeNullnessForRead(type, state, config, handler, /* typeVarIsNoChange= */ false)
         .equals(Nullness.NONNULL)) {
       return NullnessHint.HINT_NULLABLE;
     }
@@ -4606,26 +4604,24 @@ public final class GenericsChecks {
   }
 
   /**
-   * Returns the nullness of a value read from {@code type}, optionally following the upper bound of
-   * an unsubstituted type variable.
+   * Returns the nullness of a value read from {@code type}. A read through a wildcard or capture
+   * follows its effective upper bound with {@code typeVarIsNoChange} set, so a bound that is a type
+   * variable with a nullable upper bound gives {@link Nullness#NO_CHANGE}.
    *
    * @param type type from which a value is read
    * @param state visitor state
    * @param config NullAway configuration
    * @param handler NullAway extension handler
-   * @param followUnsubstitutedTypeVarUpperBound whether to use the upper bound when {@code type} is
-   *     an unsubstituted type variable
+   * @param typeVarIsNoChange whether {@code type}, where it is an unsubstituted type variable whose
+   *     upper bound may be null, gives {@link Nullness#NO_CHANGE} rather than {@link
+   *     Nullness#NONNULL}
    * @return nullness of a value read from {@code type}; with {@code HandleWildcardGenerics} on,
    *     {@link Nullness#NO_CHANGE} when the value can be null only because a type variable reached
    *     through the bounds has a nullable upper bound, and with it off, {@link Nullness#NONNULL}
    *     for such a value
    */
   private static Nullness getTypeNullnessForRead(
-      Type type,
-      VisitorState state,
-      Config config,
-      Handler handler,
-      boolean followUnsubstitutedTypeVarUpperBound) {
+      Type type, VisitorState state, Config config, Handler handler, boolean typeVarIsNoChange) {
     if (getTypeNullness(type, config).equals(Nullness.NULLABLE)) {
       return Nullness.NULLABLE;
     }
@@ -4638,21 +4634,13 @@ public final class GenericsChecks {
       Type effectiveUpperBound =
           GenericsUtils.effectiveWildcardUpperBound(type, state, config, handler);
       return getTypeNullnessForRead(
-          effectiveUpperBound,
-          state,
-          config,
-          handler,
-          /* followUnsubstitutedTypeVarUpperBound= */ true);
+          effectiveUpperBound, state, config, handler, /* typeVarIsNoChange= */ true);
     }
     if (config.handleWildcardGenerics()
-        && followUnsubstitutedTypeVarUpperBound
+        && typeVarIsNoChange
         && type instanceof Type.TypeVar typeVar
         && !getTypeNullnessForRead(
-                typeVar.getUpperBound(),
-                state,
-                config,
-                handler,
-                /* followUnsubstitutedTypeVarUpperBound= */ true)
+                typeVar.getUpperBound(), state, config, handler, /* typeVarIsNoChange= */ true)
             .equals(Nullness.NONNULL)) {
       return Nullness.NO_CHANGE;
     }
@@ -4755,15 +4743,16 @@ public final class GenericsChecks {
   }
 
   /**
-   * A location that receives a value: a field, an array element, a method's return, a parameter, a
-   * cast, or a local variable. {@link #acceptsNoChangeValue} decides from it whether the location
-   * accepts a value for which {@link Nullness#isNoChange()} holds.
+   * A location that can be assigned a value: a field, an array element, a method's return, a
+   * parameter, or a local variable. {@link #acceptsNoChangeValue} decides from it whether the
+   * location accepts a value for which {@link Nullness#isNoChange()} holds. Dataflow also types the
+   * result of a cast this way, so that the cast keeps {@code NO_CHANGE} only where its type accepts
+   * it; no error is reported at a cast.
    *
-   * @param type the location's type, with the type-use annotations that its declaration writes and
-   *     that the type arguments of the supertypes it is inherited through supply; {@code null} if
-   *     it cannot be computed
-   * @param declaration the field, the method whose return receives the value, or the parameter
-   *     whose declaration annotations apply to the location; {@code null} for any other location
+   * @param type the location's type, including any type-use annotations on its declaration or
+   *     inherited from supertypes; {@code null} if it cannot be computed
+   * @param declaration the field, the method that returns the value, or the parameter whose
+   *     declaration annotations apply to the location; {@code null} for any other location
    * @param excludesNull whether the location excludes null whatever its type: a parameter does
    *     where a handler, such as a library model, requires a non-null argument, or where its
    *     declaration excludes null
@@ -4800,20 +4789,21 @@ public final class GenericsChecks {
 
   /**
    * Returns whether {@code target} accepts a value of type {@code valueType} for which {@link
-   * Nullness#isNoChange()} holds. Such a value is null only when a type variable {@code T} is
-   * instantiated with a nullable type argument. A location accepts it when its type is {@code T},
-   * or a capture of {@code ? super T}, that neither the type nor the location's declaration
-   * annotates {@code @NonNull}, and {@code valueType} is {@code T} or reaches {@code T} through
-   * upper bounds none of which is nullable. Then the location admits null whenever the value may be
-   * null. In {@code <U extends @Nullable T>}, the bound of {@code U} breaks the chain, since {@code
-   * U} may be nullable while {@code T} is not.
+   * Nullness#isNoChange()} holds. Such a value is null only when the corresponding type variable
+   * {@code T} is instantiated with a nullable type argument. A location accepts it when its type is
+   * a type variable {@code T}, or a capture of {@code ? super T}, such that neither the type nor
+   * the location's declaration is annotated {@code @NonNull}, and {@code valueType} is {@code T} or
+   * a subtype of {@code T} that reaches {@code T} through upper bounds none of which is nullable.
+   * Then the assigned location admits null whenever the value may be null. In {@code <U
+   * extends @Nullable T>}, the bound of {@code U} breaks the chain, since {@code U} may be nullable
+   * while {@code T} is not.
    *
-   * <p>Every sink, and dataflow wherever a value moves to another holder, must apply this test to
-   * the {@link ValueTarget} of the receiving location, so that a {@code NO_CHANGE} fact always
-   * holds relative to the static type of its holder.
+   * <p>This test should be applied to the {@link ValueTarget} of the assigned location at every
+   * pseudo-assignment, so that a {@code NO_CHANGE} fact always holds relative to the static type of
+   * the assigned location.
    *
    * @param valueType static type of the expression or variable that holds the value
-   * @param target the location receiving the value
+   * @param target the assigned location
    * @param state visitor state
    */
   public boolean acceptsNoChangeValue(Type valueType, ValueTarget target, VisitorState state) {
@@ -4841,26 +4831,28 @@ public final class GenericsChecks {
    */
   private boolean reachesThroughNonNullableBounds(
       Type type, Type typeVariable, VisitorState state) {
-    if (state.getTypes().isSameType(type, typeVariable)) {
-      return true;
+    while (!state.getTypes().isSameType(type, typeVariable)) {
+      if (!(type instanceof Type.TypeVar)) { // diff-coverage: ignore -- NO_CHANGE implies a TypeVar
+        return false; // diff-coverage: ignore -- dataflow keeps NO_CHANGE only in such a variable
+      }
+      Type upperBound = type.getUpperBound();
+      boolean nullableBound =
+          type instanceof Type.CapturedType
+              ? isNullableAnnotated(upperBound)
+              : GenericsUtils.declaredUpperBoundIsNullable(type.tsym, config, handler, state);
+      if (nullableBound) {
+        return false;
+      }
+      type = upperBound;
     }
-    if (!(type instanceof Type.TypeVar)) { // diff-coverage: ignore -- NO_CHANGE implies a TypeVar
-      return false; // diff-coverage: ignore -- dataflow keeps NO_CHANGE only in such a holder
-    }
-    Type upperBound = type.getUpperBound();
-    boolean nullableBound =
-        type instanceof Type.CapturedType
-            ? isNullableAnnotated(upperBound)
-            : GenericsUtils.declaredUpperBoundIsNullable(type.tsym, config, handler, state);
-    return !nullableBound && reachesThroughNonNullableBounds(upperBound, typeVariable, state);
+    return true;
   }
 
   /**
-   * Returns the type of the variable that {@code target} names, with the type-use annotations that
-   * its declaration writes and that the type arguments of the supertypes it is inherited through
-   * supply. An instance field has the type of its {@link #getFieldTarget location}; an array
-   * element is the component of its array's type; and a static field or any other variable is typed
-   * by {@link #getTreeType(Tree, VisitorState)}.
+   * Returns the type of the variable that {@code target} names, including any type-use annotations
+   * on its declaration or inherited from supertypes. An instance field has the type of its {@link
+   * #getFieldTarget location}; an array element is the component of its array's type; and a static
+   * field or any other variable is typed by {@link #getTreeType(Tree, VisitorState)}.
    *
    * @param target the left-hand side of an assignment, or an array expression inside it
    * @param path the path to {@code target}
@@ -4994,12 +4986,89 @@ public final class GenericsChecks {
         TypeSubstitutionUtils.restoreExplicitNullabilityAnnotations(
             annotationSource, formalParamType, state.getTypes(), config),
         parameter,
-        // The symbol of a parameter read from a class file may lack its declaration annotations.
         // A type variable with a non-null bound excludes null whatever inference substitutes for
         // it.
         Nullness.paramHasNonNullAnnotation(methodSymbol, paramIndex, config)
             || (declaredType instanceof Type.TypeVar
                 && !GenericsUtils.upperBoundIsNullable(declaredType.tsym, config, handler, state)));
+  }
+
+  /**
+   * Returns the target of a value that a lambda returns, where the lambda's functional interface
+   * type is {@code lambdaType}: the return of {@code functionalInterfaceMethod} as a member of that
+   * type, with the annotations that a supertype's type arguments supply, or a target that excludes
+   * null where {@code lambdaType} is {@code null}.
+   *
+   * @param lambdaType the functional interface type of the lambda, or {@code null} if unknown
+   * @param functionalInterfaceMethod the method of the lambda's functional interface
+   * @param state the visitor state
+   */
+  public ValueTarget getLambdaReturnTarget(
+      @Nullable Type lambdaType,
+      Symbol.MethodSymbol functionalInterfaceMethod,
+      VisitorState state) {
+    return lambdaType == null
+        ? ValueTarget.EXCLUDES_NULL // diff-coverage: ignore -- javac types every attributed lambda
+        : ValueTarget.of(
+            TypeSubstitutionUtils.memberType(
+                    state.getTypes(), lambdaType, functionalInterfaceMethod, config)
+                .getReturnType(),
+            functionalInterfaceMethod);
+  }
+
+  /**
+   * Returns the target of a value that a lambda returns, where the lambda is the argument at {@code
+   * paramIndex} of {@code call}. The lambda's functional interface type is the ground type of the
+   * parameter as {@link #getParameterTarget} types it. The target excludes null where {@code
+   * functionalInterfaceMethod}, as a member of the parameter's declared type, returns a type
+   * variable not annotated {@code @Nullable} whose upper bound is not nullable, such as {@code U}
+   * for {@code <U> void take(Supplier<U> s)}, as {@link #getParameterTarget} decides for a
+   * parameter whose declared type is such a type variable.
+   *
+   * @param methodSymbol the invoked method or constructor
+   * @param call the method invocation or class instance creation, the leaf of the current path
+   * @param formalParamType javac's type of the parameter at the call; for an argument passed
+   *     individually to a varargs parameter, the component type
+   * @param paramIndex index of the declared parameter receiving the lambda
+   * @param individualVarargsArgument whether the lambda is passed individually to a varargs
+   *     parameter
+   * @param functionalInterfaceMethod the method of the lambda's functional interface
+   * @param state the visitor state
+   */
+  public ValueTarget getLambdaArgumentReturnTarget(
+      Symbol.MethodSymbol methodSymbol,
+      Tree call,
+      Type formalParamType,
+      int paramIndex,
+      boolean individualVarargsArgument,
+      Symbol.MethodSymbol functionalInterfaceMethod,
+      VisitorState state) {
+    Type declaredType = methodSymbol.getParameters().get(paramIndex).type;
+    if (individualVarargsArgument) {
+      declaredType = ((Type.ArrayType) declaredType).getComponentType();
+    }
+    Type declaredReturnType =
+        state
+            .getTypes()
+            .memberType(
+                GenericsUtils.groundTargetType(declaredType, state, config, handler),
+                functionalInterfaceMethod)
+            .getReturnType();
+    if (declaredReturnType instanceof Type.TypeVar
+        && !isNullableAnnotated(declaredReturnType)
+        && !GenericsUtils.upperBoundIsNullable(declaredReturnType.tsym, config, handler, state)) {
+      return ValueTarget.EXCLUDES_NULL;
+    }
+    Type parameterType =
+        getParameterTarget(
+                methodSymbol, call, formalParamType, paramIndex, individualVarargsArgument, state)
+            .type();
+    return getLambdaReturnTarget(
+        parameterType == null
+            ? null // diff-coverage: ignore -- a parameter of a resolved method has a type
+            : GenericsUtils.groundTargetType(parameterType, state, config, handler),
+        functionalInterfaceMethod,
+        state);
   }
 
   /**

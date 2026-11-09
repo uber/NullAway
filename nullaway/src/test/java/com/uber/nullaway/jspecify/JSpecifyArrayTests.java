@@ -199,6 +199,19 @@ public class JSpecifyArrayTests extends NullAwayTestsBase {
                   element.hashCode();
                 }
               }
+              static void readAfterNullStore(@Nullable String[] array) {
+                array[0] = null;
+                String element = array[0];
+                // BUG: Diagnostic contains: dereferenced expression 'element' is @Nullable
+                element.hashCode();
+              }
+              static String returnWhenNull(@Nullable String[] array) {
+                if (array[0] == null) {
+                  // BUG: Diagnostic contains: returning @Nullable expression
+                  return array[0];
+                }
+                return "";
+              }
             }
             """)
         .doTest();

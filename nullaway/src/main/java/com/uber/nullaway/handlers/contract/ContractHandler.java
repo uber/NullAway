@@ -389,7 +389,11 @@ public class ContractHandler implements Handler {
                   // !isNullTarget.isPresent()  -> notNullTarget.present() must be true
                   (booleanConstraintValue ? Nullness.NONNULL : Nullness.NULL);
           Nullness targetNullness = inputs.valueOfSubNode(nullTestTarget);
-          if (antecedentNullness.equals(targetNullness)) {
+          boolean satisfied =
+              antecedentNullness == Nullness.NULL
+                  ? targetNullness.isNull()
+                  : targetNullness == Nullness.NONNULL;
+          if (satisfied) {
             // We already know this argument is satisfied so we can treat it as part of the
             // clause for the purpose of deciding the nullness of the other arguments.
             continue;

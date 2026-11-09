@@ -982,6 +982,41 @@ public class NullnessOperatorTests extends NullAwayTestsBase {
   }
 
   @Test
+  public void nullTestedWildcardLocalSatisfiesBooleanContractArgument() {
+    makeHelper()
+        .addSourceLines(
+            "Test.java",
+            """
+            import org.jetbrains.annotations.Contract;
+            import org.jspecify.annotations.NullMarked;
+            import org.jspecify.annotations.Nullable;
+            @NullMarked
+            class Test {
+              interface Box<R extends @Nullable Object> {
+                R get();
+              }
+              @Contract("true, null -> false")
+              static boolean f(boolean b, @Nullable Object o) {
+                return o != null;
+              }
+              static <T extends @Nullable Object> void refineOtherArgument(
+                  Box<? extends T> box, @Nullable Object w) {
+                T v = box.get();
+                if (v == null) {
+                  if (f(null == v, w)) {
+                    w.hashCode();
+                  } else {
+                    // BUG: Diagnostic contains: dereferenced expression 'w' is @Nullable
+                    w.hashCode();
+                  }
+                }
+              }
+            }
+            """)
+        .doTest();
+  }
+
+  @Test
   public void wildcardResultIsAcceptedByTypeVariableFieldInitializer() {
     makeHelper()
         .addSourceLines(
@@ -1690,6 +1725,17 @@ public class NullnessOperatorTests extends NullAwayTestsBase {
               static <U extends @Nullable Object> void takePlain(Box<U> b) {}
               @SafeVarargs
               static <U extends @Nullable Object> void takeAll(Box<@NonNull U>... boxes) {}
+              @SafeVarargs
+              static <U extends @Nullable Object> void takeAllPlain(Box<U>... boxes) {}
+              static <U> void takeNonNullBound(Box<U> b) {}
+              @SafeVarargs
+              static <U> void takeAllNonNullBound(Box<U>... boxes) {}
+              static <U> void takeNullableNonNullBound(Box<@Nullable U> b) {}
+              static <U> void takeNonNullBoundValue(U u) {}
+              static <U extends @Nullable Object> void takeWithValue(Box<U> b, U value) {}
+              static class PlainTaker<V extends @Nullable Object> {
+                PlainTaker(Box<V> b) {}
+              }
               static class Taker<V extends @Nullable Object> {
                 Taker() {}
                 Taker(Box<@NonNull V> b) {}
@@ -1719,10 +1765,32 @@ public class NullnessOperatorTests extends NullAwayTestsBase {
                     });
                 // BUG: Diagnostic contains: returning @Nullable expression
                 Test.<T>take((() -> box.get()));
-                // BUG: Diagnostic contains: returning @Nullable expression
-                Test.<T>takeAll(() -> box.get());
+                Test.<T>takePlain((() -> box.get()));
+                Test.<T>takeAll(
+                    // BUG: Diagnostic contains: returning @Nullable expression
+                    () -> box.get(),
+                    // BUG: Diagnostic contains: returning @Nullable expression
+                    () -> box.get());
+                Test.<T>takeAllPlain(() -> box.get(), () -> box.get());
                 // BUG: Diagnostic contains: returning @Nullable expression
                 new Taker<T>(() -> box.get());
+                new PlainTaker<T>(() -> box.get());
+              }
+              static <T extends @Nullable Object> void passToNonNullBoundTypeVariable(
+                  Box<? extends T> box) {
+                // BUG: Diagnostic contains: returning @Nullable expression
+                takeNonNullBound(() -> box.get());
+                // BUG: Diagnostic contains: returning @Nullable expression
+                takeAllNonNullBound(() -> box.get());
+                takeNullableNonNullBound(() -> box.get());
+                // BUG: Diagnostic contains: passing @Nullable parameter 'box.get()'
+                takeNonNullBoundValue(box.get());
+              }
+              static <T extends @Nullable Object> void passWithValueOfTypeVariable(
+                  Box<? extends T> box, T value) {
+                // The lambda returns into the T javac infers for U, not the @NonNull T NullAway
+                // infers from value
+                takeWithValue(() -> box.get(), value);
               }
               static class Holder<V extends @Nullable Object> {
                 Box<@NonNull V> nonNullField = () -> { throw new RuntimeException(); };
@@ -1734,6 +1802,8 @@ public class NullnessOperatorTests extends NullAwayTestsBase {
                 Test.<T>take(flag ? () -> box.get() : () -> null);
                 // BUG: Diagnostic contains: returning @Nullable expression
                 new Taker<T>(() -> box.get()) {};
+                // BUG: Diagnostic contains: returning @Nullable expression
+                new PlainTaker<T>(() -> box.get()) {};
                 // BUG: Diagnostic contains: returning @Nullable expression
                 holder.nonNullField = () -> box.get();
                 // A conditional or an assignment hides the target's annotations, so a lambda there
