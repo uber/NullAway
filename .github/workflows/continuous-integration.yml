@@ -166,27 +166,27 @@ jobs:
           - project: spring-framework
             url: https://github.com/spring-projects/spring-framework.git
             branch: main
-            sha: ed4e0f896bc01279196a2c370fbfd15c7b201eed
+            sha: 9f642a3937adb5606412b90e9a5c18907e7d9387
             build: ./gradlew --init-script use-snapshot.gradle.kts compileAllJava
           - project: junit-framework
             url: https://github.com/junit-team/junit-framework.git
             branch: main
-            sha: 5b4f6a1890b3edcf6c25a3a40113e5878dbe0109
+            sha: 12f007f531867169baefe4483b7d7e5dd15acc77
             build: ./gradlew --init-script use-snapshot.gradle.kts compileAllJava
           - project: spring-boot
             url: https://github.com/spring-projects/spring-boot.git
             branch: main
-            sha: f2abe77da5e6d8619c7edc57596bab2c5ce6cbfc
+            sha: 8552ac1799bd5b889a48ce858ba1d744f8fe0348
             build: ./gradlew --init-script use-snapshot.gradle.kts compileAllJava
           - project: reactor-core
             url: https://github.com/reactor/reactor-core.git
             branch: main
-            sha: b9afa1b7e62375b6d3eaaa6fc6e558fbb529a899
+            sha: 8f7ab9da896298cd7a9a2fd9deb7bada68bb3688
             build: ./gradlew --init-script use-snapshot.gradle.kts compileAllJava
           - project: spring-batch
             url: https://github.com/spring-projects/spring-batch.git
             branch: main
-            sha: cc3b9f54852ee5261074076ecf3b47e7a106b1bd
+            sha: 84bc35860494ae34d1236c995bc504c3798a96d5
             build: ./mvnw -B -ntp -nsu -Dnullaway.version="$NULLAWAY_VERSION" -Dspring-javaformat.skip=true test-compile
     permissions:
       contents: read
