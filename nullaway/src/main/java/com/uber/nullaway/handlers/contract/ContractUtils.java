@@ -129,7 +129,7 @@ public class ContractUtils {
    *     is empty (e.g. for a contract on a method with no arguments)
    */
   static String[] parseAntecedent(String clause) {
-    String[] parts = clause.split("->");
+    String[] parts = clause.split("->", -1);
     return parts[0].trim().isEmpty() ? new String[0] : parts[0].split(",");
   }
 
