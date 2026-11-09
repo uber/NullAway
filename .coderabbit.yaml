@@ -41,6 +41,8 @@ reviews:
     base_branches: [.*]
     ignore_usernames: []
   finishing_touches:
+    autofix:
+      enabled: false
     docstrings:
       enabled: true
     unit_tests:
