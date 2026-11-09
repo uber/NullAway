@@ -26,6 +26,7 @@ reviews:
   auto_assign_reviewers: false
   in_progress_fortune: true
   poem: false
+  enable_prompt_for_ai_agents: false
   labeling_instructions: []
   path_filters: []
   path_instructions: []
