@@ -130,7 +130,7 @@ public class UnannotatedTests extends NullAwayTestsBase {
               static class Nested {}
 
               Object methodAfterNestedClass() {
-                return new Object();
+                return null;
               }
             }
 
