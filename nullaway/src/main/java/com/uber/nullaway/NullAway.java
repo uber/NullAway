@@ -210,6 +210,8 @@ public class NullAway extends BugChecker
    * within the class; see {@link #matchClass(ClassTree, VisitorState)}
    */
   private enum NullMarking {
+    /** full class is explicitly excluded from checking, regardless of nested annotations */
+    EXCLUDED,
     /** full class is annotated for nullness checking */
     FULLY_MARKED,
     /** full class is unannotated */
@@ -362,7 +364,7 @@ public class NullAway extends BugChecker
   private boolean withinAnnotatedCode(VisitorState state) {
     return switch (nullMarkingForTopLevelClass) {
       case FULLY_MARKED -> true;
-      case FULLY_UNMARKED -> false;
+      case EXCLUDED, FULLY_UNMARKED -> false;
       case PARTIALLY_MARKED -> checkMarkingForPath(state);
     };
   }
@@ -730,6 +732,9 @@ public class NullAway extends BugChecker
     boolean markedMethodInUnmarkedContext = false;
     Symbol.MethodSymbol methodSymbol = ASTHelpers.getSymbol(tree);
     switch (nullMarkingForTopLevelClass) {
+      case EXCLUDED -> {
+        return;
+      }
       case FULLY_MARKED -> {
         if (hasDirectAnnotationWithSimpleName(
             methodSymbol, NullabilityUtil.NULLUNMARKED_SIMPLE_NAME)) {
@@ -2174,12 +2179,19 @@ public class NullAway extends BugChecker
     Symbol.ClassSymbol classSymbol = ASTHelpers.getSymbol(tree);
     NestingKind nestingKind = classSymbol.getNestingKind();
     if (!nestingKind.isNested()) {
-      // Here we optimistically set the marking to either FULLY_UNMARKED or FULLY_MARKED.  If a
-      // nested entity has a contradicting annotation, at that point we update the marking level to
-      // PARTIALLY_MARKED, which will increase checking overhead for the remainder of the top-level
-      // class
-      nullMarkingForTopLevelClass =
-          isExcludedClass(classSymbol) ? NullMarking.FULLY_UNMARKED : NullMarking.FULLY_MARKED;
+      if (isExplicitlyExcludedClass(classSymbol)) {
+        // Nested @NullMarked annotations must not re-enable checking of an excluded class.
+        nullMarkingForTopLevelClass = NullMarking.EXCLUDED;
+      } else {
+        // Here we optimistically set the marking to either FULLY_UNMARKED or FULLY_MARKED.  If a
+        // nested entity has a contradicting annotation, at that point we update the marking level
+        // to PARTIALLY_MARKED, which will increase checking overhead for the remainder of the
+        // top-level class
+        nullMarkingForTopLevelClass =
+            codeAnnotationInfo.isClassNullAnnotated(classSymbol, config, handler)
+                ? NullMarking.FULLY_MARKED
+                : NullMarking.FULLY_UNMARKED;
+      }
     } else if (classAnnotationIntroducesPartialMarking(classSymbol)) {
       // Handle the case where the top-class is unannotated, but there is a @NullMarked annotation
       // on a nested class, or, conversely the top-level is annotated but there is a @NullUnmarked
@@ -3091,13 +3103,13 @@ public class NullAway extends BugChecker
         .anyMatch(config::isExcludedFieldAnnotation);
   }
 
-  // classSymbol must be a top-level class
-  private boolean isExcludedClass(Symbol.ClassSymbol classSymbol) {
+  /**
+   * Returns whether a top-level class is explicitly excluded by name or annotation, independently
+   * of whether it is nullness-annotated.
+   */
+  private boolean isExplicitlyExcludedClass(Symbol.ClassSymbol classSymbol) {
     String className = classSymbol.getQualifiedName().toString();
     if (config.isExcludedClass(className)) {
-      return true;
-    }
-    if (!codeAnnotationInfo.isClassNullAnnotated(classSymbol, config, handler)) {
       return true;
     }
     // check annotations
