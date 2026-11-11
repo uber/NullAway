@@ -130,9 +130,8 @@ public class ContractUtils {
    */
   static String[] parseAntecedent(String clause) {
     // Use the two-argument split passing -1 so that splitting "->" yields two empty parts.  Calling
-    // the single
-    // argument String.split on "->" yields an empty array, since it removes trailing empty strings
-    // from the result
+    // the single argument String.split on "->" yields an empty array, since it removes trailing
+    // empty strings from the result
     String[] parts = clause.split("->", -1);
     return parts[0].trim().isEmpty() ? new String[0] : parts[0].split(",");
   }
