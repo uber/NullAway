@@ -1845,7 +1845,7 @@ public final class GenericsChecks {
         generateConstraintsForPseudoAssignment(
             state.withPath(resultPath),
             solver,
-            allCalls,
+            allInferenceSites,
             result,
             lhsType,
             polyNullContexts,
