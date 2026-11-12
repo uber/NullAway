@@ -2507,11 +2507,7 @@ public final class GenericsChecks {
           getTargetTypeFromParentContext(retExprWithoutParentheses, pathToRetExpr, state, false)
               .typeFromAssignmentContext();
       maybeStorePolyExpressionTypeFromTarget(
-          retExprWithoutParentheses,
-          recoveredTarget != null // diff-coverage: ignore -- valid returns have a target
-              ? recoveredTarget
-              : formalReturnType, // diff-coverage: ignore -- defensive fallback
-          state);
+          retExprWithoutParentheses, castToNonNull(recoveredTarget), state);
     }
     Type returnExpressionType = getTreeType(retExpr, state.withPath(pathToRetExpr));
     if (returnExpressionType != null) {
