@@ -3193,8 +3193,8 @@ public final class GenericsChecks {
    * retain that joint solution. Inference may need to run, e.g., if a reference to a generic method
    * is passed as an argument to a non-generic method.
    *
-   * <p>Called only while visiting the reference, after dataflow and speculative inference, so the
-   * result can be cached for subsequent method-reference checks.
+   * <p>Called only from the visitor, never from dataflow or speculative inference, so the result is
+   * always cached.
    *
    * @param tree the method reference
    * @param targetType the ground functional-interface target type
