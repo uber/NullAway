@@ -1536,8 +1536,6 @@ public class NullAway extends BugChecker
     // included, so the return type of String @Nullable []::new carries @Nullable; we still want to
     // ignore that annotation since the result is always non-null.
     if (!overridingMethod.isConstructor()
-        && !(warnedAboutInferenceFailure
-            && isMethodTypeVariable(overridingMethod.getReturnType(), overridingMethod))
         && overriddenMethodReturnsNonNull(
             overriddenMethod,
             overridingMethod.owner,
