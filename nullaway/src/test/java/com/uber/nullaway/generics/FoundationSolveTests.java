@@ -27,9 +27,8 @@ import javax.lang.model.element.Element;
 import org.junit.Test;
 
 /**
- * Foundation behavior retained through the typed solver: root fallback, graph updates, cycles,
- * immutable snapshots, and proper certified substitutions. The removed FullTypeBounds helper's
- * successful-bounds getter budget is private-algorithm coverage, not a constraint on this solver.
+ * Checks root nullness facts and fallback, graph updates, cycles, immutable snapshots, and
+ * certified proper substitutions.
  */
 public class FoundationSolveTests extends NullAwayTestsBase {
   @Test
@@ -147,9 +146,7 @@ public class FoundationSolveTests extends NullAwayTestsBase {
   @BugPattern(summary = "Checks foundation solve contracts", severity = SUGGESTION)
   public static final class SolveChecker extends BugChecker
       implements BugChecker.MethodTreeMatcher {
-    /**
-     * Builds the named graph without assuming the foundation helper's narrower supported domain.
-     */
+    /** Runs the root-fact or cycle/update scenario selected by the source method's name. */
     @Override
     public Description matchMethod(MethodTree tree, VisitorState state) {
       Symbol.MethodSymbol method = ASTHelpers.getSymbol(tree);
@@ -341,7 +338,7 @@ public class FoundationSolveTests extends NullAwayTestsBase {
       }
     }
 
-    /** Builds a structural lower bound without using the retired helper's counting subclass. */
+    /** Builds a single-argument class type, preserving the template's enclosing type. */
     private static Type withArgument(Type template, Type argument) {
       return TypeMetadataBuilder.TYPE_METADATA_BUILDER.createClassType(
           template, template.getEnclosingType(), com.sun.tools.javac.util.List.of(argument));
