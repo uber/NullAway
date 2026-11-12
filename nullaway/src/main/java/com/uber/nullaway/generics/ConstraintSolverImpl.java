@@ -909,9 +909,9 @@ public final class ConstraintSolverImpl implements ConstraintSolver {
             && st.nullness == NullnessState.UNKNOWN
             && (hasSymbolicLower
                 || !(resolved instanceof TypeVar)
-                || (!GenericsUtils.isAnnotatedAsNullable(resolved, config)
-                    && !GenericsUtils.isAnnotatedAsNonNull(resolved, config)))) {
-          // Only annotated variable uses qualify a symbolic shape, not defaults from broad bounds.
+                || !GenericsUtils.isAnnotatedAsNonNull(resolved, config))) {
+          // Nullable roots propagate through scalar constraints; UNKNOWN retains only non-null
+          // uses.
           projected = shape;
         } else {
           projected =
