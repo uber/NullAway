@@ -37,8 +37,15 @@ plugins {
 }
 
 ext {
-    oldestErrorProneVersion = libs.versions.errorProneOldest.get()
-    errorProneJdk17Version = libs.versions.errorProneJdk17.get()
+    // Every Error Prone module these classpaths can contain, so that one pinned to a release holds no module of another
+    errorProneModules = [
+        "error_prone_annotation",
+        "error_prone_annotations",
+        "error_prone_check_api",
+        "error_prone_core",
+        "error_prone_test_helpers",
+        "error_prone_type_annotations",
+    ]
 }
 
 
@@ -67,7 +74,22 @@ if (currentJavaVersion == JavaVersion.VERSION_21) {
 subprojects { project ->
     project.apply plugin: "net.ltgt.errorprone"
     project.dependencies {
+        // Error Prone checks this build's own sources with the newest release
         errorprone libs.error.prone.core
+    }
+    // A module whose compileClasspath extends this configuration compiles against the oldest supported Error Prone,
+    // so a use of an API that release lacks fails to compile. strictly overrides the versions that other dependencies
+    // request transitively, but not one the same classpath declares directly.
+    project.plugins.withId("java") {
+        def oldestErrorProne = project.configurations.dependencyScope("oldestErrorProne")
+        project.dependencies.constraints {
+            errorProneModules.each { module ->
+                add(oldestErrorProne.name, "com.google.errorprone:${module}") {
+                    version { strictly(libs.versions.errorProneOldest.get()) }
+                    because("NullAway supports Error Prone ${libs.versions.errorProneOldest.get()} and later")
+                }
+            }
+        }
     }
     project.tasks.withType(JavaCompile) {
         dependsOn(installGitHooks)

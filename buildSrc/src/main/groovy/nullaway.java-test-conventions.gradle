@@ -164,17 +164,23 @@ tasks.register("changedLines", com.uber.nullaway.gradle.ChangedLinesTask) {
 // Applied here rather than in the plugins block, which runs before changedLines is registered.
 pluginManager.apply("nullaway.pitest-diff")
 
-configurations {
-    // A configuration holding the jars for the Error Prone version to use when testing with JDK 17
-    errorProneJdk17
-}
-
-dependencies {
-    errorProneJdk17 "com.google.errorprone:error_prone_check_api:${errorProneJdk17Version}"
-    errorProneJdk17 "com.google.errorprone:error_prone_core:${errorProneJdk17Version}"
-    errorProneJdk17("com.google.errorprone:error_prone_test_helpers:${errorProneJdk17Version}") {
-        exclude group: "junit", module: "junit"
+/**
+ * Returns the classpath that runs the test source set on the Error Prone release of {@code errorProneCore}, a
+ * dependency notation for error_prone_core. A resolvable configuration named {@code name} declares the dependencies
+ * of testRuntimeClasspath plus {@code errorProneCore}, and forces every Error Prone module to that release, so the
+ * classpath holds no module of another one. It forces rather than declaring strictly, because testImplementation
+ * declares Error Prone modules directly at the newest release, and a strict version fails against a direct one.
+ */
+ext.errorProneTestRuntimeClasspath = { String name, Object errorProneCore ->
+    def core = errorProneCore instanceof Provider ? errorProneCore.get() : dependencies.create(errorProneCore)
+    def errorProne = configurations.dependencyScope("${name}Dependencies")
+    dependencies.add(errorProne.name, core)
+    def classpath = configurations.resolvable(name) {
+        extendsFrom(configurations.testImplementation, configurations.testRuntimeOnly, errorProne.get())
+        attributes.addAllLater(configurations.testRuntimeClasspath.attributes)
+        resolutionStrategy.force(errorProneModules.collect { "com.google.errorprone:${it}:${core.version}" })
     }
+    return files(sourceSets.test.output, sourceSets.main.output, classpath)
 }
 
 // to expose necessary JDK types on JDK 16+; see https://errorprone.info/docs/installation#java-9-and-newer
@@ -220,6 +226,10 @@ test {
     }
 }
 
+// Error Prone 2.43.0 and later require JDK 21
+def errorProneJdk17TestClasspath = errorProneTestRuntimeClasspath(
+        "errorProneJdk17TestRuntimeClasspath", libs.error.prone.core.jdk17)
+
 // Create a task to test with JDK 17 and the supported version of Error Prone for that JDK
 def epJdk17Test = tasks.register("testJdk17", Test) {
     javaLauncher = javaToolchains.launcherFor {
@@ -231,11 +241,7 @@ def epJdk17Test = tasks.register("testJdk17", Test) {
 
     // Copy inputs from normal Test task.
     def testTask = tasks.getByName("test")
-    // A bit of a hack: we add the dependencies of the JDK17-supporting Error Prone version to the _beginning_ of the
-    // classpath, so that they are used instead of the latest version.  This exercises the scenario of building
-    // NullAway against the latest supported Error Prone version but then running on JDK 17.
-    classpath = configurations.errorProneJdk17 + testTask.classpath
-
+    classpath = errorProneJdk17TestClasspath
     testClassesDirs = testTask.testClassesDirs
 
     jvmArgs += commonJavacOpens
