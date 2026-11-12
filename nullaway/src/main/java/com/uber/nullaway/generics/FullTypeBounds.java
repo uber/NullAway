@@ -26,18 +26,15 @@ import javax.lang.model.type.NullType;
 import org.jspecify.annotations.Nullable;
 
 /**
- * Optional full-type bounds alongside scalar nullness inference.
+ * Retains annotated lower and upper bounds to infer nested nullness alongside root nullness.
  *
- * <p>This layer retains the types on either side of inference variables, but does not incorporate
- * bounds: in particular, {@code S <: alpha <: T} never generates a new {@code S <: T} constraint.
- * Resolution only reads the existing variable edges and substitutes resolved nested occurrences.
- * javac supplies every published Java shape; only nullness comes from bounds.
+ * <p>Resolves acyclic dependencies between inference variables at javac's inferred Java types:
+ * javac determines the type structure, and bounds supply its nullness annotations. Supports non-raw
+ * class types and arrays, including enclosing types.
  *
- * <p>The supported domain is proper, non-raw class types and arrays, including enclosing types.
- * Wildcards, captures, fixed variables, intersections, dependent declaration-bound roots, recursive
- * structured dependencies, and mismatched evidence request scalar fallback. Wildcard constraints
- * reduced by the existing constraint visitor can still produce supported bounds, as in {@code
- * flatMap}.
+ * <p>Resolution follows recorded variable edges without deriving new constraints between bounds.
+ * Unsupported types (including wildcards, captures, and fixed type variables), recursive nested
+ * dependencies, or conflicting nested annotations leave the variable on root-only inference.
  */
 final class FullTypeBounds {
   private final Config config;
@@ -62,9 +59,7 @@ final class FullTypeBounds {
     this.state = state;
   }
 
-  /**
-   * Registers fresh symbols without changing the scalar solver's lazily created variable states.
-   */
+  /** Associates fresh symbols with their call sites and declared upper bounds. */
   void register(Tree site, Map<Element, Type.TypeVar> freshVariables) {
     freshVariables.forEach(
         (declaration, fresh) -> {
@@ -75,8 +70,8 @@ final class FullTypeBounds {
   }
 
   /**
-   * Attaches provisional Java shapes, never annotation evidence, to previously registered
-   * variables.
+   * Records javac's inferred type structure for registered variables, without using its annotations
+   * as nullness evidence.
    */
   void setShapes(Tree site, Map<Element, Type> shapes) {
     shapes.forEach(
@@ -105,9 +100,9 @@ final class FullTypeBounds {
   }
 
   /**
-   * Resolves supported substitutions once per solve. The result itself retains successful child
-   * bindings for their other uses and roots. Declines are never memoized: an active-path cutoff is
-   * not a completed result, and later solves may receive new bounds or root qualifiers.
+   * Resolves full substitutions, reusing successful results within this solve to avoid repeatedly
+   * resolving shared nested variables. Failed resolutions are not cached, since a recursion cutoff
+   * depends on the active resolution path.
    */
   Map<InferenceVariable, Type> solve(Map<InferenceVariable, Nullness> nullability) {
     Map<InferenceVariable, Type> result = new LinkedHashMap<>();
@@ -118,9 +113,10 @@ final class FullTypeBounds {
   }
 
   /**
-   * Selects lower-bound evidence first (joining covariant array components), or upper-bound
-   * evidence if there is no lower bound. Checks all existing bounds before publishing. This is not
-   * a new constraint-solving pass: failed or unsupported checks simply decline the capability.
+   * Builds a candidate from lower bounds, or from upper bounds when no lower bounds exist.
+   * Covariant array components can combine nullness; invariant positions must agree. Checks nested
+   * annotations against all collected bounds, returning null for root-only fallback if a type is
+   * unsupported or incompatible.
    */
   private @Nullable Type resolve(
       InferenceVariable variable,
@@ -143,9 +139,8 @@ final class FullTypeBounds {
       collect(variable, true, lower, new ArrayList<>(), new LinkedHashSet<>());
       collect(variable, false, upper, declared, new LinkedHashSet<>());
       for (Type declarationBound : declared) {
-        // Scalar inference does not add declaration edges such as U <: T for <T, U extends T>.
-        // Do not publish a full substitution assuming that dependent root nullness was checked.
-        // This also covers declaration bounds reached through existing variable-to-variable edges.
+        // For <T, U extends T>, root inference does not propagate the declaration edge U <: T.
+        // Keep root-only fallback rather than assume that this dependent bound was checked.
         if (variable(declarationBound) != null) {
           return null;
         }
@@ -222,8 +217,9 @@ final class FullTypeBounds {
   }
 
   /**
-   * Follows only existing variable-to-variable edges in the requested direction. An identity cycle
-   * contributes no additional bounds; structured cycles are rejected by {@link #resolve}.
+   * Collects bounds reachable through variable-to-variable edges in one direction. The visited set
+   * stops edge cycles; dependencies nested inside a bound are resolved separately by {@link
+   * #resolveType}.
    */
   private void collect(
       InferenceVariable variable,
@@ -286,7 +282,7 @@ final class FullTypeBounds {
     return type.isPrimitive() || type.hasTag(TypeTag.NONE) ? type : null;
   }
 
-  /** Checks the deliberately restricted proper-type domain without using javac annotations. */
+  /** Checks for supported type structure with no remaining type variables or wildcards. */
   private boolean isProper(Type type) {
     if (type.isErroneous()) {
       return false;
@@ -432,7 +428,7 @@ final class FullTypeBounds {
         : state.getTypes().isSameType(subtype, supertype);
   }
 
-  /** Returns a registered structural variable even if its occurrence overrides root nullness. */
+  /** Identifies a registered variable even when its use has an explicit nullness annotation. */
   private @Nullable InferenceVariable variable(Type type) {
     return type instanceof Type.TypeVar variable && !(type instanceof Type.CapturedType)
         ? variables.get(variable.asElement())

@@ -220,27 +220,27 @@ public class TypeSubstitutionUtils {
   }
 
   /**
-   * Applies the single solve result to javac's attributed type without changing its nominal shape.
-   * Full substitutions supply nested annotations; root-only fallbacks qualify declaration uses
-   * without replacing the target's existing nested types (which may have been repaired). The update
-   * proceeds in three steps:
+   * Applies inferred nullness to javac's attributed type without changing its Java type structure.
+   * Full substitutions supply nested annotations; root-only results change just the qualifier at
+   * each variable use, preserving the target's existing nested annotations. The update proceeds in
+   * three steps:
    *
    * <p>1. Substitute each supported type, or only its root qualifier, into {@code origType}. For
    * example, a full {@code T = List<@Nullable String>} replaces all of T's nested structure; a
    * root-only nullable result instead produces {@code @Nullable T} as the annotation source.
    *
-   * <p>2. Restore any explicit nullability annotations that were present on {@code origType} to the
-   * result of 1. So, if {@code origType} was {@code List<@NonNull T>}, the result will be {@code
-   * List<@NonNull T>}, even if T was inferred to be nullable.
+   * <p>2. Restore explicit nullability annotations from {@code origType}. For example, if {@code
+   * origType} is {@code @NonNull T} and T is replaced with {@code @Nullable List<@Nullable
+   * String>}, the result is {@code @NonNull List<@Nullable String>}.
    *
-   * <p>3 . Apply the nullability annotations from the result of 2 to {@code typeToUpdate}. So, if
+   * <p>3. Apply the nullability annotations from the result of 2 to {@code typeToUpdate}. So, if
    * {@code typeToUpdate} is {@code List<String>}, and the result of 2 is {@code List<@Nullable T>},
    * the final result will be {@code List<@Nullable String>}.
    *
    * @param typeToUpdate the type to update
    * @param origType the original type with type variables and possibly explicit nullability
    *     annotations
-   * @param typeVarNullability one typed result per declared variable with inferred information
+   * @param typeVarNullability inferred substitutions or root nullness, keyed by declared variable
    * @param state the visitor state
    * @param config the NullAway config
    * @return the attributed type enhanced only with established root/nested annotations
@@ -269,14 +269,14 @@ public class TypeSubstitutionUtils {
   }
 
   /**
-   * Updates a method type {@code typeToUpdate} by applying inferred nullability for type variables.
+   * Updates a method type by applying inferred substitutions or root nullness for type variables.
    * The update is applied to the argument types, return type, and thrown types of the method type,
    * using {@link #updateTypeWithInferredTypes(Type, Type, Map, VisitorState, Config)}
    *
    * @param methodTypeToUpdate method type to update
    * @param origMethodType original method type, with type variables and possibly explicit
    *     nullability annotations
-   * @param typeVarNullability one typed result per declared variable with inferred information
+   * @param typeVarNullability inferred substitutions or root nullness, keyed by declared variable
    * @param state the visitor state
    * @param config the NullAway config
    * @return the enhanced method type, with root-only fallback for unsupported substitutions
@@ -331,7 +331,7 @@ public class TypeSubstitutionUtils {
    * Substitutes a proper inferred type, or only a root qualifier, at each declared variable use.
    *
    * @param targetType type to which to apply substitutions
-   * @param typeVarNullability the single typed solve result indexed by declared variable
+   * @param typeVarNullability inferred substitutions or root nullness, keyed by declared variable
    * @param state the visitor state
    * @param config the NullAway config
    * @return an annotation source; explicit occurrence overrides are retained by substitution
