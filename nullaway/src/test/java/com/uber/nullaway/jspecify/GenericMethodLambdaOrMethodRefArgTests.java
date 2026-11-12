@@ -426,7 +426,7 @@ public class GenericMethodLambdaOrMethodRefArgTests extends NullAwayTestsBase {
                 acceptsNullable(Test::nonNullBox);
               }
               void explicitTypeArgumentIsPreserved() {
-                // BUG: Diagnostic contains: referenced method
+                // BUG: Diagnostic contains: parameter value of referenced method is @NonNull
                 acceptsNullable(Test::<String>box);
               }
             }
