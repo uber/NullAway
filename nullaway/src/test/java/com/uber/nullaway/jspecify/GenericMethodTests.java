@@ -3278,8 +3278,7 @@ public class GenericMethodTests extends NullAwayTestsBase {
                 takeNonNullConsumer(Test::refNonNull);
               }
               void anonymousSubclass() {
-                // False negative: javac erases the enclosing type in the supertype of an anonymous
-                // class, so the @Nullable type argument of the outer instance does not reach T
+                // BUG: Diagnostic contains: dereferenced expression 'valueOf(new Outer<@Nullable String>().new Inner() {})' is @Nullable
                 valueOf(new Outer<@Nullable String>().new Inner() {}).hashCode();
                 valueOf(new Outer<String>().new Inner() {}).hashCode();
               }
@@ -3289,6 +3288,48 @@ public class GenericMethodTests extends NullAwayTestsBase {
                 // BUG: Diagnostic contains: type variable T is constrained to be @Nullable, but its upper bound requires it to be @NonNull
                 takeNonNullConsumer((Outer<@Nullable String>.Inner inner) -> {});
                 takeNonNullConsumer((Outer<String>.Inner inner) -> {});
+              }
+            }
+            """)
+        .doTest();
+  }
+
+  /**
+   * Inference keeps only the top-level nullability of a type argument (issue #1585), so the
+   * qualifier's {@code @Nullable} type argument is lost from {@code X}, and the argument no longer
+   * matches the inferred parameter type. Both expected errors are false positives, kept until
+   * inference keeps nested nullness (issues #1585 and #2098).
+   */
+  @Test
+  public void qualifiedInnerCreationAsGenericArgumentLosesNestedNullness() {
+    makeHelper()
+        .addSourceLines(
+            "Test.java",
+            """
+            import org.jspecify.annotations.NullMarked;
+            import org.jspecify.annotations.Nullable;
+            @NullMarked
+            class Test {
+              static class Outer<O extends @Nullable Object> {
+                class Inner {
+                  Inner(O o) {}
+                }
+                class GInner<G extends @Nullable Object> {
+                  GInner(O o) {}
+                }
+              }
+              static <X extends @Nullable Object> X id(X x) {
+                return x;
+              }
+              void nullableQualifier(Outer<@Nullable String> o) {
+                // BUG: Diagnostic contains: incompatible types: Outer<@Nullable String>.Inner cannot be converted to Outer<String>.Inner
+                id(o.new Inner(""));
+                // BUG: Diagnostic contains: incompatible types: Outer<@Nullable String>.GInner<String> cannot be converted to Outer<String>.GInner<String>
+                id(o.new GInner<String>(""));
+              }
+              void nonNullQualifier(Outer<String> o) {
+                id(o.new Inner(""));
+                id(o.new GInner<String>(""));
               }
             }
             """)
