@@ -58,7 +58,10 @@ public interface ConstraintSolver {
     private final int root;
     private final List<SourceOrigin> origins;
 
-    /** Accepts legacy alternatives without distributing subsequent conjunctions. */
+    /**
+     * Builds a disjunction of alternatives, each requiring all of its origins. An empty alternative
+     * needs no source; an empty alternatives list cannot support a fact.
+     */
     public SourceSupport(List<List<SourceOrigin>> alternatives) {
       this.factory = new Factory();
       int proof = 0;
