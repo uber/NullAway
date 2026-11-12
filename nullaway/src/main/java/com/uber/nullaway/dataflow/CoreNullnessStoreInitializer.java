@@ -4,6 +4,7 @@ import static com.uber.nullaway.NullabilityUtil.castToNonNull;
 import static com.uber.nullaway.Nullness.NONNULL;
 import static com.uber.nullaway.Nullness.NULLABLE;
 
+import com.google.errorprone.util.ASTHelpers;
 import com.sun.source.tree.ClassTree;
 import com.sun.source.tree.LambdaExpressionTree;
 import com.sun.source.tree.VariableTree;
@@ -138,7 +139,9 @@ class CoreNullnessStoreInitializer extends NullnessStoreInitializer {
           // Get the Nullness if the Annotation is directly written with the parameter
           fiArgumentNullness.setParameterNullness(i, NULLABLE);
         } else if (config.isJSpecifyMode()
-            && GenericsUtils.isAnnotatedAsNullable(overridenMethodParamTypeList.get(i), config)) {
+            && GenericsUtils.isAnnotatedAsNullable(
+                parameterTypeForNullnessInheritance(code, i, overridenMethodParamTypeList.get(i)),
+                config)) {
           // Get the Nullness if the Annotation is indirectly applied through a generic type if we
           // are in JSpecify mode
           fiArgumentNullness.setParameterNullness(i, NULLABLE);
@@ -178,6 +181,25 @@ class CoreNullnessStoreInitializer extends NullnessStoreInitializer {
     }
     result = handler.onDataflowInitialStore(underlyingAST, parameters, result);
     return result.build();
+  }
+
+  /**
+   * Returns the functional interface method parameter type whose nullness the {@code i}th lambda
+   * parameter inherits. While constraints are being generated for an enclosing generic call, {@link
+   * GenericsChecks} holds the parameter type derived from that call's target type, which is used in
+   * preference to the type computed from the lambda's not-yet-inferred type.
+   *
+   * @param code the lambda
+   * @param i index of the parameter
+   * @param typeFromLambdaType the parameter type of the functional interface method, viewed as a
+   *     member of the type of the lambda
+   * @return the parameter type to check for nullness
+   */
+  private Type parameterTypeForNullnessInheritance(
+      LambdaExpressionTree code, int i, Type typeFromLambdaType) {
+    Symbol paramSymbol = castToNonNull(ASTHelpers.getSymbol(code.getParameters().get(i)));
+    Type typeForInference = genericsChecks.getLambdaParameterTypeForInference(paramSymbol);
+    return typeForInference != null ? typeForInference : typeFromLambdaType;
   }
 
   private @Nullable CodeAnnotationInfo codeAnnotationInfo;

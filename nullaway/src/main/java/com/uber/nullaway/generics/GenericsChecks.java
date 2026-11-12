@@ -1039,6 +1039,17 @@ public final class GenericsChecks {
   }
 
   /**
+   * Gets the temporary type of an implicitly typed lambda parameter while inference constraints are
+   * being generated for the enclosing call (see {@link #lambdaParameterTypesForInference}).
+   *
+   * @param paramSymbol the symbol for the lambda parameter
+   * @return the target-derived type of the lambda parameter, or null if none is recorded
+   */
+  public @Nullable Type getLambdaParameterTypeForInference(Symbol paramSymbol) {
+    return lambdaParameterTypesForInference.get(paramSymbol);
+  }
+
+  /**
    * Gets the temporary type of a lambda parameter during constraint generation (see {@link
    * #lambdaParameterTypesForInference}), or its inferred type if the lambda was passed to a generic
    * method and inference succeeded.
