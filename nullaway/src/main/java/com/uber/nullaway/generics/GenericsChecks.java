@@ -3189,9 +3189,9 @@ public final class GenericsChecks {
 
   /**
    * Infers a generic method reference's type argument nullability from its known target type before
-   * checking target compatibility. References already handled by enclosing generic call inference
-   * retain that joint solution. Inference may need to run, e.g., if a reference to a generic method
-   * is passed as an argument to a non-generic method.
+   * checking target compatibility. Reuses a cached failure or a solution containing bindings for
+   * this reference's type variables. Otherwise, inference runs again, e.g., if a reference to a
+   * generic method is passed as an argument to a non-generic method.
    *
    * <p>Called only from the visitor, never from dataflow or speculative inference, so the result is
    * always cached.
