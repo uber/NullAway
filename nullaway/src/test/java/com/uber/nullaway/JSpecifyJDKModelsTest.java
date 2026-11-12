@@ -644,6 +644,40 @@ public class JSpecifyJDKModelsTest extends NullAwayTestsBase {
         .doTest();
   }
 
+  @Test
+  public void modeledNestedReturnAnnotationInGenericInference() {
+    makeHelper()
+        .addSourceLines(
+            "Test.java",
+            """
+            import java.util.concurrent.CompletableFuture;
+            import org.jspecify.annotations.NullMarked;
+            import org.jspecify.annotations.Nullable;
+            @NullMarked
+            class Test {
+              static <T> T identity(T value) { return value; }
+              void identityPreservesNullablePayload() {
+                CompletableFuture<@Nullable Void> valid = identity(CompletableFuture.allOf());
+              }
+              void identityRejectsNonNullPayload() {
+                // BUG: Diagnostic contains: incompatible types
+                CompletableFuture<Void> invalid = identity(CompletableFuture.allOf());
+              }
+              CompletableFuture<@Nullable Void> returned() {
+                return identity(CompletableFuture.allOf());
+              }
+              CompletableFuture<Void> invalidReturn() {
+                // BUG: Diagnostic contains: incompatible types
+                return identity(CompletableFuture.allOf());
+              }
+              void identityPreservesNonNullPayload() {
+                identity(CompletableFuture.completedFuture("ok")).join().length();
+              }
+            }
+            """)
+        .doTest();
+  }
+
   /** The models give {@code Map.of} and {@code List.of} non-null type parameters (issue #1236). */
   @Test
   public void collectionFactoriesRejectNullableArguments() {
