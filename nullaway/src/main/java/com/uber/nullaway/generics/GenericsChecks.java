@@ -2715,7 +2715,8 @@ public final class GenericsChecks {
    * called in JSpecify mode.
    *
    * @param tree the switch expression
-   * @param results the arrow bodies and yield values that complete this switch
+   * @param results the expression bodies of arrow cases and the values of yields that complete this
+   *     switch
    * @param state visitor state whose path ends at the switch expression
    */
   public void checkTypeParameterNullnessForSwitchExpression(
