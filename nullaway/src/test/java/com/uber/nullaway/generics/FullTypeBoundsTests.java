@@ -644,7 +644,10 @@ public class FullTypeBoundsTests {
       assertThat(solver.knownNullness(target)).isNull();
     }
 
-    /** Checks declaration-root edges for nullable contradictions and complete non-null results. */
+    /**
+     * Checks that {@code U extends T} rejects nullable evidence when {@code T} is non-null,
+     * including evidence propagated through another inference variable.
+     */
     private static void checkDependentDeclaration(
         MethodTree tree, Symbol.MethodSymbol method, ConstraintSolver solver, NullAway analysis) {
       var declarations = method.getTypeParameters();

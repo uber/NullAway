@@ -27,8 +27,8 @@ import javax.lang.model.element.Element;
 import org.junit.Test;
 
 /**
- * Checks root facts, graph updates, cycles, immutable snapshots, and proper certified
- * substitutions.
+ * Checks root nullness facts and fallback, graph updates, cycles, immutable snapshots, and
+ * certified proper substitutions.
  */
 public class ConstraintSolverSolveTests extends NullAwayTestsBase {
   @Test
@@ -160,7 +160,7 @@ public class ConstraintSolverSolveTests extends NullAwayTestsBase {
   @BugPattern(summary = "Checks constraint solver solve contracts", severity = SUGGESTION)
   public static final class SolveChecker extends BugChecker
       implements BugChecker.MethodTreeMatcher {
-    /** Builds the named graph and checks scalar facts separately from certified candidates. */
+    /** Runs the qualifier, root-fact, or cycle/update scenario selected by the source method's name. */
     @Override
     public Description matchMethod(MethodTree tree, VisitorState state) {
       Symbol.MethodSymbol method = ASTHelpers.getSymbol(tree);
@@ -385,7 +385,7 @@ public class ConstraintSolverSolveTests extends NullAwayTestsBase {
       }
     }
 
-    /** Builds a structural lower bound with one substituted argument. */
+    /** Builds a single-argument class type, preserving the template's enclosing type. */
     private static Type withArgument(Type template, Type argument) {
       return TypeMetadataBuilder.TYPE_METADATA_BUILDER.createClassType(
           template, template.getEnclosingType(), com.sun.tools.javac.util.List.of(argument));
