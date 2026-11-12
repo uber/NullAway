@@ -188,6 +188,11 @@ jobs:
             branch: main
             sha: 84bc35860494ae34d1236c995bc504c3798a96d5
             build: ./mvnw -B -ntp -nsu -Dnullaway.version="$NULLAWAY_VERSION" -Dspring-javaformat.skip=true test-compile
+          - project: vavr
+            url: https://github.com/vavr-io/vavr.git
+            branch: main
+            sha: ca7ed065129bea815f57cfae16e28985741d8d69
+            build: JAVA_HOME="$JAVA_HOME_21_X64" ./mvnw -B -ntp -nsu -Pnullaway -Dnullaway.version="$NULLAWAY_VERSION" -Dspotless.skip=true compile
     permissions:
       contents: read
     runs-on: ubuntu-latest
@@ -200,6 +205,7 @@ jobs:
         uses: actions/setup-java@b843ebf9b913146b38da2eaa7aeddf76074ae1ad # v6.1.0
         with:
           java-version: | # JDK 26 needed for Caffeine
+            21
             26
             25
           distribution: 'temurin'
