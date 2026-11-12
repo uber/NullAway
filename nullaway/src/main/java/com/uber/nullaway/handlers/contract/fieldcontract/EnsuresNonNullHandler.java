@@ -80,17 +80,19 @@ public class EnsuresNonNullHandler extends AbstractFieldContractHandler {
     if (tree.getBody() == null) {
       return true;
     }
+    // DataFlow keys a method's run on TreePath identity, so both exit-store reads share this path.
+    TreePath methodPath = new TreePath(state.getPath(), tree);
     Set<String> nonnullFieldsOfReceiverAtExit =
         analysis
             .getNullnessAnalysis(state)
-            .getNonnullFieldsOfReceiverAtExit(new TreePath(state.getPath(), tree), state.context)
+            .getNonnullFieldsOfReceiverAtExit(methodPath, state.context)
             .stream()
             .map(e -> e.getSimpleName().toString())
             .collect(Collectors.toSet());
     Set<String> nonnullStaticFieldsAtExit =
         analysis
             .getNullnessAnalysis(state)
-            .getNonnullStaticFieldsAtExit(new TreePath(state.getPath(), tree), state.context)
+            .getNonnullStaticFieldsAtExit(methodPath, state.context)
             .stream()
             .map(e -> e.getSimpleName().toString())
             .collect(Collectors.toSet());
