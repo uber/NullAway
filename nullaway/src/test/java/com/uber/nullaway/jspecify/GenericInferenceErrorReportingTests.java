@@ -431,6 +431,14 @@ public class GenericInferenceErrorReportingTests extends NullAwayTestsBase {
               void explicitlyNullableTypeVariableReturnFailure() {
                 Fn<@Nullable String, String> f = Test::maybe; // 2 warnings: T inference failure, explicit nullable return.
               }
+
+              static <T> List<T> wrapList(List<T> values) { return values; }
+              static <R extends @Nullable Object> R gen(java.util.function.Supplier<R> supplier) {
+                return supplier.get();
+              }
+              void incompatibleLambdaReturnInGenericCall() {
+                java.util.function.Function<List<@Nullable String>, List<String>> function = gen(() -> Test::wrapList);
+              }
             }
             """);
 
@@ -496,7 +504,9 @@ public class GenericInferenceErrorReportingTests extends NullAwayTestsBase {
             "Test.java:84: [NullAway] inference failure: type variable T is constrained to be"
                 + " @Nullable, but its upper bound requires it to be @NonNull",
             "Test.java:84: [NullAway] referenced method returns @Nullable, but functional interface"
-                + " method com.uber.Test.Fn.apply(@Nullable String) returns @NonNull");
+                + " method com.uber.Test.Fn.apply(@Nullable String) returns @NonNull",
+            "Test.java:92: [NullAway] inference failure: type variable T is constrained to be"
+                + " @Nullable, but its upper bound requires it to be @NonNull");
   }
 
   @Test
