@@ -1836,6 +1836,21 @@ public final class GenericsChecks {
           lhsType,
           polyNullContexts,
           calledFromDataflow);
+    } else if (rhsExpr instanceof SwitchExpressionTree switchExpressionTree) {
+      // Use the current inference target for each result instead of recovering it through the
+      // enclosing call, whose inference result is not yet available.
+      for (ExpressionTree result :
+          NullabilityUtil.getSwitchExpressionResults(switchExpressionTree)) {
+        TreePath resultPath = castToNonNull(TreePath.getPath(state.getPath(), result));
+        generateConstraintsForPseudoAssignment(
+            state.withPath(resultPath),
+            solver,
+            allCalls,
+            result,
+            lhsType,
+            polyNullContexts,
+            calledFromDataflow);
+      }
     } else if (rhsExpr instanceof LambdaExpressionTree lambda) {
       handleLambdaInGenericMethodInference(
           state,
