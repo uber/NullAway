@@ -1163,6 +1163,29 @@ public class GenericsTests extends NullAwayTestsBase {
   }
 
   @Test
+  public void boxedConditionalGuardsDoNotInheritSwitchResultTargets() {
+    Assume.assumeTrue(Runtime.version().feature() >= 21);
+    makeHelper()
+        .addSourceLines(
+            "Test.java",
+            """
+            package com.uber;
+            import org.jspecify.annotations.Nullable;
+            class Test {
+              void expressionGuard(Object value, boolean flag, Boolean first, Boolean second,
+                  // Relax Comparable's bound only on the parameter declaration, not in the body.
+                  @SuppressWarnings("NullAway") Comparable<@Nullable Boolean> result) {
+                result = switch (value) {
+                  case String s when (flag ? first : second) -> result;
+                  default -> result;
+                };
+              }
+            }
+            """)
+        .doTest();
+  }
+
+  @Test
   public void ternaryOperatorComplexSubtyping() {
     makeHelper()
         .addSourceLines(
