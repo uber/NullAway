@@ -2053,9 +2053,9 @@ public final class ConstraintSolverImpl implements ConstraintSolver {
    * Adds premises used to resolve symbolic positions when a bound becomes a conflict source. Unlike
    * diagnostic context collection, only evidence for actual referenced values participates. Each
    * distinct bound used by value resolution is required; deduplicated proofs for that bound remain
-   * alternatives. Visiting each symbol once closes cyclic value dependencies without a proof DAG.
-   * Constraint preparation deliberately uses the original relation support instead: deriving a
-   * constraint on a slot does not require first solving that slot's value.
+   * alternatives. Each symbol is visited once so cyclic value dependencies terminate. Constraint
+   * preparation deliberately uses the original relation support instead: deriving a constraint on a
+   * slot does not require first solving that slot's value.
    */
   private BoundEvidence withReferencedValueSupport(BoundEvidence bound) {
     SourceSupport support = bound.support();

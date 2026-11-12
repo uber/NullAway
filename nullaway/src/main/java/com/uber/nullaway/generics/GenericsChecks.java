@@ -2243,7 +2243,11 @@ public final class GenericsChecks {
         : cached == null ? diagnosticInferenceResults.get(site) : null;
   }
 
-  /** Keeps established ordinary same-nominal checking as presentation policy, not solver policy. */
+  /**
+   * Selects a source-pair diagnostic for method and constructor calls. If both lower bounds have
+   * the same class symbol after stripping paired array layers, ordinary compatibility checks report
+   * the mismatch instead.
+   */
   private boolean usesDirectConflictDiagnostic(LowerBoundConflict conflict) {
     if (!(conflict.variable().site() instanceof MethodInvocationTree)
         && !(conflict.variable().site() instanceof NewClassTree)) {
@@ -2331,7 +2335,10 @@ public final class GenericsChecks {
     }
   }
 
-  /** Reads unavailable variable positions from a completed outcome, independently of reporting. */
+  /**
+   * Matches only a bare, unannotated use of the failed type variable. Annotated uses and
+   * surrounding types such as arrays retain contracts that can still be checked.
+   */
   private boolean isOnlyFailedVariable(Type type, Element variable) {
     return type instanceof Type.TypeVar
         && type.asElement().equals(variable)
