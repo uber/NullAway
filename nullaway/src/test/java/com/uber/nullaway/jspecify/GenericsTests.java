@@ -212,6 +212,66 @@ public class GenericsTests extends NullAwayTestsBase {
   }
 
   @Test
+  public void newClassTypeArgumentNullnessIsReadPastOtherAnnotations() {
+    makeHelper()
+        .addSourceLines(
+            "Test.java",
+            """
+            package com.uber;
+            import java.lang.annotation.ElementType;
+            import java.lang.annotation.Target;
+            import org.jspecify.annotations.NullMarked;
+            import org.jspecify.annotations.Nullable;
+            @NullMarked
+            class Test {
+              @Target(ElementType.TYPE_USE)
+              @interface Other {}
+              static class Holder<E extends @Nullable Object> {}
+              static void typeArguments() {
+                Holder<String> other = new Holder<@Other String>();
+                // BUG: Diagnostic contains: incompatible types: Holder<@Nullable String> cannot be
+                Holder<String> otherThenNullable = new Holder<@Other @Nullable String>();
+              }
+            }
+            """)
+        .doTest();
+  }
+
+  @Test
+  public void typeVariableReceiverTakesTypeArgumentsOfItsBound() {
+    makeHelper()
+        .addSourceLines(
+            "Test.java",
+            """
+            package com.uber;
+            import org.jspecify.annotations.NullMarked;
+            import org.jspecify.annotations.Nullable;
+            @NullMarked
+            class Test {
+              static class Holder<E extends @Nullable Object> {
+                E get() {
+                  throw new UnsupportedOperationException();
+                }
+                void set(E e) {}
+              }
+              static class NullableSub extends Holder<@Nullable String> {}
+              static class NonNullSub extends Holder<String> {}
+              static <S extends NullableSub> void nullableTypeArgument(S s) {
+                // BUG: Diagnostic contains: dereferenced expression 's.get()' is @Nullable
+                s.get().hashCode();
+                s.set(null);
+              }
+              static <S extends NonNullSub> void nonNullTypeArgument(S s) {
+                s.get().hashCode();
+                // BUG: Diagnostic contains: passing @Nullable parameter 'null'
+                s.set(null);
+              }
+            }
+            """)
+        .doTest();
+  }
+
+  @Test
   public void nestedGenericTypes() {
     makeHelper()
         .addSourceLines(

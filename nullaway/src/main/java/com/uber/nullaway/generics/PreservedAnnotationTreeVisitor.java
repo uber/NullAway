@@ -106,28 +106,29 @@ public class PreservedAnnotationTreeVisitor extends SimpleTreeVisitor<Type, @Nul
   @Override
   public Type visitAnnotatedType(AnnotatedTypeTree annotatedType, @Nullable Void unused) {
     List<? extends AnnotationTree> annotations = annotatedType.getAnnotations();
-    boolean hasNullableAnnotation = false;
-    Type nullableType = null;
+    boolean hasNullnessAnnotation = false;
+    Type nullnessAnnotationType = null;
     for (AnnotationTree annotation : annotations) {
       Symbol annotSymbol = ASTHelpers.getSymbol(annotation.getAnnotationType());
       if (annotSymbol != null
-          && Nullness.isNullableAnnotation(annotSymbol.getQualifiedName().toString(), config)) {
-        hasNullableAnnotation = true;
-        // save the type of the nullable annotation, so that we can use it when constructing the
+          && (Nullness.isNullableAnnotation(annotSymbol.getQualifiedName().toString(), config)
+              || Nullness.isNonNullAnnotation(annotSymbol.getQualifiedName().toString(), config))) {
+        hasNullnessAnnotation = true;
+        // save the type of the nullness annotation, so that we can use it when constructing the
         // TypeMetadata object below
-        nullableType = castToNonNull(ASTHelpers.getType(annotation));
+        nullnessAnnotationType = castToNonNull(ASTHelpers.getType(annotation));
         break;
       }
     }
     // construct a TypeMetadata object containing a nullability annotation if needed
-    com.sun.tools.javac.util.List<Attribute.TypeCompound> nullableAnnotationCompound =
-        hasNullableAnnotation
+    com.sun.tools.javac.util.List<Attribute.TypeCompound> nullnessAnnotationCompound =
+        hasNullnessAnnotation
             ? com.sun.tools.javac.util.List.from(
                 Collections.singletonList(
                     new Attribute.TypeCompound(
-                        nullableType, com.sun.tools.javac.util.List.nil(), null)))
+                        nullnessAnnotationType, com.sun.tools.javac.util.List.nil(), null)))
             : com.sun.tools.javac.util.List.nil();
-    TypeMetadata typeMetadata = TYPE_METADATA_BUILDER.create(nullableAnnotationCompound);
+    TypeMetadata typeMetadata = TYPE_METADATA_BUILDER.create(nullnessAnnotationCompound);
     Type underlyingType = annotatedType.getUnderlyingType().accept(this, null);
     Type newType = TYPE_METADATA_BUILDER.cloneTypeWithMetadata(underlyingType, typeMetadata);
     return newType;

@@ -116,6 +116,7 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
+import java.util.function.Supplier;
 import java.util.stream.Collectors;
 import java.util.stream.StreamSupport;
 import javax.inject.Inject;
@@ -619,12 +620,18 @@ public class NullAway extends BugChecker
       // check for a write of a @Nullable value into @NonNull array contents
       ExpressionTree arrayExpr = arrayAccess.getExpression();
       ExpressionTree expression = tree.getExpression();
-      TreePath pathToArrayExpr =
-          pathWithLeaf(pathWithLeaf(state.getPath(), arrayAccess), arrayExpr);
-      Type arrayType = genericsChecks.getTreeType(arrayExpr, state.withPath(pathToArrayExpr));
+      Type arrayType =
+          genericsChecks.getAssignedVariableType(
+              arrayExpr,
+              pathWithLeaf(pathWithLeaf(state.getPath(), arrayAccess), arrayExpr),
+              state);
       boolean isElementNullable = isArrayElementNullable(arrayType, config);
       if (!isTopLevelNullnessCompatible(
-          expression, lhsType, isElementNullable ? Nullness.NULLABLE : Nullness.NONNULL, state)) {
+          expression,
+          // javac's type of the element drops type-use annotations, such as a @NonNull component
+          () -> GenericsChecks.ValueTarget.arrayElement(arrayType),
+          isElementNullable ? Nullness.NULLABLE : Nullness.NONNULL,
+          state)) {
         state.reportMatch(
             errorBuilder.createErrorDescription(
                 new ErrorMessage(
@@ -648,7 +655,16 @@ public class NullAway extends BugChecker
       // field already annotated
       return Description.NO_MATCH;
     }
-    if (isTopLevelNullnessCompatible(tree.getExpression(), lhsType, Nullness.NONNULL, state)) {
+    if (isTopLevelNullnessCompatible(
+        tree.getExpression(),
+        // javac's type of a field drops a @NonNull from the type argument of a supertype
+        () ->
+            GenericsChecks.ValueTarget.of(
+                genericsChecks.getAssignedVariableType(
+                    tree.getVariable(), pathWithLeaf(state.getPath(), tree.getVariable()), state),
+                assigned),
+        Nullness.NONNULL,
+        state)) {
       handler.onNonNullFieldAssignment(assigned, getNullnessAnalysis(state), state);
     } else {
       state.reportMatch(
@@ -1320,17 +1336,84 @@ public class NullAway extends BugChecker
   }
 
   /**
-   * Returns the destination type of a returned expression, substituting the functional interface's
-   * type arguments for a lambda return.
+   * Returns the target of a returned expression: the method's return type, or for a lambda return,
+   * the target {@link #lambdaReturnTarget} finds.
    */
-  private static Type returnTypeAtReturn(
+  private GenericsChecks.ValueTarget returnTargetAtReturn(
       Symbol.MethodSymbol methodSymbol,
       @Nullable LambdaExpressionTree lambdaTree,
       VisitorState state) {
-    Type lambdaType = ASTHelpers.getType(lambdaTree);
-    return lambdaType == null
-        ? methodSymbol.getReturnType()
-        : state.getTypes().memberType(lambdaType, methodSymbol).getReturnType();
+    if (lambdaTree == null) {
+      return GenericsChecks.ValueTarget.of(methodSymbol.getReturnType(), methodSymbol);
+    }
+    return lambdaReturnTarget(lambdaTree, methodSymbol, state);
+  }
+
+  /**
+   * Returns the target of a value that {@code lambdaTree} returns, typed by the functional
+   * interface type of the lambda where that type is known with the annotations of the declaration
+   * that sets it. For an argument of a call or of a constructor with no class body, {@link
+   * GenericsChecks#getLambdaArgumentReturnTarget} types it from the receiving parameter. For a
+   * lambda that initializes a variable, or that a return statement outside any lambda returns, it
+   * is javac's type of the lambda, which is the declared type unsubstituted. Elsewhere, such as in
+   * a conditional expression, a return inside a lambda body, or an assignment through a generic
+   * receiver, javac's substitution may have dropped a {@code @NonNull}, and the target excludes
+   * null.
+   *
+   * <p>The parameter's type takes the method type arguments javac infers, not those NullAway
+   * infers: NullAway infers {@code @NonNull T} for a type variable that an argument of type {@code
+   * T} also fixes, where the type variable may still be nullable.
+   *
+   * @param lambdaTree a lambda on the current path
+   * @param functionalInterfaceMethod the method of the lambda's functional interface
+   * @param state the visitor state
+   */
+  @SuppressWarnings("ReferenceEquality") // the argument is the lambda tree itself
+  private GenericsChecks.ValueTarget lambdaReturnTarget(
+      LambdaExpressionTree lambdaTree,
+      Symbol.MethodSymbol functionalInterfaceMethod,
+      VisitorState state) {
+    TreePath lambdaPath = state.getPath();
+    while (lambdaPath != null && lambdaPath.getLeaf() != lambdaTree) {
+      lambdaPath = lambdaPath.getParentPath();
+    }
+    TreePath parentPath = lambdaPath == null ? null : lambdaPath.getParentPath();
+    while (parentPath != null && parentPath.getLeaf() instanceof ParenthesizedTree) {
+      parentPath = parentPath.getParentPath();
+    }
+    Tree parent = parentPath == null ? null : parentPath.getLeaf();
+    if (parent instanceof VariableTree
+        || (parent instanceof ReturnTree
+            && ASTHelpers.findEnclosingNode(parentPath, LambdaExpressionTree.class) == null)) {
+      return genericsChecks.getLambdaReturnTarget(
+          ASTHelpers.getType(lambdaTree), functionalInterfaceMethod, state);
+    }
+    if (!(parent instanceof MethodInvocationTree
+            || (parent instanceof NewClassTree newClass && newClass.getClassBody() == null))
+        || !(ASTHelpers.getSymbol(parent) instanceof Symbol.MethodSymbol callee)) {
+      return GenericsChecks.ValueTarget.EXCLUDES_NULL;
+    }
+    Tree call = parent;
+    VisitorState callState = state.withPath(parentPath);
+    List<GenericsChecks.ValueTarget> targets = new ArrayList<>(1);
+    new InvocationArguments(call, invokedMethodTypeAtCall(call, callee))
+        .forEach(
+            (actual, argPos, formalParamType, varArgsPassedAsArray) -> {
+              if (ASTHelpers.stripParentheses(actual) == lambdaTree) {
+                int paramIndex = Math.min(argPos, callee.getParameters().size() - 1);
+                targets.add(
+                    genericsChecks.getLambdaArgumentReturnTarget(
+                        callee,
+                        call,
+                        formalParamType,
+                        paramIndex,
+                        isVarargsPosition(callee, paramIndex) && !varArgsPassedAsArray,
+                        functionalInterfaceMethod,
+                        callState));
+              }
+            });
+    // diff-coverage: ignore -- the lambda is one of the call's arguments
+    return targets.isEmpty() ? GenericsChecks.ValueTarget.EXCLUDES_NULL : targets.get(0);
   }
 
   /**
@@ -1390,7 +1473,10 @@ public class NullAway extends BugChecker
     }
 
     if (!isTopLevelNullnessCompatible(
-        retExpr, returnTypeAtReturn(methodSymbol, lambdaTree, state), Nullness.NONNULL, state)) {
+        retExpr,
+        () -> returnTargetAtReturn(methodSymbol, lambdaTree, state),
+        Nullness.NONNULL,
+        state)) {
       state.reportMatch(
           errorBuilder.createErrorDescriptionForNullAssignment(
               new ErrorMessage(
@@ -1778,16 +1864,16 @@ public class NullAway extends BugChecker
   private boolean fieldAlwaysInitializedBeforeRead(
       Symbol symbol, TreePath pathToRead, VisitorState state, TreePath enclosingBlockPath) {
     AccessPathNullnessAnalysis nullnessAnalysis = getNullnessAnalysis(state);
-    Set<Element> nonnullFields;
+    Set<Element> initializedFields;
     if (isStatic(symbol)) {
-      nonnullFields = nullnessAnalysis.getNonnullStaticFieldsBefore(pathToRead, state.context);
+      initializedFields = nullnessAnalysis.getNonnullStaticFieldsBefore(pathToRead, state.context);
     } else {
-      nonnullFields = new LinkedHashSet<>();
-      nonnullFields.addAll(
-          nullnessAnalysis.getNonnullFieldsOfReceiverBefore(pathToRead, state.context));
-      nonnullFields.addAll(safeInitByCalleeBefore(pathToRead, state, enclosingBlockPath));
+      initializedFields = new LinkedHashSet<>();
+      initializedFields.addAll(
+          nullnessAnalysis.getInitializedFieldsOfReceiverBefore(pathToRead, state.context));
+      initializedFields.addAll(safeInitByCalleeBefore(pathToRead, state, enclosingBlockPath));
     }
-    return nonnullFields.contains(symbol);
+    return initializedFields.contains(symbol);
   }
 
   /**
@@ -1906,7 +1992,7 @@ public class NullAway extends BugChecker
               nullnessAnalysis.getNonnullStaticFieldsAtExit(memberPath, state.context));
         } else {
           initThusFar.addAll(
-              nullnessAnalysis.getNonnullFieldsOfReceiverAtExit(memberPath, state.context));
+              nullnessAnalysis.getInitializedFieldsOfReceiverAtExit(memberPath, state.context));
         }
       }
       if (memberTree instanceof MethodTree methodTree && isConstructor(methodTree)) {
@@ -2002,7 +2088,11 @@ public class NullAway extends BugChecker
           getFieldInitializationSkipResult(state, symbol, null) == Handler.FieldSkipResult.YES
               ? Nullness.NULLABLE
               : Nullness.NONNULL;
-      if (!isTopLevelNullnessCompatible(initializer, symbol.type, targetNullness, state)) {
+      if (!isTopLevelNullnessCompatible(
+          initializer,
+          () -> GenericsChecks.ValueTarget.of(symbol.type, symbol),
+          targetNullness,
+          state)) {
         state.reportMatch(
             errorBuilder.createErrorDescriptionForNullAssignment(
                 new ErrorMessage(
@@ -2355,12 +2445,12 @@ public class NullAway extends BugChecker
       elementNullable = NullabilityUtil.isArrayExpressionElementNullable(expr, config);
     } else {
       elementNullable =
-          genericsChecks
+          !genericsChecks
               .getEnhancedForLoopElementNullness(
                   expr,
                   state.withPath(new TreePath(state.getPath(), expr)),
                   /* calledFromDataflow= */ false)
-              .equals(Nullness.NULLABLE);
+              .equals(Nullness.NONNULL);
     }
     if (elementNullable) {
       // A nullable element is being unboxed to a primitive. This is unsafe.
@@ -2466,15 +2556,15 @@ public class NullAway extends BugChecker
         } else {
           // we need to call paramHasNullableAnnotation here since the invoked method may be defined
           // in a class file
-          argumentNullness.setParameterNullness(
-              i,
+          Nullness paramNullness =
               Nullness.paramHasNullableAnnotation(methodSymbol, i, config)
                   ? Nullness.NULLABLE
                   : ((config.isJSpecifyMode()
                           && (tree instanceof MethodInvocationTree || tree instanceof NewClassTree))
                       ? genericsChecks.getGenericParameterNullnessAtInvocation(
                           i, methodSymbol, tree, state)
-                      : Nullness.NONNULL));
+                      : Nullness.NONNULL);
+          argumentNullness.setParameterNullness(i, paramNullness);
         }
       }
       if (methodSymbol.isVarArgs()) {
@@ -2494,7 +2584,9 @@ public class NullAway extends BugChecker
       }
     }
 
-    // Allow handlers to override the list of non-null argument positions.
+    // Allow handlers to override the list of non-null argument positions. A position a handler sets
+    // to NONNULL requires a non-null argument whatever the parameter's type.
+    argumentNullness.clearSetPositions();
     MethodParameterNullness finalArgumentNullness =
         handler.onOverrideMethodInvocationParametersNullability(
             state.context, methodSymbol, isMethodAnnotated, argumentNullness);
@@ -2513,19 +2605,31 @@ public class NullAway extends BugChecker
             // extra varargs argument; nullness info stored in the varargs parameter slot
             argPos = formalParams.size() - 1;
           }
-          boolean argIsNonNull =
-              Objects.equals(Nullness.NONNULL, finalArgumentNullness.getParameterNullness(argPos));
-          if (varArgsPassedAsArray) {
-            // This is the case where an array is explicitly passed in the position of the
-            // varargs parameter
-            argIsNonNull =
-                Objects.equals(Nullness.NONNULL, finalArgumentNullness.getVarargsArrayNullness());
-          }
-          if (!argIsNonNull) {
+          // An array passed explicitly in the position of the varargs parameter has the nullness
+          // of the varargs array
+          Nullness paramNullness =
+              varArgsPassedAsArray
+                  ? finalArgumentNullness.getVarargsArrayNullness()
+                  : finalArgumentNullness.getParameterNullness(argPos);
+          if (paramNullness != Nullness.NONNULL) {
             // Preserve the fast path for nullable and unannotated parameters.
             return;
           }
-          if (!isTopLevelNullnessCompatible(actual, formalParamType, Nullness.NONNULL, state)) {
+          int paramIndex = argPos;
+          if (!isTopLevelNullnessCompatible(
+              actual,
+              () ->
+                  varArgsPassedAsArray || finalArgumentNullness.wasSet(paramIndex)
+                      ? GenericsChecks.ValueTarget.EXCLUDES_NULL
+                      : genericsChecks.getParameterTarget(
+                          methodSymbol,
+                          tree,
+                          formalParamType,
+                          paramIndex,
+                          isVarargsPosition(methodSymbol, paramIndex),
+                          state),
+              Nullness.NONNULL,
+              state)) {
             state.reportMatch(
                 errorBuilder.createErrorDescriptionForNullAssignment(
                     new ErrorMessage(
@@ -2749,7 +2853,7 @@ public class NullAway extends BugChecker
       TreePath path) {
     AccessPathNullnessAnalysis nullnessAnalysis = getNullnessAnalysis(state);
     Set<Element> nonnullAtExit =
-        nullnessAnalysis.getNonnullFieldsOfReceiverAtExit(path, state.context);
+        nullnessAnalysis.getInitializedFieldsOfReceiverAtExit(path, state.context);
     initInSomeInitializerBuilder.addAll(nonnullAtExit);
     Set<Element> safeInitMethods = getSafeInitMethods(block, classSymbol, state);
     addGuaranteedNonNullFromInvokes(
@@ -2836,7 +2940,7 @@ public class NullAway extends BugChecker
     AccessPathNullnessAnalysis nullnessAnalysis = getNullnessAnalysis(state);
     ImmutableSet.Builder<Element> guaranteedNonNullBuilder = ImmutableSet.builder();
     guaranteedNonNullBuilder.addAll(
-        nullnessAnalysis.getNonnullFieldsOfReceiverAtExit(
+        nullnessAnalysis.getInitializedFieldsOfReceiverAtExit(
             new TreePath(state.getPath(), constructor), state.context));
     addGuaranteedNonNullFromInvokes(
         state, trees, safeInitMethods, nullnessAnalysis, guaranteedNonNullBuilder);
@@ -2888,7 +2992,7 @@ public class NullAway extends BugChecker
     for (Element invoked : safeInitMethods) {
       Tree invokedTree = trees.getTree(invoked);
       guaranteedNonNullBuilder.addAll(
-          nullnessAnalysis.getNonnullFieldsOfReceiverAtExit(
+          nullnessAnalysis.getInitializedFieldsOfReceiverAtExit(
               new TreePath(state.getPath(), invokedTree), state.context));
     }
   }
@@ -3145,25 +3249,33 @@ public class NullAway extends BugChecker
    * distinction matters for handlers that are notified only of successful nonnull field writes.
    *
    * @param expression expression being assigned, passed, or returned
-   * @param targetType destination type after call-site substitutions, or {@code null} if unknown;
-   *     for array writes and individually passed varargs, this is the component type. Will be used
-   *     to support future features like {@code NO_CHANGE}.
+   * @param target supplies the assigned location after call-site substitutions; for array writes
+   *     and individually passed varargs, this is the component. It is called only for a value for
+   *     which {@link Nullness#isNoChange()} holds, and {@link GenericsChecks#acceptsNoChangeValue}
+   *     then decides whether that location accepts the value
    * @param targetNullness destination's nullness after applying context-specific rules and handlers
    * @param state visitor state at the pseudo-assignment
    * @return whether the top-level nullness is compatible
    */
   private boolean isTopLevelNullnessCompatible(
       ExpressionTree expression,
-      @SuppressWarnings("UnusedVariable") @Nullable Type targetType,
+      Supplier<GenericsChecks.ValueTarget> target,
       Nullness targetNullness,
       VisitorState state) {
     if (targetNullness != Nullness.NONNULL) {
       return true;
     }
     Nullness expressionNullness = getExpressionNullness(state, expression);
-    return expressionNullness // diff-coverage: ignore -- Preserve missing-dataflow fallback.
-            == null
-        || !NullabilityUtil.nullnessToBool(expressionNullness);
+    if (expressionNullness == null) { // diff-coverage: ignore -- missing-dataflow fallback
+      return true; // diff-coverage: ignore -- Preserve missing-dataflow fallback.
+    }
+    if (expressionNullness.isNoChange()) {
+      // getExpressionNullness strips casts too, so the type describes the same expression
+      Type expressionType =
+          castToNonNull(ASTHelpers.getType(NullabilityUtil.stripParensAndCasts(expression)));
+      return genericsChecks.acceptsNoChangeValue(expressionType, target.get(), state);
+    }
+    return !NullabilityUtil.nullnessToBool(expressionNullness);
   }
 
   /** Returns whether the effective nullness of an expression permits null. */
@@ -3331,10 +3443,10 @@ public class NullAway extends BugChecker
           "%s not found as a descendant of %s",
           invocationTree,
           path.getLeaf());
-      return genericsChecks
+      return !genericsChecks
           .getGenericReturnNullnessAtInvocation(
               exprSymbol, invocationTree, invocationPath, state, false)
-          .equals(Nullness.NULLABLE);
+          .equals(Nullness.NONNULL);
     }
     return false;
   }
