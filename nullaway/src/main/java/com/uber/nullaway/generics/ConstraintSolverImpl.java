@@ -143,10 +143,9 @@ public final class ConstraintSolverImpl implements ConstraintSolver {
   /** Per-variable state (nullability, sub-/supertype edges). */
   private static final class VarState {
     /**
-     * Indicates whether the type variable has a @Nullable upper bound, and thus can be @Nullable
-     * itself. Not strictly necessary for constraint solving, but allows us to give a more useful
-     * diagnostic if we get a contradiction due to the @NonNull upper bound, which could be helpful
-     * in the future.
+     * Whether the effective upper bound permits nullable instantiations. Used to reject nullable
+     * scalar constraints and to identify wildcard containment obligations requiring non-null
+     * bounds.
      */
     final boolean nullableAllowed;
 
