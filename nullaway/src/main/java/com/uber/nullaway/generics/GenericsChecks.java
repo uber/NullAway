@@ -88,9 +88,9 @@ public final class GenericsChecks {
   private interface CallInferenceResult {}
 
   /**
-   * Stores one typed result per variable: a supported substitution or root-only fallback. A problem
-   * may span nested calls and generic references. PolyNull qualifiers come from the same solve;
-   * this foundation outcome does not claim full-type support for every variable.
+   * Stores inferred substitutions or root nullness, grouped by call site. One inference problem may
+   * span nested calls and generic method references. Also stores PolyNull qualifiers computed by
+   * the same solver run.
    */
   private static final class InferenceSuccess implements CallInferenceResult {
 
@@ -103,7 +103,7 @@ public final class GenericsChecks {
      * Groups the solution by tree identity, preserving solution iteration order within each site's
      * type variable map.
      *
-     * @param solution the single inferred result for each variable in the problem
+     * @param solution inferred substitutions or root nullness for variables in the problem
      * @param polyNullnessByInvocation the PolyNull nullness inferred for each modeled invocation
      */
     private InferenceSuccess(
@@ -118,10 +118,10 @@ public final class GenericsChecks {
     }
 
     /**
-     * Returns the substitutions and explicit root fallbacks inferred at {@code site}.
+     * Returns the substitutions or root nullness inferred at {@code site}.
      *
      * @param site a call or method reference participating in the inference problem
-     * @return one typed result for each declared variable with inferred information at {@code site}
+     * @return inferred results keyed by the declared type variables at {@code site}
      */
     Map<Element, ConstraintSolver.InferredType> inferredTypesForSite(Tree site) {
       return typesBySite.getOrDefault(site, Map.of());
@@ -1716,8 +1716,8 @@ public final class GenericsChecks {
     if (polyNullContext != null) {
       typeParameters.add(polyNullContext.inferenceVariable().asElement());
     }
-    // Only method calls opt into full-type inference in this foundation. Constructors and generic
-    // method references retain scalar inference until their attributed shapes are integrated.
+    // The method-select type supplies javac's inferred type arguments for method calls.
+    // Constructors and generic method references use root-only inference.
     Map<Element, Type> javacInstantiations =
         callTree instanceof MethodInvocationTree invocation
             ? InferenceTypeShapes.inferInstantiations(
@@ -3718,18 +3718,18 @@ public final class GenericsChecks {
   }
 
   /**
-   * In narrow cases, javac drops or misplaces nested type-use nullability annotations on type
-   * variables in its inferred type for a generic method at a call site. See <a
-   * href="https://github.com/uber/NullAway/issues/1455">issue 1455</a>. This method repairs those
-   * annotations based on the types of actual parameters. It does not attempt to be a very general
-   * fix, as we do not fully understand the scenarios where this can arise.
+   * Restores nested nullability from actual arguments for method variables without a full
+   * substitution. This fallback is needed for diamond constructor arguments and types containing
+   * fixed caller variables, such as {@code Supplier<@Nullable T>} in <a
+   * href="https://github.com/uber/NullAway/issues/1455">issue 1455</a>. Variables with a full
+   * substitution are left unchanged: their nested annotations were inferred from all bounds.
    *
    * @param invocationTree the method invocation tree for the generic method call
    * @param origMethodType the declared method type for the generic method (to identify formal
    *     parameters whose type is a type variable of the method)
    * @param methodTypeAtCallSite the method type for the generic method as inferred by javac at the
    *     call site
-   * @param inferredTypes solved results; supported substitutions are excluded from legacy repair
+   * @param inferredTypes inferred results used to exclude fully substituted variables from repair
    * @param invocationPath the path to the invocation tree, or null if not available
    * @param state the visitor state
    * @return a method type based on {@code methodTypeAtCallSite} but with some nested nullability

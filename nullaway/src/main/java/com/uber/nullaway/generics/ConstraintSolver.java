@@ -11,7 +11,8 @@ import javax.lang.model.element.Element;
 /**
  * An interface for solving constraints on type variables, such as subtype relationships between
  * types. This is used to determine the nullability of inferred type arguments at generic method
- * calls, constructor calls using the diamond operator, etc.
+ * calls, constructor calls using the diamond operator, etc., including nested nullability when a
+ * full substitution is available.
  */
 public interface ConstraintSolver {
 
@@ -52,8 +53,9 @@ public interface ConstraintSolver {
       Tree site, List<? extends Element> typeVariables);
 
   /**
-   * Registers variables with javac's nominal instantiations. The instantiations supply Java shapes,
-   * not nullness evidence. Solvers without full-type support retain their scalar behavior.
+   * Registers variables with javac's inferred Java types. These types supply the structure of full
+   * substitutions; nullness annotations come from the collected bounds. The default implementation
+   * infers only root nullness.
    *
    * @param site the inference site
    * @param typeVariables the declared variables inferred at the site
@@ -66,9 +68,9 @@ public interface ConstraintSolver {
   }
 
   /**
-   * What inference established for one variable. Unsupported nested shapes retain a root qualifier,
-   * not an unchecked javac type or a private inference-variable placeholder. There is deliberately
-   * no global completeness, contradiction, or provenance state in this foundation result.
+   * The inferred type argument for one variable at a call site. A {@link Substitution} includes
+   * nested nullness, such as {@code List<@Nullable String>}; a {@link RootOnly} records just the
+   * top-level nullness when a full substitution is unavailable.
    */
   sealed interface InferredType permits Substitution, RootOnly {
     /** Returns the established root qualifier for either kind of result. */
@@ -82,15 +84,17 @@ public interface ConstraintSolver {
     }
   }
 
-  /** A supported proper substitution with inferred nested annotations and no fresh variables. */
+  /**
+   * An inferred replacement type, including nested nullness and containing no inference variables.
+   */
   record Substitution(Type type) implements InferredType {}
 
   /**
-   * Only root nullness was inferred. Consumers must leave nested types on the existing attributed
-   * type/repair path, rather than treating provisional javac annotations as inferred evidence.
+   * An inferred top-level nullness qualifier. Consumers retain the attributed type's nested
+   * structure, including any annotations restored by nested nullability repair.
    */
   record RootOnly(Nullness nullness) implements InferredType {
-    /** Root fallback cannot express dataflow bottom or other non-qualifier lattice states. */
+    /** Only NONNULL and NULLABLE are type qualifiers; other states describe dataflow values. */
     public RootOnly {
       if (nullness != Nullness.NONNULL && nullness != Nullness.NULLABLE) {
         throw new IllegalArgumentException("Expected an inferred root nullness qualifier");
@@ -148,16 +152,12 @@ public interface ConstraintSolver {
       throws UnsatisfiableConstraintsException;
 
   /**
-   * Solves once, returning an immutable map of the information established for each variable: a
-   * supported full substitution or explicit root-only fallback. Variables with neither root
-   * constraints nor supported type evidence are omitted. Root propagation and contradiction
-   * checking are internal; unsupported nested shapes are not certified contradictions.
+   * Solves nullness constraints and returns an immutable map of inferred type arguments. Each
+   * result contains either a full substitution or just the root nullness when nested inference is
+   * unsupported or its bounds disagree. Variables with neither root constraints nor supported type
+   * evidence are omitted.
    *
-   * <p>This is intentionally not a map of only {@link Type}s: omitting unsupported variables could
-   * lose established root qualifiers, while publishing their attributed types could incorrectly
-   * present provisional nested annotations as inferred evidence.
-   *
-   * @return established results keyed by call-specific inference variables
+   * @return inferred type arguments keyed by call-specific inference variables
    * @throws UnsatisfiableConstraintsException if root constraints are unsatisfiable
    */
   Map<InferenceVariable, InferredType> solve() throws UnsatisfiableConstraintsException;
