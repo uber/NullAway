@@ -234,6 +234,13 @@ public class GenericMethodLambdaOrMethodRefArgTests extends NullAwayTestsBase {
               static void parenthesizedConditionalArm(Test<String> target, boolean flag) {
                 target.accept(flag ? (target::nullableValues) : (target::nullableValues));
               }
+              static void parenthesizedConditionalArgument(Test<String> target, boolean flag) {
+                target.accept((flag ? target::nullableValues : target::nullableValues));
+              }
+              static void conditionalReceiverWithArgument(
+                  Test<String> first, Test<String> second, boolean flag) {
+                (flag ? first : second).accept(first::nullableValues);
+              }
               static void inferredNullableConditional(Test<String> target, boolean flag,
                   List<@Nullable String> values) {
                 acceptGeneric(flag ? (target::nullableValues) : (target::nullableValues), values);

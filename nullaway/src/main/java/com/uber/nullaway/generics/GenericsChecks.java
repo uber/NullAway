@@ -2868,7 +2868,7 @@ public final class GenericsChecks {
    * <p>A {@code var}-declared local variable does not provide a target type; its type is inferred
    * from the initializer.
    */
-  @SuppressWarnings("ReferenceEquality") // Tree identity determines whether this is the case body.
+  @SuppressWarnings("ReferenceEquality") // Tree identity identifies case bodies and arguments.
   private TargetTypeAndAssignmentKind getTargetTypeFromParentContext(
       Tree tree, TreePath path, VisitorState state, boolean calledFromDataflow) {
     Tree expressionTree = tree;
@@ -2941,16 +2941,10 @@ public final class GenericsChecks {
         // parent call side.
         return new TargetTypeAndAssignmentKind(null, false);
       }
-      // getEnclosingTypeForCallExpression constructs a path with the receiver directly under the
-      // invocation, so this branch can also be reached for a receiver, e.g. the conditional in
-      // (flag ? a : b).method(). Check that expressionTree is a non-receiver argument before
-      // resolving the invocation's method type; otherwise, resolution would compute the receiver's
-      // type again and recurse indefinitely. A receiver has no formal parameter supplying a target
-      // type.
-      Type.MethodType attributedMethodType =
-          castToNonNull(ASTHelpers.getType(parentInvocation.getMethodSelect())).asMethodType();
-      if (getFormalParameterTypeForArgument(parentInvocation, attributedMethodType, expressionTree)
-          == null) {
+      // A receiver has no formal parameter supplying a target type.
+      Tree argumentTree = expressionTree;
+      if (parentInvocation.getArguments().stream()
+          .noneMatch(arg -> ASTHelpers.stripParentheses(arg) == argumentTree)) {
         return new TargetTypeAndAssignmentKind(null, false);
       }
       Type.MethodType methodType =
