@@ -2569,6 +2569,43 @@ public class GenericMethodTests extends NullAwayTestsBase {
   }
 
   @Test
+  public void requireNonNullPreservesFixedVariableResult() {
+    for (boolean jdkModels : new boolean[] {false, true}) {
+      makeTestHelperWithArgs(
+              JSpecifyJavacConfig.withJSpecifyModeArgs(
+                  Arrays.asList(
+                      "-XepOpt:NullAway:OnlyNullMarked=true",
+                      "-XepOpt:NullAway:JSpecifyJDKModels=" + jdkModels)))
+          .addSourceLines(
+              "Test.java",
+              """
+              import java.util.Objects;
+              import org.jspecify.annotations.NullMarked;
+              import org.jspecify.annotations.Nullable;
+              @NullMarked
+              class Test<T> {
+                static <U extends @Nullable Object> U identity(U value) { return value; }
+                T checkedLocalRemainsNonNull(@Nullable T value) {
+                  T checked = Objects.requireNonNull(value);
+                  checked.toString();
+                  return checked;
+                }
+                T checkedLocalWithMessageRemainsNonNull(@Nullable T value) {
+                  T checked = Objects.requireNonNull(value, "value");
+                  return checked;
+                }
+                void nullableIdentityStillNeedsChecking(@Nullable T value) {
+                  var unchecked = identity(value);
+                  // BUG: Diagnostic contains: dereferenced expression
+                  unchecked.toString();
+                }
+              }
+              """)
+          .doTest();
+    }
+  }
+
+  @Test
   public void issue1493RequireNonNullElseWithJdkModels() {
     makeTestHelperWithArgs(
             JSpecifyJavacConfig.withJSpecifyModeArgs(

@@ -156,6 +156,7 @@ public class FullTypeBoundsTests {
               <T extends @Nullable Object> void fixedExplicitNonNull(@NonNull F lower, F shape) {}
               <T extends @Nullable Object> void fixedPlain(F lower, F shape) {}
               <T extends @Nullable Object> void fixedUpperPlain(F upper, F shape) {}
+              <T extends @Nullable Object> void fixedNullableProjection(@Nullable F lower, F shape) {}
               <T extends @Nullable Object> void fixedMixedNonNullFirst(@NonNull F lower, F other, F shape) {}
               <T extends @Nullable Object> void fixedMixedPlainFirst(F lower, @NonNull F other, F shape) {}
             }
@@ -312,7 +313,7 @@ public class FullTypeBoundsTests {
         return NO_MATCH;
       }
       if (rule.startsWith("fixed")) {
-        checkFixedVariableProjection(tree, method, solver, analysis);
+        checkFixedVariableProjection(tree, method, solver, state, analysis);
         return NO_MATCH;
       }
       if (rule.startsWith("dependent")) {
@@ -607,7 +608,11 @@ public class FullTypeBoundsTests {
      * Checks that fixed lower evidence retains explicit qualifiers without narrowing plain uses.
      */
     private static void checkFixedVariableProjection(
-        MethodTree tree, Symbol.MethodSymbol method, ConstraintSolver solver, NullAway analysis) {
+        MethodTree tree,
+        Symbol.MethodSymbol method,
+        ConstraintSolver solver,
+        VisitorState state,
+        NullAway analysis) {
       Element variable = method.getTypeParameters().get(0);
       Type shape = method.getParameters().last().type;
       Map<Element, Type.TypeVar> fresh =
@@ -615,10 +620,16 @@ public class FullTypeBoundsTests {
               tree, method.getTypeParameters(), Map.of(variable, shape));
       for (int index = 0; index < method.getParameters().size() - 1; index++) {
         Type bound = method.getParameters().get(index).type;
+        Type target = fresh.get(variable);
+        if (tree.getName().contentEquals("fixedNullableProjection")) {
+          target =
+              TypeSubstitutionUtils.typeWithAnnot(
+                  target, GenericsChecks.getSyntheticNullableAnnotType(state));
+        }
         if (tree.getName().contentEquals("fixedUpperPlain")) {
-          solver.addSubtypeConstraint(fresh.get(variable), bound, false);
+          solver.addSubtypeConstraint(target, bound, false);
         } else {
-          solver.addSubtypeConstraint(bound, fresh.get(variable), false);
+          solver.addSubtypeConstraint(bound, target, false);
         }
       }
       ConstraintSolver.Solution solution = solver.solve();
