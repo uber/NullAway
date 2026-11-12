@@ -882,6 +882,20 @@ public final class ConstraintSolverImpl implements ConstraintSolver {
       if (comparisonEvidence && resolvedSources.isEmpty() && st.nullness == NullnessState.UNKNOWN) {
         return null;
       }
+      // Joining plain T with @NonNull T must retain T, regardless of source order.
+      boolean hasSymbolicLower =
+          shape instanceof TypeVar
+              && !(shape instanceof CapturedType)
+              && st.nullness == NullnessState.UNKNOWN
+              && !bounds.lower().isEmpty()
+              && resolvedSources.stream()
+                  .anyMatch(
+                      source ->
+                          source instanceof TypeVar
+                              && !(source instanceof CapturedType)
+                              && source.tsym.equals(shape.tsym)
+                              && !GenericsUtils.isAnnotatedAsNullable(source, config)
+                              && !GenericsUtils.isAnnotatedAsNonNull(source, config));
       Type candidate = null;
       for (Type resolved : resolvedSources) {
         Type evidence =
@@ -891,9 +905,13 @@ public final class ConstraintSolverImpl implements ConstraintSolver {
         Type projected;
         if (shape == null) {
           projected = evidence;
-        } else if (shape instanceof TypeVar && st.nullness == NullnessState.UNKNOWN) {
-          // The projection helper interprets absent root annotations as non-null. Preserve a
-          // symbolic caller variable instead; it has no nested positions to overlay.
+        } else if (shape instanceof TypeVar
+            && st.nullness == NullnessState.UNKNOWN
+            && (hasSymbolicLower
+                || !(resolved instanceof TypeVar)
+                || (!GenericsUtils.isAnnotatedAsNullable(resolved, config)
+                    && !GenericsUtils.isAnnotatedAsNonNull(resolved, config)))) {
+          // Only annotated variable uses qualify a symbolic shape, not defaults from broad bounds.
           projected = shape;
         } else {
           projected =

@@ -145,6 +145,25 @@ public class FullTypeBoundsTests {
   }
 
   @Test
+  public void fixedVariableRootAnnotationsAreNotDefaulted() {
+    CompilationTestHelper.newInstance(BoundsChecker.class, getClass())
+        .addSourceLines(
+            "Test.java",
+            """
+            import org.jspecify.annotations.NonNull;
+            import org.jspecify.annotations.Nullable;
+            class Test<F extends @Nullable Object> {
+              <T extends @Nullable Object> void fixedExplicitNonNull(@NonNull F lower, F shape) {}
+              <T extends @Nullable Object> void fixedPlain(F lower, F shape) {}
+              <T extends @Nullable Object> void fixedUpperPlain(F upper, F shape) {}
+              <T extends @Nullable Object> void fixedMixedNonNullFirst(@NonNull F lower, F other, F shape) {}
+              <T extends @Nullable Object> void fixedMixedPlainFirst(F lower, @NonNull F other, F shape) {}
+            }
+            """)
+        .doTest();
+  }
+
+  @Test
   public void independentInstantiationsAndBounds() {
     CompilationTestHelper.newInstance(BoundsChecker.class, getClass())
         .addSourceLines(
@@ -290,6 +309,10 @@ public class FullTypeBoundsTests {
       String rule = tree.getName().toString();
       if (rule.startsWith("reuse")) {
         checkSubstitutionReuse(method, state, analysis);
+        return NO_MATCH;
+      }
+      if (rule.startsWith("fixed")) {
+        checkFixedVariableProjection(tree, method, solver, analysis);
         return NO_MATCH;
       }
       if (rule.startsWith("dependent")) {
@@ -578,6 +601,36 @@ public class FullTypeBoundsTests {
       }
       assertThat(resolved.getAnnotationMirrors())
           .containsExactlyElementsIn(original.getAnnotationMirrors());
+    }
+
+    /**
+     * Checks that fixed lower evidence retains explicit qualifiers without narrowing plain uses.
+     */
+    private static void checkFixedVariableProjection(
+        MethodTree tree, Symbol.MethodSymbol method, ConstraintSolver solver, NullAway analysis) {
+      Element variable = method.getTypeParameters().get(0);
+      Type shape = method.getParameters().last().type;
+      Map<Element, Type.TypeVar> fresh =
+          solver.registerInferenceVariables(
+              tree, method.getTypeParameters(), Map.of(variable, shape));
+      for (int index = 0; index < method.getParameters().size() - 1; index++) {
+        Type bound = method.getParameters().get(index).type;
+        if (tree.getName().contentEquals("fixedUpperPlain")) {
+          solver.addSubtypeConstraint(fresh.get(variable), bound, false);
+        } else {
+          solver.addSubtypeConstraint(bound, fresh.get(variable), false);
+        }
+      }
+      ConstraintSolver.Solution solution = solver.solve();
+      InferenceVariable target = new InferenceVariable(variable, tree);
+      Type inferred = solution.inferredTypes().get(target);
+      assertThat(inferred).isNotNull();
+      assertThat(inferred.tsym).isSameInstanceAs(shape.tsym);
+      assertThat(GenericsUtils.isAnnotatedAsNonNull(inferred, analysis.getConfig()))
+          .isEqualTo(tree.getName().contentEquals("fixedExplicitNonNull"));
+      assertThat(GenericsUtils.isAnnotatedAsNullable(inferred, analysis.getConfig())).isFalse();
+      assertThat(solution.isCompleteForSite(tree)).isTrue();
+      assertThat(solver.knownNullness(target)).isNull();
     }
 
     /** Checks declaration-root edges for nullable contradictions and complete non-null results. */
