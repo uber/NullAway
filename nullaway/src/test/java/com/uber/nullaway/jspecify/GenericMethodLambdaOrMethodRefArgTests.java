@@ -278,7 +278,7 @@ public class GenericMethodLambdaOrMethodRefArgTests extends NullAwayTestsBase {
               }
               static void incompatibleSwitchValueArgument(Test<String> target, int selector,
                   Supplier<List<@Nullable String>> supplier) {
-                // BUG: Diagnostic contains: Switch expression must have type
+                // BUG: Diagnostic contains: Switch expression must have type Supplier<List<String>> but the sub-expression has type Supplier<List<@Nullable String>>
                 target.acceptNonNull(switch (selector) { default -> supplier; });
               }
               static void switchWithoutTarget(int selector,
