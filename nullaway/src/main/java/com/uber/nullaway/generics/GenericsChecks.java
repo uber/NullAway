@@ -5126,7 +5126,6 @@ public final class GenericsChecks {
   }
 
   /**
-
    * A generic call, and the corresponding information about its assignment context, for the
    * purposes of inference.
    */
