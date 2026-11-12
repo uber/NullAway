@@ -3086,8 +3086,8 @@ public final class GenericsChecks {
    *
    * @param tree the method reference
    * @param state visitor state whose path ends at the reference
-   * @return true if inference failed _and_ an error was reported for the inference failure, false
-   *     otherwise
+   * @return whether a generic inference failure involving this reference was already reported, on
+   *     the reference or on an enclosing call
    */
   public boolean inferAndCheckMethodReferenceNullability(
       MemberReferenceTree tree, VisitorState state) {
