@@ -609,7 +609,6 @@ public class FullTypeBoundsTests {
     }
 
     /**
-
      * Checks capture-converted actuals against fresh wildcard targets using fixed caller bounds.
      */
     private static void checkCapturedWildcard(
