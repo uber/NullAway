@@ -603,15 +603,41 @@ public class JSpecifyJDKModelsTest extends NullAwayTestsBase {
                 // BUG: Diagnostic contains: incompatible types
                 CompletableFuture<Void> invalid = Optional.of(CompletableFuture.allOf()).get();
               }
+              void optionalAssignmentPreservesNullablePayload() {
+                Optional<CompletableFuture<@Nullable Void>> optional =
+                    Optional.of(CompletableFuture.allOf());
+              }
+              void nestedGenericInferencePreservesNullablePayload() {
+                CompletableFuture<@Nullable Void> nested =
+                    Optional.of(Optional.of(CompletableFuture.allOf())).get().get();
+              }
+              void inferredVariableRejectsNonNullPayload() {
+                var future = Optional.of(CompletableFuture.allOf()).get();
+                // BUG: Diagnostic contains: incompatible types
+                CompletableFuture<Void> invalid = future;
+              }
               void inferredNullablePayloadCannotBeDereferenced() {
                 var future = Optional.of(CompletableFuture.allOf()).get();
+                CompletableFuture<@Nullable Void> valid = future;
                 // BUG: Diagnostic contains: dereferenced expression
                 future.join().toString();
+              }
+              void inferredNestedNullablePayloadCannotBeDereferenced() {
+                var nested = Optional.of(Optional.of(CompletableFuture.allOf())).get().get();
+                CompletableFuture<@Nullable Void> valid = nested;
+                // BUG: Diagnostic contains: incompatible types
+                CompletableFuture<Void> invalid = nested;
+                // BUG: Diagnostic contains: dereferenced expression
+                nested.join().toString();
               }
               void inferredNonNullPayloadCanBeDereferenced() {
                 var future = Optional.of(CompletableFuture.completedFuture("ok")).get();
                 CompletableFuture<String> valid = future;
                 future.join().length();
+              }
+              void inferredNestedNonNullPayloadCanBeDereferenced() {
+                Optional.of(Optional.of(CompletableFuture.completedFuture("ok")))
+                    .get().get().join().length();
               }
             }
             """)
