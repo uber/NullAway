@@ -489,7 +489,11 @@ public class FullTypeBoundsTests {
       Type shape = method.getParameters().last().type;
       Map<Element, Type.TypeVar> fresh =
           solver.registerInferenceVariables(
-              tree, method.getTypeParameters(), Map.of(variable, shape));
+              tree,
+              method.getTypeParameters(),
+              Map.of(),
+              Set.copyOf(method.getTypeParameters()),
+              Map.of(variable, shape));
       for (int index = 0; index < method.getParameters().size() - 1; index++) {
         Type bound = method.getParameters().get(index).type;
         Type target = fresh.get(variable);
