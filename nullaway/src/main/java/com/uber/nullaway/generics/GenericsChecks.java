@@ -141,7 +141,7 @@ public final class GenericsChecks {
   }
 
   /**
-   * Maps calls and method references participating in nullability inference to that problem's
+   * Maps each call or method reference that took part in a generic inference run to that run's
    * result. Only omitted type arguments are inferred; explicit arguments can still constrain an
    * enclosing call. If a tree is absent, no inference result has been cached for that site.
    */
