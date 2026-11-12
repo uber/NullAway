@@ -644,21 +644,27 @@ public final class GenericsChecks {
             errorMessage, analysis.buildDescription(tree), state, null));
   }
 
-  private void reportMismatchedTypeForTernaryOperator(
-      Tree tree, Type expressionType, Type subPartType, VisitorState state) {
+  /** Reports a result whose nested nullability disagrees with its conditional or switch target. */
+  private void reportMismatchedTypeForConditionalOrSwitchResult(
+      ExpressionTree expression,
+      ExpressionTree result,
+      Type expressionType,
+      Type subPartType,
+      VisitorState state) {
     ErrorBuilder errorBuilder = analysis.getErrorBuilder();
     ErrorMessage errorMessage =
         new ErrorMessage(
             ErrorMessage.MessageTypes.ASSIGN_GENERIC_NULLABLE,
             String.format(
-                "Conditional expression must have type "
+                (expression instanceof ConditionalExpressionTree ? "Conditional" : "Switch")
+                    + " expression must have type "
                     + prettyTypeForError(expressionType, state)
                     + " but the sub-expression has type "
                     + prettyTypeForError(subPartType, state)
                     + ", which has mismatched nullability of type parameters"));
     state.reportMatch(
         errorBuilder.createErrorDescription(
-            errorMessage, analysis.buildDescription(tree), state, null));
+            errorMessage, analysis.buildDescription(result), state, null));
   }
 
   private void reportInvalidParametersNullabilityError(
@@ -2699,58 +2705,8 @@ public final class GenericsChecks {
       return;
     }
 
-    Tree truePartTree = tree.getTrueExpression();
-    Tree falsePartTree = tree.getFalseExpression();
-
-    TargetTypeAndAssignmentKind targetTypeAndAssignmentKind =
-        getTargetTypeForConditionalExpression(tree, state, false);
-    boolean hasTargetType =
-        targetTypeAndAssignmentKind.typeFromAssignmentContext() != null
-            || inferredPolyExpressionTypes.containsKey(tree);
-    if (!hasTargetType) {
-      return;
-    }
-    Type condExprType =
-        inferConditionalExpressionType(
-            state,
-            tree,
-            state.getPath(),
-            targetTypeAndAssignmentKind.typeFromAssignmentContext(),
-            false);
-    if (condExprType == null) {
-      return;
-    }
-    TreePath pathToTruePart = pathWithLeaf(state.getPath(), truePartTree);
-    TreePath pathToFalsePart = pathWithLeaf(state.getPath(), falsePartTree);
-    Type truePartType =
-        getTypeForRhsOfAssignment(
-            tree.getTrueExpression(),
-            pathToTruePart,
-            condExprType,
-            targetTypeAndAssignmentKind.assignedToLocal(),
-            state,
-            false);
-    Type falsePartType =
-        getTypeForRhsOfAssignment(
-            tree.getFalseExpression(),
-            pathToFalsePart,
-            condExprType,
-            targetTypeAndAssignmentKind.assignedToLocal(),
-            state,
-            false);
-    // The condExpr type should be the least-upper bound of the true and false part types.  To check
-    // the nullability annotations, we check that the true and false parts are assignable to the
-    // type of the whole expression
-    if (truePartType != null) {
-      if (!subtypeParameterNullability(condExprType, truePartType, state)) {
-        reportMismatchedTypeForTernaryOperator(truePartTree, condExprType, truePartType, state);
-      }
-    }
-    if (falsePartType != null) {
-      if (!subtypeParameterNullability(condExprType, falsePartType, state)) {
-        reportMismatchedTypeForTernaryOperator(falsePartTree, condExprType, falsePartType, state);
-      }
-    }
+    checkConditionalOrSwitchResults(
+        tree, List.of(tree.getTrueExpression(), tree.getFalseExpression()), state);
   }
 
   /**
@@ -2764,10 +2720,23 @@ public final class GenericsChecks {
    */
   public void checkTypeParameterNullnessForSwitchExpression(
       SwitchExpressionTree tree, List<ExpressionTree> results, VisitorState state) {
+    checkConditionalOrSwitchResults(tree, results, state);
+  }
+
+  /**
+   * Checks conditional arms or switch results against their shared contextual type, preferring a
+   * cached inference result to the target recovered from the parent context.
+   */
+  private void checkConditionalOrSwitchResults(
+      ExpressionTree tree, List<ExpressionTree> results, VisitorState state) {
     TargetTypeAndAssignmentKind target =
         getTargetTypeFromParentContext(tree, state.getPath(), state, false);
-    Type targetType = target.typeFromAssignmentContext();
-    if (targetType == null) {
+    if (target.typeFromAssignmentContext() == null
+        && !inferredPolyExpressionTypes.containsKey(tree)) {
+      return;
+    }
+    Type targetType = castToNonNull(getConditionalOrSwitchExpressionType(tree, state, false));
+    if (targetType.isRaw()) {
       return;
     }
     for (ExpressionTree result : results) {
@@ -2776,7 +2745,8 @@ public final class GenericsChecks {
           getTypeForRhsOfAssignment(
               result, resultPath, targetType, target.assignedToLocal(), state, false);
       if (resultType != null && !subtypeParameterNullability(targetType, resultType, state)) {
-        reportInvalidAssignmentInstantiationError(result, targetType, resultType, state);
+        reportMismatchedTypeForConditionalOrSwitchResult(
+            tree, result, targetType, resultType, state);
       }
     }
   }

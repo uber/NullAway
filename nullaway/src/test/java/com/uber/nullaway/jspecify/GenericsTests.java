@@ -1062,6 +1062,52 @@ public class GenericsTests extends NullAwayTestsBase {
         .doTest();
   }
 
+  @Test
+  public void conditionalAndSwitchResultsCheckNestedNullability() {
+    makeHelper()
+        .addSourceLines(
+            "Test.java",
+            """
+            package com.uber;
+            import java.util.List;
+            import org.jspecify.annotations.Nullable;
+            class Test {
+              void compatibleConditional(boolean flag, List<String> values) {
+                List<String> result = flag ? values : values;
+              }
+              void incompatibleConditional(boolean flag, List<@Nullable String> values) {
+                // BUG: Diagnostic contains: Conditional expression must have type List<String> but the sub-expression has type List<@Nullable String>
+                List<String> result = flag ? values : values;
+              }
+              void compatibleSwitch(int selector, List<String> values) {
+                List<String> result = switch (selector) { default -> values; };
+              }
+              void incompatibleArrow(int selector, List<@Nullable String> values) {
+                // BUG: Diagnostic contains: Switch expression must have type List<String> but the sub-expression has type List<@Nullable String>
+                List<String> result = switch (selector) { default -> values; };
+              }
+              void incompatibleYield(int selector, List<@Nullable String> values) {
+                List<String> result = switch (selector) {
+                  default -> {
+                    // BUG: Diagnostic contains: Switch expression must have type List<String> but the sub-expression has type List<@Nullable String>
+                    yield values;
+                  }
+                };
+              }
+              void switchWithoutTarget(int selector, List<@Nullable String> values) {
+                var result = switch (selector) { default -> values; };
+              }
+              List rawConditionalReturn(boolean flag, List<String> values) {
+                return flag ? values : values;
+              }
+              List rawSwitchReturn(int selector, List<String> values) {
+                return switch (selector) { default -> values; };
+              }
+            }
+            """)
+        .doTest();
+  }
+
   /**
    * Switch labels do not inherit the switch result's target type, while parenthesized arrow bodies
    * still do.
