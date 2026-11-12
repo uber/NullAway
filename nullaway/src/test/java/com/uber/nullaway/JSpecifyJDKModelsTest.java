@@ -580,6 +580,44 @@ public class JSpecifyJDKModelsTest extends NullAwayTestsBase {
         .doTest();
   }
 
+  @Test
+  public void issue1942ModeledNestedReturnThroughGenericInference() {
+    makeHelper()
+        .addSourceLines(
+            "Test.java",
+            """
+            import java.util.Optional;
+            import java.util.concurrent.CompletableFuture;
+            import org.jspecify.annotations.NullMarked;
+            import org.jspecify.annotations.Nullable;
+            @NullMarked
+            class Test {
+              void directAssignmentPreservesNullablePayload() {
+                CompletableFuture<@Nullable Void> f1 = CompletableFuture.allOf();
+              }
+              void genericInferencePreservesNullablePayload() {
+                CompletableFuture<@Nullable Void> f2 =
+                    Optional.of(CompletableFuture.allOf()).get();
+              }
+              void genericInferenceRejectsNonNullPayload() {
+                // BUG: Diagnostic contains: incompatible types
+                CompletableFuture<Void> invalid = Optional.of(CompletableFuture.allOf()).get();
+              }
+              void inferredNullablePayloadCannotBeDereferenced() {
+                var future = Optional.of(CompletableFuture.allOf()).get();
+                // BUG: Diagnostic contains: dereferenced expression
+                future.join().toString();
+              }
+              void inferredNonNullPayloadCanBeDereferenced() {
+                var future = Optional.of(CompletableFuture.completedFuture("ok")).get();
+                CompletableFuture<String> valid = future;
+                future.join().length();
+              }
+            }
+            """)
+        .doTest();
+  }
+
   /** The models give {@code Map.of} and {@code List.of} non-null type parameters (issue #1236). */
   @Test
   public void collectionFactoriesRejectNullableArguments() {
