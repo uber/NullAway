@@ -32,8 +32,9 @@ import javax.lang.model.type.TypeVariable;
 import org.jspecify.annotations.Nullable;
 
 /**
- * An implementation of {@link ConstraintSolver} that uses a work-list algorithm to propagate
+ * An implementation of {@link ConstraintSolver} that uses a work-list algorithm to propagate root
  * nullability constraints over a graph of type variables and their sub-/supertype relationships.
+ * Full annotated bounds supply nested nullness for supported substitutions.
  */
 public final class ConstraintSolverImpl implements ConstraintSolver {
   private final Config config;
@@ -146,9 +147,7 @@ public final class ConstraintSolverImpl implements ConstraintSolver {
     return fresh;
   }
 
-  /**
-   * Registers scalar variables first, then attaches shapes for the optional full-type capability.
-   */
+  /** Registers call-specific variables and records javac's inferred type structure for them. */
   @Override
   public Map<Element, Type.TypeVar> registerInferenceVariables(
       Tree site, List<? extends Element> typeVariables, Map<Element, Type> javacInstantiations) {
@@ -406,7 +405,10 @@ public final class ConstraintSolverImpl implements ConstraintSolver {
     return Collections.unmodifiableMap(result);
   }
 
-  /** Propagates root constraints before choosing any nested substitutions or root-only fallback. */
+  /**
+   * Propagates root nullness along variable edges, throwing if nullable and non-null requirements
+   * conflict.
+   */
   private Map<InferenceVariable, Nullness> solveRootNullness()
       throws UnsatisfiableConstraintsException {
     /* ---------- work-list propagation of nullability ---------- */
