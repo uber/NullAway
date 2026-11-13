@@ -2785,7 +2785,8 @@ public final class GenericsChecks {
    * <p>If a target/contextual type for the expression has already been cached, returns it.
    * Otherwise, this method tries to recover a target type from the expression's parent context and
    * caches it when {@link #okToCacheInferenceResult(boolean)} permits it. If no target type is
-   * available, falls back to javac's type for the expression.
+   * available, falls back to javac's type for the expression. Returns {@code null} when no target
+   * is recovered and javac's type is raw and not an array.
    */
   private @Nullable Type getConditionalOrSwitchExpressionType(
       ExpressionTree tree, VisitorState state, boolean calledFromDataflow) {
