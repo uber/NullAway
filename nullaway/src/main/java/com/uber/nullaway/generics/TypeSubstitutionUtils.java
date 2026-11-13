@@ -55,7 +55,8 @@ public class TypeSubstitutionUtils {
 
   /**
    * Like {@link Types#asSuper(Type, Symbol)}, but restores explicit nullability annotations on type
-   * arguments from the subtype's inheritance path to the resulting supertype.
+   * arguments from the subtype's inheritance path to the resulting supertype. For a type variable,
+   * the path starts at its upper bound.
    *
    * @param types the {@link Types} instance
    * @param subtype the subtype
@@ -70,11 +71,12 @@ public class TypeSubstitutionUtils {
     if (asSuper == null) {
       return null;
     }
-    if (subtype.tsym.equals(superTypeSymbol)) {
+    Type inheritingType = types.skipTypeVars(subtype, false);
+    if (inheritingType.tsym.equals(superTypeSymbol)) {
       return asSuper;
     }
     Type annotatedSupertype =
-        subtype instanceof DeclaredType declaredType
+        inheritingType instanceof DeclaredType declaredType
             ? getAnnotatedSupertype(declaredType, superTypeSymbol, types, config)
             : null;
     if (annotatedSupertype == null) {
@@ -84,7 +86,9 @@ public class TypeSubstitutionUtils {
   }
 
   /**
-   * Returns the type of {@code sym} as a member of {@code t}.
+   * Returns the type of {@code sym} as a member of {@code t}, keeping the type-use annotations on
+   * the type arguments of {@code t} and of the supertypes it inherits {@code sym} through. A type
+   * variable or capture {@code t} has the members of its upper bound, captured.
    *
    * @param types the {@link Types} instance
    * @param t the enclosing type
@@ -93,16 +97,23 @@ public class TypeSubstitutionUtils {
    * @return the type of {@code sym} as a member of {@code t}
    */
   public static Type memberType(Types types, Type t, Symbol sym, Config config) {
+    // javac's memberType needs a class type: a type variable or capture is replaced by its upper
+    // bound, captured as javac does for a member access, so a wildcard in the bound such as
+    // B extends Box<? extends T> gives the member the capture of that wildcard
+    Type site = t instanceof DeclaredType ? t : types.capture(types.skipTypeVars(t, true));
     Type origType = sym.type;
-    Type memberType = types.memberType(t, sym);
+    Type memberType = types.memberType(site, sym);
     Type annotationSource = origType;
-    if (t instanceof DeclaredType declaredType
+    if (site instanceof Type.ClassType classType
+        && !classType.isRaw()
         && sym.owner instanceof Symbol.ClassSymbol owner
-        && !t.tsym.equals(owner)) {
+        && !site.tsym.equals(owner)) {
       // annotatedOwner is the type of the class containing sym (a supertype of t), capturing any
-      // annotations in extends / inherits clauses on the inheritance path from subtype t
-      Type annotatedOwner = getAnnotatedSupertype(declaredType, owner, types, config);
-      if (annotatedOwner instanceof Type.ClassType annotatedOwnerClassType) {
+      // annotations in extends and implements clauses on the inheritance path from subtype t, or
+      // from its upper bound if t is a type variable
+      Type annotatedOwner = getAnnotatedSupertype(classType, owner, types, config);
+      if (annotatedOwner instanceof Type.ClassType annotatedOwnerClassType
+          && !annotatedOwnerClassType.isRaw()) {
         Type asMemberOfAnnotatedOwner = types.memberType(annotatedOwnerClassType, sym);
         // this call restores any explicit nullability annotations from the member itself, e.g.,
         // if its return type is declared as @NonNull T

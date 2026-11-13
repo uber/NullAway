@@ -30,6 +30,7 @@ import com.google.errorprone.VisitorState;
 import com.google.errorprone.suppliers.Supplier;
 import com.google.errorprone.suppliers.Suppliers;
 import com.google.errorprone.util.ASTHelpers;
+import com.sun.source.tree.ArrayAccessTree;
 import com.sun.source.tree.BlockTree;
 import com.sun.source.tree.ClassTree;
 import com.sun.source.tree.ExpressionTree;
@@ -429,7 +430,7 @@ public class NullabilityUtil {
   // https://github.com/google/error-prone/blob/5f71110374e63f3c35b661f538295fa15b5c1db2/check_api/src/main/java/com/google/errorprone/util/MoreAnnotations.java#L128
   private static boolean targetTypeMatches(Symbol sym, TypeAnnotationPosition position) {
     switch (sym.getKind()) {
-      case LOCAL_VARIABLE -> {
+      case LOCAL_VARIABLE, BINDING_VARIABLE -> {
         return position.type == TargetType.LOCAL_VARIABLE;
       }
       case FIELD, ENUM_CONSTANT -> {
@@ -545,13 +546,13 @@ public class NullabilityUtil {
    *
    * @param nullness The nullness value.
    * @return true if the nullness value represents a {@code Nullable} value. To be more specific, it
-   *     returns true if the nullness value is either {@link Nullness#NULL} or {@link
-   *     Nullness#NULLABLE}.
+   *     returns true if the nullness value is {@link Nullness#NULL}, {@link Nullness#NULLABLE},
+   *     {@link Nullness#NO_CHANGE}, or {@link Nullness#NULL_NO_CHANGE}.
    */
   public static boolean nullnessToBool(Nullness nullness) {
     return switch (nullness) {
       case BOTTOM, NONNULL -> false;
-      case NULL, NULLABLE -> true;
+      case NULL, NULLABLE, NO_CHANGE, NULL_NO_CHANGE -> true;
     };
   }
 
@@ -624,6 +625,58 @@ public class NullabilityUtil {
         && Nullness.hasNullableAnnotation(
             ((Type.ArrayType) arrayType).getComponentType().getAnnotationMirrors().stream(),
             config);
+  }
+
+  /**
+   * Checks if the elements of the array an expression evaluates to are {@code @Nullable}. Reads the
+   * annotations from the expression's symbol when it has one, and from the expression's type
+   * otherwise, as for a cast like {@code ((@Nullable String[]) o)}. For a variable other than a
+   * field, it also reads the type of the symbol, which for a {@code var} local carries the
+   * annotations inferred from the initializer that its declaration does not.
+   *
+   * @param arrayExpr an expression of array type
+   * @param config NullAway configuration
+   * @return true if the array elements are {@code @Nullable}, false otherwise
+   */
+  public static boolean isArrayExpressionElementNullable(ExpressionTree arrayExpr, Config config) {
+    ExpressionTree expr = ASTHelpers.stripParentheses(arrayExpr);
+    Symbol arraySymbol = ASTHelpers.getSymbol(expr);
+    if (arraySymbol != null) {
+      return isArrayElementNullable(arraySymbol, config)
+          || (arraySymbol instanceof Symbol.VarSymbol
+              && !arraySymbol.getKind().isField()
+              && isArrayElementNullable(arraySymbol.type, config));
+    }
+    return isArrayElementNullable(arrayExpressionType(expr), config);
+  }
+
+  /**
+   * Returns the type of an array expression, with the type-use annotations of the declared type of
+   * a variable other than a field that it reads, such as the element type of a local {@code l} for
+   * {@code l[0]}. For an array access whose innermost array is such a variable, this method takes
+   * the variable's type from its symbol and projects it to the accessed component. Before JDK 27,
+   * javac attaches the annotations of a local variable or an explicitly typed lambda parameter to
+   * the symbol only after it has attributed the whole class body, so the type of a use of the
+   * variable lacks them (JDK-8371155); the symbol has them on every JDK. A field keeps the type of
+   * the use, which carries the substitution for a field read through a parameterized receiver.
+   *
+   * @param expr an expression of array type, without enclosing parentheses
+   * @return the type of {@code expr}, or {@code null} if javac recorded none
+   */
+  private static @Nullable Type arrayExpressionType(ExpressionTree expr) {
+    if (expr instanceof ArrayAccessTree arrayAccess) {
+      ExpressionTree array = ASTHelpers.stripParentheses(arrayAccess.getExpression());
+      Symbol arraySymbol = ASTHelpers.getSymbol(array);
+      Type arrayType =
+          arraySymbol instanceof Symbol.VarSymbol && !arraySymbol.getKind().isField()
+              ? arraySymbol.type
+              : arrayExpressionType(array);
+      if (arrayType // diff-coverage: ignore -- javac types the array of an array access as an array
+          instanceof Type.ArrayType arrayTypeWithComponent) {
+        return arrayTypeWithComponent.getComponentType();
+      }
+    }
+    return ASTHelpers.getType(expr);
   }
 
   /**

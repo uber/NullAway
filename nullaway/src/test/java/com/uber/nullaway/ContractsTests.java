@@ -1525,4 +1525,27 @@ public class ContractsTests extends NullAwayTestsBase {
             """)
         .doTest();
   }
+
+  @Test
+  public void delimiterOnlyContractReportsDiagnostic() {
+    defaultCompilationHelper
+        .addSourceLines(
+            "Test.java",
+            """
+                    package com.uber;
+                    import org.jetbrains.annotations.Contract;
+                    class Test {
+                      @Contract("->")
+                      // BUG: Diagnostic contains: unparseable clause: ->
+                      Object delimiterOnly() {
+                        return new Object();
+                      }
+                      @Contract("-> !null")
+                      Object validZeroArgumentContract() {
+                        return new Object();
+                      }
+                    }
+                    """)
+        .doTest();
+  }
 }

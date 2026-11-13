@@ -1248,6 +1248,55 @@ public class InitializationTests extends NullAwayTestsBase {
         .doTest();
   }
 
+  /**
+   * A constructor with no normal exit has no dataflow result at exit, so it initializes nothing.
+   */
+  @Test
+  public void constructorThatAlwaysThrowsInitializesNoField() {
+    defaultCompilationHelper
+        .addSourceLines(
+            "Test.java",
+            """
+            package com.uber;
+            class Test {
+              private Object f;
+              // BUG: Diagnostic contains: initializer method does not guarantee @NonNull field 'f'
+              Test() {
+                f = new Object();
+                throw new IllegalStateException();
+              }
+              Test(int x) {
+                f = new Object();
+              }
+            }
+            """)
+        .doTest();
+  }
+
+  /** Dataflow does not reach a catch block of an empty try, so a read there sees no field set. */
+  @Test
+  public void readInUnreachableCatchBlockSeesNoInitializedField() {
+    defaultCompilationHelper
+        .addSourceLines(
+            "Test.java",
+            """
+            package com.uber;
+            class Test {
+              private Object f;
+              Test() {
+                f = new Object();
+                try {
+                } catch (RuntimeException e) {
+                  // BUG: Diagnostic contains: read of @NonNull field 'f' before initialization
+                  f.hashCode();
+                }
+                f.hashCode();
+              }
+            }
+            """)
+        .doTest();
+  }
+
   @Test
   public void postConstructAnnotation() {
     defaultCompilationHelper

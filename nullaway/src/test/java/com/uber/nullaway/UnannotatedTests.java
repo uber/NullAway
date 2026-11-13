@@ -104,6 +104,57 @@ public class UnannotatedTests extends NullAwayTestsBase {
   }
 
   @Test
+  public void excludedClassesWithNullMarkedMembers() {
+    defaultCompilationHelper
+        .addSourceLines(
+            "Exclusions.java",
+            """
+            package com.uber.nullaway.testdata;
+            import org.jspecify.annotations.NullMarked;
+            @interface TestAnnot {}
+
+            @NullMarked
+            @TestAnnot
+            class ExcludedByAnnotation {
+              @NullMarked
+              static class Nested {}
+
+              Object methodAfterNestedClass() {
+                return new Object();
+              }
+            }
+
+            @NullMarked
+            class Shape_Stuff {
+              @NullMarked
+              static class Nested {}
+
+              Object methodAfterNestedClass() {
+                return null;
+              }
+            }
+
+            @NullMarked
+            @TestAnnot
+            class ExcludedWithMarkedMethod {
+              @NullMarked
+              Object markedMethod() {
+                return new Object();
+              }
+            }
+
+            @NullMarked
+            class Checked {
+              Object checkedMethod() {
+                // BUG: Diagnostic contains: returning @Nullable expression
+                return null;
+              }
+            }
+            """)
+        .doTest();
+  }
+
+  @Test
   public void skipNestedClass() {
     makeTestHelperWithArgs(
             Arrays.asList(

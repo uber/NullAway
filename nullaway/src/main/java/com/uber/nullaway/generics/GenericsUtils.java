@@ -392,6 +392,28 @@ public class GenericsUtils {
    */
   static boolean upperBoundIsNullable(
       Element typeVarElement, Config config, Handler handler, VisitorState state) {
+    if (declaredUpperBoundIsNullable(typeVarElement, config, handler, state)) {
+      return true;
+    }
+    Type upperBound = (Type) ((TypeVariable) typeVarElement.asType()).getUpperBound();
+    if (isAnnotatedAsNonNull(upperBound, config)) {
+      return false;
+    }
+    if (upperBound.getKind() == TypeKind.TYPEVAR) {
+      return upperBoundIsNullable(upperBound.asElement(), config, handler, state);
+    }
+    return false;
+  }
+
+  /**
+   * Returns true if the upper bound of the given type variable is nullable by its own declaration:
+   * the enclosing method or class comes from unannotated code, a library model overrides the bound
+   * nullability for the type variable, or the declared upper bound has an explicit
+   * {@code @Nullable} annotation. Unlike {@link #upperBoundIsNullable}, this does not follow a
+   * bound that is itself a type variable to that type variable's own bound.
+   */
+  static boolean declaredUpperBoundIsNullable(
+      Element typeVarElement, Config config, Handler handler, VisitorState state) {
     if (fromUnannotatedMethodOrClass(typeVarElement, config, handler, state)) {
       return true;
     }
@@ -421,16 +443,7 @@ public class GenericsUtils {
       }
     }
     Type upperBound = (Type) ((TypeVariable) typeVarElement.asType()).getUpperBound();
-    if (isAnnotatedAsNullable(upperBound, config)) {
-      return true;
-    }
-    if (isAnnotatedAsNonNull(upperBound, config)) {
-      return false;
-    }
-    if (upperBound.getKind() == TypeKind.TYPEVAR) {
-      return upperBoundIsNullable(upperBound.asElement(), config, handler, state);
-    }
-    return false;
+    return isAnnotatedAsNullable(upperBound, config);
   }
 
   private static boolean fromUnannotatedMethodOrClass(
