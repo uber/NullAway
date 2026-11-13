@@ -3086,9 +3086,10 @@ public final class GenericsChecks {
                 // method's parameter and return nullability.
                 maybeStorePolyExpressionTypeFromTarget(
                     actualParameterWithoutParentheses, formalParameter, state);
-                // Return early: the type of the method reference itself is derived from the formal
-                // parameter type, so the subtype compatibility check below will not surface any
-                // independent warnings
+                // Return early: the cached method reference type is derived from the formal
+                // parameter type, so the subtype check below would compare that type with itself.
+                // inferAndCheckMethodReferenceNullability reports mismatches when the reference is
+                // visited.
                 return;
               }
 
