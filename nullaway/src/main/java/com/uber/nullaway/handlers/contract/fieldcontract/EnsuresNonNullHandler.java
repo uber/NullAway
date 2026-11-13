@@ -138,7 +138,7 @@ public class EnsuresNonNullHandler extends AbstractFieldContractHandler {
       MethodTree tree,
       Symbol.MethodSymbol overriddenMethod) {
     FieldContractUtils.ensureStrictPostConditionInheritance(
-        annotName, overridingFieldNames, analysis, state, tree, overriddenMethod);
+        annotName, overridingFieldNames, analysis, state, tree, overriddenMethod, null);
   }
 
   /**
