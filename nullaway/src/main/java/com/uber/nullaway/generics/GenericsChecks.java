@@ -3215,9 +3215,13 @@ public final class GenericsChecks {
    * target type. Keeps javac's attributed type as the fallback for contexts without a recovered
    * target.
    *
-   * <p>Does not cache the recovered method-reference type: callers may be running dataflow or using
-   * provisional lambda parameters. {@link #inferAndCheckMethodReferenceNullability} caches the type
-   * when the reference is visited after inference completes.
+   * <p>Does not cache the recovered method-reference type. A query can precede enclosing generic
+   * call inference: a reference in a conditional or switch argument then falls back to javac's
+   * type, which can lack the nullable annotations of the target inferred later. Caching that early
+   * type would preserve it instead of recovering the final target. Callers may also be running
+   * dataflow or using provisional lambda parameters. {@link
+   * #inferAndCheckMethodReferenceNullability} caches the type when the reference is visited after
+   * inference completes.
    */
   private Type getMethodReferenceType(
       MemberReferenceTree tree, VisitorState state, boolean calledFromDataflow) {

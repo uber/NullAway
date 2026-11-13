@@ -64,6 +64,47 @@ public class ResultExpressionTargetTests {
         .doTest();
   }
 
+  @Test
+  public void earlyReferenceTypeQueriesDoNotFreezeUninferredTargets() {
+    CompilationTestHelper.newInstance(TargetCheckingNullAway.class, getClass())
+        .setArgs(
+            "-XepOpt:NullAway:JSpecifyMode=true", "-XepOpt:NullAway:AnnotatedPackages=com.uber")
+        .addSourceLines(
+            "Test.java",
+            """
+            package com.uber;
+            import java.util.List;
+            import java.util.function.Supplier;
+            import org.jspecify.annotations.*;
+            @NullMarked class Test<T> {
+              List<@Nullable T> nullableValues() { throw new UnsupportedOperationException(); }
+              static <U extends @Nullable Object> void acceptAfterEarlyQuery(
+                  Supplier<List<U>> fn, List<U> values) {}
+              static void direct(Test<String> target, List<@Nullable String> values) {
+                acceptAfterEarlyQuery(target::nullableValues, values);
+              }
+              static void conditional(Test<String> target, boolean flag,
+                  List<@Nullable String> values) {
+                acceptAfterEarlyQuery(flag ? target::nullableValues : target::nullableValues, values);
+              }
+              static void arrow(Test<String> target, int selector, List<@Nullable String> values) {
+                acceptAfterEarlyQuery(switch (selector) { default -> target::nullableValues; }, values);
+              }
+              static void yield(Test<String> target, int selector, List<@Nullable String> values) {
+                acceptAfterEarlyQuery(switch (selector) {
+                  default -> { yield target::nullableValues; }
+                }, values);
+              }
+              static void nested(Test<String> target, int selector, boolean flag,
+                  List<@Nullable String> values) {
+                acceptAfterEarlyQuery(flag ? switch (selector) { default -> target::nullableValues; }
+                    : target::nullableValues, values);
+              }
+            }
+            """)
+        .doTest();
+  }
+
   /** Queries result types after call inference, before the scanner visits the call's arguments. */
   @BugPattern(summary = "Checks inferred result targets", severity = WARNING)
   public static final class TargetCheckingNullAway extends NullAway {
@@ -93,6 +134,11 @@ public class ResultExpressionTargetTests {
         TreePath path = TreePath.getPath(state.getPath(), reference);
         checkNullableElementType(getGenericsChecks().getTreeType(reference, state.withPath(path)));
       }
+      boolean queryBeforeInference =
+          ASTHelpers.getSymbol(tree).getSimpleName().contentEquals("acceptAfterEarlyQuery");
+      if (queryBeforeInference) {
+        queryReferenceTypesBeforeInference(tree, state);
+      }
       Description result = super.matchMethodInvocation(tree, state);
       if (!ASTHelpers.getSymbol(tree).getSimpleName().contentEquals("accept")) {
         return result;
@@ -119,6 +165,18 @@ public class ResultExpressionTargetTests {
         }
       }.scan(tree.getArguments().get(0), null);
       return result;
+    }
+
+    /** Exercises early type queries before the enclosing call has supplied its inferred target. */
+    private void queryReferenceTypesBeforeInference(MethodInvocationTree call, VisitorState state) {
+      new TreeScanner<Void, Void>() {
+        @Override
+        public Void visitMemberReference(MemberReferenceTree reference, Void unused) {
+          TreePath path = TreePath.getPath(state.getPath(), reference);
+          getGenericsChecks().getTreeType(reference, state.withPath(path));
+          return super.visitMemberReference(reference, null);
+        }
+      }.scan(call.getArguments().get(0), null);
     }
 
     /** Requires a contextual type on the first query and no parent-context walk on the second. */
