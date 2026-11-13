@@ -193,7 +193,7 @@ public class IntersectionRestorationPerformanceTests {
         if (name.equals("identicalClass") || name.equals("identicalIntersection")) {
           message = checkIdentical(tree, state, name);
         } else if (name.equals("wide")) {
-          message = checkWide(tree);
+          message = checkWide(tree, state);
         } else if (name.equals("cycleContexts")) {
           message = checkCycleContexts(tree, state);
         } else {
@@ -202,7 +202,8 @@ public class IntersectionRestorationPerformanceTests {
           Type source = detach(original, new IdentityHashMap<>(), annotate, state);
           Type target = detach(original, new IdentityHashMap<>(), false, state);
           Type result =
-              TypeSubstitutionUtils.restoreExplicitNullabilityAnnotations(source, target, config);
+              TypeSubstitutionUtils.restoreExplicitNullabilityAnnotations(
+                  source, target, state.getTypes(), config);
           boolean leafNullable = GenericsUtils.isAnnotatedAsNullable(leaf(result), config);
           boolean preserved =
               !GenericsUtils.isAnnotatedAsNullable(leaf(target), config)
@@ -254,7 +255,8 @@ public class IntersectionRestorationPerformanceTests {
         remaining = 0;
       }
       Type result =
-          TypeSubstitutionUtils.restoreExplicitNullabilityAnnotations(source, target, config);
+          TypeSubstitutionUtils.restoreExplicitNullabilityAnnotations(
+              source, target, state.getTypes(), config);
       return name + ": unchanged=" + (result == target) + ", bounded=" + (remaining == 0);
     }
 
@@ -351,14 +353,17 @@ public class IntersectionRestorationPerformanceTests {
       String sourceBefore = boundNullness(sourceA) + boundNullness(sourceB);
       String targetBefore = boundNullness(targetA) + boundNullness(targetB);
       Type shared =
-          TypeSubstitutionUtils.restoreExplicitNullabilityAnnotations(source, target, config);
+          TypeSubstitutionUtils.restoreExplicitNullabilityAnnotations(
+              source, target, state.getTypes(), config);
       Type sharedBound = implicitBound(shared);
       String sharedA = boundNullness(intersectionComponent(sharedBound, "A"));
       String sharedB = boundNullness(intersectionComponent(sharedBound, "B"));
       Type isolatedA =
-          TypeSubstitutionUtils.restoreExplicitNullabilityAnnotations(sourceA, targetA, config);
+          TypeSubstitutionUtils.restoreExplicitNullabilityAnnotations(
+              sourceA, targetA, state.getTypes(), config);
       Type isolatedB =
-          TypeSubstitutionUtils.restoreExplicitNullabilityAnnotations(sourceB, targetB, config);
+          TypeSubstitutionUtils.restoreExplicitNullabilityAnnotations(
+              sourceB, targetB, state.getTypes(), config);
       return "cycleContexts: matchesIsolated="
           + (sharedA.equals(boundNullness(isolatedA)) && sharedB.equals(boundNullness(isolatedB)))
           + ", restored="
@@ -414,7 +419,7 @@ public class IntersectionRestorationPerformanceTests {
     /**
      * Checks all reordered argument annotations and verifies both detached inputs remain intact.
      */
-    private String checkWide(VariableTree tree) {
+    private String checkWide(VariableTree tree, VisitorState state) {
       Type.TypeVar target = (Type.TypeVar) ASTHelpers.getType(tree);
       Type.TypeVar source = (Type.TypeVar) target.tsym.owner.type.getTypeArguments().head;
       Type.IntersectionClassType sourceBound = (Type.IntersectionClassType) source.getUpperBound();
@@ -429,7 +434,7 @@ public class IntersectionRestorationPerformanceTests {
       Type.IntersectionClassType result =
           (Type.IntersectionClassType)
               TypeSubstitutionUtils.restoreExplicitNullabilityAnnotations(
-                  sourceCopy, targetCopy, config);
+                  sourceCopy, targetCopy, state.getTypes(), config);
       int matched = 0;
       for (Type component : result.getExplicitComponents()) {
         int index = Integer.parseInt(component.tsym.getSimpleName().toString().substring(1));

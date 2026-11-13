@@ -232,6 +232,12 @@ public interface Handler {
    * considered isAnnotated or not. We use a mutable map for performance, but it should not outlive
    * the chain of handler invocations.
    *
+   * <p>Where every handler leaves a position unset, a parameter whose type is a type variable
+   * {@code T}, declared without {@code @NonNull} as a type variable whose upper bound is nullable,
+   * accepts a value for which {@link com.uber.nullaway.Nullness#isNoChange()} holds, such as {@code
+   * box.get()} on a {@code Box<? extends T>}. A position that a handler sets to NONNULL, even to
+   * the value it already holds, rejects that value, so a handler sets only the positions it models.
+   *
    * @param context The current context.
    * @param methodSymbol The method symbol for the method in question.
    * @param isAnnotated A boolean flag indicating whether the called method is considered to be
@@ -417,7 +423,9 @@ public interface Handler {
   }
 
   /**
-   * Called when a method writes a {@code @NonNull} value to a class field.
+   * Called when a method writes a value to a {@code @NonNull} class field and the field accepts it:
+   * the value is non-null, or {@link com.uber.nullaway.Nullness#isNoChange()} holds for it and the
+   * field's type and declaration accept it.
    *
    * @param field Symbol of the initialized class field.
    * @param analysis nullness dataflow analysis

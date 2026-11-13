@@ -55,7 +55,8 @@ public class TypeSubstitutionUtils {
 
   /**
    * Like {@link Types#asSuper(Type, Symbol)}, but restores explicit nullability annotations on type
-   * arguments from the subtype's inheritance path to the resulting supertype.
+   * arguments from the subtype's inheritance path to the resulting supertype. For a type variable,
+   * the path starts at its upper bound.
    *
    * @param types the {@link Types} instance
    * @param subtype the subtype
@@ -70,21 +71,24 @@ public class TypeSubstitutionUtils {
     if (asSuper == null) {
       return null;
     }
-    if (subtype.tsym.equals(superTypeSymbol)) {
+    Type inheritingType = types.skipTypeVars(subtype, false);
+    if (inheritingType.tsym.equals(superTypeSymbol)) {
       return asSuper;
     }
     Type annotatedSupertype =
-        subtype instanceof DeclaredType declaredType
+        inheritingType instanceof DeclaredType declaredType
             ? getAnnotatedSupertype(declaredType, superTypeSymbol, types, config)
             : null;
     if (annotatedSupertype == null) {
       return asSuper;
     }
-    return restoreExplicitNullabilityAnnotations(annotatedSupertype, asSuper, config);
+    return restoreExplicitNullabilityAnnotations(annotatedSupertype, asSuper, types, config);
   }
 
   /**
-   * Returns the type of {@code sym} as a member of {@code t}.
+   * Returns the type of {@code sym} as a member of {@code t}, keeping the type-use annotations on
+   * the type arguments of {@code t} and of the supertypes it inherits {@code sym} through. A type
+   * variable or capture {@code t} has the members of its upper bound, captured.
    *
    * @param types the {@link Types} instance
    * @param t the enclosing type
@@ -93,28 +97,37 @@ public class TypeSubstitutionUtils {
    * @return the type of {@code sym} as a member of {@code t}
    */
   public static Type memberType(Types types, Type t, Symbol sym, Config config) {
+    // javac's memberType needs a class type: a type variable or capture is replaced by its upper
+    // bound, captured as javac does for a member access, so a wildcard in the bound such as
+    // B extends Box<? extends T> gives the member the capture of that wildcard
+    Type site = t instanceof DeclaredType ? t : types.capture(types.skipTypeVars(t, true));
     Type origType = sym.type;
-    Type memberType = types.memberType(t, sym);
+    Type memberType = types.memberType(site, sym);
     Type annotationSource = origType;
-    if (t instanceof DeclaredType declaredType
+    if (site instanceof Type.ClassType classType
+        && !classType.isRaw()
         && sym.owner instanceof Symbol.ClassSymbol owner
-        && !t.tsym.equals(owner)) {
+        && !site.tsym.equals(owner)) {
       // annotatedOwner is the type of the class containing sym (a supertype of t), capturing any
-      // annotations in extends / inherits clauses on the inheritance path from subtype t
-      Type annotatedOwner = getAnnotatedSupertype(declaredType, owner, types, config);
-      if (annotatedOwner instanceof Type.ClassType annotatedOwnerClassType) {
+      // annotations in extends and implements clauses on the inheritance path from subtype t, or
+      // from its upper bound if t is a type variable
+      Type annotatedOwner = getAnnotatedSupertype(classType, owner, types, config);
+      if (annotatedOwner instanceof Type.ClassType annotatedOwnerClassType
+          && !annotatedOwnerClassType.isRaw()) {
         Type asMemberOfAnnotatedOwner = types.memberType(annotatedOwnerClassType, sym);
         // this call restores any explicit nullability annotations from the member itself, e.g.,
         // if its return type is declared as @NonNull T
         annotationSource =
-            restoreExplicitNullabilityAnnotations(origType, asMemberOfAnnotatedOwner, config);
+            restoreExplicitNullabilityAnnotations(
+                origType, asMemberOfAnnotatedOwner, types, config);
       }
     }
     // Here, annotationSource is the type of the member in the superclass with all proper
     // annotations.  But, it might still have generic type variables, which have been properly
     // instantiated in memberType.  So, as a final step, restore the annotations from
     // annotationSource onto memberType.
-    Type result = restoreExplicitNullabilityAnnotations(annotationSource, memberType, config);
+    Type result =
+        restoreExplicitNullabilityAnnotations(annotationSource, memberType, types, config);
     return result;
   }
 
@@ -124,12 +137,13 @@ public class TypeSubstitutionUtils {
    *
    * @param origType the original type
    * @param newType the new type, a result of applying some substitution to {@code origType}
+   * @param types the javac types instance
    * @param config the NullAway config
    * @return the new type with explicit nullability annotations restored
    */
   public static Type restoreExplicitNullabilityAnnotations(
-      Type origType, Type newType, Config config) {
-    return new RestoreNullnessAnnotationsVisitor(config).visit(newType, origType);
+      Type origType, Type newType, Types types, Config config) {
+    return new RestoreNullnessAnnotationsVisitor(types, config).visit(newType, origType);
   }
 
   /**
@@ -244,11 +258,12 @@ public class TypeSubstitutionUtils {
         substituteInferredNullabilityForTypeVariables(origType, typeVarNullability, state, config);
     // step 2
     Type origExplicitAnnotationsRestored =
-        restoreExplicitNullabilityAnnotations(origType, inferredNullabilitySubstituted, config);
+        restoreExplicitNullabilityAnnotations(
+            origType, inferredNullabilitySubstituted, state.getTypes(), config);
     // step 3
     // TODO optimize these steps to avoid doing so many substitutions in the future, if needed
     return restoreExplicitNullabilityAnnotations(
-        origExplicitAnnotationsRestored, typeToUpdate, config);
+        origExplicitAnnotationsRestored, typeToUpdate, state.getTypes(), config);
   }
 
   /**
@@ -400,6 +415,7 @@ public class TypeSubstitutionUtils {
   @SuppressWarnings("ReferenceEquality")
   private static class RestoreNullnessAnnotationsVisitor extends Types.MapVisitor<Type> {
 
+    private final Types types;
     private final Config config;
 
     /** Formal target/source pairs, scoped to this restoration operation and allocated lazily. */
@@ -572,7 +588,8 @@ public class TypeSubstitutionUtils {
       return completed.resultType;
     }
 
-    RestoreNullnessAnnotationsVisitor(Config config) {
+    RestoreNullnessAnnotationsVisitor(Types types, Config config) {
+      this.types = types;
       this.config = config;
     }
 
@@ -653,6 +670,14 @@ public class TypeSubstitutionUtils {
       // A raw source type has no type arguments from which to restore nested annotations.
       if (!(other instanceof Type.ClassType) || other.isRaw()) {
         return updated;
+      }
+      if (!updated.tsym.equals(other.tsym)) {
+        // Capture conversion can generalize a wildcard's bound to a supertype. Argument positions
+        // only correspond after viewing the annotation source as that same supertype.
+        other = asSuper(types, other, (Symbol.ClassSymbol) updated.tsym, config);
+        if (other == null || other.isRaw()) {
+          return updated;
+        }
       }
       Type outer = updated.getEnclosingType();
       Type outer1 = outer.accept(this, other.getEnclosingType());
@@ -1016,6 +1041,6 @@ public class TypeSubstitutionUtils {
    */
   public static Type subst(Types types, Type t, List<Type> from, List<Type> to, Config config) {
     Type substResult = types.subst(t, from, to);
-    return restoreExplicitNullabilityAnnotations(t, substResult, config);
+    return restoreExplicitNullabilityAnnotations(t, substResult, types, config);
   }
 }

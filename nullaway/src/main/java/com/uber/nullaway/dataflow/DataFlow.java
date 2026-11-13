@@ -39,6 +39,7 @@ import com.sun.tools.javac.processing.JavacProcessingEnvironment;
 import com.sun.tools.javac.util.Context;
 import com.uber.nullaway.NullabilityUtil;
 import com.uber.nullaway.dataflow.cfg.NullAwayCFGBuilder;
+import com.uber.nullaway.generics.GenericsChecks;
 import com.uber.nullaway.handlers.Handler;
 import java.util.HashMap;
 import javax.annotation.processing.ProcessingEnvironment;
@@ -73,9 +74,12 @@ public final class DataFlow {
 
   private final Handler handler;
 
-  DataFlow(boolean assertsEnabled, Handler handler) {
+  private final @Nullable GenericsChecks genericsChecks;
+
+  DataFlow(boolean assertsEnabled, Handler handler, @Nullable GenericsChecks genericsChecks) {
     this.assertsEnabled = assertsEnabled;
     this.handler = handler;
+    this.genericsChecks = genericsChecks;
   }
 
   private final LoadingCache<AnalysisParams, RunOnceForwardAnalysisImpl<?, ?, ?>> analysisCache =
@@ -127,7 +131,7 @@ public final class DataFlow {
                   }
 
                   return NullAwayCFGBuilder.build(
-                      bodyPath, ast, assertsEnabled, !assertsEnabled, env, handler);
+                      bodyPath, ast, assertsEnabled, !assertsEnabled, env, handler, genericsChecks);
                 }
               });
 

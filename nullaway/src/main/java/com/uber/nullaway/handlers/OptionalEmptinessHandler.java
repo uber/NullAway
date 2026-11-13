@@ -38,6 +38,7 @@ import com.sun.tools.javac.util.Names;
 import com.uber.nullaway.Config;
 import com.uber.nullaway.ErrorMessage;
 import com.uber.nullaway.NullAway;
+import com.uber.nullaway.NullabilityUtil;
 import com.uber.nullaway.Nullness;
 import com.uber.nullaway.dataflow.AccessPath;
 import com.uber.nullaway.dataflow.AccessPathNullnessAnalysis;
@@ -155,11 +156,11 @@ public class OptionalEmptinessHandler implements Handler {
       VisitorState state,
       ExpressionTree baseExpr,
       AccessPathNullnessAnalysis accessPathNullnessAnalysis) {
-    return accessPathNullnessAnalysis.getNullnessOfExpressionNamedField(
+    return NullabilityUtil.nullnessToBool(
+        accessPathNullnessAnalysis.getNullnessOfExpressionNamedField(
             new TreePath(state.getPath(), baseExpr),
             state.context,
-            OptionalContentVariableElement.instance(state.context))
-        == Nullness.NULLABLE;
+            OptionalContentVariableElement.instance(state.context)));
   }
 
   private void handleTestAssertions(
