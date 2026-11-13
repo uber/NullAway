@@ -3635,7 +3635,7 @@ public final class GenericsChecks {
         // have not yet attempted inference for this call
         CallAndContext invocationAndType =
             path == null
-                ? new CallAndContext(invocationTree, null, false)
+                ? CallAndContext.withoutContext(invocationTree)
                 : getCallAndContextForInference(path, state, calledFromDataflow);
         result =
             runInferenceForCall(
@@ -3748,7 +3748,13 @@ public final class GenericsChecks {
    * purposes of inference.
    */
   private record CallAndContext(
-      ExpressionTree call, @Nullable Type typeFromAssignmentContext, boolean assignedToLocal) {}
+      ExpressionTree call, @Nullable Type typeFromAssignmentContext, boolean assignedToLocal) {
+
+    /** Selects a call for inference without a target type from its surrounding context. */
+    static CallAndContext withoutContext(ExpressionTree call) {
+      return new CallAndContext(call, null, false);
+    }
+  }
 
   /**
    * Given a {@link TreePath} to an invocation of a generic method, collect information about the
@@ -3788,7 +3794,7 @@ public final class GenericsChecks {
       if (calledFromDataflow) {
         // Dataflow evaluates arguments before their enclosing call. Inferring that call here
         // would inspect later arguments before their dataflow values are available (#2126).
-        return new CallAndContext((ExpressionTree) path.getLeaf(), null, false);
+        return CallAndContext.withoutContext((ExpressionTree) path.getLeaf());
       }
       // This is a nested generic call, such as id(id(x)) or id(new Box<>(x)). Find the
       // outermost call requiring inference because its assignment context is the relevant one.
@@ -3914,7 +3920,7 @@ public final class GenericsChecks {
       }
     }
     // an unhandled case; for now, give up and return no assignment context
-    return new CallAndContext(call, null, false);
+    return CallAndContext.withoutContext(call);
   }
 
   /**
