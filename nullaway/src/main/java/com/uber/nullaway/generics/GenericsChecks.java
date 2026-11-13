@@ -3126,12 +3126,16 @@ public final class GenericsChecks {
   /**
    * Infers omitted method-reference type arguments and checks nested parameter and return
    * nullability against the functional-interface target. Called when visiting the reference, after
-   * its parent has supplied the target type and completed any joint generic call inference.
+   * its parent has supplied the target type and completed any joint generic call inference. Caches
+   * the reference's target type.
+   *
+   * <p>For a target whose functional interface method is unmarked, runs inference without reporting
+   * an inference failure, skips compatibility checks, and returns {@code false}.
    *
    * @param tree the method reference
    * @param state visitor state whose path ends at the reference
    * @return whether a generic inference failure involving this reference was already reported, on
-   *     the reference or on an enclosing call
+   *     the reference or on an enclosing call; always {@code false} for an unmarked target
    */
   public boolean inferAndCheckMethodReferenceNullability(
       MemberReferenceTree tree, VisitorState state) {
