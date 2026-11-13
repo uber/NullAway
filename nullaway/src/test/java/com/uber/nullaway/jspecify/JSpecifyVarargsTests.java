@@ -824,7 +824,10 @@ public class JSpecifyVarargsTests extends NullAwayTestsBase {
                 void apply(Object @Nullable ... inputs);
               }
               static void take(Object... inputs) {}
+              static void takeNullableElements(@Nullable Object... inputs) {}
               void test() {
+                NullableElementsFi compatibleElementsRef = Test::takeNullableElements;
+                // Nested element nullness is unspecified for the unmarked interface method.
                 NullableElementsFi elementsRef = Test::take;
                 // BUG: Diagnostic contains: parameter inputs of referenced method is @NonNull
                 NullableArrayFi arrayRef = Test::take;

@@ -23,6 +23,7 @@ package com.uber.nullaway.jdk17;
 
 import com.google.errorprone.CompilationTestHelper;
 import com.uber.nullaway.NullAway;
+import com.uber.nullaway.generics.JSpecifyJavacConfig;
 import java.util.Arrays;
 import org.junit.Before;
 import org.junit.Rule;
@@ -45,6 +46,66 @@ public class SwitchTests {
                     "-d",
                     temporaryFolder.getRoot().getAbsolutePath(),
                     "-XepOpt:NullAway:AnnotatedPackages=com.uber"));
+  }
+
+  /**
+   * A conditional expression ({@code ?:}) used as a {@code when} guard does not take the switch
+   * expression's result target.
+   */
+  @Test
+  public void conditionalGuardsDoNotInheritSwitchResultTargets() {
+    CompilationTestHelper.newInstance(NullAway.class, getClass())
+        .setArgs(
+            JSpecifyJavacConfig.withJSpecifyModeArgs(
+                Arrays.asList(
+                    "-d",
+                    temporaryFolder.getRoot().getAbsolutePath(),
+                    "-XepOpt:NullAway:AnnotatedPackages=com.uber")))
+        .addSourceLines(
+            "Test.java",
+            """
+            package com.uber;
+            import java.util.List;
+            import org.jspecify.annotations.Nullable;
+            class Test<T> {
+              List<@Nullable T> nullableValues() { throw new UnsupportedOperationException(); }
+
+              void statementGuard(Object value, boolean flag, boolean first, boolean second) {
+                switch (value) {
+                  case String s when flag ? first : second -> {}
+                  default -> {}
+                }
+              }
+              List<@Nullable T> expressionGuard(
+                  Object value, boolean flag, boolean first, boolean second) {
+                return switch (value) {
+                  case String s when (flag ? first : second) -> nullableValues();
+                  default -> nullableValues();
+                };
+              }
+              List<@Nullable T> nestedStatementGuard(
+                  Object value, boolean flag, boolean first, boolean second) {
+                return switch (0) {
+                  default -> {
+                    switch (value) {
+                      case String s when flag ? first : second -> {}
+                      default -> {}
+                    }
+                    yield nullableValues();
+                  }
+                };
+              }
+              void nullableGuardOperand(
+                  Object value, boolean flag, @Nullable Boolean first, boolean second) {
+                switch (value) {
+                  // BUG: Diagnostic contains: unboxing of a @Nullable expression
+                  case String s when flag ? first : second -> {}
+                  default -> {}
+                }
+              }
+            }
+            """)
+        .doTest();
   }
 
   @Test
