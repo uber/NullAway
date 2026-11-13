@@ -938,8 +938,9 @@ public class NullAway extends BugChecker
    * @param modeledOverriddenMethodType overridden method type after substitution and application of
    *     library models, for a regular override in JSpecify mode; otherwise {@code null}
    * @param warnedAboutInferenceFailure whether a generic inference failure involving this reference
-   *     was already reported, on the reference or on an enclosing call, so top-level checks on the
-   *     referenced method's own type variables would repeat it
+   *     was already reported, on the reference or on an enclosing call. When true, skips a
+   *     parameter whose declared type is one of the referenced method's own type variables, since
+   *     that check would repeat the failure. The return type is checked either way.
    * @param state visitor state
    * @param overridingMethod if available, the symbol for the overriding method
    * @return discovered error, or {@link Description#NO_MATCH} if no error
@@ -1556,8 +1557,9 @@ public class NullAway extends BugChecker
    * @param memberReferenceTree if override is via a method reference, the relevant {@link
    *     MemberReferenceTree}; otherwise {@code null}
    * @param warnedAboutInferenceFailure whether a generic inference failure involving this reference
-   *     was already reported, on the reference or on an enclosing call, so top-level checks on the
-   *     referenced method's own type variables would repeat it
+   *     was already reported, on the reference or on an enclosing call. When true, skips a
+   *     parameter whose declared type is one of the referenced method's own type variables, since
+   *     that check would repeat the failure. The return type is checked either way.
    * @param state visitor state.
    * @return discovered error, or {@link Description#NO_MATCH} if no error
    */
