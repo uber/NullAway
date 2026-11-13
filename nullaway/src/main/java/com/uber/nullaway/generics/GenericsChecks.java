@@ -2540,11 +2540,10 @@ public final class GenericsChecks {
     }
     TreePath pathToRetExpr = new TreePath(state.getPath(), retExpr);
     ExpressionTree retExprWithoutParentheses = ASTHelpers.stripParentheses(retExpr);
-    if (retExprWithoutParentheses instanceof LambdaExpressionTree
-        || retExprWithoutParentheses instanceof MemberReferenceTree) {
-      // Preserve nested target annotations before checking a returned lambda or method reference.
-      // A lambda's declared return type may be an unsubstituted type variable, so recover its
-      // instantiated return type from the parent context before caching the returned expression.
+    if (retExprWithoutParentheses instanceof LambdaExpressionTree) {
+      // Lambda parameter checking needs the target's nested annotations in the cache. A lambda's
+      // declared return type may be an unsubstituted type variable, so recover its instantiated
+      // return type from the parent context before caching the returned lambda.
       Type recoveredTarget =
           getTargetTypeFromParentContext(retExprWithoutParentheses, pathToRetExpr, state, false)
               .typeFromAssignmentContext();
@@ -2553,6 +2552,11 @@ public final class GenericsChecks {
     }
     Type returnExpressionType = getTreeType(retExpr, state.withPath(pathToRetExpr));
     if (returnExpressionType != null) {
+      if (retExprWithoutParentheses instanceof MemberReferenceTree) {
+        // getMethodReferenceType recovers a returned reference's target. Keep that result here,
+        // in the return visitor, so visiting the reference does not repeat target recovery.
+        inferredPolyExpressionTypes.putIfAbsent(retExprWithoutParentheses, returnExpressionType);
+      }
       if (isCallNeedingInference(retExpr)) {
         returnExpressionType =
             inferCallType(
@@ -3219,9 +3223,9 @@ public final class GenericsChecks {
    * call inference: a reference in a conditional or switch argument then falls back to javac's
    * type, which can lack the nullable annotations of the target inferred later. Caching that early
    * type would preserve it instead of recovering the final target. Callers may also be running
-   * dataflow or using provisional lambda parameters. {@link
-   * #inferAndCheckMethodReferenceNullability} caches the type when the reference is visited after
-   * inference completes.
+   * dataflow or using provisional lambda parameters. The return visitor and {@link
+   * #inferAndCheckMethodReferenceNullability} retain the recovered type after the parent has
+   * established its target and completed inference.
    */
   private Type getMethodReferenceType(
       MemberReferenceTree tree, VisitorState state, boolean calledFromDataflow) {

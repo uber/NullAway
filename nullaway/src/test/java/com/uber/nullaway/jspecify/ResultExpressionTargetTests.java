@@ -12,8 +12,11 @@ import com.google.errorprone.matchers.Description;
 import com.google.errorprone.util.ASTHelpers;
 import com.sun.source.tree.ConditionalExpressionTree;
 import com.sun.source.tree.ExpressionTree;
+import com.sun.source.tree.LambdaExpressionTree;
 import com.sun.source.tree.MemberReferenceTree;
 import com.sun.source.tree.MethodInvocationTree;
+import com.sun.source.tree.ParenthesizedTree;
+import com.sun.source.tree.ReturnTree;
 import com.sun.source.tree.SwitchExpressionTree;
 import com.sun.source.tree.VariableTree;
 import com.sun.source.util.TreePath;
@@ -105,6 +108,38 @@ public class ResultExpressionTargetTests {
         .doTest();
   }
 
+  @Test
+  public void returnedReferenceQueriesReuseTheRecoveredTarget() {
+    CompilationTestHelper.newInstance(TargetCheckingNullAway.class, getClass())
+        .setArgs(
+            "-XepOpt:NullAway:JSpecifyMode=true", "-XepOpt:NullAway:AnnotatedPackages=com.uber")
+        .addSourceLines(
+            "Test.java",
+            """
+            package com.uber;
+            import java.util.List;
+            import java.util.function.Supplier;
+            import org.jspecify.annotations.*;
+            @NullMarked class Test<T> {
+              interface Factory<E> { Supplier<List<@Nullable E>> create(); }
+              List<@Nullable T> nullableValues() { throw new UnsupportedOperationException(); }
+              static Supplier<List<@Nullable String>> direct(Test<String> target) {
+                return target::nullableValues;
+              }
+              static Supplier<List<@Nullable String>> parenthesized(Test<String> target) {
+                return ((target::nullableValues));
+              }
+              static Factory<String> expressionLambda(Test<String> target) {
+                return () -> target::nullableValues;
+              }
+              static Factory<String> blockLambda(Test<String> target) {
+                return () -> { return target::nullableValues; };
+              }
+            }
+            """)
+        .doTest();
+  }
+
   /** Queries result types after call inference, before the scanner visits the call's arguments. */
   @BugPattern(summary = "Checks inferred result targets", severity = WARNING)
   public static final class TargetCheckingNullAway extends NullAway {
@@ -165,6 +200,25 @@ public class ResultExpressionTargetTests {
         }
       }.scan(tree.getArguments().get(0), null);
       return result;
+    }
+
+    /** Requires returned references to reuse the target already recovered by the return visitor. */
+    @Override
+    public Description matchMemberReference(MemberReferenceTree tree, VisitorState state) {
+      TreePath parent = state.getPath().getParentPath();
+      while (parent != null && parent.getLeaf() instanceof ParenthesizedTree) {
+        parent = parent.getParentPath();
+      }
+      if (parent != null
+          && (parent.getLeaf() instanceof ReturnTree
+              || parent.getLeaf() instanceof LambdaExpressionTree)) {
+        CountingPath path = new CountingPath(state.getPath());
+        checkNullableElementType(getGenericsChecks().getTreeType(tree, state.withPath(path)));
+        assertWithMessage("parent-path reads for returned reference %s", tree)
+            .that(path.parentReads)
+            .isEqualTo(0);
+      }
+      return super.matchMemberReference(tree, state);
     }
 
     /** Exercises early type queries before the enclosing call has supplied its inferred target. */
