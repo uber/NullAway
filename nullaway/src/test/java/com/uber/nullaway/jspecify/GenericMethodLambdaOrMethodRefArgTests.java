@@ -268,6 +268,48 @@ public class GenericMethodLambdaOrMethodRefArgTests extends NullAwayTestsBase {
   }
 
   @Test
+  public void issue2146ImplicitLambdaParameterInfersNullableResult() {
+    makeHelper()
+        .addSourceLines(
+            "Example.java",
+            """
+            package com.uber;
+
+            import org.jspecify.annotations.NullMarked;
+            import org.jspecify.annotations.Nullable;
+
+            @NullMarked
+            public final class Example {
+              public static final class Value {}
+
+              public interface Callback<I extends @Nullable Object, O extends @Nullable Object> {
+                O apply(I value);
+              }
+
+              public interface Operation<T> {
+                <R extends @Nullable Object> R invoke(Callback<? super @Nullable T, ? extends R> callback);
+              }
+
+              static void inferredTypeArgument(Operation<Value> operation) {
+                // Should infer R -> @Nullable Value, as in the explicit type argument case below
+                operation.invoke(value -> value);
+              }
+
+              static void explicitTypeArgument(Operation<Value> operation) {
+                operation.<@Nullable Value>invoke(value -> value);
+              }
+
+              static void nonNullUseOfInferredResult(Operation<Value> operation) {
+                Value result = operation.invoke(value -> value);
+                // BUG: Diagnostic contains: dereferenced expression 'result' is @Nullable
+                result.hashCode();
+              }
+            }
+            """)
+        .doTest();
+  }
+
+  @Test
   public void genericCallInLambdaVarInitializerPreservesNestedNullness() {
     makeHelper()
         .addSourceLines(
