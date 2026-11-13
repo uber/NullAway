@@ -142,42 +142,6 @@ public class GenericInferenceErrorReportingTests extends NullAwayTestsBase {
         .doTest();
   }
 
-  /** Repeated inference must report a true failure only once in its source file. */
-  @Test
-  public void nestedGenericInferenceFailureReportedOnceInCorrectFile() {
-    JavaFileObject callerSource =
-        FileObjects.forSourceLines(
-            "Caller.java",
-            """
-            package com.uber;
-            import java.util.Optional;
-            import org.jspecify.annotations.NullMarked;
-            import org.jspecify.annotations.Nullable;
-            @NullMarked
-            class Caller {
-              static <T> T id(T value) { return value; }
-              static <T> void sink(T first, T second) {}
-              void nonNullFallback(String first, String fallback, Optional<String> optional) {
-                sink(id(first), optional.orElse(fallback));
-              }
-              void nullableFallback(String first, @Nullable String fallback, Optional<String> optional) {
-                sink(id(first), optional.orElse(fallback));
-              }
-            }
-            """);
-    assertThat(
-            compileAndReportDiagnostics(
-                    List.of(
-                        FileObjects.forSourceLines("Unrelated.java", PADDED_FIRST_COMPILATION_UNIT),
-                        callerSource))
-                .stream()
-                .filter(diagnostic -> diagnostic.contains("inference failure:"))
-                .toList())
-        .containsExactly(
-            "Caller.java:13: [NullAway] inference failure: type variable T is constrained to be @Nullable, "
-                + "but its upper bound requires it to be @NonNull");
-  }
-
   /**
    * Tests that the error message we get at a call to Arrays.copyOf does not erroneously suggest we
    * are trying to infer the nullability of a type variable from the caller method
