@@ -2867,12 +2867,15 @@ public final class GenericsChecks {
    * Returns the target type supplied by the parent context for an expression, if one is available.
    *
    * <p>Handles assignment and variable declaration contexts, method and constructor arguments,
-   * method and lambda returns, and expressions nested inside conditional or switch expressions.
-   * First climbs to the outermost conditional or switch expression, since the surrounding target
-   * type applies to that expression as a whole.
+   * method and lambda returns, the arms and condition of a conditional expression, and the
+   * arrow-case bodies and {@code yield} values of a switch expression. First climbs to the
+   * outermost conditional or switch expression, since the surrounding target type applies to that
+   * expression as a whole. Switch selectors, labels, and guards do not inherit the switch result
+   * target.
    *
-   * <p>A {@code var}-declared local variable does not provide a target type; its type is inferred
-   * from the initializer.
+   * <p>The result's type is {@code null} when the context supplies no target, including an argument
+   * of a generic call whose inference is pending. A {@code var}-declared local variable also
+   * supplies no target type; its type is inferred from the initializer.
    */
   @SuppressWarnings("ReferenceEquality") // Tree identity identifies case bodies and arguments.
   private TargetTypeAndAssignmentKind getTargetTypeFromParentContext(
