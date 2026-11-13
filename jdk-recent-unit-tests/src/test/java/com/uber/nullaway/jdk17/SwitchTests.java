@@ -48,7 +48,10 @@ public class SwitchTests {
                     "-XepOpt:NullAway:AnnotatedPackages=com.uber"));
   }
 
-  /** Conditional guards are checked independently of the switch expression's result target. */
+  /**
+   * A conditional expression ({@code ?:}) used as a {@code when} guard does not take the switch
+   * expression's result target.
+   */
   @Test
   public void conditionalGuardsDoNotInheritSwitchResultTargets() {
     CompilationTestHelper.newInstance(NullAway.class, getClass())
