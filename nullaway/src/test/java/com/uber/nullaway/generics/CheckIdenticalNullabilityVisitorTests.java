@@ -19,19 +19,25 @@ import com.sun.tools.javac.code.Type;
 import com.sun.tools.javac.util.List;
 import com.sun.tools.javac.util.ListBuffer;
 import com.uber.nullaway.NullAway;
+import java.lang.reflect.Field;
+import java.util.AbstractMap;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.IdentityHashMap;
 import java.util.Map;
+import java.util.Set;
 import org.junit.Test;
 
 /**
  * Deterministic containment-work and transaction-safety tests using attributed javac symbols.
  *
- * <p>The fixtures copy class and intersection wrappers into distinct LHS and RHS graphs, preserving
- * sharing within each graph. Implicit wildcards become explicit extends wildcards holding detached
- * formal bounds: capture conversion must not canonicalize both sides back to a compiler-owned bound
- * and accidentally bypass the containment traversal. Sharing concrete Object leaves is intentional.
- * The cyclic fixture links only newly allocated wrappers; no compiler-owned types are rewritten.
+ * <p>The detached fixtures copy class and intersection wrappers into distinct LHS and RHS graphs,
+ * preserving sharing within each graph. Implicit wildcards become explicit extends wildcards
+ * holding detached formal bounds: capture conversion must not canonicalize both sides to a
+ * compiler-owned bound and accidentally bypass the containment traversal. Sharing concrete Object
+ * leaves is intentional. The detached cyclic fixture links only newly allocated wrappers; no
+ * compiler-owned types are rewritten. The cache-disabled fixture instead traverses javac's real
+ * cyclic bound graph, asserting that capture conversion produces fresh intersection wrappers.
  * Recheck these representations if javac's wildcard or intersection internals change.
  */
 public class CheckIdenticalNullabilityVisitorTests {
@@ -103,6 +109,41 @@ public class CheckIdenticalNullabilityVisitorTests {
         """);
   }
 
+  @Test(timeout = 30_000)
+  public void containmentCyclesTerminateWithoutEffectiveUpperBoundsCache() {
+    compile(
+        """
+        interface A0<T extends A2<?> & B2<?>> {}
+        interface B0<T extends B2<?>> {}
+        interface A1<T extends A0<?> & B0<?>> {}
+        interface B1<T extends A0<?> & B0<?>> {}
+        interface A2<T extends A1<?> & B1<?>> {}
+        interface B2<T extends A1<?> & B1<?>> {}
+        class Test {
+          void uncachedCycleCase() {
+            // BUG: Diagnostic contains: uncachedCycle: terminated, freshBounds, pendingRevisited
+            A2<?> uncachedCycle;
+          }
+        }
+        """);
+  }
+
+  @Test
+  public void sharedWildcardArgumentsKeepTheirArgumentPositions() {
+    compile(
+        """
+        import org.jspecify.annotations.NonNull;
+        import org.jspecify.annotations.Nullable;
+        interface Positions<T extends @NonNull String, U extends @Nullable Object> {}
+        class Test {
+          void argumentPositionsCase() {
+            // BUG: Diagnostic contains: argumentPositions: acceptedFirst, rejectedSecond
+            Positions<?, ?> argumentPositions;
+          }
+        }
+        """);
+  }
+
   /** Runs only the fixture checker, leaving each observation next to its expected diagnostic. */
   private void compile(String source) {
     CompilationTestHelper.newInstance(ContainmentWorkChecker.class, getClass())
@@ -133,7 +174,9 @@ public class CheckIdenticalNullabilityVisitorTests {
           && !name.equals("depth8")
           && !name.equals("depth12")
           && !name.equals("cycleFailure")
-          && !name.equals("contextual")) {
+          && !name.equals("contextual")
+          && !name.equals("uncachedCycle")
+          && !name.equals("argumentPositions")) {
         return NO_MATCH;
       }
       String message;
@@ -143,6 +186,8 @@ public class CheckIdenticalNullabilityVisitorTests {
             switch (name) {
               case "cycleFailure" -> checkCycle(original, state);
               case "contextual" -> checkContextualBounds(original, state);
+              case "uncachedCycle" -> checkUncachedCycle((Type.ClassType) original, state);
+              case "argumentPositions" -> checkArgumentPositions(original, state);
               default -> checkDepth(original, Integer.parseInt(name.substring(5)), state);
             };
       } catch (WorkBudgetExceeded exhausted) {
@@ -234,10 +279,10 @@ public class CheckIdenticalNullabilityVisitorTests {
 
     /**
      * Builds Box<? extends A<? extends B<? extends A<...>>, String>> on both sides, with a nullable
-     * String only on the RHS. Box and B share the exact wildcard arguments, so B's provisional
-     * success depends on Box's active containment comparison. A then fails at its second argument.
-     * A one-argument probe retries A's first containment question in isolation, so a stale cached
-     * success cannot be hidden by rechecking A's second argument.
+     * String only on the RHS. Box and B share the exact wildcard arguments but have distinct
+     * containment contexts. Recursing through B revisits A's active first-argument comparison; B's
+     * success is therefore provisional. A then fails at its second argument. Retrying B in
+     * isolation must reject too, rather than reuse a success from the failed outer traversal.
      */
     private String checkCycle(Type original, VisitorState state) {
       Type.ClassType originalBox = (Type.ClassType) original;
@@ -265,16 +310,12 @@ public class CheckIdenticalNullabilityVisitorTests {
       lhsBox.typarams_field = List.of(lhsRoot);
       rhsBox.typarams_field = List.of(rhsRoot);
 
-      Type.ClassType lhsProbe = shell(originalB);
-      Type.ClassType rhsProbe = shell(originalB);
-      lhsProbe.typarams_field = List.of(lhsA.getTypeArguments().head);
-      rhsProbe.typarams_field = List.of(rhsA.getTypeArguments().head);
       CountingVisitor visitor = new CountingVisitor(state, nullAway, 64);
       assertThat(lhsBox.accept(visitor, rhsBox)).isFalse();
       visitor.reset(64);
-      assertThat(lhsProbe.accept(visitor, rhsProbe)).isFalse();
+      assertThat(lhsB.accept(visitor, rhsB)).isFalse();
       visitor.reset(64);
-      assertThat(lhsProbe.accept(visitor, rhsProbe)).isFalse();
+      assertThat(lhsB.accept(visitor, rhsB)).isFalse();
       return "cycleFailure: rejectedRoot, rejectedDependent, rejectedAgain";
     }
 
@@ -310,6 +351,77 @@ public class CheckIdenticalNullabilityVisitorTests {
       assertThat(lhs.accept(visitor, nullableRhs)).isFalse();
       assertThat(lhs.accept(visitor, nonNullRhs)).isTrue();
       return "contextual: acceptedNonNull, rejectedNullable, acceptedAgain";
+    }
+
+    /**
+     * Traverses javac's real cyclic bound graph without retaining any computed upper bounds.
+     * Capture conversion must allocate fresh intersection wrappers, so bound-identity containment
+     * keys would exhaust the comparison budget. Every non-intersection class visit compares one
+     * wildcard pair and computes two bounds. More computations than twice the number of published
+     * keys therefore proves a pending question was revisited before the outermost success.
+     */
+    private String checkUncachedCycle(Type.ClassType original, VisitorState state) {
+      Type firstBound =
+          GenericsUtils.effectiveUpperBoundsForTypeArguments(
+                  original, state, nullAway.getConfig(), nullAway.getHandler())
+              .get(0);
+      Type secondBound =
+          GenericsUtils.effectiveUpperBoundsForTypeArguments(
+                  original, state, nullAway.getConfig(), nullAway.getHandler())
+              .get(0);
+      assertThat(firstBound.isIntersection()).isTrue();
+      assertThat(secondBound).isNotSameInstanceAs(firstBound);
+
+      CountingVisitor visitor = new CountingVisitor(state, nullAway, 96);
+      NoCacheMap noCache = new NoCacheMap();
+      try {
+        Field boundsField =
+            CheckIdenticalNullabilityVisitor.class.getDeclaredField("effectiveUpperBounds");
+        boundsField.setAccessible(true);
+        boundsField.set(visitor, noCache);
+        assertThat(original.accept(visitor, original)).isTrue();
+        assertThat(noCache.entrySet()).isEmpty();
+
+        Field completedField =
+            CheckIdenticalNullabilityVisitor.class.getDeclaredField("completedWildcardComparisons");
+        completedField.setAccessible(true);
+        Set<?> completed = (Set<?>) completedField.get(visitor);
+        assertThat(completed).isNotEmpty();
+        assertThat(noCache.computations).isGreaterThan(2 * completed.size());
+      } catch (ReflectiveOperationException e) {
+        throw new LinkageError("Could not inspect the visitor's containment caches", e);
+      }
+      return "uncachedCycle: terminated, freshBounds, pendingRevisited";
+    }
+
+    /**
+     * Reuses the same wildcard pair at both argument indices of one parameterization. The first
+     * implicit RHS bound is explicitly non-null String and fits the LHS extends String; the second
+     * is nullable Object and does not. Explicit bound annotations avoid nullable defaults in this
+     * unmarked fixture. Parameterization identities alone cannot distinguish these questions.
+     */
+    private String checkArgumentPositions(Type original, VisitorState state) {
+      Type string = ((Type.TypeVar) original.tsym.type.getTypeArguments().head).getUpperBound();
+      Type.WildcardType lhsWildcard = extendsBound(string, state);
+      Type.WildcardType rhsWildcard = (Type.WildcardType) original.getTypeArguments().head;
+      Type.ClassType lhs =
+          new Type.ClassType(
+              original.getEnclosingType(), List.of(lhsWildcard, lhsWildcard), original.tsym);
+      Type.ClassType rhs =
+          new Type.ClassType(
+              original.getEnclosingType(), List.of(rhsWildcard, rhsWildcard), original.tsym);
+      java.util.List<Type> rhsBounds =
+          GenericsUtils.effectiveUpperBoundsForTypeArguments(
+              rhs, state, nullAway.getConfig(), nullAway.getHandler());
+      assertThat(nullAway.getGenericsChecks().isNullableAnnotated(rhsBounds.get(0))).isFalse();
+      assertThat(nullAway.getGenericsChecks().isNullableAnnotated(rhsBounds.get(1))).isTrue();
+      Type.ClassType firstOnlyRhs =
+          new Type.ClassType(
+              original.getEnclosingType(), List.of(rhsWildcard, lhsWildcard), original.tsym);
+      CountingVisitor visitor = new CountingVisitor(state, nullAway, 32);
+      assertThat(lhs.accept(visitor, firstOnlyRhs)).isTrue();
+      assertThat(lhs.accept(visitor, rhs)).isFalse();
+      return "argumentPositions: acceptedFirst, rejectedSecond";
     }
 
     /** Allocates a detached placeholder so the cyclic fixture can link its own type arguments. */
@@ -350,6 +462,22 @@ public class CheckIdenticalNullabilityVisitorTests {
         throw new WorkBudgetExceeded();
       }
       return super.visitClassType(lhs, rhs);
+    }
+  }
+
+  /** Forces Map.computeIfAbsent to recompute every bound while counting those computations. */
+  private static final class NoCacheMap extends AbstractMap<Object, Object> {
+    private int computations;
+
+    @Override
+    public Set<Entry<Object, Object>> entrySet() {
+      return Collections.emptySet();
+    }
+
+    @Override
+    public Object put(Object key, Object value) {
+      computations++;
+      return null;
     }
   }
 

@@ -57,10 +57,10 @@ public class SharedIntersectionTimeoutTests extends NullAwayTestsBase {
     StringBuilder source =
         new StringBuilder(
             """
-            interface A0<T extends A10<?> & B10<?>> {}
-            interface B0<T extends B10<?>> {}
+            interface A0<T extends A24<?> & B24<?>> {}
+            interface B0<T extends B24<?>> {}
             """);
-    for (int level = 1; level <= 10; level++) {
+    for (int level = 1; level <= 24; level++) {
       for (String name : new String[] {"A", "B"}) {
         source
             .append("interface ")
@@ -77,9 +77,9 @@ public class SharedIntersectionTimeoutTests extends NullAwayTestsBase {
         """
         @org.jspecify.annotations.NullMarked
         abstract class Test {
-          abstract A10<?> get();
+          abstract A24<?> get();
           void trigger(Test receiver) {
-            A10<?> value = receiver.get();
+            A24<?> value = receiver.get();
           }
         }
         """);
