@@ -245,6 +245,39 @@ public class GenericMethodLambdaOrMethodRefArgTests extends NullAwayTestsBase {
                   List<@Nullable String> values) {
                 acceptGeneric(flag ? (target::nullableValues) : (target::nullableValues), values);
               }
+              static void inferredNullableSwitch(Test<String> target, int selector,
+                  List<@Nullable String> values) {
+                acceptGeneric(switch (selector) { default -> target::nullableValues; }, values);
+              }
+              static void inferredNullableSwitchYield(Test<String> target, int selector,
+                  List<@Nullable String> values) {
+                acceptGeneric(switch (selector) { default -> { yield target::nullableValues; } }, values);
+              }
+              static void inferredNullableParenthesizedConditional(Test<String> target, boolean flag,
+                  List<@Nullable String> values) {
+                acceptGeneric((flag ? target::nullableValues : target::nullableValues), values);
+              }
+              static void inferredNullableNestedConditional(Test<String> target, boolean first,
+                  boolean second, List<@Nullable String> values) {
+                acceptGeneric(first ? (second ? target::nullableValues : target::nullableValues)
+                    : target::nullableValues, values);
+              }
+              static void inferredNullableConditionalInSwitch(Test<String> target, int selector,
+                  boolean flag, List<@Nullable String> values) {
+                acceptGeneric(switch (selector) {
+                  default -> flag ? target::nullableValues : target::nullableValues;
+                }, values);
+              }
+              static void inferredNullableSwitchInConditional(Test<String> target, int selector,
+                  boolean flag, List<@Nullable String> values) {
+                acceptGeneric(flag ? switch (selector) { default -> target::nullableValues; }
+                    : target::nullableValues, values);
+              }
+              static void incompatibleInferredSwitch(Test<String> target, int selector,
+                  List<String> values) {
+                // BUG: Diagnostic contains: inference failure
+                acceptGeneric(switch (selector) { default -> target::nullableValues; }, values);
+              }
               static void incompatibleInferredConditional(Test<String> target, boolean flag,
                   List<String> values) {
                 // BUG: Diagnostic contains: inference failure

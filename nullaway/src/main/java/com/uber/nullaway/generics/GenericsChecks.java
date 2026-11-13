@@ -2788,6 +2788,14 @@ public final class GenericsChecks {
     if (cachedType != null) {
       return cachedType;
     }
+    TreePath enclosingPath = getEnclosingResultExpressionPath(tree, state.getPath());
+    Type enclosingType = inferredPolyExpressionTypes.get(enclosingPath.getLeaf());
+    if (enclosingType != null) {
+      if (okToCacheInferenceResult(calledFromDataflow)) {
+        inferredPolyExpressionTypes.put(tree, enclosingType);
+      }
+      return enclosingType;
+    }
     TargetTypeAndAssignmentKind targetTypeAndAssignmentKind =
         getTargetTypeFromParentContext(tree, state.getPath(), state, calledFromDataflow);
     Type typeFromAssignmentContext = targetTypeAndAssignmentKind.typeFromAssignmentContext();
@@ -2864,36 +2872,16 @@ public final class GenericsChecks {
   @SuppressWarnings("ReferenceEquality") // Tree identity identifies case bodies and arguments.
   private TargetTypeAndAssignmentKind getTargetTypeFromParentContext(
       Tree tree, TreePath path, VisitorState state, boolean calledFromDataflow) {
-    Tree expressionTree = tree;
-    TreePath parentPath = path.getParentPath();
+    TreePath expressionPath = getEnclosingResultExpressionPath(tree, path);
+    Tree expressionTree = expressionPath.getLeaf();
+    TreePath parentPath = expressionPath.getParentPath();
+    while (parentPath != null && parentPath.getLeaf() instanceof ParenthesizedTree) {
+      parentPath = parentPath.getParentPath();
+    }
     if (parentPath == null) {
       return new TargetTypeAndAssignmentKind(null, false);
     }
-    // 1. Climb up to corresponding "assignment-like" context:
     Tree parent = parentPath.getLeaf();
-    while (true) {
-      if (parent instanceof ParenthesizedTree) {
-        parentPath = castToNonNull(parentPath.getParentPath());
-      } else if (parent instanceof ConditionalExpressionTree) {
-        expressionTree = parent;
-        parentPath = castToNonNull(parentPath.getParentPath());
-      } else if (parent instanceof YieldTree
-          || (parent instanceof CaseTree caseTree
-              && caseTree.getBody() instanceof ExpressionTree caseBody
-              && ASTHelpers.stripParentheses(caseBody) == expressionTree)) {
-        // Both arrow bodies and explicit yields take their target from the nearest switch
-        // expression. Labels and guards do not share that target. A yield may be inside blocks or
-        // other statements within its case.
-        do {
-          parentPath = castToNonNull(parentPath.getParentPath());
-        } while (!(parentPath.getLeaf() instanceof SwitchExpressionTree));
-        expressionTree = parentPath.getLeaf();
-        parentPath = castToNonNull(parentPath.getParentPath());
-      } else {
-        break;
-      }
-      parent = parentPath.getLeaf();
-    }
     VisitorState parentState = state.withPath(parentPath);
     // 2. We are at the right point in the tree now. Three cases:
     // 2a. `foo = [expr];` or `var foo = [expr];` (use getTargetTypeForAssignmentContext)
@@ -2967,6 +2955,44 @@ public final class GenericsChecks {
     }
     // Fall back to an unknown target type
     return new TargetTypeAndAssignmentKind(null, false);
+  }
+
+  /**
+   * Finds the outermost conditional or switch expression whose result contains {@code tree}.
+   * Parentheses do not change the target. Switch selectors, labels, and guards do not inherit the
+   * result target, while arrow bodies and explicit yield values do.
+   *
+   * @return the enclosing result expression's path, or {@code path} if there is none
+   */
+  @SuppressWarnings("ReferenceEquality") // Tree identity identifies arrow-case bodies.
+  private TreePath getEnclosingResultExpressionPath(Tree tree, TreePath path) {
+    Tree expressionTree = tree;
+    TreePath expressionPath = path;
+    TreePath parentPath = path.getParentPath();
+    while (parentPath != null) {
+      Tree parent = parentPath.getLeaf();
+      if (parent instanceof ParenthesizedTree) {
+        parentPath = parentPath.getParentPath();
+        continue;
+      }
+      if (parent instanceof ConditionalExpressionTree) {
+        expressionPath = parentPath;
+      } else if (parent instanceof YieldTree
+          || (parent instanceof CaseTree caseTree
+              && caseTree.getBody() instanceof ExpressionTree caseBody
+              && ASTHelpers.stripParentheses(caseBody) == expressionTree)) {
+        // A yield may occur inside blocks or other statements within its case.
+        do {
+          parentPath = castToNonNull(parentPath.getParentPath());
+        } while (!(parentPath.getLeaf() instanceof SwitchExpressionTree));
+        expressionPath = parentPath;
+      } else {
+        break;
+      }
+      expressionTree = expressionPath.getLeaf();
+      parentPath = expressionPath.getParentPath();
+    }
+    return expressionPath;
   }
 
   /**
@@ -3058,6 +3084,10 @@ public final class GenericsChecks {
               }
 
               Type actualParameterType;
+              if (actualParameterWithoutParentheses instanceof ConditionalExpressionTree
+                  || actualParameterWithoutParentheses instanceof SwitchExpressionTree) {
+                inferredPolyExpressionTypes.put(actualParameterWithoutParentheses, formalParameter);
+              }
               if (actualParameterWithoutParentheses instanceof LambdaExpressionTree) {
                 maybeStorePolyExpressionTypeFromTarget(
                     actualParameterWithoutParentheses, formalParameter, state);
@@ -3080,15 +3110,6 @@ public final class GenericsChecks {
                           pathToParam,
                           formalParameter,
                           false,
-                          false);
-                } else if (currentActualParam
-                    instanceof ConditionalExpressionTree conditionalExpressionTree) {
-                  actualParameterType =
-                      inferConditionalExpressionType(
-                          state.withPath(pathToParam),
-                          conditionalExpressionTree,
-                          pathToParam,
-                          formalParameter,
                           false);
                 }
                 if (actualParameterType == null) {
@@ -3190,15 +3211,15 @@ public final class GenericsChecks {
     if (cachedType != null) {
       return cachedType;
     }
-    // An attributed method reference always has an enclosing expression or declaration.
-    TreePath parentPath = castToNonNull(state.getPath().getParentPath());
-    while (parentPath.getLeaf() instanceof ParenthesizedTree) {
-      parentPath = castToNonNull(parentPath.getParentPath());
-    }
+    TreePath expressionPath = getEnclosingResultExpressionPath(tree, state.getPath());
+    Tree enclosingExpression = expressionPath.getLeaf();
     Type targetType =
-        parentPath.getLeaf() instanceof ConditionalExpressionTree conditionalTree
+        enclosingExpression instanceof ConditionalExpressionTree
+                || enclosingExpression instanceof SwitchExpressionTree
             ? getConditionalOrSwitchExpressionType(
-                conditionalTree, state.withPath(parentPath), calledFromDataflow)
+                (ExpressionTree) enclosingExpression,
+                state.withPath(expressionPath),
+                calledFromDataflow)
             : getTargetTypeFromParentContext(tree, state.getPath(), state, calledFromDataflow)
                 .typeFromAssignmentContext();
     Type expressionType = castToNonNull(ASTHelpers.getType(tree));
