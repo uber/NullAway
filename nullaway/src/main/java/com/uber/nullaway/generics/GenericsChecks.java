@@ -1494,7 +1494,8 @@ public final class GenericsChecks {
       boolean assignedToLocal,
       boolean calledFromDataflow) {
     ConstraintSolver solver = makeSolver(state, analysis);
-    // allCalls tracks the top-level call and nested calls or method references requiring inference
+    // allCalls tracks the top-level call, nested calls requiring inference, and every method
+    // reference whose functional-interface type constrains the run.
     Set<Tree> allCalls = new LinkedHashSet<>();
     allCalls.add(callTree);
     IdentityHashMap<MethodInvocationTree, PolyNullInferenceContext> polyNullContexts =
@@ -1683,8 +1684,9 @@ public final class GenericsChecks {
    * @param callTree the call tree representing the generic method call or diamond constructor call
    * @param methodType the executable type of {@code callTree}, as computed by {@link
    *     #getExecutableTypeForInference}
-   * @param allCalls calls and method references requiring inference, including nested ones. This is
-   *     an output parameter that gets mutated while generating the constraints to add nested sites.
+   * @param allCalls the top-level call, nested calls requiring inference, and every method
+   *     reference whose functional-interface type constrains the run. This is an output parameter
+   *     that gets mutated while generating the constraints to add nested sites.
    * @param polyNullContexts PolyNull inference contexts for calls in this inference session. This
    *     is an output parameter mutated during constraint generation to add contexts for modeled
    *     calls.
@@ -1790,8 +1792,9 @@ public final class GenericsChecks {
    *
    * @param state the visitor state
    * @param solver the constraint solver
-   * @param allCalls calls and method references requiring inference, including nested ones. This is
-   *     an output parameter that gets mutated while generating the constraints to add nested sites.
+   * @param allCalls the top-level call, nested calls requiring inference, and every method
+   *     reference whose functional-interface type constrains the run. This is an output parameter
+   *     that gets mutated while generating the constraints to add nested sites.
    * @param rhsExpr the right-hand side expression of the pseudo-assignment
    * @param lhsType the left-hand side type of the pseudo-assignment
    * @param polyNullContexts PolyNull inference contexts for calls in this inference session. This
@@ -1904,8 +1907,9 @@ public final class GenericsChecks {
    * @param path the tree path to the enclosing call if available and possibly distinct from {@code
    *     state.getPath()}
    * @param solver the constraint solver
-   * @param allCalls calls and method references requiring inference, including nested ones. This is
-   *     an output parameter that gets mutated while generating the constraints to add nested sites.
+   * @param allCalls the top-level call, nested calls requiring inference, and every method
+   *     reference whose functional-interface type constrains the run. This is an output parameter
+   *     that gets mutated while generating the constraints to add nested sites.
    * @param lhsType the type to which the lambda is being assigned
    * @param lambda The lambda argument
    * @param polyNullContexts PolyNull inference contexts for calls in this inference session. This
