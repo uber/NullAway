@@ -18,21 +18,23 @@ When you write `CompilationTestHelper` tests, assume Error Prone reports every m
 stopping at the first.  Put the cases of one rule, those that report an error and those that do not, in one source file,
 with one method per case named for what it checks.
 
-# Code coverage
+# Code coverage and mutation testing
 
-`./gradlew :nullaway:test` reports diff coverage for changed executable lines and branches; filtered test runs only
-reflect the tests actually executed, so run the module's full suite before treating uncovered code as a missing test.
+The cribro plugin, applied in `settings.gradle`, adds diff coverage to `test` and a `pitestDiff` task to every Java
+project.  `./gradlew -q cribro` lists its other `-Pcribro.*` properties.
 
-By default the diff is measured against the configured upstream/base; for stacked PRs, set `-PdiffBase=<ref>` to the
-parent PR or commit so only the current layer is measured.  The same property sets the base for mutation testing.
+`./gradlew :nullaway:test` ends with the changed lines and branches the run did not cover.  A run filtered with
+`--tests` reflects only the tests it ran, so run the module's full suite before treating uncovered code as a missing
+test.  For stacked PRs, set `-Pcribro.diffBase=<ref>` to the parent PR or commit so only the current layer is measured;
+the same property sets the base for mutation testing.
 
 If an uncovered line is intentionally unreachable or not worth testing, acknowledge the reviewed exception with
 `// diff-coverage: ignore -- <reason>`; it remains counted as uncovered but is removed from the actionable list.
 
-# Mutation testing
-
-After you add or change tests for a change to `<module>/src/main`, run `./gradlew :<module>:pitestDiff` and act on the
-mutants it reports; it is not part of `test`.
+After you add or change tests for a change to `<module>/src/main`, run
+`./gradlew :<module>:pitestDiff -Pcribro.pitestTargetTests=<test classes>` and act on the mutants it reports; it is not
+part of `test`.  PIT runs only the tests of the module whose code it mutates, so for a change to `nullaway/src/main`
+name test classes under `nullaway/src/test`.
 
 # Third-party projects in CI
 
