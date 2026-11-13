@@ -1563,7 +1563,10 @@ public final class GenericsChecks {
       return successResult;
     } catch (UnsatisfiableConstraintsException e) {
       String inferenceFailureMessage = inferenceFailureMessage(e, polyNullContexts);
-      reportInferenceFailure(callTree, inferenceFailureMessage, state);
+      // Dataflow inference is provisional; ordinary checking reports any failure once it completes.
+      if (!calledFromDataflow) {
+        reportInferenceFailure(callTree, inferenceFailureMessage, state);
+      }
       InferenceFailure failureResult = new InferenceFailure(inferenceFailureMessage);
       if (okToCacheInferenceResult(calledFromDataflow)) {
         for (Tree inferredCall : allCalls) {
@@ -4055,10 +4058,12 @@ public final class GenericsChecks {
       }
       return resolved;
     } catch (UnsatisfiableConstraintsException e) {
-      reportInferenceFailure(
-          invocationTree,
-          PolyNullInference.inferenceFailureMessage(ASTHelpers.getSymbol(invocationTree)),
-          state);
+      if (!calledFromDataflow) {
+        reportInferenceFailure(
+            invocationTree,
+            PolyNullInference.inferenceFailureMessage(ASTHelpers.getSymbol(invocationTree)),
+            state);
+      }
       return config.warnOnGenericInferenceFailure() ? null : Nullness.NULLABLE;
     }
   }
