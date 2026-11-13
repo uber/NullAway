@@ -595,9 +595,10 @@ public class GenericInferenceErrorReportingTests extends NullAwayTestsBase {
   }
 
   /**
-   * Returns method references with incompatible inferred nullability in each target context, with
-   * nullable-bound and unmarked-target controls. The generic cached call runs joint inference
-   * before the reference itself is visited.
+   * Returns method references with incompatible inferred nullability in each target context, with a
+   * nullable-bound reference that reports nothing, and an unmarked target that reports only its
+   * independent top-level parameter error and no inference failure. The call to the generic method
+   * {@code cached} runs joint inference before the reference itself is visited.
    */
   private static JavaFileObject methodReferenceSource() {
     return FileObjects.forSourceLines(
