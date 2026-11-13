@@ -1563,7 +1563,10 @@ public final class GenericsChecks {
       return successResult;
     } catch (UnsatisfiableConstraintsException e) {
       String inferenceFailureMessage = inferenceFailureMessage(e, polyNullContexts);
-      reportInferenceFailure(callTree, inferenceFailureMessage, state);
+      // Dataflow inference is provisional; ordinary checking reports any failure once it completes.
+      if (!calledFromDataflow) {
+        reportInferenceFailure(callTree, inferenceFailureMessage, state);
+      }
       InferenceFailure failureResult = new InferenceFailure(inferenceFailureMessage);
       if (okToCacheInferenceResult(calledFromDataflow)) {
         for (Tree inferredCall : allCalls) {
@@ -3632,7 +3635,7 @@ public final class GenericsChecks {
         // have not yet attempted inference for this call
         CallAndContext invocationAndType =
             path == null
-                ? new CallAndContext(invocationTree, null, false)
+                ? CallAndContext.withoutContext(invocationTree)
                 : getCallAndContextForInference(path, state, calledFromDataflow);
         result =
             runInferenceForCall(
@@ -3745,7 +3748,13 @@ public final class GenericsChecks {
    * purposes of inference.
    */
   private record CallAndContext(
-      ExpressionTree call, @Nullable Type typeFromAssignmentContext, boolean assignedToLocal) {}
+      ExpressionTree call, @Nullable Type typeFromAssignmentContext, boolean assignedToLocal) {
+
+    /** Selects a call for inference without a target type from its surrounding context. */
+    static CallAndContext withoutContext(ExpressionTree call) {
+      return new CallAndContext(call, null, false);
+    }
+  }
 
   /**
    * Given a {@link TreePath} to an invocation of a generic method, collect information about the
@@ -3757,6 +3766,10 @@ public final class GenericsChecks {
    * we have {@code <T extends @Nullable Object> T id(T t);} and the call {@code id(id(x))}, given a
    * {@link TreePath} to the inner call, we want to return the outer call, since its assignment
    * context is required for inference.
+   *
+   * <p>During dataflow, infer a nested call independently of an enclosing generic call: later
+   * arguments of that enclosing call may not have dataflow values yet. Direct assignment and return
+   * contexts are still used.
    *
    * @param path the path to the invocation
    * @param state the visitor state
@@ -3778,6 +3791,11 @@ public final class GenericsChecks {
             || (parentCall instanceof NewClassTree parentConstructorCall
                 && !isQualifierOf(parentConstructorCall, path.getLeaf())))
         && isCallNeedingInference(parentCall)) {
+      if (calledFromDataflow) {
+        // Dataflow evaluates arguments before their enclosing call. Inferring that call here
+        // would inspect later arguments before their dataflow values are available (#2126).
+        return CallAndContext.withoutContext((ExpressionTree) path.getLeaf());
+      }
       // This is a nested generic call, such as id(id(x)) or id(new Box<>(x)). Find the
       // outermost call requiring inference because its assignment context is the relevant one.
       return getCallAndContextForInference(
@@ -3902,7 +3920,7 @@ public final class GenericsChecks {
       }
     }
     // an unhandled case; for now, give up and return no assignment context
-    return new CallAndContext(call, null, false);
+    return CallAndContext.withoutContext(call);
   }
 
   /**
@@ -4046,10 +4064,12 @@ public final class GenericsChecks {
       }
       return resolved;
     } catch (UnsatisfiableConstraintsException e) {
-      reportInferenceFailure(
-          invocationTree,
-          PolyNullInference.inferenceFailureMessage(ASTHelpers.getSymbol(invocationTree)),
-          state);
+      if (!calledFromDataflow) {
+        reportInferenceFailure(
+            invocationTree,
+            PolyNullInference.inferenceFailureMessage(ASTHelpers.getSymbol(invocationTree)),
+            state);
+      }
       return config.warnOnGenericInferenceFailure() ? null : Nullness.NULLABLE;
     }
   }
