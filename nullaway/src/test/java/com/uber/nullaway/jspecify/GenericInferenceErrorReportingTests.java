@@ -16,6 +16,41 @@ import org.junit.Test;
  */
 public class GenericInferenceErrorReportingTests extends NullAwayTestsBase {
 
+  @Test
+  public void inferenceUsesCompletedArgumentDataflowWithoutLibraryModels() {
+    makeHelper()
+        .addSourceLines(
+            "Test.java",
+            """
+            package com.uber;
+            import org.jspecify.annotations.NullMarked;
+            import org.jspecify.annotations.Nullable;
+            @NullMarked
+            class Test {
+              static <T> T id(T value) { return value; }
+              static <T> void sink(T first, T second) {}
+
+              void refinedSecondArgument(@Nullable String value) {
+                if (value == null) {
+                  return;
+                }
+                sink(id("first"), value);
+              }
+              void refinedFirstArgument(@Nullable String value) {
+                if (value == null) {
+                  return;
+                }
+                sink(value, id("second"));
+              }
+              void unrefinedSecondArgument(@Nullable String value) {
+                // BUG: Diagnostic contains: inference failure
+                sink(id("first"), value);
+              }
+            }
+            """)
+        .doTest();
+  }
+
   /** Inference must wait for later arguments' conditional return nullness before reporting. */
   @Test
   public void inferenceFailuresRequireCompletedArgumentDataflow() {
