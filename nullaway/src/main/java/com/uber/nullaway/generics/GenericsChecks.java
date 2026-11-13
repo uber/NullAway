@@ -3250,8 +3250,8 @@ public final class GenericsChecks {
    * this reference's type variables. Otherwise, inference runs again, e.g., if a reference to a
    * generic method is passed as an argument to a non-generic method.
    *
-   * <p>Called only from the visitor, never from dataflow or speculative inference, so the result is
-   * always cached.
+   * <p>Called only from the visitor, never from dataflow or while provisional lambda parameter
+   * types are in use, so {@link #okToCacheInferenceResult(boolean)} permits caching the result.
    *
    * @param tree the method reference
    * @param targetType the ground functional-interface target type
