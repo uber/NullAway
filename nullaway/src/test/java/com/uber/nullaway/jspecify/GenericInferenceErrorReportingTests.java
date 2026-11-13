@@ -327,12 +327,47 @@ public class GenericInferenceErrorReportingTests extends NullAwayTestsBase {
                 + " @Nullable, but its upper bound requires it to be @NonNull",
             "Test.java:47: [NullAway] inference failure: type variable T is constrained to be"
                 + " @Nullable, but its upper bound requires it to be @NonNull",
-            "Test.java:48: [NullAway] inference failure: type variable T is constrained to be"
+            "Test.java:48: [NullAway] inference failure: type variable T of com.uber.Test.nonNullElements is constrained to be"
                 + " @Nullable, but its upper bound requires it to be @NonNull",
             "Test.java:49: [NullAway] parameter extra of referenced method is @NonNull, but"
                 + " parameter in functional interface method"
                 + " com.uber.Test.UnmarkedFn.apply(List<@Nullable String>,@Nullable Object) is"
                 + " @Nullable");
+  }
+
+  @Test
+  public void enclosingCallInferenceFailureNamesReferencedMethod() {
+    makeHelper()
+        .addSourceLines(
+            "Test.java",
+            """
+            package com.uber;
+            import java.util.List;
+            import java.util.function.Function;
+            import org.jspecify.annotations.*;
+            @NullMarked class Test {
+              static <T> T nonNullId(T value) { return value; }
+              static <T extends @Nullable Object> List<T> idList(List<T> values) { return values; }
+              static <U> void accept(Function<@Nullable String, @Nullable String> fn, U witness) {}
+              static <U> void acceptList(Function<List<String>, List<@Nullable String>> fn, U witness) {}
+              void upperBoundFailure() {
+                // BUG: Diagnostic contains: type variable T of com.uber.Test.nonNullId is constrained to be @Nullable
+                accept(
+                    Test::nonNullId,
+                    "");
+              }
+              void conflictingConstraints() {
+                // BUG: Diagnostic contains: type variable T of com.uber.Test.idList constrained to be both @NonNull and @Nullable
+                acceptList(
+                    Test::idList,
+                    "");
+              }
+              void compatibleReference() {
+                acceptList(values -> List.of(), "");
+              }
+            }
+            """)
+        .doTest();
   }
 
   /**
@@ -457,7 +492,7 @@ public class GenericInferenceErrorReportingTests extends NullAwayTestsBase {
                 + " method com.uber.Test.Fn.apply(@Nullable String) returns @NonNull",
             "Test.java:29: [NullAway] referenced method returns @Nullable, but functional interface"
                 + " method com.uber.Test.Fn.apply(String) returns @NonNull",
-            "Test.java:32: [NullAway] inference failure: type variable T is constrained to be"
+            "Test.java:32: [NullAway] inference failure: type variable T of com.uber.Test.nonNullId is constrained to be"
                 + " @Nullable, but its upper bound requires it to be @NonNull",
             "Test.java:37: [NullAway] inference failure: type variable T is constrained to be"
                 + " @Nullable, but its upper bound requires it to be @NonNull",

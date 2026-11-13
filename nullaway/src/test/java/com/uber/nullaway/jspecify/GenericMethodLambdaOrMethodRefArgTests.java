@@ -717,7 +717,7 @@ public class GenericMethodLambdaOrMethodRefArgTests extends NullAwayTestsBase {
               }
 
               static Object nonNullReturn() {
-                // BUG: Diagnostic contains: inference failure: type variable T constrained to be both @NonNull and @Nullable
+                // BUG: Diagnostic contains: inference failure: type variable T of repro.Repro.invoke constrained to be both @NonNull and @Nullable
                 return evaluate(() -> invoke(() -> null));
               }
             }

@@ -1566,7 +1566,8 @@ public final class GenericsChecks {
       }
       return successResult;
     } catch (UnsatisfiableConstraintsException e) {
-      String inferenceFailureMessage = inferenceFailureMessage(e, polyNullContexts);
+      String inferenceFailureMessage =
+          inferenceFailureMessage(e, polyNullContexts, getMethodSymbolForCall(callTree));
       reportInferenceFailure(callTree, inferenceFailureMessage, state);
       InferenceFailure failureResult = new InferenceFailure(inferenceFailureMessage);
       if (okToCacheInferenceResult(calledFromDataflow)) {
@@ -1578,24 +1579,33 @@ public final class GenericsChecks {
     }
   }
 
-  /** Formats an inference failure without exposing synthetic PolyNull variable names to users. */
+  /**
+   * Formats an inference failure without exposing synthetic PolyNull variable names. Names the
+   * declaring method when a failed variable belongs to another method than the diagnostic's call.
+   */
   private String inferenceFailureMessage(
       UnsatisfiableConstraintsException e,
-      IdentityHashMap<MethodInvocationTree, PolyNullInferenceContext> polyNullContexts) {
+      IdentityHashMap<MethodInvocationTree, PolyNullInferenceContext> polyNullContexts,
+      Symbol reportedMethod) {
     Element typeVariable = e.getTypeVariable();
     MethodInvocationTree polyNullInvocation =
         PolyNullInference.getInvocationForInferenceVariable(polyNullContexts, typeVariable);
     if (polyNullInvocation != null) {
       return PolyNullInference.inferenceFailureMessage(ASTHelpers.getSymbol(polyNullInvocation));
     }
+    Element owner = castToNonNull(typeVariable.getEnclosingElement());
+    String variableDescription = typeVariable.toString();
+    if (owner.getKind() == ElementKind.METHOD && !owner.equals(reportedMethod)) {
+      variableDescription += " of " + owner.getEnclosingElement() + "." + owner.getSimpleName();
+    }
     if (e.isCausedByNonNullUpperBound()) {
       return String.format(
           "inference failure: type variable %s is constrained to be @Nullable, but its upper bound requires it to be @NonNull",
-          typeVariable);
+          variableDescription);
     }
     return String.format(
         "inference failure: type variable %s constrained to be both @NonNull and @Nullable",
-        typeVariable);
+        variableDescription);
   }
 
   /** Returns the type parameters whose nullability is inferred for {@code callTree}. */
@@ -3275,7 +3285,7 @@ public final class GenericsChecks {
       handleMethodRefInGenericMethodInference(state, solver, targetType, tree);
       result = new InferenceSuccess(solver.solve(), new IdentityHashMap<>());
     } catch (UnsatisfiableConstraintsException e) {
-      String message = inferenceFailureMessage(e, new IdentityHashMap<>());
+      String message = inferenceFailureMessage(e, new IdentityHashMap<>(), referencedMethod);
       if (reportFailure) {
         reportInferenceFailure(tree, message, state);
       }
