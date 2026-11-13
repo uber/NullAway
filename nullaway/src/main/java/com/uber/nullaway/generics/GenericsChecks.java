@@ -2742,25 +2742,16 @@ public final class GenericsChecks {
   }
 
   /**
-   * Checks each switch result against the switch expression's recovered target type. Recovering the
-   * whole expression's type must not hide incompatible nested nullability in its results. Only
-   * called in JSpecify mode.
-   *
-   * @param tree the switch expression
-   * @param results the expression bodies of arrow cases and the values of yields that complete this
-   *     switch
-   * @param state visitor state whose path ends at the switch expression
-   */
-  public void checkTypeParameterNullnessForSwitchExpression(
-      SwitchExpressionTree tree, List<ExpressionTree> results, VisitorState state) {
-    checkConditionalOrSwitchResults(tree, results, state);
-  }
-
-  /**
    * Checks conditional arms or switch results against their shared contextual type, preferring a
-   * cached inference result to the target recovered from the parent context.
+   * cached inference result to the target recovered from the parent context. Only called in
+   * JSpecify mode.
+   *
+   * @param tree the conditional or switch expression
+   * @param results the conditional arms, or the arrow-case bodies and yield values that complete
+   *     this switch
+   * @param state visitor state whose path ends at the expression
    */
-  private void checkConditionalOrSwitchResults(
+  public void checkConditionalOrSwitchResults(
       ExpressionTree tree, List<ExpressionTree> results, VisitorState state) {
     TargetTypeAndAssignmentKind target =
         getTargetTypeFromParentContext(tree, state.getPath(), state, false);
