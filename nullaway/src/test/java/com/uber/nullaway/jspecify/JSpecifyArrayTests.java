@@ -173,6 +173,51 @@ public class JSpecifyArrayTests extends NullAwayTestsBase {
   }
 
   @Test
+  public void nullableElementReadKeepsWhatDataflowKnows() {
+    makeHelper()
+        .addSourceLines(
+            "Test.java",
+            """
+            package com.uber;
+            import org.jspecify.annotations.Nullable;
+            class Test {
+              static void readWithoutCheck(@Nullable String[] array) {
+                String element = array[0];
+                // BUG: Diagnostic contains: dereferenced expression 'element' is @Nullable
+                element.hashCode();
+              }
+              static void readWhenNull(@Nullable String[] array) {
+                if (array[0] == null) {
+                  String element = array[0];
+                  // BUG: Diagnostic contains: dereferenced expression 'element' is @Nullable
+                  element.hashCode();
+                }
+              }
+              static void readWhenNonNull(@Nullable String[] array) {
+                if (array[0] != null) {
+                  String element = array[0];
+                  element.hashCode();
+                }
+              }
+              static void readAfterNullStore(@Nullable String[] array) {
+                array[0] = null;
+                String element = array[0];
+                // BUG: Diagnostic contains: dereferenced expression 'element' is @Nullable
+                element.hashCode();
+              }
+              static String returnWhenNull(@Nullable String[] array) {
+                if (array[0] == null) {
+                  // BUG: Diagnostic contains: returning @Nullable expression
+                  return array[0];
+                }
+                return "";
+              }
+            }
+            """)
+        .doTest();
+  }
+
+  @Test
   public void nullableAssignmentNonnullArray() {
     makeHelper()
         .addSourceLines(
@@ -185,6 +230,54 @@ public class JSpecifyArrayTests extends NullAwayTestsBase {
               static void foo() {
                 // BUG: Diagnostic contains: Writing @Nullable expression into array with @NonNull contents
                 foo[1] = null;
+              }
+            }
+            """)
+        .doTest();
+  }
+
+  @Test
+  public void inheritedArrayElementTakesNullnessFromSupertypeArgument() {
+    makeHelper()
+        .addSourceLines(
+            "Test.java",
+            """
+            package com.uber;
+            import org.jspecify.annotations.NullMarked;
+            import org.jspecify.annotations.Nullable;
+            @NullMarked
+            class Test {
+              static class Holder<T extends @Nullable Object> {
+                T[] array;
+                T[][] matrix;
+                Holder(T[] array, T[][] matrix) {
+                  this.array = array;
+                  this.matrix = matrix;
+                }
+              }
+              static class NullableHolder extends Holder<@Nullable String> {
+                NullableHolder(@Nullable String[] array, @Nullable String[][] matrix) {
+                  super(array, matrix);
+                }
+                void store() {
+                  array[0] = null;
+                }
+                void storeIntoInnerArray() {
+                  matrix[0][0] = null;
+                }
+              }
+              static class NonNullHolder extends Holder<String> {
+                NonNullHolder(String[] array, String[][] matrix) {
+                  super(array, matrix);
+                }
+                void store() {
+                  // BUG: Diagnostic contains: Writing @Nullable expression into array with @NonNull contents
+                  array[0] = null;
+                }
+                void storeIntoInnerArray() {
+                  // BUG: Diagnostic contains: Writing @Nullable expression into array with @NonNull contents
+                  matrix[0][0] = null;
+                }
               }
             }
             """)
