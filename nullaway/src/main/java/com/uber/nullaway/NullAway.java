@@ -2442,7 +2442,10 @@ public class NullAway extends BugChecker
     Type expressionType = ASTHelpers.getType(expr);
     boolean elementNullable;
     if (expressionType != null && expressionType.getKind() == TypeKind.ARRAY) {
-      elementNullable = NullabilityUtil.isArrayExpressionElementNullable(expr, config);
+      TreePath expressionPath = pathWithLeaf(state.getPath(), expr);
+      elementNullable =
+          genericsChecks.isArrayElementNullable(
+              expr, state.withPath(expressionPath), /* calledFromDataflow= */ false);
     } else {
       elementNullable =
           !genericsChecks
@@ -3377,8 +3380,12 @@ public class NullAway extends BugChecker
         if (config.isJSpecifyMode()) {
           // In JSpecify mode, we check if the array element type is nullable
           ArrayAccessTree arrayAccess = (ArrayAccessTree) expr;
+          ExpressionTree arrayExpr = arrayAccess.getExpression();
+          TreePath arrayExprPath =
+              pathWithLeaf(pathWithLeaf(state.getPath(), arrayAccess), arrayExpr);
           exprMayBeNull =
-              NullabilityUtil.isArrayExpressionElementNullable(arrayAccess.getExpression(), config);
+              genericsChecks.isArrayElementNullable(
+                  arrayExpr, state.withPath(arrayExprPath), /* calledFromDataflow= */ false);
         }
       }
       case MEMBER_SELECT -> {
