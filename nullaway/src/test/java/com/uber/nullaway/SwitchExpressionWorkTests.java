@@ -12,6 +12,7 @@ import com.sun.source.tree.SwitchExpressionTree;
 import com.sun.tools.javac.tree.JCTree.JCCase;
 import com.sun.tools.javac.tree.JCTree.JCSwitchExpression;
 import com.sun.tools.javac.util.List;
+import com.uber.nullaway.generics.JSpecifyJavacConfig;
 import javax.inject.Inject;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -33,10 +34,9 @@ public class SwitchExpressionWorkTests {
 
   @Test
   public void primitiveSwitchResultsAreCollectedOnce() {
+    java.util.List<String> args = java.util.List.of("-XepOpt:NullAway:AnnotatedPackages=com.uber");
     CompilationTestHelper.newInstance(CountingNullAway.class, getClass())
-        .setArgs(
-            "-XepOpt:NullAway:JSpecifyMode=" + jspecifyMode,
-            "-XepOpt:NullAway:AnnotatedPackages=com.uber")
+        .setArgs(jspecifyMode ? JSpecifyJavacConfig.withJSpecifyModeArgs(args) : args)
         .addSourceLines(
             "Test.java",
             """

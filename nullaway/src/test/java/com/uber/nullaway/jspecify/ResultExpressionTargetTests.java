@@ -23,6 +23,8 @@ import com.sun.source.util.TreePath;
 import com.sun.source.util.TreeScanner;
 import com.sun.tools.javac.code.Type;
 import com.uber.nullaway.NullAway;
+import com.uber.nullaway.generics.JSpecifyJavacConfig;
+import java.util.List;
 import javax.inject.Inject;
 import org.junit.Test;
 
@@ -31,7 +33,8 @@ public class ResultExpressionTargetTests {
   public void inferredTargetsAreAvailableBeforeResultExpressionsAreVisited() {
     CompilationTestHelper.newInstance(TargetCheckingNullAway.class, getClass())
         .setArgs(
-            "-XepOpt:NullAway:JSpecifyMode=true", "-XepOpt:NullAway:AnnotatedPackages=com.uber")
+            JSpecifyJavacConfig.withJSpecifyModeArgs(
+                List.of("-XepOpt:NullAway:AnnotatedPackages=com.uber")))
         .addSourceLines(
             "Test.java",
             """
@@ -71,7 +74,8 @@ public class ResultExpressionTargetTests {
   public void earlyReferenceTypeQueriesDoNotFreezeUninferredTargets() {
     CompilationTestHelper.newInstance(TargetCheckingNullAway.class, getClass())
         .setArgs(
-            "-XepOpt:NullAway:JSpecifyMode=true", "-XepOpt:NullAway:AnnotatedPackages=com.uber")
+            JSpecifyJavacConfig.withJSpecifyModeArgs(
+                List.of("-XepOpt:NullAway:AnnotatedPackages=com.uber")))
         .addSourceLines(
             "Test.java",
             """
@@ -112,7 +116,8 @@ public class ResultExpressionTargetTests {
   public void returnedReferenceQueriesReuseTheRecoveredTarget() {
     CompilationTestHelper.newInstance(TargetCheckingNullAway.class, getClass())
         .setArgs(
-            "-XepOpt:NullAway:JSpecifyMode=true", "-XepOpt:NullAway:AnnotatedPackages=com.uber")
+            JSpecifyJavacConfig.withJSpecifyModeArgs(
+                List.of("-XepOpt:NullAway:AnnotatedPackages=com.uber")))
         .addSourceLines(
             "Test.java",
             """
