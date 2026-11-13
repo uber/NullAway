@@ -18,6 +18,11 @@ plugins {
     id 'nullaway.java-test-conventions'
 }
 
+// The Test tasks below resolve the module jar of :test-java-module while they are configured.
+// Gradle refuses to configure a project from there once a plugin of it registers afterEvaluate, as
+// cribro does, so that project is configured first.
+evaluationDependsOn(':test-java-module')
+
 // Use JDK 25 for this module, via a toolchain
 // We must null out sourceCompatibility and targetCompatibility to use toolchains.
 def languageVersion = 25
