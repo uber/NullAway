@@ -39,9 +39,9 @@ jacoco {
     toolVersion = "0.8.16"
 }
 
-// -PenableJacoco=true instruments the testJdk* tasks for the aggregate report in
-// :code-coverage-report.  They re-run the `test` suite under other JDKs, so ordinary runs leave them
-// uninstrumented.  The cribro plugin, applied in settings.gradle, instruments the `test` task itself
+// -PenableJacoco=true instruments the Test tasks other than `test`, such as testJdk*, for the
+// aggregate report in :code-coverage-report.  They re-run the `test` suite under other JDKs, so
+// ordinary runs leave them uninstrumented.  The cribro plugin, applied in settings.gradle, instruments the `test` task itself
 // for diff coverage unless -Pcribro.diffCoverageEnabled=false.
 def enableJacoco = providers.gradleProperty("enableJacoco")
         .map { it.toBoolean() }
@@ -51,6 +51,11 @@ tasks.withType(Test).matching { it.name != "test" }.configureEach {
     extensions.configure(JacocoTaskExtension) { jacocoExtension ->
         jacocoExtension.enabled = enableJacoco.get()
     }
+}
+
+// diffCoverage reads the XML; nobody reads a per-module HTML report.
+tasks.named("jacocoTestReport") {
+    reports.html.required = false
 }
 
 configurations {

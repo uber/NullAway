@@ -21,8 +21,8 @@ with one method per case named for what it checks.
 # Code coverage and mutation testing
 
 The cribro plugin, applied in `settings.gradle`, adds diff coverage to `test` and a `pitestDiff` task to every Java
-project.  Before the first measurement, run `./gradlew -q cribro`: it prints the commands, properties, and how to act on
-each report, from the plugin version the build uses.
+project.  Before you act on an uncovered line or run `pitestDiff` for the first time, run `./gradlew -q cribro`: it
+prints the commands, properties, and how to act on each report, from the plugin version the build uses.
 
 `./gradlew :nullaway:test` ends with the changed lines and branches the run did not cover.  A run filtered with
 `--tests` reflects only the tests it ran, so run the module's full suite before treating uncovered code as a missing
