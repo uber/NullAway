@@ -16,6 +16,8 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Set;
+import javax.lang.model.element.Element;
 import org.jspecify.annotations.Nullable;
 
 /**
@@ -42,6 +44,7 @@ final class NestedTypeVarSubstitutionRepairVisitor
 
   private final Config config;
   private final boolean calledFromDataflow;
+  private final Set<Element> rootOnlyVariables;
 
   /**
    * use this map to store repaired substitutions for method type variables, to ensure we use the
@@ -61,6 +64,7 @@ final class NestedTypeVarSubstitutionRepairVisitor
    * @param invocationTree the method invocation tree for the generic method call
    * @param origMethodType the declared method type for the generic method
    * @param methodTypeAtCallSite the method type inferred by javac at the call site
+   * @param rootOnlyVariables variables without a supported full substitution
    * @param invocationPath the path to the invocation tree, or null if not available
    * @param state the visitor state
    * @param config the NullAway configuration
@@ -73,6 +77,7 @@ final class NestedTypeVarSubstitutionRepairVisitor
       MethodInvocationTree invocationTree,
       Type.MethodType origMethodType,
       Type.MethodType methodTypeAtCallSite,
+      Set<Element> rootOnlyVariables,
       @Nullable TreePath invocationPath,
       VisitorState state,
       Config config,
@@ -82,6 +87,7 @@ final class NestedTypeVarSubstitutionRepairVisitor
             invocationTree,
             origMethodType,
             methodTypeAtCallSite,
+            rootOnlyVariables,
             invocationPath,
             state,
             config,
@@ -94,10 +100,12 @@ final class NestedTypeVarSubstitutionRepairVisitor
       MethodInvocationTree invocationTree,
       Type.MethodType origMethodType,
       Type.MethodType methodTypeAtCallSite,
+      Set<Element> rootOnlyVariables,
       @Nullable TreePath invocationPath,
       VisitorState state,
       Config config,
       boolean calledFromDataflow) {
+    this.rootOnlyVariables = rootOnlyVariables;
     this.genericsChecks = genericsChecks;
     this.invocationTree = invocationTree;
     this.origMethodType = origMethodType;
@@ -168,8 +176,9 @@ final class NestedTypeVarSubstitutionRepairVisitor
 
   @Override
   public Type visitTypeVar(Type.TypeVar typeVar, RepairContext context) {
-    // only repair type variables on the invoked method
-    if (Objects.equals(typeVar.tsym.owner, methodSymbol)) {
+    // Supported substitutions have already been solved from all bounds, not just one argument.
+    if (Objects.equals(typeVar.tsym.owner, methodSymbol)
+        && rootOnlyVariables.contains(typeVar.tsym)) {
       return repairTypeVarSubstitution(typeVar, context.actualArgType(), context.callSiteType());
     }
     return context.callSiteType();

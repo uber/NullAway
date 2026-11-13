@@ -580,6 +580,70 @@ public class JSpecifyJDKModelsTest extends NullAwayTestsBase {
         .doTest();
   }
 
+  @Test
+  public void issue1942ModeledNestedReturnThroughGenericInference() {
+    makeHelper()
+        .addSourceLines(
+            "Test.java",
+            """
+            import java.util.Optional;
+            import java.util.concurrent.CompletableFuture;
+            import org.jspecify.annotations.NullMarked;
+            import org.jspecify.annotations.Nullable;
+            @NullMarked
+            class Test {
+              void directAssignmentPreservesNullablePayload() {
+                CompletableFuture<@Nullable Void> f1 = CompletableFuture.allOf();
+              }
+              void genericInferencePreservesNullablePayload() {
+                CompletableFuture<@Nullable Void> f2 =
+                    Optional.of(CompletableFuture.allOf()).get();
+              }
+              void genericInferenceRejectsNonNullPayload() {
+                // BUG: Diagnostic contains: incompatible types
+                CompletableFuture<Void> invalid = Optional.of(CompletableFuture.allOf()).get();
+              }
+              void optionalAssignmentPreservesNullablePayload() {
+                Optional<CompletableFuture<@Nullable Void>> optional =
+                    Optional.of(CompletableFuture.allOf());
+              }
+              void nestedGenericInferencePreservesNullablePayload() {
+                CompletableFuture<@Nullable Void> nested =
+                    Optional.of(Optional.of(CompletableFuture.allOf())).get().get();
+              }
+              void inferredVariableRejectsNonNullPayload() {
+                var future = Optional.of(CompletableFuture.allOf()).get();
+                // BUG: Diagnostic contains: incompatible types
+                CompletableFuture<Void> invalid = future;
+              }
+              void inferredNullablePayloadCannotBeDereferenced() {
+                var future = Optional.of(CompletableFuture.allOf()).get();
+                CompletableFuture<@Nullable Void> valid = future;
+                // BUG: Diagnostic contains: dereferenced expression
+                future.join().toString();
+              }
+              void inferredNestedNullablePayloadCannotBeDereferenced() {
+                var nested = Optional.of(Optional.of(CompletableFuture.allOf())).get().get();
+                CompletableFuture<@Nullable Void> valid = nested;
+                // BUG: Diagnostic contains: incompatible types
+                CompletableFuture<Void> invalid = nested;
+                // BUG: Diagnostic contains: dereferenced expression
+                nested.join().toString();
+              }
+              void inferredNonNullPayloadCanBeDereferenced() {
+                var future = Optional.of(CompletableFuture.completedFuture("ok")).get();
+                CompletableFuture<String> valid = future;
+                future.join().length();
+              }
+              void inferredNestedNonNullPayloadCanBeDereferenced() {
+                Optional.of(Optional.of(CompletableFuture.completedFuture("ok")))
+                    .get().get().join().length();
+              }
+            }
+            """)
+        .doTest();
+  }
+
   /** The models give {@code Map.of} and {@code List.of} non-null type parameters (issue #1236). */
   @Test
   public void collectionFactoriesRejectNullableArguments() {

@@ -2,6 +2,8 @@ package com.uber.nullaway.generics;
 
 import com.sun.source.tree.Tree;
 import com.sun.tools.javac.code.Type;
+import com.uber.nullaway.Config;
+import com.uber.nullaway.Nullness;
 import java.util.List;
 import java.util.Map;
 import javax.lang.model.element.Element;
@@ -9,7 +11,8 @@ import javax.lang.model.element.Element;
 /**
  * An interface for solving constraints on type variables, such as subtype relationships between
  * types. This is used to determine the nullability of inferred type arguments at generic method
- * calls, constructor calls using the diamond operator, etc.
+ * calls, constructor calls using the diamond operator, etc., including nested nullability when a
+ * full substitution is available.
  */
 public interface ConstraintSolver {
 
@@ -38,8 +41,9 @@ public interface ConstraintSolver {
    * retain the original declaration for library-modeled bound nullability, even when a separate
    * inference problem treats the fresh variables as fixed types.
    *
-   * <p>Register each site once per inference problem. Constraint generation visits each call or
-   * method-reference tree once; separate inference problems use separate solvers.
+   * <p>Re-registering a site with the same declarations returns its existing fresh variables and
+   * retains all constraints. Contextual views such as a PolyNull overlay may revisit a call; each
+   * view must still add its constraints. Separate inference problems use separate solvers.
    *
    * @param site the tree whose type arguments are inferred
    * @param typeVariables the declared type variables inferred at {@code site}
@@ -47,6 +51,56 @@ public interface ConstraintSolver {
    */
   Map<Element, Type.TypeVar> registerInferenceVariables(
       Tree site, List<? extends Element> typeVariables);
+
+  /**
+   * Registers variables with javac's inferred Java types. These types supply the structure of full
+   * substitutions; nullness annotations come from the collected bounds. The default implementation
+   * infers only root nullness.
+   *
+   * @param site the inference site
+   * @param typeVariables the declared variables inferred at the site
+   * @param javacInstantiations attributed type arguments, keyed by declared variable
+   * @return the fresh inference variables
+   */
+  default Map<Element, Type.TypeVar> registerInferenceVariables(
+      Tree site, List<? extends Element> typeVariables, Map<Element, Type> javacInstantiations) {
+    return registerInferenceVariables(site, typeVariables);
+  }
+
+  /**
+   * The inferred type argument for one variable at a call site. A {@link Substitution} includes
+   * nested nullness, such as {@code List<@Nullable String>}; a {@link RootOnly} records just the
+   * top-level nullness when a full substitution is unavailable.
+   */
+  sealed interface InferredType permits Substitution, RootOnly {
+    /** Returns the established root qualifier for either kind of result. */
+    default Nullness rootNullness(Config config) {
+      if (this instanceof RootOnly root) {
+        return root.nullness();
+      }
+      return GenericsUtils.isAnnotatedAsNullable(((Substitution) this).type(), config)
+          ? Nullness.NULLABLE
+          : Nullness.NONNULL;
+    }
+  }
+
+  /**
+   * An inferred replacement type, including nested nullness and containing no inference variables.
+   */
+  record Substitution(Type type) implements InferredType {}
+
+  /**
+   * An inferred top-level nullness qualifier. Consumers retain the attributed type's nested
+   * structure, including any annotations restored by nested nullability repair.
+   */
+  record RootOnly(Nullness nullness) implements InferredType {
+    /** Only NONNULL and NULLABLE are type qualifiers; other states describe dataflow values. */
+    public RootOnly {
+      if (nullness != Nullness.NONNULL && nullness != Nullness.NULLABLE) {
+        throw new IllegalArgumentException("Expected an inferred root nullness qualifier");
+      }
+    }
+  }
 
   /**
    * Exception thrown when the constraints added to the solver are determined to be unsatisfiable.
@@ -97,17 +151,14 @@ public interface ConstraintSolver {
   void addSubtypeConstraint(Type subtype, Type supertype, boolean localVariableType)
       throws UnsatisfiableConstraintsException;
 
-  enum InferredNullability {
-    NONNULL,
-    NULLABLE
-  }
-
   /**
-   * Solve the constraints, returning a map from inference variables to their inferred nullability.
-   * The map only contains inference variables that appear in constraints.
+   * Solves nullness constraints and returns an immutable map of inferred type arguments. Each
+   * result contains either a full substitution or just the root nullness when nested inference is
+   * unsupported or its bounds disagree. Variables with neither root constraints nor supported type
+   * evidence are omitted.
    *
-   * @return a map from inference variables to their inferred nullability
-   * @throws UnsatisfiableConstraintsException if the constraints are determined to be unsatisfiable
+   * @return inferred type arguments keyed by call-specific inference variables
+   * @throws UnsatisfiableConstraintsException if root constraints are unsatisfiable
    */
-  Map<InferenceVariable, InferredNullability> solve() throws UnsatisfiableConstraintsException;
+  Map<InferenceVariable, InferredType> solve() throws UnsatisfiableConstraintsException;
 }
