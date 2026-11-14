@@ -3774,15 +3774,16 @@ public final class GenericsChecks {
    * appropriate invocation on which to perform type inference, and the relevant information from
    * the assignment context for that invocation.
    *
-   * <p>Note that in the case of nested invocations, we want to find the outermost invocation that
-   * requires inference, since that is the one whose assignment context is relevant. For example, if
-   * we have {@code <T extends @Nullable Object> T id(T t);} and the call {@code id(id(x))}, given a
-   * {@link TreePath} to the inner call, we want to return the outer call, since its assignment
-   * context is required for inference.
+   * <p>Outside dataflow, find the outermost invocation that requires inference, since its
+   * assignment context is relevant to nested invocations. For example, given {@code <T
+   * extends @Nullable Object> T id(T t);} and a {@link TreePath} to the inner call in {@code
+   * id(id(x))}, return the outer call to use its assignment context for joint inference.
    *
-   * <p>During dataflow, infer a nested call independently of an enclosing generic call: later
-   * arguments of that enclosing call may not have dataflow values yet. Direct assignment and return
-   * contexts are still used.
+   * <p>During dataflow, return a call nested in another generic call itself, without an assignment
+   * context. This avoids repeatedly inferring the enclosing call for each nested call's dataflow
+   * query. Later arguments may not have dataflow values yet; failure reporting is deferred until
+   * inference runs outside dataflow. A call that is not nested gets its direct assignment or return
+   * context from {@link #getDirectCallContextForInference} in both cases.
    *
    * @param path the path to the invocation
    * @param state the visitor state
@@ -3805,8 +3806,8 @@ public final class GenericsChecks {
                 && !isQualifierOf(parentConstructorCall, path.getLeaf())))
         && isCallNeedingInference(parentCall)) {
       if (calledFromDataflow) {
-        // Dataflow evaluates arguments before their enclosing call. Inferring that call here
-        // would inspect later arguments before their dataflow values are available (#2126).
+        // Avoid inferring the enclosing call again for each nested call's dataflow query. The
+        // report guards separately prevent failures based on incomplete argument dataflow (#2126).
         return CallAndContext.withoutContext((ExpressionTree) path.getLeaf());
       }
       // This is a nested generic call, such as id(id(x)) or id(new Box<>(x)). Find the
