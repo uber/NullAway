@@ -10,6 +10,7 @@ import com.google.common.base.Preconditions;
 import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableSet;
 import com.google.errorprone.VisitorState;
+import com.google.errorprone.suppliers.Suppliers;
 import com.google.errorprone.util.ASTHelpers;
 import com.sun.source.tree.AnnotatedTypeTree;
 import com.sun.source.tree.AnnotationTree;
@@ -2488,6 +2489,17 @@ public final class GenericsChecks {
   }
 
   /**
+   * Returns a method's return-context target, treating {@code Void} as {@code @Nullable Void} for
+   * compatibility with the top-level return check. Nested type arguments retain their nullness.
+   */
+  private Type getReturnTypeForInference(Symbol.MethodSymbol method, VisitorState state) {
+    Type returnType = method.getReturnType();
+    return ASTHelpers.isSameType(returnType, Suppliers.JAVA_LANG_VOID_TYPE.get(state), state)
+        ? updateTypeWithNullness(state, returnType, Nullness.NULLABLE)
+        : returnType;
+  }
+
+  /**
    * Checks that the nullability of type parameters for a returned expression matches that of the
    * type parameters of the enclosing method's return type.
    *
@@ -2502,7 +2514,7 @@ public final class GenericsChecks {
       return;
     }
 
-    Type formalReturnType = methodSymbol.getReturnType();
+    Type formalReturnType = getReturnTypeForInference(methodSymbol, state);
     if (formalReturnType.isRaw()) {
       // bail out of any checking involving raw types for now
       return;
@@ -2877,7 +2889,8 @@ public final class GenericsChecks {
           && enclosingMethodOrLambda.getLeaf() instanceof MethodTree enclosingMethod) {
         Symbol.MethodSymbol methodSymbol = ASTHelpers.getSymbol(enclosingMethod);
         if (methodSymbol != null) {
-          return new TargetTypeAndAssignmentKind(methodSymbol.getReturnType(), false);
+          return new TargetTypeAndAssignmentKind(
+              getReturnTypeForInference(methodSymbol, state), false);
         }
       }
     }
@@ -3832,7 +3845,7 @@ public final class GenericsChecks {
           && enclosingMethodOrLambda.getLeaf() instanceof MethodTree enclosingMethod) {
         Symbol.MethodSymbol methodSymbol = ASTHelpers.getSymbol(enclosingMethod);
         if (methodSymbol != null) {
-          return new CallAndContext(call, methodSymbol.getReturnType(), false);
+          return new CallAndContext(call, getReturnTypeForInference(methodSymbol, state), false);
         }
       }
     } else if (parent instanceof ExpressionTree exprParent) {

@@ -180,8 +180,7 @@ public class GenericInferenceErrorReportingTests extends NullAwayTestsBase {
               interface Node { <R extends @Nullable Object> R accept(Visitor<R> visitor); }
               static class NullableVoidVisitor implements Visitor<@Nullable Void> {
                 public Void visit(Node node) {
-                  // Generic return checking must run even for a Void return type.
-                  // BUG: Diagnostic contains: inference failure
+                  // Void return inference uses a nullable target for compatibility.
                   return node.accept(this);
                 }
               }
@@ -294,11 +293,11 @@ public class GenericInferenceErrorReportingTests extends NullAwayTestsBase {
   }
 
   /**
-   * Generic return checking must report this failure in the file holding the call, even for a Void
-   * return type. See https://github.com/uber/NullAway/issues/1733.
+   * Generic return checking must report this failure in the file holding the call. See
+   * https://github.com/uber/NullAway/issues/1733.
    */
   @Test
-  public void inferenceFailureFromVoidReturnReportedInFileWithCall() {
+  public void inferenceFailureFromStringReturnReportedInFileWithCall() {
     makeHelper()
         .addSourceLines("Unrelated.java", PADDED_FIRST_COMPILATION_UNIT)
         .addSourceLines(
@@ -315,10 +314,10 @@ public class GenericInferenceErrorReportingTests extends NullAwayTestsBase {
               interface Node {
                 <R extends @Nullable Object> R accept(Visitor<R> v);
               }
-              static class NullableVoidVisitor implements Visitor<@Nullable Void> {
-                // the override narrows the return type to @NonNull Void, so R cannot be inferred
+              static class NullableStringVisitor implements Visitor<@Nullable String> {
+                // the override narrows the return type to @NonNull String, so R cannot be inferred
                 @Override
-                public Void visit(Node n) {
+                public String visit(Node n) {
                   // BUG: Diagnostic contains: inference failure: type variable R constrained to be both @NonNull and @Nullable
                   return n.accept(this);
                 }
@@ -333,7 +332,7 @@ public class GenericInferenceErrorReportingTests extends NullAwayTestsBase {
    * dataflow also analyzes the method.
    */
   @Test
-  public void inferenceFailureFromVoidReturnWithContractReportedInFileWithCall() {
+  public void inferenceFailureFromStringReturnWithContractReportedInFileWithCall() {
     makeTestHelperWithArgs(
             JSpecifyJavacConfig.withJSpecifyModeArgs(
                 Arrays.asList(
@@ -355,16 +354,16 @@ public class GenericInferenceErrorReportingTests extends NullAwayTestsBase {
               interface Node {
                 <R extends @Nullable Object> R accept(Visitor<R> v);
               }
-              static class NullableVoidVisitor implements Visitor<@Nullable Void> {
+              static class NullableStringVisitor implements Visitor<@Nullable String> {
                 @Override
-                public Void visit(Node n) {
+                public String visit(Node n) {
                   // BUG: Diagnostic contains: inference failure: type variable R constrained to be both @NonNull and @Nullable
                   return n.accept(this);
                 }
               }
               // the contract makes NullAway run its contract-checking dataflow over this method
               @Contract("_, _ -> !null")
-              static Void pick(Node n, NullableVoidVisitor v) {
+              static String pick(Node n, NullableStringVisitor v) {
                 // BUG: Diagnostic contains: inference failure: type variable R constrained to be both @NonNull and @Nullable
                 return n.accept(v);
               }

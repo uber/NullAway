@@ -1450,9 +1450,8 @@ public class NullAway extends BugChecker
     }
 
     if (ASTHelpers.isSameType(returnType, Suppliers.JAVA_LANG_VOID_TYPE.get(state), state)) {
-      // Temporarily treat a Void return type as if it were @Nullable Void.  Change this once
-      // we are confident that all use cases can be type checked reasonably (may require generics
-      // support)
+      // For compatibility, a Void return accepts null, including through generic return inference
+      // above. Argument checks still apply. Prefer an explicit @Nullable Void return type.
       return;
     }
 
