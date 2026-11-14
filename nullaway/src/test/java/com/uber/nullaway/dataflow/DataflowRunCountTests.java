@@ -64,10 +64,21 @@ public class DataflowRunCountTests extends NullAwayTestsBase {
                 }
                 f = new Object();
               }
+              @EnsuresNonNull("f")
+              // BUG: Diagnostic contains: fails to ensure the following fields are non-null at exit: [f]
+              void initWithoutAssignment() {
+                Object x = f;
+                if (x != null) {
+                  x.hashCode();
+                }
+              }
             }
             """);
     assertWithMessage("dataflow runs of init in %s", runs)
         .that(Collections.frequency(runs, "init"))
+        .isAtMost(2);
+    assertWithMessage("dataflow runs of initWithoutAssignment in %s", runs)
+        .that(Collections.frequency(runs, "initWithoutAssignment"))
         .isAtMost(2);
   }
 
@@ -142,9 +153,10 @@ public class DataflowRunCountTests extends NullAwayTestsBase {
   }
 
   /**
-   * Compiles {@code source} as {@code Foo.java}, expecting no diagnostics, and returns one entry
-   * per dataflow run: the method name for a method, {@code lambda <first parameter>} for a lambda,
-   * and {@code initializer} for an initializer.
+   * Compiles {@code source} as {@code Foo.java}, expecting the diagnostics its {@code // BUG:
+   * Diagnostic contains:} comments mark and no others, and returns one entry per dataflow run: the
+   * method name for a method, {@code lambda <first parameter>} for a lambda, and {@code
+   * initializer} for an initializer.
    */
   private List<String> runsWhileCompiling(String source) {
     List<String> runs = Collections.synchronizedList(new ArrayList<>());

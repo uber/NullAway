@@ -19,8 +19,8 @@ class RunOnceForwardAnalysisImpl<
     extends ForwardAnalysisImpl<V, S, T> {
 
   /**
-   * Receives the code of every analysis that runs, and not of a call that finds the analysis
-   * already performed. Tests set it to count the runs; it is {@code null} otherwise.
+   * Receives the AST of code just before {@link ForwardAnalysisImpl#performAnalysis} is called on
+   * its CFG. Tests set it to count the runs; it is {@code null} otherwise.
    */
   @VisibleForTesting static volatile @Nullable Consumer<UnderlyingAST> runListener;
 

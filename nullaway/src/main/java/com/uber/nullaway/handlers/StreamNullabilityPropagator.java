@@ -530,18 +530,23 @@ class StreamNullabilityPropagator implements Handler {
 
   @Override
   public void onMatchMethod(MethodTree tree, MethodAnalysisContext methodAnalysisContext) {
+    // A filter that is also map-like reads this entry for its initial store in the run forced below
+    if (mapOrCollectRecordToFilterMap.containsKey(tree)) {
+      bodyToMethodOrLambda.put(tree.getBody(), tree);
+    }
     BlockTree body = tree.getBody();
     if (filterMethodOrLambdaSet.contains(tree) && body != null) {
       analyzeFilterWithReturns(tree, body, methodAnalysisContext);
-    }
-    if (mapOrCollectRecordToFilterMap.containsKey(tree)) {
-      bodyToMethodOrLambda.put(tree.getBody(), tree);
     }
   }
 
   @Override
   public void onMatchLambdaExpression(
       LambdaExpressionTree tree, MethodAnalysisContext methodAnalysisContext) {
+    // A filter that is also map-like reads this entry for its initial store in the run forced below
+    if (mapOrCollectRecordToFilterMap.containsKey(tree)) {
+      bodyToMethodOrLambda.put(tree.getBody(), tree);
+    }
     VisitorState state = methodAnalysisContext.state();
     if (filterMethodOrLambdaSet.contains(tree)
         && tree.getBodyKind().equals(LambdaExpressionTree.BodyKind.EXPRESSION)) {
@@ -553,9 +558,6 @@ class StreamNullabilityPropagator implements Handler {
       nullnessAnalysis.forceRunOnMethod(state.getPath(), state.context);
     } else if (filterMethodOrLambdaSet.contains(tree)) {
       analyzeFilterWithReturns(tree, tree.getBody(), methodAnalysisContext);
-    }
-    if (mapOrCollectRecordToFilterMap.containsKey(tree)) {
-      bodyToMethodOrLambda.put(tree.getBody(), tree);
     }
   }
 
