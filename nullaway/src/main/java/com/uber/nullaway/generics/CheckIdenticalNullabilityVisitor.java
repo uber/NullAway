@@ -2,6 +2,8 @@ package com.uber.nullaway.generics;
 
 import static com.uber.nullaway.NullabilityUtil.castToNonNull;
 
+import com.google.common.annotations.VisibleForTesting;
+import com.google.common.base.Equivalence;
 import com.google.errorprone.VisitorState;
 import com.sun.tools.javac.code.BoundKind;
 import com.sun.tools.javac.code.Symbol;
@@ -9,9 +11,10 @@ import com.sun.tools.javac.code.Type;
 import com.sun.tools.javac.code.Types;
 import com.uber.nullaway.Config;
 import com.uber.nullaway.handlers.Handler;
-import java.util.Collections;
-import java.util.IdentityHashMap;
+import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 import javax.lang.model.type.NullType;
 import javax.lang.model.type.TypeKind;
@@ -21,6 +24,13 @@ import org.jspecify.annotations.Nullable;
  * Visitor that checks for identical nullability annotations at all nesting levels within two types.
  * Compares the Type it is called upon, i.e. the LHS type and the Type passed as an argument, i.e.
  * The RHS type.
+ *
+ * <p>The effective-upper-bound and completed-containment caches last for the visitor instance.
+ * {@link GenericsChecks} creates one instance per top-level {@code subtypeParameterNullability}
+ * call and reuses it for recursive comparisons. Later comparisons on the same instance can reuse
+ * cached results for the same identity-based keys, provided the relevant type structure and
+ * nullness annotations have not changed. Pending containment results last only for one outermost
+ * {@code wildcardContains} call.
  */
 public class CheckIdenticalNullabilityVisitor extends Types.DefaultTypeVisitor<Boolean, Type> {
   private final VisitorState state;
@@ -29,16 +39,71 @@ public class CheckIdenticalNullabilityVisitor extends Types.DefaultTypeVisitor<B
   private final Handler handler;
 
   /**
-   * Wildcard argument pairs currently being checked for containment. Allocated lazily, as the map
-   * is only needed for types involving wildcards.
+   * Containment successes proven by an outermost comparison, retained for this visitor instance.
    */
-  private @Nullable IdentityHashMap<Type.WildcardType, Set<Type>> activeWildcardComparisons;
+  private @Nullable Set<ContainmentKey> completedWildcardComparisons;
 
-  private IdentityHashMap<Type.WildcardType, Set<Type>> getActiveWildcardComparisons() {
-    if (activeWildcardComparisons == null) {
-      activeWildcardComparisons = new IdentityHashMap<>();
+  /**
+   * Active and provisionally successful comparisons in the current wildcard traversal. All
+   * obligations are conjunctive, so these can be reused within the traversal, but are published as
+   * completed only if its outermost comparison succeeds. A failure or exception discards them.
+   */
+  private @Nullable Set<ContainmentKey> pendingWildcardComparisons;
+
+  /**
+   * Effective upper bounds of type arguments, retained for this visitor instance. This avoids
+   * repeating capture conversion and bound resolution when the same parameterized type is compared
+   * again, even with a different counterpart. Cycle termination does not depend on this cache.
+   */
+  private @Nullable Map<ParameterizationKey, List<Type>> effectiveUpperBounds;
+
+  /**
+   * Identifies a parameterization without relying on the identity of its class-type wrapper, which
+   * capture conversion can recreate. Bound computation depends on the declaration, enclosing type,
+   * and argument identities, not the containing class type's top-level nullness annotation.
+   */
+  @VisibleForTesting
+  record ParameterizationKey(
+      Equivalence.Wrapper<Symbol.TypeSymbol> symbol,
+      Equivalence.Wrapper<Type> enclosing,
+      List<Equivalence.Wrapper<Type>> arguments) {
+    /** Uses identity equivalence because javac type equality can ignore annotation metadata. */
+    ParameterizationKey(Type.ClassType type) {
+      this(
+          Equivalence.identity().wrap(type.tsym),
+          Equivalence.identity().wrap(type.getEnclosingType()),
+          type.getTypeArguments().stream()
+              .map(argument -> Equivalence.identity().wrap(argument))
+              .toList());
     }
-    return activeWildcardComparisons;
+  }
+
+  /**
+   * Identifies an argument-containment comparison by its position in the two parameterized types,
+   * rather than by the identities of their computed effective upper bounds. This lets the cycle
+   * guard terminate independently of the upper-bound cache. The argument index distinguishes a
+   * shared wildcard used at multiple positions with different declared bounds.
+   */
+  private record ContainmentKey(
+      Equivalence.Wrapper<Type.WildcardType> lhsWildcard,
+      Equivalence.Wrapper<Type> rhsArgument,
+      int argumentIndex,
+      ParameterizationKey lhsParameterization,
+      ParameterizationKey rhsParameterization) {
+    /** Preserves the argument identities and both parameterized types when comparing questions. */
+    ContainmentKey(
+        Type.WildcardType lhsWildcard,
+        Type rhsArgument,
+        int argumentIndex,
+        ParameterizationKey lhsParameterization,
+        ParameterizationKey rhsParameterization) {
+      this(
+          Equivalence.identity().wrap(lhsWildcard),
+          Equivalence.identity().wrap(rhsArgument),
+          argumentIndex,
+          lhsParameterization,
+          rhsParameterization);
+    }
   }
 
   CheckIdenticalNullabilityVisitor(
@@ -107,12 +172,13 @@ public class CheckIdenticalNullabilityVisitor extends Types.DefaultTypeVisitor<B
     }
     List<Type> lhsUpperBounds = lhsTypeArguments;
     List<Type> rhsUpperBounds = rhsTypeArguments;
+    ParameterizationKey lhsParameterization = null;
+    ParameterizationKey rhsParameterization = null;
     if (config.handleWildcardGenerics()) {
-      lhsUpperBounds =
-          GenericsUtils.effectiveUpperBoundsForTypeArguments(lhsType, state, config, handler);
-      rhsUpperBounds =
-          GenericsUtils.effectiveUpperBoundsForTypeArguments(
-              (Type.ClassType) rhsTypeAsSuper, state, config, handler);
+      lhsParameterization = new ParameterizationKey(lhsType);
+      rhsParameterization = new ParameterizationKey((Type.ClassType) rhsTypeAsSuper);
+      lhsUpperBounds = effectiveUpperBounds(lhsType, lhsParameterization);
+      rhsUpperBounds = effectiveUpperBounds((Type.ClassType) rhsTypeAsSuper, rhsParameterization);
     }
     for (int i = 0; i < lhsTypeArguments.size(); i++) {
       Type lhsTypeArgument = lhsTypeArguments.get(i);
@@ -120,7 +186,13 @@ public class CheckIdenticalNullabilityVisitor extends Types.DefaultTypeVisitor<B
       Type rhsTypeArgument = rhsTypeArguments.get(i);
       Type rhsUpperBound = rhsUpperBounds.get(i);
       if (!typeArgumentContainedBy(
-          lhsTypeArgument, rhsTypeArgument, lhsUpperBound, rhsUpperBound)) {
+          lhsTypeArgument,
+          rhsTypeArgument,
+          lhsUpperBound,
+          rhsUpperBound,
+          i,
+          lhsParameterization,
+          rhsParameterization)) {
         return false;
       }
     }
@@ -130,6 +202,21 @@ public class CheckIdenticalNullabilityVisitor extends Types.DefaultTypeVisitor<B
     // We use rhsTypeAsSuper here rather than rhsType, since rhsType may be a captured type
     // variable, whose getEnclosingType() returns null.
     return lhsType.getEnclosingType().accept(this, rhsTypeAsSuper.getEnclosingType());
+  }
+
+  /** Returns effective upper bounds computed once per parameterized type per visitor instance. */
+  @VisibleForTesting
+  List<Type> effectiveUpperBounds(Type.ClassType type, ParameterizationKey key) {
+    if (effectiveUpperBounds == null) {
+      effectiveUpperBounds = new HashMap<>();
+    }
+    return effectiveUpperBounds.computeIfAbsent(key, unused -> computeEffectiveUpperBounds(type));
+  }
+
+  /** Computes effective upper bounds on a cache miss; tests override this to count computations. */
+  @VisibleForTesting
+  List<Type> computeEffectiveUpperBounds(Type.ClassType type) {
+    return GenericsUtils.effectiveUpperBoundsForTypeArguments(type, state, config, handler);
   }
 
   /** Check identical nullability for every type in the intersection */
@@ -171,10 +258,21 @@ public class CheckIdenticalNullabilityVisitor extends Types.DefaultTypeVisitor<B
    *     if not a wildcard)
    * @param rhsUpperBound the upper bound of {@code rhsTypeArgument} ({@code rhsTypeArgument} itself
    *     if not a wildcard)
+   * @param argumentIndex the type argument's position in both parameterizations
+   * @param lhsParameterization the LHS parameterized type, identified by its declaration, enclosing
+   *     type, and type arguments; {@code null} if wildcard handling is off
+   * @param rhsParameterization the RHS parameterized type, identified by its declaration, enclosing
+   *     type, and type arguments; {@code null} if wildcard handling is off
    * @return whether {@code rhsTypeArgument} is contained by {@code lhsTypeArgument}
    */
   private boolean typeArgumentContainedBy(
-      Type lhsTypeArgument, Type rhsTypeArgument, Type lhsUpperBound, Type rhsUpperBound) {
+      Type lhsTypeArgument,
+      Type rhsTypeArgument,
+      Type lhsUpperBound,
+      Type rhsUpperBound,
+      int argumentIndex,
+      @Nullable ParameterizationKey lhsParameterization,
+      @Nullable ParameterizationKey rhsParameterization) {
     if (!config.handleWildcardGenerics()) {
       if (lhsTypeArgument.getKind().equals(TypeKind.WILDCARD)
           || rhsTypeArgument.getKind().equals(TypeKind.WILDCARD)) {
@@ -190,7 +288,17 @@ public class CheckIdenticalNullabilityVisitor extends Types.DefaultTypeVisitor<B
           lhsTypeArgument instanceof Type.WildcardType wildcardType ? wildcardType : null;
       Type.WildcardType rhsWildcard = GenericsUtils.asWildcard(rhsTypeArgument);
       if (lhsWildcard != null) {
-        return wildcardContains(lhsWildcard, lhsUpperBound, rhsTypeArgument, rhsUpperBound);
+        return wildcardContains(
+            lhsWildcard,
+            lhsUpperBound,
+            rhsTypeArgument,
+            rhsUpperBound,
+            new ContainmentKey(
+                lhsWildcard,
+                rhsTypeArgument,
+                argumentIndex,
+                castToNonNull(lhsParameterization),
+                castToNonNull(rhsParameterization)));
       }
       if (rhsWildcard != null) {
         // This case should only arise when generic method invocation inference / capture conversion
@@ -230,31 +338,44 @@ public class CheckIdenticalNullabilityVisitor extends Types.DefaultTypeVisitor<B
    * @param lhsUpperBound the upper bound of {@code lhsWildcard}
    * @param rhsTypeArgument the actual type argument on the right whose containment is checked
    * @param rhsUpperBound the upper bound of {@code rhsTypeArgument}
+   * @param key the argument position and parameterized types before capture conversion
    * @return whether {@code lhsWildcard} contains {@code rhsTypeArgument}
    */
   private boolean wildcardContains(
-      Type.WildcardType lhsWildcard, Type lhsUpperBound, Type rhsTypeArgument, Type rhsUpperBound) {
-    IdentityHashMap<Type.WildcardType, Set<Type>> activeComparisons =
-        getActiveWildcardComparisons();
-    Set<Type> activeRhsArguments = activeComparisons.get(lhsWildcard);
-    if (activeRhsArguments == null) {
-      activeRhsArguments = Collections.newSetFromMap(new IdentityHashMap<>());
-      activeComparisons.put(lhsWildcard, activeRhsArguments);
-    } else if (activeRhsArguments.contains(rhsTypeArgument)) {
-      // Recursive bounds can lead back to the exact same containment question. Re-entering that
-      // pair cannot reveal a mismatch that was not already handled on the first visit.
+      Type.WildcardType lhsWildcard,
+      Type lhsUpperBound,
+      Type rhsTypeArgument,
+      Type rhsUpperBound,
+      ContainmentKey key) {
+    if (completedWildcardComparisons != null && completedWildcardComparisons.contains(key)) {
       return true;
     }
-    activeRhsArguments.add(rhsTypeArgument);
+    boolean outermost = pendingWildcardComparisons == null;
+    if (outermost) {
+      pendingWildcardComparisons = new HashSet<>();
+    }
+    Set<ContainmentKey> pending = castToNonNull(pendingWildcardComparisons);
+    if (!pending.add(key)) {
+      // A repeated question is either active (a cycle) or already checked in this traversal.
+      // Its success remains provisional until every obligation of the outermost question passes.
+      return true;
+    }
     try {
-      return switch (lhsWildcard.kind) {
-        case UNBOUND, EXTENDS -> typeArgumentSubtype(lhsUpperBound, rhsUpperBound);
-        case SUPER -> superWildcardContains(lhsWildcard, rhsTypeArgument);
-      };
+      boolean result =
+          switch (lhsWildcard.kind) {
+            case UNBOUND, EXTENDS -> typeArgumentSubtype(lhsUpperBound, rhsUpperBound);
+            case SUPER -> superWildcardContains(lhsWildcard, rhsTypeArgument);
+          };
+      if (outermost && result) {
+        if (completedWildcardComparisons == null) {
+          completedWildcardComparisons = new HashSet<>();
+        }
+        completedWildcardComparisons.addAll(pending);
+      }
+      return result;
     } finally {
-      activeRhsArguments.remove(rhsTypeArgument);
-      if (activeRhsArguments.isEmpty()) {
-        activeComparisons.remove(lhsWildcard);
+      if (outermost) {
+        pendingWildcardComparisons = null;
       }
     }
   }
