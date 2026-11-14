@@ -2272,13 +2272,19 @@ public class FrameworkTests extends NullAwayTestsBase {
   private static CompilationTestHelper addSpringValueAnnotationStub(CompilationTestHelper helper) {
     return helper.addSourceLines(
         "Value.java",
-        "package org.springframework.beans.factory.annotation;",
-        ANNOTATION_IMPORTS,
-        "@Target({ElementType.FIELD, ElementType.PARAMETER, ElementType.METHOD})",
-        RETENTION_RUNTIME,
-        "public @interface Value {",
-        "  String value();",
-        "}");
+        """
+        package org.springframework.beans.factory.annotation;
+        import java.lang.annotation.ElementType;
+        import java.lang.annotation.Retention;
+        import java.lang.annotation.RetentionPolicy;
+        import java.lang.annotation.Target;
+
+        @Target({ElementType.FIELD, ElementType.PARAMETER, ElementType.METHOD})
+        @Retention(RetentionPolicy.RUNTIME)
+        public @interface Value {
+          String value();
+        }
+        """);
   }
 
   @Test

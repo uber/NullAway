@@ -30,7 +30,13 @@ public class EnsuresNonNullIfTests extends NullAwayTestsBase {
             }
             """)
         .addSourceLines(
-            "Item.java", "package com.uber;", "class Item {", "  public void call() { }", "}")
+            "Item.java",
+            """
+            package com.uber;
+            class Item {
+              public void call() { }
+            }
+            """)
         .doTest();
   }
 
@@ -59,7 +65,13 @@ public class EnsuresNonNullIfTests extends NullAwayTestsBase {
             }
             """)
         .addSourceLines(
-            "Item.java", "package com.uber;", "class Item {", "  public void call() { }", "}")
+            "Item.java",
+            """
+            package com.uber;
+            class Item {
+              public void call() { }
+            }
+            """)
         .doTest();
   }
 
@@ -89,7 +101,13 @@ public class EnsuresNonNullIfTests extends NullAwayTestsBase {
             }
             """)
         .addSourceLines(
-            "Item.java", "package com.uber;", "class Item {", "  public void call() { }", "}")
+            "Item.java",
+            """
+            package com.uber;
+            class Item {
+              public void call() { }
+            }
+            """)
         .doTest();
   }
 
@@ -122,7 +140,13 @@ public class EnsuresNonNullIfTests extends NullAwayTestsBase {
             }
             """)
         .addSourceLines(
-            "Item.java", "package com.uber;", "class Item {", "  public void call() { }", "}")
+            "Item.java",
+            """
+            package com.uber;
+            class Item {
+              public void call() { }
+            }
+            """)
         .doTest();
   }
 
@@ -157,7 +181,13 @@ public class EnsuresNonNullIfTests extends NullAwayTestsBase {
             }
             """)
         .addSourceLines(
-            "Item.java", "package com.uber;", "class Item {", "  public void call() { }", "}")
+            "Item.java",
+            """
+            package com.uber;
+            class Item {
+              public void call() { }
+            }
+            """)
         .doTest();
   }
 
@@ -192,7 +222,13 @@ public class EnsuresNonNullIfTests extends NullAwayTestsBase {
             }
             """)
         .addSourceLines(
-            "Item.java", "package com.uber;", "class Item {", "  public void call() { }", "}")
+            "Item.java",
+            """
+            package com.uber;
+            class Item {
+              public void call() { }
+            }
+            """)
         .doTest();
   }
 
@@ -229,7 +265,13 @@ public class EnsuresNonNullIfTests extends NullAwayTestsBase {
             }
             """)
         .addSourceLines(
-            "Item.java", "package com.uber;", "class Item {", "  public void call() { }", "}")
+            "Item.java",
+            """
+            package com.uber;
+            class Item {
+              public void call() { }
+            }
+            """)
         .doTest();
   }
 
@@ -260,7 +302,13 @@ public class EnsuresNonNullIfTests extends NullAwayTestsBase {
             }
             """)
         .addSourceLines(
-            "Item.java", "package com.uber;", "class Item {", "  public void call() { }", "}")
+            "Item.java",
+            """
+            package com.uber;
+            class Item {
+              public void call() { }
+            }
+            """)
         .doTest();
   }
 
@@ -292,7 +340,13 @@ public class EnsuresNonNullIfTests extends NullAwayTestsBase {
             }
             """)
         .addSourceLines(
-            "Item.java", "package com.uber;", "class Item {", "  public void call() { }", "}")
+            "Item.java",
+            """
+            package com.uber;
+            class Item {
+              public void call() { }
+            }
+            """)
         .doTest();
   }
 
@@ -328,7 +382,13 @@ public class EnsuresNonNullIfTests extends NullAwayTestsBase {
             }
             """)
         .addSourceLines(
-            "Item.java", "package com.uber;", "class Item {", "  public void call() { }", "}")
+            "Item.java",
+            """
+            package com.uber;
+            class Item {
+              public void call() { }
+            }
+            """)
         .doTest();
   }
 
@@ -356,7 +416,13 @@ public class EnsuresNonNullIfTests extends NullAwayTestsBase {
             }
             """)
         .addSourceLines(
-            "Item.java", "package com.uber;", "class Item {", "  public void call() { }", "}")
+            "Item.java",
+            """
+            package com.uber;
+            class Item {
+              public void call() { }
+            }
+            """)
         .doTest();
   }
 
@@ -412,7 +478,13 @@ public class EnsuresNonNullIfTests extends NullAwayTestsBase {
             }
             """)
         .addSourceLines(
-            "Item.java", "package com.uber;", "class Item {", "  public void call() { }", "}")
+            "Item.java",
+            """
+            package com.uber;
+            class Item {
+              public void call() { }
+            }
+            """)
         .doTest();
   }
 
@@ -442,7 +514,13 @@ public class EnsuresNonNullIfTests extends NullAwayTestsBase {
             }
             """)
         .addSourceLines(
-            "Item.java", "package com.uber;", "class Item {", "  public void call() { }", "}")
+            "Item.java",
+            """
+            package com.uber;
+            class Item {
+              public void call() { }
+            }
+            """)
         .doTest();
   }
 
@@ -475,7 +553,13 @@ public class EnsuresNonNullIfTests extends NullAwayTestsBase {
             }
             """)
         .addSourceLines(
-            "Item.java", "package com.uber;", "class Item {", "  public void call() { }", "}")
+            "Item.java",
+            """
+            package com.uber;
+            class Item {
+              public void call() { }
+            }
+            """)
         .doTest();
   }
 
@@ -507,7 +591,13 @@ public class EnsuresNonNullIfTests extends NullAwayTestsBase {
             }
             """)
         .addSourceLines(
-            "Item.java", "package com.uber;", "class Item {", "  public void call() { }", "}")
+            "Item.java",
+            """
+            package com.uber;
+            class Item {
+              public void call() { }
+            }
+            """)
         .doTest();
   }
 
@@ -543,7 +633,13 @@ public class EnsuresNonNullIfTests extends NullAwayTestsBase {
             }
             """)
         .addSourceLines(
-            "Item.java", "package com.uber;", "class Item {", "  public void call() { }", "}")
+            "Item.java",
+            """
+            package com.uber;
+            class Item {
+              public void call() { }
+            }
+            """)
         .doTest();
   }
 
@@ -574,7 +670,13 @@ public class EnsuresNonNullIfTests extends NullAwayTestsBase {
             }
             """)
         .addSourceLines(
-            "Item.java", "package com.uber;", "class Item {", "  public void call() { }", "}")
+            "Item.java",
+            """
+            package com.uber;
+            class Item {
+              public void call() { }
+            }
+            """)
         .doTest();
   }
 
@@ -612,7 +714,13 @@ public class EnsuresNonNullIfTests extends NullAwayTestsBase {
             }
             """)
         .addSourceLines(
-            "Item.java", "package com.uber;", "class Item {", "  public void call() { }", "}")
+            "Item.java",
+            """
+            package com.uber;
+            class Item {
+              public void call() { }
+            }
+            """)
         .doTest();
   }
 
@@ -645,7 +753,13 @@ public class EnsuresNonNullIfTests extends NullAwayTestsBase {
             }
             """)
         .addSourceLines(
-            "Item.java", "package com.uber;", "class Item {", "  public void call() { }", "}")
+            "Item.java",
+            """
+            package com.uber;
+            class Item {
+              public void call() { }
+            }
+            """)
         .doTest();
   }
 
@@ -675,7 +789,13 @@ public class EnsuresNonNullIfTests extends NullAwayTestsBase {
             }
             """)
         .addSourceLines(
-            "Item.java", "package com.uber;", "class Item {", "  public void call() { }", "}")
+            "Item.java",
+            """
+            package com.uber;
+            class Item {
+              public void call() { }
+            }
+            """)
         .doTest();
   }
 
@@ -705,7 +825,13 @@ public class EnsuresNonNullIfTests extends NullAwayTestsBase {
             }
             """)
         .addSourceLines(
-            "Item.java", "package com.uber;", "class Item {", "  public void call() { }", "}")
+            "Item.java",
+            """
+            package com.uber;
+            class Item {
+              public void call() { }
+            }
+            """)
         .doTest();
   }
 
@@ -734,7 +860,13 @@ public class EnsuresNonNullIfTests extends NullAwayTestsBase {
             }
             """)
         .addSourceLines(
-            "Item.java", "package com.uber;", "class Item {", "  public void call() { }", "}")
+            "Item.java",
+            """
+            package com.uber;
+            class Item {
+              public void call() { }
+            }
+            """)
         .doTest();
   }
 
@@ -768,7 +900,13 @@ public class EnsuresNonNullIfTests extends NullAwayTestsBase {
             }
             """)
         .addSourceLines(
-            "Item.java", "package com.uber;", "class Item {", "  public void call() { }", "}")
+            "Item.java",
+            """
+            package com.uber;
+            class Item {
+              public void call() { }
+            }
+            """)
         .doTest();
   }
 
@@ -801,7 +939,13 @@ public class EnsuresNonNullIfTests extends NullAwayTestsBase {
             }
             """)
         .addSourceLines(
-            "Item.java", "package com.uber;", "class Item {", "  public void call() { }", "}")
+            "Item.java",
+            """
+            package com.uber;
+            class Item {
+              public void call() { }
+            }
+            """)
         .doTest();
   }
 
@@ -830,7 +974,13 @@ public class EnsuresNonNullIfTests extends NullAwayTestsBase {
             }
             """)
         .addSourceLines(
-            "Item.java", "package com.uber;", "class Item {", "  public void call() { }", "}")
+            "Item.java",
+            """
+            package com.uber;
+            class Item {
+              public void call() { }
+            }
+            """)
         .doTest();
   }
 
@@ -858,7 +1008,13 @@ public class EnsuresNonNullIfTests extends NullAwayTestsBase {
             }
             """)
         .addSourceLines(
-            "Item.java", "package com.uber;", "class Item {", "  public void call() { }", "}")
+            "Item.java",
+            """
+            package com.uber;
+            class Item {
+              public void call() { }
+            }
+            """)
         .doTest();
   }
 
@@ -890,7 +1046,13 @@ public class EnsuresNonNullIfTests extends NullAwayTestsBase {
             }
             """)
         .addSourceLines(
-            "Item.java", "package com.uber;", "class Item {", "  public void call() { }", "}")
+            "Item.java",
+            """
+            package com.uber;
+            class Item {
+              public void call() { }
+            }
+            """)
         .doTest();
   }
 
@@ -920,7 +1082,13 @@ public class EnsuresNonNullIfTests extends NullAwayTestsBase {
             }
             """)
         .addSourceLines(
-            "Item.java", "package com.uber;", "class Item {", "  public void call() { }", "}")
+            "Item.java",
+            """
+            package com.uber;
+            class Item {
+              public void call() { }
+            }
+            """)
         .doTest();
   }
 
@@ -950,7 +1118,13 @@ public class EnsuresNonNullIfTests extends NullAwayTestsBase {
             }
             """)
         .addSourceLines(
-            "Item.java", "package com.uber;", "class Item {", "  public void call() { }", "}")
+            "Item.java",
+            """
+            package com.uber;
+            class Item {
+              public void call() { }
+            }
+            """)
         .doTest();
   }
 
@@ -979,7 +1153,13 @@ public class EnsuresNonNullIfTests extends NullAwayTestsBase {
             }
             """)
         .addSourceLines(
-            "Item.java", "package com.uber;", "class Item {", "  public void call() { }", "}")
+            "Item.java",
+            """
+            package com.uber;
+            class Item {
+              public void call() { }
+            }
+            """)
         .doTest();
   }
 
@@ -1009,7 +1189,13 @@ public class EnsuresNonNullIfTests extends NullAwayTestsBase {
             }
             """)
         .addSourceLines(
-            "Item.java", "package com.uber;", "class Item {", "  public void call() { }", "}")
+            "Item.java",
+            """
+            package com.uber;
+            class Item {
+              public void call() { }
+            }
+            """)
         .doTest();
   }
 

@@ -1439,7 +1439,12 @@ public class SerializationTest extends NullAwayTestsBase {
                 "-XepOpt:NullAway:SerializeFixMetadata=true",
                 "-XepOpt:NullAway:SerializeFixMetadataVersion=3",
                 "-XepOpt:NullAway:FixSerializationConfigPath=" + configPath))
-        .addSourceLines("com/uber/Foo.java", "package com.uber;", "public interface Foo { }")
+        .addSourceLines(
+            "com/uber/Foo.java",
+            """
+            package com.uber;
+            public interface Foo { }
+            """)
         .addSourceLines(
             "com/uber/Main.java",
             """
@@ -2162,11 +2167,13 @@ public class SerializationTest extends NullAwayTestsBase {
             // toString() call on method symbol will serialize the annotation below which should not
             // be present in string representation fo a method signature.
             "com/uber/Custom.java",
-            "package com.uber;",
-            "import java.lang.annotation.Target;",
-            "import static java.lang.annotation.ElementType.TYPE_USE;",
-            "@Target({TYPE_USE})",
-            "public @interface Custom { }")
+            """
+            package com.uber;
+            import java.lang.annotation.Target;
+            import static java.lang.annotation.ElementType.TYPE_USE;
+            @Target({TYPE_USE})
+            public @interface Custom { }
+            """)
         .addSourceLines(
             "com/uber/Test.java",
             """
@@ -2233,14 +2240,16 @@ public class SerializationTest extends NullAwayTestsBase {
             // inner classes, where the name is technically the name of the super-class, not of the
             // anonymous inner class
             "com/uber/Foo.java",
-            "package com.uber;",
-            "public class Foo {",
-            "  Foo(Object o) {}",
-            "  void bar() {",
-            "    // BUG: Diagnostic contains: passing @Nullable parameter",
-            "    Foo f = new Foo(null) {};",
-            "  }",
-            "}")
+            """
+            package com.uber;
+            public class Foo {
+              Foo(Object o) {}
+              void bar() {
+                // BUG: Diagnostic contains: passing @Nullable parameter
+                Foo f = new Foo(null) {};
+              }
+            }
+            """)
         .setExpectedOutputs(
             new ErrorDisplay(
                 "PASS_NULLABLE",
@@ -2504,18 +2513,20 @@ public class SerializationTest extends NullAwayTestsBase {
                 "-XepOpt:NullAway:FixSerializationConfigPath=" + configPath))
         .addSourceLines(
             "com/uber/Foo.java",
-            "package com.uber;",
-            "import javax.annotation.Nullable;",
-            "public class Foo {",
-            "   @Nullable Object f;",
-            "   public void init() {",
-            "     this.f = new Object();",
-            "   }",
-            "   public String bar() {",
-            "     // BUG: Diagnostic contains: dereferenced expression",
-            "     return f.toString();",
-            "   }",
-            "}")
+            """
+            package com.uber;
+            import javax.annotation.Nullable;
+            public class Foo {
+               @Nullable Object f;
+               public void init() {
+                 this.f = new Object();
+               }
+               public String bar() {
+                 // BUG: Diagnostic contains: dereferenced expression
+                 return f.toString();
+               }
+            }
+            """)
         .doTest();
     assertXmlContains(
         tempRoot,
@@ -2537,17 +2548,19 @@ public class SerializationTest extends NullAwayTestsBase {
                 "-XepOpt:NullAway:FixSerializationConfigPath=" + configPath))
         .addSourceLines(
             "com/uber/Foo.java",
-            "package com.uber;",
-            "import javax.annotation.Nullable;",
-            "public class Foo {",
-            "   @Nullable Object f;",
-            "   public void foo(Object p) { }",
-            "   public void bar(boolean b, Object p) {",
-            "     Object l = b ? f : p;",
-            "     // BUG: Diagnostic contains: dereferenced expression 'l' is @Nullable",
-            "     l.toString();",
-            "   }",
-            "}")
+            """
+            package com.uber;
+            import javax.annotation.Nullable;
+            public class Foo {
+               @Nullable Object f;
+               public void foo(Object p) { }
+               public void bar(boolean b, Object p) {
+                 Object l = b ? f : p;
+                 // BUG: Diagnostic contains: dereferenced expression 'l' is @Nullable
+                 l.toString();
+               }
+            }
+            """)
         .doTest();
     assertXmlContains(
         root,
@@ -2571,30 +2584,34 @@ public class SerializationTest extends NullAwayTestsBase {
                 "-XepOpt:NullAway:FixSerializationConfigPath=" + configPath))
         .addSourceLines(
             "com/uber/Bar.java",
-            "package com.uber;",
-            "import java.util.Map;",
-            "import javax.annotation.Nullable;",
-            "public class Bar {",
-            "   @Nullable public Map<String, String> baz() {",
-            "     return null;",
-            "   }",
-            "}")
+            """
+            package com.uber;
+            import java.util.Map;
+            import javax.annotation.Nullable;
+            public class Bar {
+               @Nullable public Map<String, String> baz() {
+                 return null;
+               }
+            }
+            """)
         .addSourceLines(
             "com/uber/Foo.java",
-            "package com.uber;",
-            "import java.util.Map;",
-            "import java.util.List;",
-            "import javax.annotation.Nullable;",
-            "public class Foo {",
-            "   List<Bar> list = List.of();",
-            "   public void bar() {",
-            "     for(Bar b : list){",
-            "       Map<String, String> l = b.baz();",
-            "       // BUG: Diagnostic contains: dereferenced expression 'l' is @Nullable",
-            "       for(String s : l.values()) {}",
-            "     }",
-            "   }",
-            "}")
+            """
+            package com.uber;
+            import java.util.Map;
+            import java.util.List;
+            import javax.annotation.Nullable;
+            public class Foo {
+               List<Bar> list = List.of();
+               public void bar() {
+                 for(Bar b : list){
+                   Map<String, String> l = b.baz();
+                   // BUG: Diagnostic contains: dereferenced expression 'l' is @Nullable
+                   for(String s : l.values()) {}
+                 }
+               }
+            }
+            """)
         .doTest();
     assertXmlContains(
         root,
@@ -2617,19 +2634,21 @@ public class SerializationTest extends NullAwayTestsBase {
                 "-XepOpt:NullAway:FixSerializationConfigPath=" + configPath))
         .addSourceLines(
             "com/uber/Foo.java",
-            "package com.uber;",
-            "import javax.annotation.Nullable;",
-            "public class Foo {",
-            "   @Nullable Object f;",
-            "   public void bar(boolean b) {",
-            "     Object l = new Object();",
-            "     if (b) {",
-            "       l = f;",
-            "     }",
-            "     // BUG: Diagnostic contains: dereferenced expression 'l' is @Nullable",
-            "     l.toString();",
-            "   }",
-            "}")
+            """
+            package com.uber;
+            import javax.annotation.Nullable;
+            public class Foo {
+               @Nullable Object f;
+               public void bar(boolean b) {
+                 Object l = new Object();
+                 if (b) {
+                   l = f;
+                 }
+                 // BUG: Diagnostic contains: dereferenced expression 'l' is @Nullable
+                 l.toString();
+               }
+            }
+            """)
         .doTest();
     assertXmlContains(
         root,
@@ -2649,17 +2668,19 @@ public class SerializationTest extends NullAwayTestsBase {
                 "-XepOpt:NullAway:FixSerializationConfigPath=" + configPath))
         .addSourceLines(
             "com/uber/Foo.java",
-            "package com.uber;",
-            "import javax.annotation.Nullable;",
-            "public class Foo {",
-            "   @Nullable Object f;",
-            "   public void bar() {",
-            "     Object a = f;",
-            "     Object b = a;",
-            "     // BUG: Diagnostic contains: dereferenced expression 'b' is @Nullable",
-            "     b.toString();",
-            "   }",
-            "}")
+            """
+            package com.uber;
+            import javax.annotation.Nullable;
+            public class Foo {
+               @Nullable Object f;
+               public void bar() {
+                 Object a = f;
+                 Object b = a;
+                 // BUG: Diagnostic contains: dereferenced expression 'b' is @Nullable
+                 b.toString();
+               }
+            }
+            """)
         .doTest();
     assertXmlContains(
         root,
@@ -2679,16 +2700,18 @@ public class SerializationTest extends NullAwayTestsBase {
                 "-XepOpt:NullAway:FixSerializationConfigPath=" + configPath))
         .addSourceLines(
             "com/uber/Foo.java",
-            "package com.uber;",
-            "import javax.annotation.Nullable;",
-            "public class Foo {",
-            "   @Nullable Object get() { return null; }",
-            "   public void bar() {",
-            "     Object l = get();",
-            "     // BUG: Diagnostic contains: dereferenced expression 'l' is @Nullable",
-            "     l.toString();",
-            "   }",
-            "}")
+            """
+            package com.uber;
+            import javax.annotation.Nullable;
+            public class Foo {
+               @Nullable Object get() { return null; }
+               public void bar() {
+                 Object l = get();
+                 // BUG: Diagnostic contains: dereferenced expression 'l' is @Nullable
+                 l.toString();
+               }
+            }
+            """)
         .doTest();
     assertXmlContains(
         root,
@@ -2715,16 +2738,18 @@ public class SerializationTest extends NullAwayTestsBase {
                     "-XepOpt:NullAway:FixSerializationConfigPath=" + configPath)))
         .addSourceLines(
             "com/uber/Foo.java",
-            "package com.uber;",
-            "import org.jspecify.annotations.Nullable;",
-            "public class Foo {",
-            "   static <T extends @Nullable Object> T pick(T x) { return x; }",
-            "   public void bar(@Nullable Object p) {",
-            "     Object l = pick(p);",
-            "     // BUG: Diagnostic contains: dereferenced expression 'l' is @Nullable",
-            "     l.toString();",
-            "   }",
-            "}")
+            """
+            package com.uber;
+            import org.jspecify.annotations.Nullable;
+            public class Foo {
+               static <T extends @Nullable Object> T pick(T x) { return x; }
+               public void bar(@Nullable Object p) {
+                 Object l = pick(p);
+                 // BUG: Diagnostic contains: dereferenced expression 'l' is @Nullable
+                 l.toString();
+               }
+            }
+            """)
         .doTest();
     assertXmlContains(
         root, "<message_type>DEREFERENCE_NULLABLE</message_type>", "<origins>", "<symbol>pick");
@@ -2741,23 +2766,27 @@ public class SerializationTest extends NullAwayTestsBase {
                 "-XepOpt:NullAway:FixSerializationConfigPath=" + configPath))
         .addSourceLines(
             "com/uber/Bar.java",
-            "package com.uber;",
-            "import javax.annotation.Nullable;",
-            "public class Bar {",
-            "   @Nullable public Object val;",
-            "}")
+            """
+            package com.uber;
+            import javax.annotation.Nullable;
+            public class Bar {
+               @Nullable public Object val;
+            }
+            """)
         .addSourceLines(
             "com/uber/Foo.java",
-            "package com.uber;",
-            "import javax.annotation.Nullable;",
-            "public class Foo {",
-            "   Bar b = new Bar();",
-            "   public void bar() {",
-            "     Object l = b.val;",
-            "     // BUG: Diagnostic contains: dereferenced expression 'l' is @Nullable",
-            "     l.toString();",
-            "   }",
-            "}")
+            """
+            package com.uber;
+            import javax.annotation.Nullable;
+            public class Foo {
+               Bar b = new Bar();
+               public void bar() {
+                 Object l = b.val;
+                 // BUG: Diagnostic contains: dereferenced expression 'l' is @Nullable
+                 l.toString();
+               }
+            }
+            """)
         .doTest();
     assertXmlContains(
         root,
@@ -2777,15 +2806,17 @@ public class SerializationTest extends NullAwayTestsBase {
                 "-XepOpt:NullAway:FixSerializationConfigPath=" + configPath))
         .addSourceLines(
             "com/uber/Foo.java",
-            "package com.uber;",
-            "import javax.annotation.Nullable;",
-            "public class Foo {",
-            "   public void take(Object o) { }",
-            "   public void bar(@Nullable Object p) {",
-            "     // BUG: Diagnostic contains: passing @Nullable parameter",
-            "     take(p);",
-            "   }",
-            "}")
+            """
+            package com.uber;
+            import javax.annotation.Nullable;
+            public class Foo {
+               public void take(Object o) { }
+               public void bar(@Nullable Object p) {
+                 // BUG: Diagnostic contains: passing @Nullable parameter
+                 take(p);
+               }
+            }
+            """)
         .doTest();
     assertXmlContains(
         root,
@@ -2805,16 +2836,18 @@ public class SerializationTest extends NullAwayTestsBase {
                 "-XepOpt:NullAway:FixSerializationConfigPath=" + configPath))
         .addSourceLines(
             "com/uber/Foo.java",
-            "package com.uber;",
-            "import javax.annotation.Nullable;",
-            "public class Foo {",
-            "   Object f = new Object();",
-            "   @Nullable Object getNullable() { return null; }",
-            "   public void bar() {",
-            "     // BUG: Diagnostic contains: assigning @Nullable expression to @NonNull field",
-            "     f = getNullable();",
-            "   }",
-            "}")
+            """
+            package com.uber;
+            import javax.annotation.Nullable;
+            public class Foo {
+               Object f = new Object();
+               @Nullable Object getNullable() { return null; }
+               public void bar() {
+                 // BUG: Diagnostic contains: assigning @Nullable expression to @NonNull field
+                 f = getNullable();
+               }
+            }
+            """)
         .doTest();
     assertXmlContains(
         root,
@@ -2906,7 +2939,12 @@ public class SerializationTest extends NullAwayTestsBase {
                 "-XepOpt:NullAway:FixSerializationConfigPath=" + configPath))
         // Just to run serialization features, the serialized fixes are not point of interest in
         // this test.
-        .addSourceLines("com/uber/Test.java", "package com.uber;", "public class Test { }")
+        .addSourceLines(
+            "com/uber/Test.java",
+            """
+            package com.uber;
+            public class Test { }
+            """)
         .expectNoOutput()
         .setFactory(errorDisplayFactory)
         .setOutputFileNameAndHeader(ERROR_FILE_NAME, adapter.getErrorsOutputFileHeader())
