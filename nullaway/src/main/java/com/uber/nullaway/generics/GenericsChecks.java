@@ -1564,7 +1564,8 @@ public final class GenericsChecks {
       return successResult;
     } catch (UnsatisfiableConstraintsException e) {
       String inferenceFailureMessage = inferenceFailureMessage(e, polyNullContexts);
-      // Dataflow inference is provisional; ordinary checking reports any failure once it completes.
+      // Inference during dataflow may run before every argument has its dataflow value, so report
+      // failures only when inference runs again outside dataflow.
       if (!calledFromDataflow) {
         reportInferenceFailure(callTree, inferenceFailureMessage, state);
       }
@@ -4022,9 +4023,9 @@ public final class GenericsChecks {
    * {@code @Nullable}.
    *
    * @return the inferred shared nullness, or {@code null} if no modeled parameter location applies.
-   *     Unsatisfiable constraints are reported and return {@code null} when {@code
-   *     WarnOnGenericInferenceFailure} is enabled; otherwise they return {@code Nullness.NULLABLE}
-   *     to preserve ordinary nullness errors.
+   *     Unsatisfiable constraints return {@code null} when {@code WarnOnGenericInferenceFailure} is
+   *     enabled; otherwise they return {@code Nullness.NULLABLE} to preserve ordinary nullness
+   *     errors. They are reported only outside dataflow.
    */
   private @Nullable Nullness inferPolyNullnessSeparately(
       Symbol.MethodSymbol methodSymbol,
@@ -4078,6 +4079,8 @@ public final class GenericsChecks {
       }
       return resolved;
     } catch (UnsatisfiableConstraintsException e) {
+      // Inference during dataflow may run before every argument has its dataflow value, so report
+      // failures only when inference runs again outside dataflow.
       if (!calledFromDataflow) {
         reportInferenceFailure(
             invocationTree,
