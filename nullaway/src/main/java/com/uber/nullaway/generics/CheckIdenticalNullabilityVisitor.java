@@ -2,7 +2,6 @@ package com.uber.nullaway.generics;
 
 import static com.uber.nullaway.NullabilityUtil.castToNonNull;
 
-import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Equivalence;
 import com.google.errorprone.VisitorState;
 import com.sun.tools.javac.code.BoundKind;
@@ -11,10 +10,8 @@ import com.sun.tools.javac.code.Type;
 import com.sun.tools.javac.code.Types;
 import com.uber.nullaway.Config;
 import com.uber.nullaway.handlers.Handler;
-import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
-import java.util.Map;
 import java.util.Set;
 import javax.lang.model.type.NullType;
 import javax.lang.model.type.TypeKind;
@@ -25,12 +22,11 @@ import org.jspecify.annotations.Nullable;
  * Compares the Type it is called upon, i.e. the LHS type and the Type passed as an argument, i.e.
  * The RHS type.
  *
- * <p>The effective-upper-bound and completed-containment caches last for the visitor instance.
- * {@link GenericsChecks} creates one instance per top-level {@code subtypeParameterNullability}
- * call and reuses it for recursive comparisons. Later comparisons on the same instance can reuse
- * cached results for the same identity-based keys, provided the relevant type structure and
- * nullness annotations have not changed. Pending containment results last only for one outermost
- * {@code wildcardContains} call.
+ * <p>The completed-containment cache lasts for the visitor instance. {@link GenericsChecks} creates
+ * one instance per top-level {@code subtypeParameterNullability} call and reuses it for recursive
+ * comparisons. Later comparisons on the same instance can reuse cached results for the same
+ * identity-based keys, provided the relevant type structure and nullness annotations have not
+ * changed. Pending containment results last only for one outermost {@code wildcardContains} call.
  */
 public class CheckIdenticalNullabilityVisitor extends Types.DefaultTypeVisitor<Boolean, Type> {
   private final VisitorState state;
@@ -51,19 +47,11 @@ public class CheckIdenticalNullabilityVisitor extends Types.DefaultTypeVisitor<B
   private @Nullable Set<ContainmentKey> pendingWildcardComparisons;
 
   /**
-   * Effective upper bounds of type arguments, retained for this visitor instance. This avoids
-   * repeating capture conversion and bound resolution when the same parameterized type is compared
-   * again, even with a different counterpart. Cycle termination does not depend on this cache.
-   */
-  private @Nullable Map<ParameterizationKey, List<Type>> effectiveUpperBounds;
-
-  /**
    * Identifies a parameterization without relying on the identity of its class-type wrapper, which
    * capture conversion can recreate. Bound computation depends on the declaration, enclosing type,
    * and argument identities, not the containing class type's top-level nullness annotation.
    */
-  @VisibleForTesting
-  record ParameterizationKey(
+  private record ParameterizationKey(
       Equivalence.Wrapper<Symbol.TypeSymbol> symbol,
       Equivalence.Wrapper<Type> enclosing,
       List<Equivalence.Wrapper<Type>> arguments) {
@@ -80,9 +68,9 @@ public class CheckIdenticalNullabilityVisitor extends Types.DefaultTypeVisitor<B
 
   /**
    * Identifies an argument-containment comparison by its position in the two parameterized types,
-   * rather than by the identities of their computed effective upper bounds. This lets the cycle
-   * guard terminate independently of the upper-bound cache. The argument index distinguishes a
-   * shared wildcard used at multiple positions with different declared bounds.
+   * rather than by the identities of their computed effective upper bounds, which capture
+   * conversion can recreate. The argument index distinguishes a shared wildcard used at multiple
+   * positions with different declared bounds.
    */
   private record ContainmentKey(
       Equivalence.Wrapper<Type.WildcardType> lhsWildcard,
@@ -177,8 +165,11 @@ public class CheckIdenticalNullabilityVisitor extends Types.DefaultTypeVisitor<B
     if (config.handleWildcardGenerics()) {
       lhsParameterization = new ParameterizationKey(lhsType);
       rhsParameterization = new ParameterizationKey((Type.ClassType) rhsTypeAsSuper);
-      lhsUpperBounds = effectiveUpperBounds(lhsType, lhsParameterization);
-      rhsUpperBounds = effectiveUpperBounds((Type.ClassType) rhsTypeAsSuper, rhsParameterization);
+      lhsUpperBounds =
+          GenericsUtils.effectiveUpperBoundsForTypeArguments(lhsType, state, config, handler);
+      rhsUpperBounds =
+          GenericsUtils.effectiveUpperBoundsForTypeArguments(
+              (Type.ClassType) rhsTypeAsSuper, state, config, handler);
     }
     for (int i = 0; i < lhsTypeArguments.size(); i++) {
       Type lhsTypeArgument = lhsTypeArguments.get(i);
@@ -202,21 +193,6 @@ public class CheckIdenticalNullabilityVisitor extends Types.DefaultTypeVisitor<B
     // We use rhsTypeAsSuper here rather than rhsType, since rhsType may be a captured type
     // variable, whose getEnclosingType() returns null.
     return lhsType.getEnclosingType().accept(this, rhsTypeAsSuper.getEnclosingType());
-  }
-
-  /** Returns effective upper bounds computed once per parameterized type per visitor instance. */
-  @VisibleForTesting
-  List<Type> effectiveUpperBounds(Type.ClassType type, ParameterizationKey key) {
-    if (effectiveUpperBounds == null) {
-      effectiveUpperBounds = new HashMap<>();
-    }
-    return effectiveUpperBounds.computeIfAbsent(key, unused -> computeEffectiveUpperBounds(type));
-  }
-
-  /** Computes effective upper bounds on a cache miss; tests override this to count computations. */
-  @VisibleForTesting
-  List<Type> computeEffectiveUpperBounds(Type.ClassType type) {
-    return GenericsUtils.effectiveUpperBoundsForTypeArguments(type, state, config, handler);
   }
 
   /** Check identical nullability for every type in the intersection */
