@@ -120,9 +120,17 @@ public class RequireExplicitNullMarkingTest {
   public void packageLevelAnnotationAllowsMissingClassAnnotation() {
     compilationHelper
         .addSourceLines(
-            "test/package-info.java", "@org.jspecify.annotations.NullMarked", "package test;")
+            "test/package-info.java",
+            """
+            @org.jspecify.annotations.NullMarked
+            package test;
+            """)
         .addSourceLines(
-            "test/PackageMarkedClass.java", "package test;", "class PackageMarkedClass {}")
+            "test/PackageMarkedClass.java",
+            """
+            package test;
+            class PackageMarkedClass {}
+            """)
         .doTest();
   }
 }

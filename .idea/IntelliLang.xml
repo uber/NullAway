@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project version="4">
+  <component name="LanguageInjectionConfiguration">
+    <injection language="JAVA" injector-id="java">
+      <display-name>Java test sources (Error Prone and NullAway test helpers)</display-name>
+      <place><![CDATA[psiParameter().ofMethod(1, psiMethod().withName("addSourceLines").withParameters("java.lang.String", "java.lang.String[]").definedInClass("com.google.errorprone.CompilationTestHelper"))]]></place>
+      <place><![CDATA[psiParameter().ofMethod(1, psiMethod().withName("addInputLines").withParameters("java.lang.String", "java.lang.String[]").definedInClass("com.google.errorprone.BugCheckerRefactoringTestHelper"))]]></place>
+      <place><![CDATA[psiParameter().ofMethod(1, psiMethod().withName("addOutputLines").withParameters("java.lang.String", "java.lang.String[]").definedInClass("com.google.errorprone.BugCheckerRefactoringTestHelper.ExpectOutput"))]]></place>
+      <place><![CDATA[psiParameter().ofMethod(1, psiMethod().withName("addSourceLines").withParameters("java.lang.String", "java.lang.String[]").definedInClass("com.uber.nullaway.tools.SerializationTestHelper"))]]></place>
+    </injection>
+  </component>
+</project>
