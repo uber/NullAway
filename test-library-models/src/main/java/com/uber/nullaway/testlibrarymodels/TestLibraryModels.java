@@ -266,9 +266,9 @@ public class TestLibraryModels implements LibraryModels {
 
   @Override
   public ImmutableList<StreamTypeRecord> customStreamNullabilitySpecs() {
-    // Identical to the default model for java.util.stream.Stream, but with the original type
-    // renamed
     return StreamModelBuilder.start()
+        // Identical to the default model for java.util.stream.Stream, but with the original type
+        // renamed
         .addStreamTypeFromName("com.uber.nullaway.testdata.unannotated.CustomStream")
         .withFilterMethodFromSignature("filter(java.util.function.Predicate<? super T>)")
         .withMapMethodFromSignature(
@@ -293,6 +293,11 @@ public class TestLibraryModels implements LibraryModels {
             "forEachOrdered(java.util.function.Consumer<? super T>)", "accept", ImmutableSet.of(0))
         .withMapMethodAllFromName("flatMap", "apply", ImmutableSet.of(0))
         .withPassthroughMethodFromSignature("distinct()")
+        // A filter that also starts from the facts of the filter before it
+        .addStreamTypeFromName("com.uber.nullaway.testdata.unannotated.FilterIsMapLikeStream")
+        .withFilterMethodFromSignature("filter(java.util.function.Predicate<? super T>)")
+        .withMapMethodFromSignature(
+            "filter(java.util.function.Predicate<? super T>)", "test", ImmutableSet.of(0))
         .end();
   }
 

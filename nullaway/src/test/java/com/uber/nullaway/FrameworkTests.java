@@ -1247,6 +1247,73 @@ public class FrameworkTests extends NullAwayTestsBase {
   }
 
   @Test
+  public void filterThatIsAlsoMapLikeStartsFromTheFactsOfThePreviousFilter() {
+    defaultCompilationHelper
+        .addSourceLines(
+            "FilterIsMapLikeStream.java",
+            """
+            package com.uber.nullaway.testdata.unannotated;
+            import java.util.function.Predicate;
+            // FilterIsMapLikeStream is modeled in TestLibraryModels
+            public class FilterIsMapLikeStream<T> {
+              public FilterIsMapLikeStream<T> filter(Predicate<? super T> predicate) {
+                throw new UnsupportedOperationException();
+              }
+            }
+            """)
+        .addSourceLines(
+            "Test.java",
+            """
+            package com.uber;
+            import com.uber.nullaway.testdata.unannotated.FilterIsMapLikeStream;
+            import java.util.function.Predicate;
+            import javax.annotation.Nullable;
+            class Test {
+              @Nullable Object f;
+              static FilterIsMapLikeStream<Test> blockLambda(FilterIsMapLikeStream<Test> s) {
+                return s.filter(p -> p.f != null)
+                    .filter(
+                        q -> {
+                          if (q.hashCode() == 0) {
+                            return true;
+                          }
+                          return q.f.hashCode() > 0;
+                        });
+              }
+              static FilterIsMapLikeStream<Test> expressionLambda(FilterIsMapLikeStream<Test> s) {
+                return s.filter(p -> p.f != null).filter(q -> q.f.hashCode() > 0);
+              }
+              static FilterIsMapLikeStream<Test> anonymousPredicate(FilterIsMapLikeStream<Test> s) {
+                return s.filter(p -> p.f != null)
+                    .filter(
+                        new Predicate<Test>() {
+                          @Override
+                          public boolean test(Test q) {
+                            if (q.hashCode() == 0) {
+                              return true;
+                            }
+                            return q.f.hashCode() > 0;
+                          }
+                        });
+              }
+              static FilterIsMapLikeStream<Test> previousFilterLeavesFNullable(
+                  FilterIsMapLikeStream<Test> s) {
+                return s.filter(p -> p.hashCode() != 0)
+                    .filter(
+                        q -> {
+                          if (q.hashCode() == 0) {
+                            return true;
+                          }
+                          // BUG: Diagnostic contains: dereferenced expression 'q.f' is @Nullable
+                          return q.f.hashCode() > 0;
+                        });
+              }
+            }
+            """)
+        .doTest();
+  }
+
+  @Test
   public void streamSupportPositiveCases() {
     defaultCompilationHelper
         .addSourceLines(
