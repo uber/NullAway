@@ -612,7 +612,8 @@ public class TypeSubstitutionUtils {
 
     @Override
     public Type visitClassType(Type.ClassType t, Type other) {
-      // Shared types already contain the source annotations, including in implicit bounds.
+      // When the target is the source object itself, it already carries every source annotation,
+      // including those on implicit wildcard bounds.
       if (t == other) {
         return t;
       }

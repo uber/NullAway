@@ -19,26 +19,27 @@ import com.sun.tools.javac.code.Type;
 import com.sun.tools.javac.util.List;
 import com.sun.tools.javac.util.ListBuffer;
 import com.uber.nullaway.NullAway;
-import java.lang.reflect.Field;
-import java.util.AbstractMap;
-import java.util.Collections;
+import com.uber.nullaway.generics.CheckIdenticalNullabilityVisitor.ParameterizationKey;
 import java.util.HashMap;
 import java.util.IdentityHashMap;
 import java.util.Map;
-import java.util.Set;
 import org.junit.Test;
 
 /**
- * Deterministic containment-work and transaction-safety tests using attributed javac symbols.
+ * Checks that comparisons grow linearly with bound depth, a repeated comparison takes one class
+ * visit, and successes from failed or interrupted outermost comparisons are not cached. Effective
+ * upper bounds are computed once per parameterized type, including across recreated class-type
+ * wrappers.
  *
  * <p>The detached fixtures copy class and intersection wrappers into distinct LHS and RHS graphs,
  * preserving sharing within each graph. Implicit wildcards become explicit extends wildcards
  * holding detached formal bounds: capture conversion must not canonicalize both sides to a
  * compiler-owned bound and accidentally bypass the containment traversal. Sharing concrete Object
  * leaves is intentional. The detached cyclic fixture links only newly allocated wrappers; no
- * compiler-owned types are rewritten. The cache-disabled fixture instead traverses javac's real
- * cyclic bound graph, asserting that capture conversion produces fresh intersection wrappers.
- * Recheck these representations if javac's wildcard or intersection internals change.
+ * compiler-owned types are rewritten. The fixture without an effective-upper-bounds cache instead
+ * traverses javac's real cyclic bound graph, asserting that computing effective upper bounds
+ * produces fresh intersection wrappers. Recheck these representations if javac's wildcard or
+ * intersection internals change.
  */
 public class CheckIdenticalNullabilityVisitorTests {
 
@@ -75,6 +76,43 @@ public class CheckIdenticalNullabilityVisitorTests {
           }
         }
         """);
+    compile(source.toString());
+  }
+
+  @Test(timeout = 30_000)
+  public void effectiveUpperBoundsAreComputedOncePerParameterization() {
+    StringBuilder source = new StringBuilder();
+    for (int arity : new int[] {4, 16, 64}) {
+      source.append("interface Arity").append(arity).append('<');
+      for (int index = 0; index < arity; index++) {
+        if (index > 0) {
+          source.append(", ");
+        }
+        source.append('T').append(index);
+      }
+      source.append("> {}\n");
+    }
+    source.append("class Test {\n");
+    for (int arity : new int[] {4, 16, 64}) {
+      source
+          .append("void arity")
+          .append(arity)
+          .append("() {\n")
+          .append("// BUG: Diagnostic contains: arity")
+          .append(arity)
+          .append(": computedOnce, repeatsUnchanged, recreatedWrappers, distinctParameterization\n")
+          .append("Arity")
+          .append(arity)
+          .append('<');
+      for (int index = 0; index < arity; index++) {
+        if (index > 0) {
+          source.append(", ");
+        }
+        source.append('?');
+      }
+      source.append("> arity").append(arity).append(";\n}\n");
+    }
+    source.append("}\n");
     compile(source.toString());
   }
 
@@ -176,7 +214,10 @@ public class CheckIdenticalNullabilityVisitorTests {
           && !name.equals("cycleFailure")
           && !name.equals("contextual")
           && !name.equals("uncachedCycle")
-          && !name.equals("argumentPositions")) {
+          && !name.equals("argumentPositions")
+          && !name.equals("arity4")
+          && !name.equals("arity16")
+          && !name.equals("arity64")) {
         return NO_MATCH;
       }
       String message;
@@ -188,6 +229,8 @@ public class CheckIdenticalNullabilityVisitorTests {
               case "contextual" -> checkContextualBounds(original, state);
               case "uncachedCycle" -> checkUncachedCycle((Type.ClassType) original, state);
               case "argumentPositions" -> checkArgumentPositions(original, state);
+              case "arity4", "arity16", "arity64" ->
+                  checkEffectiveUpperBounds((Type.ClassType) original, state);
               default -> checkDepth(original, Integer.parseInt(name.substring(5)), state);
             };
       } catch (WorkBudgetExceeded exhausted) {
@@ -237,6 +280,65 @@ public class CheckIdenticalNullabilityVisitorTests {
         message += ", linear";
       }
       return message + ", comparisons=" + first;
+    }
+
+    /**
+     * Counts actual effective-upper-bound computations as arity and repeated comparisons grow.
+     * Recreated wrappers keep argument identities, while replacing one wildcard creates exactly one
+     * new parameterization and requires exactly one additional computation.
+     */
+    private String checkEffectiveUpperBounds(Type.ClassType original, VisitorState state) {
+      CountingVisitor visitor =
+          new CountingVisitor(state, nullAway, 4 * original.getTypeArguments().size() + 4);
+      compareRecreatedTypes(original, visitor);
+      ParameterizationKey originalKey = new ParameterizationKey(original);
+      assertThat(visitor.computedBounds.get(originalKey)).isEqualTo(1);
+      Map<ParameterizationKey, Integer> expected = new HashMap<>(visitor.computedBounds);
+      for (int repeat = 0; repeat < 32; repeat++) {
+        compareRecreatedTypes(original, visitor);
+        assertThat(visitor.computedBounds).containsExactlyEntriesIn(expected);
+      }
+
+      Type.WildcardType wildcard = (Type.WildcardType) original.getTypeArguments().head;
+      Type.WildcardType replacement =
+          new Type.WildcardType(wildcard.type, wildcard.kind, wildcard.tsym, wildcard.bound);
+      assertThat(replacement).isNotSameInstanceAs(wildcard);
+      Type.ClassType different =
+          new Type.ClassType(
+              original.getEnclosingType(),
+              original.getTypeArguments().tail.prepend(replacement),
+              original.tsym);
+      ParameterizationKey differentKey = new ParameterizationKey(different);
+      assertThat(differentKey).isNotEqualTo(originalKey);
+      expected.put(differentKey, 1);
+      compareRecreatedTypes(different, visitor);
+      assertThat(visitor.computedBounds).containsExactlyEntriesIn(expected);
+      for (int repeat = 0; repeat < 32; repeat++) {
+        compareRecreatedTypes(original, visitor);
+        compareRecreatedTypes(different, visitor);
+        assertThat(visitor.computedBounds).containsExactlyEntriesIn(expected);
+      }
+      return "arity"
+          + original.getTypeArguments().size()
+          + ": computedOnce, repeatsUnchanged, recreatedWrappers, distinctParameterization";
+    }
+
+    /**
+     * Compares new class-type wrappers sharing the original parameterization's argument objects.
+     */
+    private void compareRecreatedTypes(Type.ClassType original, CountingVisitor visitor) {
+      Type.ClassType lhs =
+          new Type.ClassType(
+              original.getEnclosingType(), original.getTypeArguments(), original.tsym);
+      Type.ClassType rhs =
+          new Type.ClassType(
+              original.getEnclosingType(), original.getTypeArguments(), original.tsym);
+      assertThat(lhs).isNotSameInstanceAs(original);
+      assertThat(rhs).isNotSameInstanceAs(original);
+      assertThat(lhs).isNotSameInstanceAs(rhs);
+      assertThat(lhs.getTypeArguments().head).isSameInstanceAs(rhs.getTypeArguments().head);
+      visitor.reset(4 * original.getTypeArguments().size() + 4);
+      assertThat(lhs.accept(visitor, rhs)).isTrue();
     }
 
     /**
@@ -354,11 +456,12 @@ public class CheckIdenticalNullabilityVisitorTests {
     }
 
     /**
-     * Traverses javac's real cyclic bound graph without retaining any computed upper bounds.
-     * Capture conversion must allocate fresh intersection wrappers, so bound-identity containment
-     * keys would exhaust the comparison budget. Every non-intersection class visit compares one
-     * wildcard pair and computes two bounds. More computations than twice the number of published
-     * keys therefore proves a pending question was revisited before the outermost success.
+     * Traverses javac's real cyclic bound graph without retaining computed effective upper bounds.
+     * Computing bounds allocates fresh intersection wrappers, so bound-identity containment keys
+     * would exhaust the class-visit budget. Every parameterized type in this fixture has one
+     * wildcard argument. Computing one parameterization more than twice during a single root
+     * comparison therefore proves a pending question was revisited: the initial visit computes both
+     * sides, and no completed result is published until the outermost comparison returns.
      */
     private String checkUncachedCycle(Type.ClassType original, VisitorState state) {
       Type firstBound =
@@ -373,24 +476,14 @@ public class CheckIdenticalNullabilityVisitorTests {
       assertThat(secondBound).isNotSameInstanceAs(firstBound);
 
       CountingVisitor visitor = new CountingVisitor(state, nullAway, 96);
-      NoCacheMap noCache = new NoCacheMap();
-      try {
-        Field boundsField =
-            CheckIdenticalNullabilityVisitor.class.getDeclaredField("effectiveUpperBounds");
-        boundsField.setAccessible(true);
-        boundsField.set(visitor, noCache);
-        assertThat(original.accept(visitor, original)).isTrue();
-        assertThat(noCache.entrySet()).isEmpty();
-
-        Field completedField =
-            CheckIdenticalNullabilityVisitor.class.getDeclaredField("completedWildcardComparisons");
-        completedField.setAccessible(true);
-        Set<?> completed = (Set<?>) completedField.get(visitor);
-        assertThat(completed).isNotEmpty();
-        assertThat(noCache.computations).isGreaterThan(2 * completed.size());
-      } catch (ReflectiveOperationException e) {
-        throw new LinkageError("Could not inspect the visitor's containment caches", e);
-      }
+      visitor.cacheEffectiveUpperBounds = false;
+      assertThat(original.accept(visitor, original)).isTrue();
+      assertThat(visitor.comparisons).isAtMost(96);
+      assertThat(
+              visitor.computedBounds.entrySet().stream()
+                  .anyMatch(
+                      entry -> entry.getKey().arguments().size() == 1 && entry.getValue() > 2))
+          .isTrue();
       return "uncachedCycle: terminated, freshBounds, pendingRevisited";
     }
 
@@ -435,12 +528,12 @@ public class CheckIdenticalNullabilityVisitorTests {
     }
   }
 
-  /**
-   * Counts all class visits, including intersections, and aborts before unbounded recursive work.
-   */
+  /** Counts class visits and actual effective-upper-bound computations, aborting unbounded work. */
   private static final class CountingVisitor extends CheckIdenticalNullabilityVisitor {
     private int comparisons;
     private int budget;
+    private boolean cacheEffectiveUpperBounds = true;
+    private final Map<ParameterizationKey, Integer> computedBounds = new HashMap<>();
 
     CountingVisitor(VisitorState state, NullAway nullAway, int budget) {
       super(state, nullAway.getGenericsChecks(), nullAway.getConfig(), nullAway.getHandler());
@@ -455,6 +548,21 @@ public class CheckIdenticalNullabilityVisitorTests {
       this.budget = budget;
     }
 
+    /** Bypasses only the effective-upper-bounds cache for the cyclic-bound regression. */
+    @Override
+    java.util.List<Type> effectiveUpperBounds(Type.ClassType type, ParameterizationKey key) {
+      return cacheEffectiveUpperBounds
+          ? super.effectiveUpperBounds(type, key)
+          : computeEffectiveUpperBounds(type);
+    }
+
+    /** Records actual computations, not cache lookups, by parameterization. */
+    @Override
+    java.util.List<Type> computeEffectiveUpperBounds(Type.ClassType type) {
+      computedBounds.merge(new ParameterizationKey(type), 1, Integer::sum);
+      return super.computeEffectiveUpperBounds(type);
+    }
+
     /** Fails deterministically even when completed containment work is not cached. */
     @Override
     public Boolean visitClassType(Type.ClassType lhs, Type rhs) {
@@ -462,22 +570,6 @@ public class CheckIdenticalNullabilityVisitorTests {
         throw new WorkBudgetExceeded();
       }
       return super.visitClassType(lhs, rhs);
-    }
-  }
-
-  /** Forces Map.computeIfAbsent to recompute every bound while counting those computations. */
-  private static final class NoCacheMap extends AbstractMap<Object, Object> {
-    private int computations;
-
-    @Override
-    public Set<Entry<Object, Object>> entrySet() {
-      return Collections.emptySet();
-    }
-
-    @Override
-    public Object put(Object key, Object value) {
-      computations++;
-      return null;
     }
   }
 
