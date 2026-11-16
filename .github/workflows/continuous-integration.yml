@@ -149,32 +149,32 @@ jobs:
           - project: spring-framework
             url: https://github.com/spring-projects/spring-framework.git
             branch: main
-            sha: 9f642a3937adb5606412b90e9a5c18907e7d9387
+            sha: 4cb62d893e09e23791d661e8d9b35aedee7006d0
             build: ./gradlew --init-script use-snapshot.gradle.kts compileAllJava
           - project: junit-framework
             url: https://github.com/junit-team/junit-framework.git
             branch: main
-            sha: 12f007f531867169baefe4483b7d7e5dd15acc77
+            sha: 369385ca736a85e874fabbd3d27b449df9d2a99d
             build: ./gradlew --init-script use-snapshot.gradle.kts compileAllJava
           - project: spring-boot
             url: https://github.com/spring-projects/spring-boot.git
             branch: main
-            sha: 8552ac1799bd5b889a48ce858ba1d744f8fe0348
+            sha: 3d8ad8ecf3899381514e413877a90e16e6a52b00
             build: ./gradlew --init-script use-snapshot.gradle.kts compileAllJava
           - project: reactor-core
             url: https://github.com/reactor/reactor-core.git
             branch: main
-            sha: 8f7ab9da896298cd7a9a2fd9deb7bada68bb3688
+            sha: 12aff1092412e892f255a743827663e3cee84d6f
             build: ./gradlew --init-script use-snapshot.gradle.kts compileAllJava
           - project: spring-batch
             url: https://github.com/spring-projects/spring-batch.git
             branch: main
-            sha: 84bc35860494ae34d1236c995bc504c3798a96d5
+            sha: 899ccc33e2cfe1b26ce267a3dbdc9c8bf606cd1a
             build: ./mvnw -B -ntp -nsu -Dnullaway.version="$NULLAWAY_VERSION" -Dspring-javaformat.skip=true test-compile
           - project: vavr
             url: https://github.com/vavr-io/vavr.git
             branch: main
-            sha: ca7ed065129bea815f57cfae16e28985741d8d69
+            sha: 9fb5dab2dd5b8bc0c475ce43feebbd8803729416
             build: JAVA_HOME="$JAVA_HOME_21_X64" ./mvnw -B -ntp -nsu -Pnullaway -Dnullaway.version="$NULLAWAY_VERSION" -Dspotless.skip=true compile
     permissions:
       contents: read
