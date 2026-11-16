@@ -116,6 +116,7 @@ public class GenericInferenceErrorReportingTests extends NullAwayTestsBase {
               static <T> T id(T value) { return value; }
               static <T> void sink(T first, T second) {}
               static <T> T first(T first, T second) { return first; }
+              @SafeVarargs static <T> void anyOf(T... values) {}
               static <T extends @Nullable Object> T nullableId(T value) { return value; }
               static <R> R apply(String value, Function<String, R> function) {
                 return function.apply(value);
@@ -128,6 +129,13 @@ public class GenericInferenceErrorReportingTests extends NullAwayTestsBase {
               }
               void nonNullFallbackFirst(String first, String fallback, Optional<String> optional) {
                 sink(optional.orElse(fallback), id(first));
+              }
+              void nonNullVarargsFallback(String first, String fallback, Optional<String> optional) {
+                anyOf(id(first), optional.orElse(fallback));
+              }
+              void nullableVarargsFallback(String first, @Nullable String fallback, Optional<String> optional) {
+                // BUG: Diagnostic contains: inference failure
+                anyOf(id(first), optional.orElse(fallback));
               }
               void nullableFallback(String first, @Nullable String fallback, Optional<String> optional) {
                 // BUG: Diagnostic contains: inference failure

@@ -1450,18 +1450,17 @@ public class NullAway extends BugChecker
       doUnboxingCheck(state, retExpr);
       return;
     }
+    if (ASTHelpers.isSameType(returnType, Suppliers.JAVA_LANG_VOID_TYPE.get(state), state)) {
+      // For compatibility, a Void return accepts null. Prefer an explicit @Nullable Void return
+      // type.
+      return;
+    }
     // Check generic type arguments for returned expression here, since we need to check the type
     // arguments regardless of the top-level nullability of the return type.  Type arguments of an
     // unannotated method's return type are unspecified, so they are not compared, just as the
     // arguments of a call to an unannotated method are not checked
     if (!codeAnnotationInfo.isSymbolUnannotated(methodSymbol, config, handler)) {
       genericsChecks.checkTypeParameterNullnessForFunctionReturnType(retExpr, methodSymbol, state);
-    }
-
-    if (ASTHelpers.isSameType(returnType, Suppliers.JAVA_LANG_VOID_TYPE.get(state), state)) {
-      // For compatibility, a Void return accepts null, including through generic return inference
-      // above. Argument checks still apply. Prefer an explicit @Nullable Void return type.
-      return;
     }
 
     // Now, perform the check for returning @Nullable from @NonNull.  First, we check if the return

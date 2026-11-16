@@ -1564,11 +1564,7 @@ public final class GenericsChecks {
       return successResult;
     } catch (UnsatisfiableConstraintsException e) {
       String inferenceFailureMessage = inferenceFailureMessage(e, polyNullContexts);
-      // Inference during dataflow may run before every argument has its dataflow value, so report
-      // failures only when inference runs again outside dataflow.
-      if (!calledFromDataflow) {
-        reportInferenceFailure(callTree, inferenceFailureMessage, state);
-      }
+      reportInferenceFailure(callTree, inferenceFailureMessage, state, calledFromDataflow);
       InferenceFailure failureResult = new InferenceFailure(inferenceFailureMessage);
       if (okToCacheInferenceResult(calledFromDataflow)) {
         for (Tree inferredCall : allCalls) {
@@ -2490,8 +2486,9 @@ public final class GenericsChecks {
   }
 
   /**
-   * Returns a method's return-context target, treating {@code Void} as {@code @Nullable Void} for
-   * compatibility with the top-level return check. Nested type arguments retain their nullness.
+   * Returns the target type of a return statement in {@code method}, treating {@code Void} as
+   * {@code @Nullable Void} for compatibility with the top-level return check. Nested type arguments
+   * retain their nullness.
    */
   private Type getReturnTypeForInference(Symbol.MethodSymbol method, VisitorState state) {
     Type returnType = method.getReturnType();
@@ -2515,7 +2512,7 @@ public final class GenericsChecks {
       return;
     }
 
-    Type formalReturnType = getReturnTypeForInference(methodSymbol, state);
+    Type formalReturnType = methodSymbol.getReturnType();
     if (formalReturnType.isRaw()) {
       // bail out of any checking involving raw types for now
       return;
@@ -3780,10 +3777,9 @@ public final class GenericsChecks {
    * extends @Nullable Object> T id(T t);} and a {@link TreePath} to the inner call in {@code
    * id(id(x))}, return the outer call to use its assignment context for joint inference.
    *
-   * <p>During dataflow, return a call nested in another generic call itself, without an assignment
-   * context. This avoids repeatedly inferring the enclosing call for each nested call's dataflow
-   * query. Later arguments may not have dataflow values yet; failure reporting is deferred until
-   * inference runs outside dataflow. A call that is not nested gets its direct assignment or return
+   * <p>During dataflow, a call nested in another generic call is returned as is, without an
+   * assignment context, so that the enclosing call is not inferred again each time dataflow asks
+   * for the type of a nested call. A call that is not nested gets its direct assignment or return
    * context from {@link #getDirectCallContextForInference} in both cases.
    *
    * @param path the path to the invocation
@@ -3807,8 +3803,8 @@ public final class GenericsChecks {
                 && !isQualifierOf(parentConstructorCall, path.getLeaf())))
         && isCallNeedingInference(parentCall)) {
       if (calledFromDataflow) {
-        // Avoid inferring the enclosing call again for each nested call's dataflow query. The
-        // report guards separately prevent failures based on incomplete argument dataflow (#2126).
+        // Avoid inferring the enclosing call again each time dataflow asks for the type of a
+        // nested call.
         return CallAndContext.withoutContext((ExpressionTree) path.getLeaf());
       }
       // This is a nested generic call, such as id(id(x)) or id(new Box<>(x)). Find the
@@ -4079,14 +4075,11 @@ public final class GenericsChecks {
       }
       return resolved;
     } catch (UnsatisfiableConstraintsException e) {
-      // Inference during dataflow may run before every argument has its dataflow value, so report
-      // failures only when inference runs again outside dataflow.
-      if (!calledFromDataflow) {
-        reportInferenceFailure(
-            invocationTree,
-            PolyNullInference.inferenceFailureMessage(ASTHelpers.getSymbol(invocationTree)),
-            state);
-      }
+      reportInferenceFailure(
+          invocationTree,
+          PolyNullInference.inferenceFailureMessage(ASTHelpers.getSymbol(invocationTree)),
+          state,
+          calledFromDataflow);
       return config.warnOnGenericInferenceFailure() ? null : Nullness.NULLABLE;
     }
   }
@@ -4161,9 +4154,17 @@ public final class GenericsChecks {
             });
   }
 
-  /** Reports an inference failure once per call when inference warnings are enabled. */
-  private void reportInferenceFailure(Tree callTree, String message, VisitorState state) {
-    if (!config.warnOnGenericInferenceFailure()
+  /**
+   * Reports an inference failure once per call outside dataflow when inference warnings are
+   * enabled.
+   *
+   * <p>Inference during dataflow may run before every argument has its dataflow value, so failures
+   * are reported only when inference runs again outside dataflow (#2126).
+   */
+  private void reportInferenceFailure(
+      Tree callTree, String message, VisitorState state, boolean calledFromDataflow) {
+    if (calledFromDataflow
+        || !config.warnOnGenericInferenceFailure()
         || !callsWithReportedInferenceFailures.add(callTree)) {
       return;
     }
