@@ -90,6 +90,26 @@ public class SharedIntersectionTimeoutTests extends NullAwayTestsBase {
         .doTest();
   }
 
+  @Test(timeout = 30_000)
+  public void assignmentWithRecursiveLowerBound() {
+    makeTestHelperWithArgs(
+            JSpecifyJavacConfig.withJSpecifyModeArgs(
+                Collections.singletonList("-XepOpt:NullAway:OnlyNullMarked=true")))
+        .addSourceLines(
+            "Test.java",
+            """
+            interface C<X extends C<?, ? super X>, Y> {}
+            @org.jspecify.annotations.NullMarked
+            abstract class Test {
+              abstract C<?, ?> get();
+              void assignment() {
+                C<?, ?> x = get();
+              }
+            }
+            """)
+        .doTest();
+  }
+
   /**
    * Compiles an ordinary member call over thirty shared bound levels, optionally with a leaf cycle.
    */

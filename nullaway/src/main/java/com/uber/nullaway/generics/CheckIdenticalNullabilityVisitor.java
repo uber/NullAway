@@ -2,6 +2,7 @@ package com.uber.nullaway.generics;
 
 import static com.uber.nullaway.NullabilityUtil.castToNonNull;
 
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Equivalence;
 import com.google.errorprone.VisitorState;
 import com.sun.tools.javac.code.BoundKind;
@@ -10,7 +11,13 @@ import com.sun.tools.javac.code.Type;
 import com.sun.tools.javac.code.Types;
 import com.uber.nullaway.Config;
 import com.uber.nullaway.handlers.Handler;
+import java.util.ArrayDeque;
+import java.util.ArrayList;
+import java.util.BitSet;
+import java.util.Collections;
+import java.util.Deque;
 import java.util.HashSet;
+import java.util.IdentityHashMap;
 import java.util.List;
 import java.util.Set;
 import javax.lang.model.type.NullType;
@@ -46,25 +53,22 @@ public class CheckIdenticalNullabilityVisitor extends Types.DefaultTypeVisitor<B
    */
   private @Nullable Set<ContainmentKey> pendingWildcardComparisons;
 
+  /** Declaration-bound dependencies, computed once per declaration for this visitor instance. */
+  private @Nullable IdentityHashMap<Symbol.TypeSymbol, BitSet> referencedTypeParameters;
+
   /**
-   * Identifies a parameterization without relying on the identity of its class-type wrapper, which
-   * capture conversion can recreate. Bound computation depends on the declaration, enclosing type,
-   * and argument identities, not the containing class type's top-level nullness annotation.
+   * Identifies the parameterized type's contribution to effective upper bounds. An argument can be
+   * omitted when its formal is Object-bounded and never referenced in a declared upper bound. The
+   * compared arguments themselves are retained separately in {@link ContainmentKey}. Irrelevant
+   * arguments must not distinguish keys: capture conversion can recreate them indefinitely in a
+   * recursive bound such as {@code C<X extends C<?, ? super X>, Y>}, where X's bound does not
+   * depend on Y. Existing direct captures retain the full context because aliasing between
+   * positions can affect which formal supplies their effective-bound nullability.
    */
   private record ParameterizationKey(
       Equivalence.Wrapper<Symbol.TypeSymbol> symbol,
       Equivalence.Wrapper<Type> enclosing,
-      List<Equivalence.Wrapper<Type>> arguments) {
-    /** Uses identity equivalence because javac type equality can ignore annotation metadata. */
-    ParameterizationKey(Type.ClassType type) {
-      this(
-          Equivalence.identity().wrap(type.tsym),
-          Equivalence.identity().wrap(type.getEnclosingType()),
-          type.getTypeArguments().stream()
-              .map(argument -> Equivalence.identity().wrap(argument))
-              .toList());
-    }
-  }
+      List<Equivalence.Wrapper<Type>> arguments) {}
 
   /**
    * Identifies an argument-containment comparison by its position in the two parameterized types,
@@ -163,8 +167,8 @@ public class CheckIdenticalNullabilityVisitor extends Types.DefaultTypeVisitor<B
     ParameterizationKey lhsParameterization = null;
     ParameterizationKey rhsParameterization = null;
     if (config.handleWildcardGenerics()) {
-      lhsParameterization = new ParameterizationKey(lhsType);
-      rhsParameterization = new ParameterizationKey((Type.ClassType) rhsTypeAsSuper);
+      lhsParameterization = parameterizationKey(lhsType);
+      rhsParameterization = parameterizationKey((Type.ClassType) rhsTypeAsSuper);
       lhsUpperBounds =
           GenericsUtils.effectiveUpperBoundsForTypeArguments(lhsType, state, config, handler);
       rhsUpperBounds =
@@ -193,6 +197,84 @@ public class CheckIdenticalNullabilityVisitor extends Types.DefaultTypeVisitor<B
     // We use rhsTypeAsSuper here rather than rhsType, since rhsType may be a captured type
     // variable, whose getEnclosingType() returns null.
     return lhsType.getEnclosingType().accept(this, rhsTypeAsSuper.getEnclosingType());
+  }
+
+  /** Builds an identity-based key without arguments that cannot affect declared upper bounds. */
+  private ParameterizationKey parameterizationKey(Type.ClassType type) {
+    if (referencedTypeParameters == null) {
+      referencedTypeParameters = new IdentityHashMap<>();
+    }
+    BitSet referenced =
+        referencedTypeParameters.computeIfAbsent(
+            type.tsym, unused -> computeReferencedTypeParameters(type));
+    boolean hasCapture =
+        type.getTypeArguments().stream().anyMatch(Type.CapturedType.class::isInstance);
+    List<Equivalence.Wrapper<Type>> arguments = new ArrayList<>();
+    int index = 0;
+    for (Type argument : type.getTypeArguments()) {
+      if (hasCapture || referenced.get(index)) {
+        arguments.add(Equivalence.identity().wrap(argument));
+      }
+      index++;
+    }
+    return new ParameterizationKey(
+        Equivalence.identity().wrap(type.tsym),
+        Equivalence.identity().wrap(type.getEnclosingType()),
+        arguments);
+  }
+
+  /**
+   * Finds formals referenced anywhere in the declaration's upper bounds, also retaining every
+   * non-Object-bounded position. Taking the union across all bounds conservatively includes
+   * transitive dependencies without repeatedly expanding type variables. Non-Object bounds may
+   * cause capture conversion to substitute another capture at that position, so retaining them also
+   * preserves the formal mapping used to resolve capture nullability. Shared bound graphs are
+   * visited once, and type-variable occurrences are matched by symbol so annotated wrappers of the
+   * same formal are recognized.
+   */
+  @VisibleForTesting
+  BitSet computeReferencedTypeParameters(Type.ClassType type) {
+    IdentityHashMap<Symbol.TypeSymbol, Integer> formalIndices = new IdentityHashMap<>();
+    Deque<Type> remaining = new ArrayDeque<>();
+    BitSet referenced = new BitSet();
+    int index = 0;
+    for (Type formal : type.tsym.type.getTypeArguments()) {
+      Type upperBound = ((Type.TypeVar) formal).getUpperBound();
+      if (!(upperBound instanceof Type.ClassType)
+          || !upperBound.tsym.equals(state.getSymtab().objectType.tsym)) {
+        referenced.set(index);
+      }
+      formalIndices.put(formal.tsym, index++);
+      remaining.add(upperBound);
+    }
+    Set<Type> visited = Collections.newSetFromMap(new IdentityHashMap<>());
+    while (!remaining.isEmpty()) {
+      Type bound = remaining.removeLast();
+      if (!visited.add(bound)) {
+        continue;
+      }
+      if (bound instanceof Type.TypeVar variable) {
+        Integer formalIndex = formalIndices.get(variable.tsym);
+        if (formalIndex != null) {
+          referenced.set(formalIndex);
+        }
+      } else if (bound instanceof Type.IntersectionClassType intersection) {
+        remaining.addAll(intersection.getComponents());
+      } else if (bound instanceof Type.ClassType classType) {
+        remaining.addAll(classType.getTypeArguments());
+        remaining.add(classType.getEnclosingType());
+      } else if (bound instanceof Type.ArrayType array) {
+        remaining.add(array.getComponentType());
+      } else if (bound instanceof Type.WildcardType wildcard) {
+        // The explicit bound may reference a formal; the mutable backing formal is not a use.
+        remaining.add(wildcard.type);
+      } else if (!bound.isPrimitive() && bound.getKind() != TypeKind.NONE) {
+        // Conservatively retain every argument for an unsupported compiler recovery type.
+        referenced.set(0, index);
+        return referenced;
+      }
+    }
+    return referenced;
   }
 
   /** Check identical nullability for every type in the intersection */
