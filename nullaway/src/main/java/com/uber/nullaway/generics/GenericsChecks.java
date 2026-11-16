@@ -1902,7 +1902,8 @@ public final class GenericsChecks {
     Type.MethodType fiMethodTypeAsMember =
         TypeSubstitutionUtils.memberType(state.getTypes(), groundTargetType, fiMethod, config)
             .asMethodType();
-    Type fiReturnType = fiMethodTypeAsMember.getReturnType();
+    Type fiReturnType =
+        getReturnTypeForInference(fiMethod, fiMethodTypeAsMember.getReturnType(), state);
     // save the previous lambdaParameterTypesForInference map so we can restore it after handling
     // the lambda body
     Map<Symbol, Type> previousParameterTypes = lambdaParameterTypesForInference;
@@ -2486,13 +2487,16 @@ public final class GenericsChecks {
   }
 
   /**
-   * Returns the target type of a return statement in {@code method}, treating {@code Void} as
-   * {@code @Nullable Void} for compatibility with the top-level return check. Nested type arguments
-   * retain their nullness.
+   * Returns {@code returnType}, treating it as nullable when {@code method} declares {@code Void}
+   * for compatibility with the top-level return check. Type-variable returns instantiated as {@code
+   * Void} and nested type arguments retain their nullness.
+   *
+   * @param returnType the method's return type after any type argument substitution
    */
-  private Type getReturnTypeForInference(Symbol.MethodSymbol method, VisitorState state) {
-    Type returnType = method.getReturnType();
-    return ASTHelpers.isSameType(returnType, Suppliers.JAVA_LANG_VOID_TYPE.get(state), state)
+  private Type getReturnTypeForInference(
+      Symbol.MethodSymbol method, Type returnType, VisitorState state) {
+    return ASTHelpers.isSameType(
+            method.getReturnType(), Suppliers.JAVA_LANG_VOID_TYPE.get(state), state)
         ? updateTypeWithNullness(state, returnType, Nullness.NULLABLE)
         : returnType;
   }
@@ -2888,7 +2892,7 @@ public final class GenericsChecks {
         Symbol.MethodSymbol methodSymbol = ASTHelpers.getSymbol(enclosingMethod);
         if (methodSymbol != null) {
           return new TargetTypeAndAssignmentKind(
-              getReturnTypeForInference(methodSymbol, state), false);
+              getReturnTypeForInference(methodSymbol, methodSymbol.getReturnType(), state), false);
         }
       }
     }
@@ -3843,7 +3847,10 @@ public final class GenericsChecks {
           && enclosingMethodOrLambda.getLeaf() instanceof MethodTree enclosingMethod) {
         Symbol.MethodSymbol methodSymbol = ASTHelpers.getSymbol(enclosingMethod);
         if (methodSymbol != null) {
-          return new CallAndContext(call, getReturnTypeForInference(methodSymbol, state), false);
+          return new CallAndContext(
+              call,
+              getReturnTypeForInference(methodSymbol, methodSymbol.getReturnType(), state),
+              false);
         }
       }
     } else if (parent instanceof ExpressionTree exprParent) {

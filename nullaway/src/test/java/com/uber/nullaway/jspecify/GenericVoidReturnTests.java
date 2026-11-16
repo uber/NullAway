@@ -8,7 +8,7 @@ import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.Parameterized;
 
-/** Tests the nullable Void return exemption with and without experimental inference diagnostics. */
+/** Tests the nullable Void return exemption in plain and experimental JSpecify modes. */
 @RunWith(Parameterized.class)
 public class GenericVoidReturnTests extends NullAwayTestsBase {
 
@@ -29,6 +29,7 @@ public class GenericVoidReturnTests extends NullAwayTestsBase {
         new ArrayList<>(
             List.of(
                 "-XepOpt:NullAway:OnlyNullMarked=true",
+                "-XepOpt:NullAway:WarnOnGenericInferenceFailure=true",
                 JSpecifyJavacConfig.JSPECIFY_MODE_FLAG,
                 JSpecifyJavacConfig.ADD_TYPE_ANNOTATIONS_FLAG));
     if (experimental) {
@@ -45,6 +46,58 @@ public class GenericVoidReturnTests extends NullAwayTestsBase {
             class Test {
               static <T extends @Nullable Object> T nid(T value) { return value; }
               static Void requiresNonNull(String value) { return null; }
+              interface VoidFn { Void run(); }
+              interface NullableVoidFn { @Nullable Void run(); }
+              interface StringFn { String run(); }
+              interface ListFn { List<Void> run(); }
+              interface GenericFn<R extends @Nullable Object> { R run(); }
+              static <U> void exec(VoidFn function, U value) {}
+              static <U> void execNullable(NullableVoidFn function, U value) {}
+              static <U> void execString(StringFn function, U value) {}
+              static <U> void execList(ListFn function, U value) {}
+              static <U> void execGeneric(GenericFn<Void> function, U value) {}
+              static void execPlain(VoidFn function) {}
+
+              void assignedLambda(@Nullable Void value) {
+                VoidFn function = () -> nid(value);
+              }
+              void assignedBlockLambda(@Nullable Void value) {
+                VoidFn function = () -> { return nid(value); };
+              }
+              void plainLambdaArgument(@Nullable Void value) {
+                execPlain(() -> nid(value));
+              }
+              void plainBlockLambdaArgument(@Nullable Void value) {
+                execPlain(() -> { return nid(value); });
+              }
+              void genericLambdaArgument(@Nullable Void value) {
+                exec(() -> nid(value), "x");
+              }
+              void genericBlockLambdaArgument(@Nullable Void value) {
+                exec(() -> { return nid(value); }, "x");
+              }
+              void nestedGenericLambdaArgument(@Nullable Void value) {
+                exec(() -> nid(nid(value)), "x");
+              }
+              void explicitlyNullableLambdaArgument(@Nullable Void value) {
+                execNullable(() -> nid(value), "x");
+              }
+              void nonNullLambdaReturn(@Nullable String value) {
+                // BUG: Diagnostic contains: inference failure
+                execString(() -> nid(value), "x");
+              }
+              void invalidLambdaArgument(@Nullable String value) {
+                // BUG: Diagnostic contains: passing @Nullable parameter 'value'
+                exec(() -> requiresNonNull(value), "x");
+              }
+              void incompatibleLambdaTypeArguments(List<@Nullable Void> values) {
+                // BUG: Diagnostic contains: incompatible types:
+                execList(() -> values, "x");
+              }
+              void substitutedVoidLambdaReturn(@Nullable Void value) {
+                // BUG: Diagnostic contains: inference failure
+                execGeneric(() -> nid(value), "x");
+              }
 
               Void direct(@Nullable Void value) { return value; }
               @Nullable Void explicitlyNullable(@Nullable Void value) { return nid(value); }
