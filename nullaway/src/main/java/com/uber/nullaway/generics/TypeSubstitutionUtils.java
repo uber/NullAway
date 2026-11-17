@@ -1,5 +1,6 @@
 package com.uber.nullaway.generics;
 
+import static com.uber.nullaway.NullabilityUtil.castToNonNull;
 import static com.uber.nullaway.generics.ClassDeclarationNullnessAnnotUtils.getAnnotatedSupertype;
 import static com.uber.nullaway.generics.ConstraintSolver.InferredNullability.NULLABLE;
 import static com.uber.nullaway.generics.TypeMetadataBuilder.TYPE_METADATA_BUILDER;
@@ -21,6 +22,7 @@ import java.util.HashMap;
 import java.util.IdentityHashMap;
 import java.util.Map;
 import java.util.Set;
+import java.util.function.Function;
 import javax.lang.model.element.Element;
 import javax.lang.model.type.DeclaredType;
 import org.jspecify.annotations.Nullable;
@@ -341,32 +343,17 @@ public class TypeSubstitutionUtils {
       Map<Element, ConstraintSolver.InferredNullability> typeVarNullability,
       VisitorState state,
       Config config) {
-    ListBuffer<Type> typeVars = new ListBuffer<>();
-    ListBuffer<Type> inferredTypes = new ListBuffer<>();
-    for (Map.Entry<Element, ConstraintSolver.InferredNullability> entry :
-        typeVarNullability.entrySet()) {
-      // find all TypeVars occurring in targetType with the same symbol and substitute for those.
-      // we can have multiple such TypeVars due to previous substitutions that modified the type
-      // in some way, e.g., by changing its bounds
-      Element symbol = entry.getKey();
-      TypeVarWithSymbolCollector tvc = new TypeVarWithSymbolCollector(symbol);
-      targetType.accept(tvc, null);
-      for (Type.TypeVar tv : tvc.getMatches()) {
-        typeVars.append(tv);
-        inferredTypes.append(
+    return substituteTypeVariables(
+        targetType,
+        typeVarNullability.keySet(),
+        variable ->
             typeWithAnnot(
-                tv,
-                entry.getValue() == NULLABLE
+                variable,
+                typeVarNullability.get(variable.asElement()) == NULLABLE
                     ? GenericsChecks.getSyntheticNullableAnnotType(state)
-                    : GenericsChecks.getSyntheticNonNullAnnotType(state)));
-      }
-    }
-    List<Type> typeVarsToReplace = typeVars.toList();
-    if (!typeVarsToReplace.isEmpty()) {
-      return subst(state.getTypes(), targetType, typeVarsToReplace, inferredTypes.toList(), config);
-    } else {
-      return targetType;
-    }
+                    : GenericsChecks.getSyntheticNonNullAnnotType(state)),
+        state.getTypes(),
+        config);
   }
 
   /**
@@ -390,15 +377,43 @@ public class TypeSubstitutionUtils {
       Map<? extends Element, ? extends Type> replacements,
       Types types,
       Config config) {
+    return substituteTypeVariables(
+        targetType,
+        replacements.keySet(),
+        variable -> castToNonNull(replacements.get(variable.asElement())),
+        types,
+        config);
+  }
+
+  /**
+   * Substitutes type variables whose symbols are in {@code symbols}, collecting their occurrences
+   * in one traversal.
+   *
+   * @param targetType type in which to replace type variables
+   * @param symbols symbols of the type variables to replace
+   * @param replacement computes the replacement for each distinct matching {@link Type.TypeVar}
+   *     object, including occurrences of the same symbol with different annotations or bounds
+   * @param types the javac types instance
+   * @param config the NullAway config
+   * @return the type with replacements applied, or {@code targetType} itself when no matching type
+   *     variables occur, including when {@code symbols} is empty
+   */
+  private static Type substituteTypeVariables(
+      Type targetType,
+      Set<? extends Element> symbols,
+      Function<Type.TypeVar, Type> replacement,
+      Types types,
+      Config config) {
+    if (symbols.isEmpty()) {
+      return targetType;
+    }
+    TypeVarWithSymbolCollector collector = new TypeVarWithSymbolCollector(symbols);
+    targetType.accept(collector, null);
     ListBuffer<Type> typeVars = new ListBuffer<>();
     ListBuffer<Type> replacementTypes = new ListBuffer<>();
-    for (Map.Entry<? extends Element, ? extends Type> entry : replacements.entrySet()) {
-      TypeVarWithSymbolCollector tvc = new TypeVarWithSymbolCollector(entry.getKey());
-      targetType.accept(tvc, null);
-      for (Type.TypeVar tv : tvc.getMatches()) {
-        typeVars.append(tv);
-        replacementTypes.append(entry.getValue());
-      }
+    for (Type.TypeVar variable : collector.getMatches()) {
+      typeVars.append(variable);
+      replacementTypes.append(replacement.apply(variable));
     }
     List<Type> typeVarsToReplace = typeVars.toList();
     if (typeVarsToReplace.isEmpty()) {

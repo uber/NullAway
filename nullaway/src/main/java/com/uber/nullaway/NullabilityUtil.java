@@ -32,16 +32,20 @@ import com.google.errorprone.suppliers.Suppliers;
 import com.google.errorprone.util.ASTHelpers;
 import com.sun.source.tree.ArrayAccessTree;
 import com.sun.source.tree.BlockTree;
+import com.sun.source.tree.CaseTree;
 import com.sun.source.tree.ClassTree;
 import com.sun.source.tree.ExpressionTree;
 import com.sun.source.tree.LambdaExpressionTree;
 import com.sun.source.tree.MemberReferenceTree;
 import com.sun.source.tree.MethodTree;
 import com.sun.source.tree.ParenthesizedTree;
+import com.sun.source.tree.SwitchExpressionTree;
 import com.sun.source.tree.Tree;
 import com.sun.source.tree.TypeCastTree;
 import com.sun.source.tree.VariableTree;
+import com.sun.source.tree.YieldTree;
 import com.sun.source.util.TreePath;
+import com.sun.source.util.TreePathScanner;
 import com.sun.tools.javac.code.Attribute;
 import com.sun.tools.javac.code.Flags;
 import com.sun.tools.javac.code.Symbol;
@@ -54,6 +58,7 @@ import com.sun.tools.javac.code.Types;
 import com.sun.tools.javac.tree.JCTree;
 import com.sun.tools.javac.util.JCDiagnostic;
 import com.uber.nullaway.handlers.Handler;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -78,6 +83,51 @@ public class NullabilityUtil {
   private static final String JETBRAINS_NOT_NULL = "org.jetbrains.annotations.NotNull";
 
   private NullabilityUtil() {}
+
+  /**
+   * Returns paths to the expressions whose values a switch expression can produce: each arrow-case
+   * expression and each {@code yield} value that completes this switch. Results of nested switches
+   * are not included. Collects the paths in one traversal. Each returned path has {@code
+   * switchPath} itself as an ancestor, so a dataflow run keyed on the enclosing method or lambda's
+   * path is reused rather than repeated.
+   *
+   * @param tree the switch expression
+   * @param switchPath path ending at {@code tree}
+   */
+  public static List<TreePath> getSwitchExpressionResultPaths(
+      SwitchExpressionTree tree, TreePath switchPath) {
+    List<TreePath> results = new ArrayList<>();
+    TreePathScanner<@Nullable Void, @Nullable Void> yieldScanner =
+        new TreePathScanner<>() {
+          @Override
+          public @Nullable Void visitYield(YieldTree yieldTree, @Nullable Void unused) {
+            results.add(new TreePath(getCurrentPath(), yieldTree.getValue()));
+            return null;
+          }
+
+          @Override
+          public @Nullable Void visitSwitchExpression(
+              SwitchExpressionTree nested, @Nullable Void unused) {
+            return null;
+          }
+        };
+    for (CaseTree caseTree : tree.getCases()) {
+      TreePath casePath = new TreePath(switchPath, caseTree);
+      if (caseTree.getCaseKind() == CaseTree.CaseKind.RULE) {
+        Tree body = caseTree.getBody();
+        if (body instanceof ExpressionTree expressionBody) {
+          results.add(new TreePath(casePath, expressionBody));
+        } else {
+          yieldScanner.scan(new TreePath(casePath, body), null);
+        }
+      } else {
+        for (Tree statement : caseTree.getStatements()) {
+          yieldScanner.scan(new TreePath(casePath, statement), null);
+        }
+      }
+    }
+    return results;
+  }
 
   /**
    * finds the corresponding functional interface method for a lambda expression or method reference

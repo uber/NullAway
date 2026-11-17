@@ -23,20 +23,121 @@ import com.uber.nullaway.Config;
 import com.uber.nullaway.NullAway;
 import com.uber.nullaway.librarymodel.NestedTypePathUpdater;
 import java.util.Map;
+import java.util.concurrent.atomic.AtomicInteger;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
 
 /**
- * Tests copying mutable javac types and restoring their nullability annotations.
+ * Tests copying javac types, restoring annotations, and substituting type variables.
  *
  * <p>These behaviors require types created by an active javac compilation, so each test compiles a
- * small source file with {@link TypeCopyIsolationChecker}. Special field names in that source
- * select the operation that the checker exercises; the assertions themselves run inside the checker
- * while the corresponding javac types are available.
+ * small source file with a custom checker. Special field names in that source select the operation
+ * that the checker exercises while the corresponding javac types are available.
  */
 @RunWith(JUnit4.class)
 public class TypeSubstitutionUtilsTests {
+
+  @Test
+  public void substitutionsPreserveAnnotatedOccurrencesInOneTraversal() {
+    CompilationTestHelper.newInstance(SubstitutionTraversalChecker.class, getClass())
+        .addSourceLines(
+            "Test.java",
+            """
+            import java.util.Map;
+            import org.jspecify.annotations.Nullable;
+            class Test<A extends Comparable<A>, B extends Comparable<B>, C> {
+              // BUG: Diagnostic contains: explicit: walks=1, key=String, nestedKeyNullable=true, value=Object, valueNullable=false, inputPreserved=true
+              Map<A, Map<@Nullable A, B>> explicit;
+              // BUG: Diagnostic contains: inferred: walks=1, key=A, nestedKeyNullable=true, value=B, valueNullable=true, inputPreserved=true
+              Map<A, Map<@Nullable A, B>> inferred;
+              // BUG: Diagnostic contains: empty: walks=0, key=A, nestedKeyNullable=true, value=B, valueNullable=false, inputPreserved=true
+              Map<A, Map<@Nullable A, B>> empty;
+              // BUG: Diagnostic contains: unmatched: walks=1, key=A, nestedKeyNullable=true, value=B, valueNullable=false, inputPreserved=true
+              Map<A, Map<@Nullable A, B>> unmatched;
+            }
+            """)
+        .doTest();
+  }
+
+  /** Reports substitution results and counts full type-graph collection walks. */
+  @BugPattern(summary = "Checks batched type-variable substitutions", severity = SUGGESTION)
+  public static final class SubstitutionTraversalChecker extends BugChecker
+      implements BugChecker.VariableTreeMatcher {
+
+    private final Config config =
+        new NullAway(ErrorProneFlags.fromMap(Map.of("NullAway:OnlyNullMarked", "true")))
+            .getConfig();
+
+    /** Substitutes the field's type, retaining a count only for type-variable collection. */
+    @Override
+    public Description matchVariable(VariableTree tree, VisitorState state) {
+      Symbol.VarSymbol field = ASTHelpers.getSymbol(tree);
+      Type.ClassType original = (Type.ClassType) field.type;
+      var variables = field.owner.type.getTypeArguments();
+      AtomicInteger walks = new AtomicInteger();
+      Type counted =
+          new Type.ClassType(
+              original.getEnclosingType(), original.getTypeArguments(), original.tsym) {
+            @Override
+            public <R, P> R accept(Type.Visitor<R, P> visitor, P parameter) {
+              if (visitor instanceof TypeVarWithSymbolCollector) {
+                walks.incrementAndGet();
+              }
+              return super.accept(visitor, parameter);
+            }
+          };
+      String before = counted.toString();
+      Type result =
+          switch (field.getSimpleName().toString()) {
+            case "inferred" ->
+                TypeSubstitutionUtils.updateTypeWithInferredNullability(
+                    counted,
+                    counted,
+                    Map.of(
+                        variables.get(0).asElement(), ConstraintSolver.InferredNullability.NONNULL,
+                        variables.get(1).asElement(),
+                            ConstraintSolver.InferredNullability.NULLABLE),
+                    state,
+                    config);
+            case "empty" ->
+                TypeSubstitutionUtils.substituteTypeVariables(
+                    counted, Map.of(), state.getTypes(), config);
+            case "unmatched" ->
+                TypeSubstitutionUtils.substituteTypeVariables(
+                    counted,
+                    Map.of(variables.get(2).asElement(), state.getSymtab().stringType),
+                    state.getTypes(),
+                    config);
+            default ->
+                TypeSubstitutionUtils.substituteTypeVariables(
+                    counted,
+                    Map.of(
+                        variables.get(0).asElement(), state.getSymtab().stringType,
+                        variables.get(1).asElement(), state.getSymtab().objectType),
+                    state.getTypes(),
+                    config);
+          };
+      var arguments = result.getTypeArguments();
+      var nestedArguments = arguments.get(1).getTypeArguments();
+      return buildDescription(tree)
+          .setMessage(
+              field.getSimpleName()
+                  + ": walks="
+                  + walks.get()
+                  + ", key="
+                  + arguments.get(0).tsym.name
+                  + ", nestedKeyNullable="
+                  + GenericsUtils.isAnnotatedAsNullable(nestedArguments.get(0), config)
+                  + ", value="
+                  + nestedArguments.get(1).tsym.name
+                  + ", valueNullable="
+                  + GenericsUtils.isAnnotatedAsNullable(nestedArguments.get(1), config)
+                  + ", inputPreserved="
+                  + before.equals(counted.toString()))
+          .build();
+    }
+  }
 
   @Test
   public void replaceUnboundedWildcardUpperBoundDoesNotMutateFormalTypeVariable() {
