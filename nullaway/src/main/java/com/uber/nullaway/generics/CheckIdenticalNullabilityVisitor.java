@@ -2,7 +2,6 @@ package com.uber.nullaway.generics;
 
 import static com.uber.nullaway.NullabilityUtil.castToNonNull;
 
-import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Equivalence;
 import com.google.errorprone.VisitorState;
 import com.sun.tools.javac.code.BoundKind;
@@ -11,11 +10,7 @@ import com.sun.tools.javac.code.Type;
 import com.sun.tools.javac.code.Types;
 import com.uber.nullaway.Config;
 import com.uber.nullaway.handlers.Handler;
-import java.util.ArrayDeque;
-import java.util.ArrayList;
-import java.util.BitSet;
 import java.util.Collections;
-import java.util.Deque;
 import java.util.HashSet;
 import java.util.IdentityHashMap;
 import java.util.List;
@@ -25,15 +20,11 @@ import javax.lang.model.type.TypeKind;
 import org.jspecify.annotations.Nullable;
 
 /**
- * Visitor that checks for identical nullability annotations at all nesting levels within two types.
- * Compares the Type it is called upon, i.e. the LHS type and the Type passed as an argument, i.e.
- * The RHS type.
+ * Checks nested nullability of the visited LHS type against the RHS argument.
  *
- * <p>The completed-containment cache lasts for the visitor instance. {@link GenericsChecks} creates
- * one instance per top-level {@code subtypeParameterNullability} call and reuses it for recursive
- * comparisons. Later comparisons on the same instance can reuse cached results for the same
- * identity-based keys, provided the relevant type structure and nullness annotations have not
- * changed. Pending containment results last only for one outermost {@code wildcardContains} call.
+ * <p>Performance: a visitor caches successful wildcard containment checks for its lifetime. Reuse
+ * the instance to share those results across checks, as long as the types and their annotations
+ * have not changed.
  */
 public class CheckIdenticalNullabilityVisitor extends Types.DefaultTypeVisitor<Boolean, Type> {
   private final VisitorState state;
@@ -41,40 +32,47 @@ public class CheckIdenticalNullabilityVisitor extends Types.DefaultTypeVisitor<B
   private final Config config;
   private final Handler handler;
 
-  /**
-   * Containment successes proven by an outermost comparison, retained for this visitor instance.
-   */
+  /** Successful containment checks, reusable for the lifetime of this visitor. */
   private @Nullable Set<ContainmentKey> completedWildcardComparisons;
 
   /**
-   * Active and provisionally successful comparisons in the current wildcard traversal. All
-   * obligations are conjunctive, so these can be reused within the traversal, but are published as
-   * completed only if its outermost comparison succeeds. A failure or exception discards them.
+   * Checks in progress or passed during the current outermost wildcard comparison. Every nested
+   * check must pass for the outermost check to pass, so a repeat can return true while the first
+   * check finishes. Save these results only if the outermost check succeeds; otherwise discard
+   * them.
    */
   private @Nullable Set<ContainmentKey> pendingWildcardComparisons;
 
-  /** Declaration-bound dependencies, computed once per declaration for this visitor instance. */
-  private @Nullable IdentityHashMap<Symbol.TypeSymbol, BitSet> referencedTypeParameters;
+  /**
+   * Stops recursive bounds from rechecking the same wildcard/RHS pair, using object identity. The
+   * cache key alone cannot do this: capture conversion may recreate the other type arguments.
+   */
+  private @Nullable IdentityHashMap<Type.WildcardType, Set<Type>> activeWildcardComparisons;
 
   /**
-   * Identifies the parameterized type's contribution to effective upper bounds. An argument can be
-   * omitted when its formal is Object-bounded and never referenced in a declared upper bound. The
-   * compared arguments themselves are retained separately in {@link ContainmentKey}. Irrelevant
-   * arguments must not distinguish keys: capture conversion can recreate them indefinitely in a
-   * recursive bound such as {@code C<X extends C<?, ? super X>, Y>}, where X's bound does not
-   * depend on Y. Existing direct captures retain the full context because aliasing between
-   * positions can affect which formal supplies their effective-bound nullability.
+   * A class symbol, enclosing type, and all type arguments, used to cache containment results.
+   * Every {@link Equivalence.Wrapper} here and in {@link ContainmentKey} compares by object
+   * identity; javac's type equality can ignore nullability annotations.
    */
   private record ParameterizationKey(
       Equivalence.Wrapper<Symbol.TypeSymbol> symbol,
       Equivalence.Wrapper<Type> enclosing,
-      List<Equivalence.Wrapper<Type>> arguments) {}
+      List<Equivalence.Wrapper<Type>> arguments) {
+    /** Keeps the original argument objects rather than freshly computed bounds. */
+    ParameterizationKey(Type.ClassType type) {
+      this(
+          Equivalence.identity().wrap(type.tsym),
+          Equivalence.identity().wrap(type.getEnclosingType()),
+          type.getTypeArguments().stream()
+              .map(argument -> Equivalence.identity().wrap(argument))
+              .toList());
+    }
+  }
 
   /**
-   * Identifies an argument-containment comparison by its position in the two parameterized types,
-   * rather than by the identities of their computed effective upper bounds, which capture
-   * conversion can recreate. The argument index distinguishes a shared wildcard used at multiple
-   * positions with different declared bounds.
+   * A cached containment check: the LHS wildcard, RHS argument, their position, and their
+   * containing parameterized types. The position matters when one wildcard object is used for two
+   * type parameters with different bounds.
    */
   private record ContainmentKey(
       Equivalence.Wrapper<Type.WildcardType> lhsWildcard,
@@ -82,7 +80,7 @@ public class CheckIdenticalNullabilityVisitor extends Types.DefaultTypeVisitor<B
       int argumentIndex,
       ParameterizationKey lhsParameterization,
       ParameterizationKey rhsParameterization) {
-    /** Preserves the argument identities and both parameterized types when comparing questions. */
+
     ContainmentKey(
         Type.WildcardType lhsWildcard,
         Type rhsArgument,
@@ -167,8 +165,8 @@ public class CheckIdenticalNullabilityVisitor extends Types.DefaultTypeVisitor<B
     ParameterizationKey lhsParameterization = null;
     ParameterizationKey rhsParameterization = null;
     if (config.handleWildcardGenerics()) {
-      lhsParameterization = parameterizationKey(lhsType);
-      rhsParameterization = parameterizationKey((Type.ClassType) rhsTypeAsSuper);
+      lhsParameterization = new ParameterizationKey(lhsType);
+      rhsParameterization = new ParameterizationKey((Type.ClassType) rhsTypeAsSuper);
       lhsUpperBounds =
           GenericsUtils.effectiveUpperBoundsForTypeArguments(lhsType, state, config, handler);
       rhsUpperBounds =
@@ -197,84 +195,6 @@ public class CheckIdenticalNullabilityVisitor extends Types.DefaultTypeVisitor<B
     // We use rhsTypeAsSuper here rather than rhsType, since rhsType may be a captured type
     // variable, whose getEnclosingType() returns null.
     return lhsType.getEnclosingType().accept(this, rhsTypeAsSuper.getEnclosingType());
-  }
-
-  /** Builds an identity-based key without arguments that cannot affect declared upper bounds. */
-  private ParameterizationKey parameterizationKey(Type.ClassType type) {
-    if (referencedTypeParameters == null) {
-      referencedTypeParameters = new IdentityHashMap<>();
-    }
-    BitSet referenced =
-        referencedTypeParameters.computeIfAbsent(
-            type.tsym, unused -> computeReferencedTypeParameters(type));
-    boolean hasCapture =
-        type.getTypeArguments().stream().anyMatch(Type.CapturedType.class::isInstance);
-    List<Equivalence.Wrapper<Type>> arguments = new ArrayList<>();
-    int index = 0;
-    for (Type argument : type.getTypeArguments()) {
-      if (hasCapture || referenced.get(index)) {
-        arguments.add(Equivalence.identity().wrap(argument));
-      }
-      index++;
-    }
-    return new ParameterizationKey(
-        Equivalence.identity().wrap(type.tsym),
-        Equivalence.identity().wrap(type.getEnclosingType()),
-        arguments);
-  }
-
-  /**
-   * Finds formals referenced anywhere in the declaration's upper bounds, also retaining every
-   * non-Object-bounded position. Taking the union across all bounds conservatively includes
-   * transitive dependencies without repeatedly expanding type variables. Non-Object bounds may
-   * cause capture conversion to substitute another capture at that position, so retaining them also
-   * preserves the formal mapping used to resolve capture nullability. Shared bound graphs are
-   * visited once, and type-variable occurrences are matched by symbol so annotated wrappers of the
-   * same formal are recognized.
-   */
-  @VisibleForTesting
-  BitSet computeReferencedTypeParameters(Type.ClassType type) {
-    IdentityHashMap<Symbol.TypeSymbol, Integer> formalIndices = new IdentityHashMap<>();
-    Deque<Type> remaining = new ArrayDeque<>();
-    BitSet referenced = new BitSet();
-    int index = 0;
-    for (Type formal : type.tsym.type.getTypeArguments()) {
-      Type upperBound = ((Type.TypeVar) formal).getUpperBound();
-      if (!(upperBound instanceof Type.ClassType)
-          || !upperBound.tsym.equals(state.getSymtab().objectType.tsym)) {
-        referenced.set(index);
-      }
-      formalIndices.put(formal.tsym, index++);
-      remaining.add(upperBound);
-    }
-    Set<Type> visited = Collections.newSetFromMap(new IdentityHashMap<>());
-    while (!remaining.isEmpty()) {
-      Type bound = remaining.removeLast();
-      if (!visited.add(bound)) {
-        continue;
-      }
-      if (bound instanceof Type.TypeVar variable) {
-        Integer formalIndex = formalIndices.get(variable.tsym);
-        if (formalIndex != null) {
-          referenced.set(formalIndex);
-        }
-      } else if (bound instanceof Type.IntersectionClassType intersection) {
-        remaining.addAll(intersection.getComponents());
-      } else if (bound instanceof Type.ClassType classType) {
-        remaining.addAll(classType.getTypeArguments());
-        remaining.add(classType.getEnclosingType());
-      } else if (bound instanceof Type.ArrayType array) {
-        remaining.add(array.getComponentType());
-      } else if (bound instanceof Type.WildcardType wildcard) {
-        // The explicit bound may reference a formal; the mutable backing formal is not a use.
-        remaining.add(wildcard.type);
-      } else if (!bound.isPrimitive() && bound.getKind() != TypeKind.NONE) {
-        // Conservatively retain every argument for an unsupported compiler recovery type.
-        referenced.set(0, index);
-        return referenced;
-      }
-    }
-    return referenced;
   }
 
   /** Check identical nullability for every type in the intersection */
@@ -408,22 +328,36 @@ public class CheckIdenticalNullabilityVisitor extends Types.DefaultTypeVisitor<B
     if (completedWildcardComparisons != null && completedWildcardComparisons.contains(key)) {
       return true;
     }
-    boolean outermost = pendingWildcardComparisons == null;
-    if (outermost) {
+    boolean outermost = false;
+    if (pendingWildcardComparisons == null) {
       pendingWildcardComparisons = new HashSet<>();
+      outermost = true;
     }
-    Set<ContainmentKey> pending = castToNonNull(pendingWildcardComparisons);
-    if (!pending.add(key)) {
-      // A repeated question is either active (a cycle) or already checked in this traversal.
-      // Its success remains provisional until every obligation of the outermost question passes.
+    Set<ContainmentKey> pending = pendingWildcardComparisons;
+    if (activeWildcardComparisons == null) {
+      activeWildcardComparisons = new IdentityHashMap<>();
+    }
+    IdentityHashMap<Type.WildcardType, Set<Type>> active = activeWildcardComparisons;
+    Set<Type> activeRhsArguments = active.get(lhsWildcard);
+    if ((activeRhsArguments != null && activeRhsArguments.contains(rhsTypeArgument))
+        || !pending.add(key)) {
+      // This check is in progress or has already passed. Any later failure still fails the outer
+      // check.
       return true;
     }
+    if (activeRhsArguments == null) {
+      activeRhsArguments = Collections.newSetFromMap(new IdentityHashMap<>());
+      active.put(lhsWildcard, activeRhsArguments);
+    }
+    activeRhsArguments.add(rhsTypeArgument);
     try {
       boolean result =
           switch (lhsWildcard.kind) {
             case UNBOUND, EXTENDS -> typeArgumentSubtype(lhsUpperBound, rhsUpperBound);
             case SUPER -> superWildcardContains(lhsWildcard, rhsTypeArgument);
           };
+      // A nested success may rely on an unfinished check, so cache results only after the outer
+      // check passes. A failure ends the traversal immediately; there is no failed result to reuse.
       if (outermost && result) {
         if (completedWildcardComparisons == null) {
           completedWildcardComparisons = new HashSet<>();
@@ -432,6 +366,10 @@ public class CheckIdenticalNullabilityVisitor extends Types.DefaultTypeVisitor<B
       }
       return result;
     } finally {
+      activeRhsArguments.remove(rhsTypeArgument);
+      if (activeRhsArguments.isEmpty()) {
+        active.remove(lhsWildcard);
+      }
       if (outermost) {
         pendingWildcardComparisons = null;
       }

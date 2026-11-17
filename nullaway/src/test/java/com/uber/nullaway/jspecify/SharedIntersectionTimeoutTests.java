@@ -110,6 +110,68 @@ public class SharedIntersectionTimeoutTests extends NullAwayTestsBase {
         .doTest();
   }
 
+  @Test(timeout = 30_000)
+  public void recursiveLowerBoundsWithFreshSiblingCaptures() {
+    makeTestHelperWithArgs(
+            JSpecifyJavacConfig.withJSpecifyModeArgs(
+                Collections.singletonList("-XepOpt:NullAway:OnlyNullMarked=true")))
+        .addSourceLines(
+            "Test.java",
+            """
+            import java.util.List;
+            import org.jspecify.annotations.NullMarked;
+            import org.jspecify.annotations.Nullable;
+            interface ComparableSibling<X extends ComparableSibling<?, ? super X>, Y extends Comparable<?>> {}
+            interface NumberSibling<X extends NumberSibling<?, ? super X>, Y extends Number> {}
+            interface NullableSibling<X extends NullableSibling<?, ? super X>, Y extends @Nullable Object> {}
+            interface NullableComparableSibling<
+                X extends NullableComparableSibling<?, ? super X>, Y extends @Nullable Comparable<?>> {}
+            interface ReferencedSibling<X extends ReferencedSibling<?, ? super X, ?>, Y, Z extends Y> {}
+            interface DirectCapture<X extends DirectCapture<?, X>, Y> {}
+            class Outer<T> { class Inner<X extends Outer<? super X>.Inner<?>> {} }
+            @NullMarked
+            abstract class Test {
+              abstract ComparableSibling<?, ?> comparableSibling();
+              abstract NumberSibling<?, ?> numberSibling();
+              abstract NullableSibling<?, @Nullable String> nullableSibling();
+              abstract NullableComparableSibling<?, ?> nullableComparableSibling();
+              abstract ReferencedSibling<?, ?, ?> referencedSibling();
+              abstract DirectCapture<?, ?> directCapture();
+              abstract Outer<?>.Inner<?> freshEnclosingType();
+              abstract List<ComparableSibling<?, ?>> nestedComparableSibling();
+              abstract void accept(ComparableSibling<?, ?> value);
+              void siblingWithNonObjectBound() {
+                ComparableSibling<?, ?> c = comparableSibling();
+                NumberSibling<?, ?> n = numberSibling();
+                List<ComparableSibling<?, ?>> l = nestedComparableSibling();
+              }
+              void argumentWithNonObjectBound() {
+                accept(comparableSibling());
+              }
+              ComparableSibling<?, ?> returnWithNonObjectBound() {
+                return comparableSibling();
+              }
+              void siblingWithNullableBoundAndMismatch() {
+                // BUG: Diagnostic contains: incompatible types
+                NullableSibling<?, String> x = nullableSibling();
+              }
+              void siblingWithNullableNonObjectBound() {
+                NullableComparableSibling<?, ?> x = nullableComparableSibling();
+              }
+              void siblingReferencedFromAnotherBound() {
+                ReferencedSibling<?, ?, ?> x = referencedSibling();
+              }
+              void captureInsideTheRecursiveBound() {
+                DirectCapture<?, ?> x = directCapture();
+              }
+              void recreatedEnclosingType() {
+                Outer<?>.Inner<?> x = freshEnclosingType();
+              }
+            }
+            """)
+        .doTest();
+  }
+
   /**
    * Compiles an ordinary member call over thirty shared bound levels, optionally with a leaf cycle.
    */

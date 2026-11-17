@@ -240,8 +240,8 @@ public class IntersectionRestorationPerformanceTests {
     }
 
     /**
-     * Checks that an identical class or intersection bound is returned without expanding its graph.
-     * Distinct enclosing class types still require reading the shared formal's bound once per side.
+     * An identical class or intersection bound needs no traversal. A new Root wrapper around the
+     * same type arguments still needs one bound read per side.
      */
     @SuppressWarnings({"ReferenceEquality", "TypeEquals"}) // Check object identity, not subtyping.
     private String checkIdentical(VariableTree tree, VisitorState state, String name) {
