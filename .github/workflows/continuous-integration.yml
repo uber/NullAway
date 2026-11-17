@@ -174,7 +174,7 @@ jobs:
           - project: vavr
             url: https://github.com/vavr-io/vavr.git
             branch: main
-            sha: 9fb5dab2dd5b8bc0c475ce43feebbd8803729416
+            sha: 56325ea8379d86ec18303d1edae41f67c5ced860
             build: JAVA_HOME="$JAVA_HOME_21_X64" ./mvnw -B -ntp -nsu -Pnullaway -Dnullaway.version="$NULLAWAY_VERSION" -Dspotless.skip=true compile
     permissions:
       contents: read
