@@ -1509,12 +1509,13 @@ public final class GenericsChecks {
           calledFromDataflow);
       Map<ConstraintSolver.InferenceVariable, ConstraintSolver.InferredType> solution =
           new LinkedHashMap<>(solver.solve());
-      // A variable with neither root constraints nor supported type evidence can be omitted.
-      // Preserve the existing non-null default for unconstrained variables of the top-level call.
+      // The solver omits variables with no top-level constraint or supported type bound.
+      // Default these variables of the top-level call to NONNULL, as the solver does for
+      // unconstrained variables in its propagation graph.
       for (Symbol.TypeVariableSymbol typeVar : getCallTypeParameters(callTree)) {
         solution.putIfAbsent(
             new ConstraintSolver.InferenceVariable(typeVar, callTree),
-            new ConstraintSolver.RootOnly(Nullness.NONNULL));
+            new ConstraintSolver.TopLevelOnly(Nullness.NONNULL));
       }
 
       InferenceSuccess successResult =
@@ -1721,7 +1722,7 @@ public final class GenericsChecks {
     // Constructors and generic method references use root-only inference.
     Map<Element, Type> javacInstantiations =
         callTree instanceof MethodInvocationTree invocation
-            ? InferenceTypeShapes.inferInstantiations(
+            ? JavacInstantiations.inferInstantiations(
                 methodType,
                 castToNonNull(ASTHelpers.getType(invocation.getMethodSelect())),
                 typeParameters,
@@ -2009,7 +2010,7 @@ public final class GenericsChecks {
         && (explicitTypeArguments == null || explicitTypeArguments.isEmpty())) {
       inferenceVariables =
           solver.registerInferenceVariables(
-              memberReferenceTree, referencedMethod.getTypeParameters());
+              memberReferenceTree, referencedMethod.getTypeParameters(), Map.of());
     } else {
       inferenceVariables = Map.of();
     }
@@ -3682,11 +3683,13 @@ public final class GenericsChecks {
         // inferred method type and skip the repair on the recursive call.
         Map<Element, ConstraintSolver.InferredType> inferredTypes =
             successResult.inferredTypesForSite(invocationTree);
-        if (forAllType.tvars.stream()
-                .anyMatch(
-                    variable ->
-                        !(inferredTypes.get(variable.tsym)
-                            instanceof ConstraintSolver.Substitution))
+        Set<Element> topLevelOnlyVariables = new LinkedHashSet<>();
+        for (Type variable : forAllType.tvars) {
+          if (!(inferredTypes.get(variable.tsym) instanceof ConstraintSolver.Substitution)) {
+            topLevelOnlyVariables.add(variable.tsym);
+          }
+        }
+        if (!topLevelOnlyVariables.isEmpty()
             && !nestedNullabilityRepairInProgress.contains(invocationTree)) {
           nestedNullabilityRepairInProgress.add(invocationTree);
           try {
@@ -3695,7 +3698,7 @@ public final class GenericsChecks {
                     invocationTree,
                     methodType,
                     methodTypeAtCallSite,
-                    inferredTypes,
+                    topLevelOnlyVariables,
                     path,
                     state,
                     calledFromDataflow);
@@ -3748,7 +3751,7 @@ public final class GenericsChecks {
    *     parameters whose type is a type variable of the method)
    * @param methodTypeAtCallSite the method type for the generic method as inferred by javac at the
    *     call site
-   * @param inferredTypes inferred results used to exclude fully substituted variables from repair
+   * @param topLevelOnlyVariables method variables without a full substitution, eligible for repair
    * @param invocationPath the path to the invocation tree, or null if not available
    * @param state the visitor state
    * @return a method type based on {@code methodTypeAtCallSite} but with some nested nullability
@@ -3759,23 +3762,16 @@ public final class GenericsChecks {
       MethodInvocationTree invocationTree,
       Type.MethodType origMethodType,
       Type.MethodType methodTypeAtCallSite,
-      Map<Element, ConstraintSolver.InferredType> inferredTypes,
+      Set<Element> topLevelOnlyVariables,
       @Nullable TreePath invocationPath,
       VisitorState state,
       boolean calledFromDataflow) {
-    Set<Element> rootOnlyVariables = new LinkedHashSet<>();
-    for (Symbol.TypeVariableSymbol variable :
-        ASTHelpers.getSymbol(invocationTree).getTypeParameters()) {
-      if (!(inferredTypes.get(variable) instanceof ConstraintSolver.Substitution)) {
-        rootOnlyVariables.add(variable);
-      }
-    }
     return NestedTypeVarSubstitutionRepairVisitor.repairMethodType(
         this,
         invocationTree,
         origMethodType,
         methodTypeAtCallSite,
-        rootOnlyVariables,
+        topLevelOnlyVariables,
         invocationPath,
         state,
         config,
@@ -4080,7 +4076,7 @@ public final class GenericsChecks {
     ConstraintSolver solver = makeSolver(state, analysis);
     Map<Element, Type.TypeVar> inferenceVariables =
         solver.registerInferenceVariables(
-            invocationTree, List.of(inferenceContext.inferenceVariable().asElement()));
+            invocationTree, List.of(inferenceContext.inferenceVariable().asElement()), Map.of());
     inferenceContext =
         PolyNullInference.substituteInferenceVariables(
             inferenceContext, inferenceVariables, state, config);

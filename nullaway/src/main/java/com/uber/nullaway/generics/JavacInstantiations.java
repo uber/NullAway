@@ -10,16 +10,33 @@ import java.util.Set;
 import javax.lang.model.element.Element;
 import org.jspecify.annotations.Nullable;
 
-/** Recovers javac's nominal method instantiations without using their annotations as evidence. */
-final class InferenceTypeShapes {
+/** Recovers javac's method type-variable instantiations without interpreting their annotations. */
+final class JavacInstantiations {
 
-  private InferenceTypeShapes() {}
+  private JavacInstantiations() {}
 
   /**
-   * Matches a receiver-substituted declaration against the attributed method-select type. Missing,
-   * unresolved, or conflicting occurrences are omitted, rather than replaced with declaration
-   * bounds. Fixed variables are never unfolded. Full-type support is decided separately by the
-   * solver.
+   * Recovers method type-variable instantiations by matching a receiver-substituted declaration
+   * against javac's attributed method-select type.
+   *
+   * <p>For example, matching {@code <T> List<T> pair(T, T)} against {@code List<String>
+   * pair(String, String)} yields {@code T -> String}: both parameters and the return type agree on
+   * the instantiation. This compares two views of the same method, not arbitrary subtypes.
+   *
+   * <p>The result may be partial. A variable with no matched occurrence is omitted. If any
+   * occurrence is missing, erroneous, unresolved, or conflicts with another occurrence, that
+   * variable is rejected entirely, even if a later occurrence matches. Other variables can still be
+   * recovered. Declaration bounds are never substituted for missing instantiations, and bounds of
+   * fixed type variables are not traversed. The solver separately decides whether it supports a
+   * recovered type.
+   *
+   * @param declaration the method declaration type after substituting receiver type arguments
+   * @param attributed javac's attributed type of the method select for the same method invocation
+   * @param variables the method type-variable elements whose instantiations should be recovered;
+   *     other type variables are treated as fixed
+   * @param types javac's type utilities, used to compare repeated instantiations for equality
+   * @return a possibly partial map from the requested variables to their consistent instantiations;
+   *     absent or rejected variables have no entry
    */
   static Map<Element, Type> inferInstantiations(
       Type declaration, Type attributed, List<? extends Element> variables, Types types) {
@@ -40,7 +57,7 @@ final class InferenceTypeShapes {
       this.types = types;
     }
 
-    /** Records variables only at corresponding positions with an unambiguous nominal shape. */
+    /** Records consistent variable instantiations at corresponding type positions. */
     private void match(Type declaration, @Nullable Type attributed) {
       if (declaration instanceof Type.ForAll quantified) {
         match(quantified.qtype, attributed);
@@ -98,9 +115,7 @@ final class InferenceTypeShapes {
       }
     }
 
-    /**
-     * Detects unresolved listed variables without treating a fixed variable's bound as its shape.
-     */
+    /** Detects unresolved listed variables without traversing a fixed variable's bounds. */
     private boolean containsInferenceVariable(Type type) {
       if (type instanceof Type.TypeVar variable) {
         return variables.contains(variable.asElement());

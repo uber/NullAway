@@ -32,9 +32,9 @@ import javax.lang.model.type.TypeVariable;
 import org.jspecify.annotations.Nullable;
 
 /**
- * An implementation of {@link ConstraintSolver} that uses a work-list algorithm to propagate root
- * nullability constraints over a graph of type variables and their sub-/supertype relationships.
- * Full annotated bounds supply nested nullness for supported substitutions.
+ * An implementation of {@link ConstraintSolver} that uses a work-list algorithm to propagate
+ * top-level nullability constraints over a graph of type variables and their sub-/supertype
+ * relationships. Full annotated bounds supply nested nullness for supported substitutions.
  */
 public final class ConstraintSolverImpl implements ConstraintSolver {
   private final Config config;
@@ -44,15 +44,16 @@ public final class ConstraintSolverImpl implements ConstraintSolver {
 
   /**
    * Maps the symbol of each fresh type variable created by {@link #registerInferenceVariables(Tree,
-   * List)} to the inference variable it represents. Only type variables with these symbols are
-   * treated as inference variables; all other type variables are fixed.
+   * List, Map)} to the inference variable it represents. Only type variables with these symbols are
+   * treated as inference variables; all other type variables are fixed. Insertion order also
+   * determines result order when a variable has inferred information.
    */
-  private final IdentityHashMap<Element, InferenceVariable> inferenceVariables =
-      new IdentityHashMap<>();
+  private final Map<Element, InferenceVariable> inferenceVariables = new LinkedHashMap<>();
 
   /**
-   * Stable bindings for sites revisited under another contextual view, such as a PolyNull overlay.
-   * Re-registration must not replace fresh symbols or discard already collected bounds.
+   * Fresh variables retained for repeated registration of a site with the same declarations.
+   * Different declarations fail verification; re-registration preserves symbols and collected
+   * bounds.
    */
   private final IdentityHashMap<Tree, Map<Element, Type.TypeVar>> freshVariablesBySite =
       new IdentityHashMap<>();
@@ -61,7 +62,7 @@ public final class ConstraintSolverImpl implements ConstraintSolver {
     this.config = config;
     this.handler = analysis.getHandler();
     this.state = state;
-    this.fullTypeBounds = new FullTypeBounds(config, state);
+    this.fullTypeBounds = new FullTypeBounds(config, state, inferenceVariables);
   }
 
   /* ───────────────────── internal enums & data ───────────────────── */
@@ -101,19 +102,17 @@ public final class ConstraintSolverImpl implements ConstraintSolver {
    */
   private final Map<InferenceVariable, VarState> vars = new LinkedHashMap<>();
 
-  /** Registration order also determines result order when a variable has inferred information. */
-  private final Set<InferenceVariable> registeredVariables = new LinkedHashSet<>();
-
   /* ───────────────────── public API ───────────────────── */
 
   @Override
   public Map<Element, Type.TypeVar> registerInferenceVariables(
-      Tree site, List<? extends Element> typeVariables) {
+      Tree site, List<? extends Element> typeVariables, Map<Element, Type> javacInstantiations) {
     Map<Element, Type.TypeVar> existing = freshVariablesBySite.get(site);
     if (existing != null) {
       Verify.verify(
           existing.keySet().equals(new LinkedHashSet<>(typeVariables)),
           "Repeated inference registration must use the same declarations");
+      fullTypeBounds.register(site, existing, javacInstantiations);
       return existing;
     }
 
@@ -139,20 +138,10 @@ public final class ConstraintSolverImpl implements ConstraintSolver {
     for (Map.Entry<Element, Type.TypeVar> entry : fresh.entrySet()) {
       InferenceVariable variable = new InferenceVariable(entry.getKey(), site);
       inferenceVariables.put(entry.getValue().tsym, variable);
-      registeredVariables.add(variable);
     }
 
-    fullTypeBounds.register(site, fresh);
+    fullTypeBounds.register(site, fresh, javacInstantiations);
     freshVariablesBySite.put(site, fresh);
-    return fresh;
-  }
-
-  /** Registers call-specific variables and records javac's inferred type structure for them. */
-  @Override
-  public Map<Element, Type.TypeVar> registerInferenceVariables(
-      Tree site, List<? extends Element> typeVariables, Map<Element, Type> javacInstantiations) {
-    Map<Element, Type.TypeVar> fresh = registerInferenceVariables(site, typeVariables);
-    fullTypeBounds.setShapes(site, javacInstantiations);
     return fresh;
   }
 
@@ -385,20 +374,20 @@ public final class ConstraintSolverImpl implements ConstraintSolver {
     }
   }
 
-  /** Combines supported proper substitutions and root-only fallbacks after root propagation. */
+  /** Combines full substitutions and top-level-only results after nullability propagation. */
   @Override
   public Map<InferenceVariable, InferredType> solve() throws UnsatisfiableConstraintsException {
-    Map<InferenceVariable, Nullness> roots = solveRootNullness();
-    Map<InferenceVariable, Type> substitutions = fullTypeBounds.solve(roots);
+    Map<InferenceVariable, Nullness> topLevelNullness = solveTopLevelNullability();
+    Map<InferenceVariable, Type> substitutions = fullTypeBounds.solve(topLevelNullness);
     Map<InferenceVariable, InferredType> result = new LinkedHashMap<>();
-    for (InferenceVariable variable : registeredVariables) {
+    for (InferenceVariable variable : inferenceVariables.values()) {
       Type substitution = substitutions.get(variable);
       if (substitution != null) {
         result.put(variable, new Substitution(substitution));
       } else {
-        Nullness root = roots.get(variable);
-        if (root != null) {
-          result.put(variable, new RootOnly(root));
+        Nullness nullness = topLevelNullness.get(variable);
+        if (nullness != null) {
+          result.put(variable, new TopLevelOnly(nullness));
         }
       }
     }
@@ -406,10 +395,10 @@ public final class ConstraintSolverImpl implements ConstraintSolver {
   }
 
   /**
-   * Propagates root nullness along variable edges, throwing if nullable and non-null requirements
-   * conflict.
+   * Propagates top-level nullness along variable edges, throwing if nullable and non-null
+   * requirements conflict.
    */
-  private Map<InferenceVariable, Nullness> solveRootNullness()
+  private Map<InferenceVariable, Nullness> solveTopLevelNullability()
       throws UnsatisfiableConstraintsException {
     /* ---------- work-list propagation of nullability ---------- */
     Deque<InferenceVariable> work = new ArrayDeque<>();

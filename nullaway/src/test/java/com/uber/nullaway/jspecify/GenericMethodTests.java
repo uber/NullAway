@@ -3334,6 +3334,12 @@ public class GenericMethodTests extends NullAwayTestsBase {
                 // BUG: Diagnostic contains: cannot be converted to Outer<String>.Inner
                 Outer<String>.Inner rejected = o.new Inner("");
               }
+              void inferredNonNullEnclosingTypeIsRejected(Outer<@Nullable String> o) {
+                // BUG: Diagnostic contains: cannot be converted to Outer<String>.Inner
+                Outer<String>.Inner rejected = id(o.new Inner(""));
+                // BUG: Diagnostic contains: cannot be converted to Outer<String>.GInner<String>
+                Outer<String>.GInner<String> rejectedGeneric = id(o.new GInner<String>(""));
+              }
               void explicitWitnessNonNullEnclosingTypeIsRejected(Outer<@Nullable String> o) {
                 // BUG: Diagnostic contains: cannot be converted to Outer<String>.GInner<String>
                 Outer<String>.GInner<String> rejected =
@@ -3410,6 +3416,74 @@ public class GenericMethodTests extends NullAwayTestsBase {
                 var flat = nested.flatMap(box -> box);
                 // BUG: Diagnostic contains: cannot be converted to Box<Box<@Nullable String>>
                 acceptsNested(flat);
+              }
+            }
+            """)
+        .doTest();
+  }
+
+  /**
+   * Pins the current root-only constructor inference limitations for the modeled nullable payload
+   * from issue #1942; full nested constructor substitutions are outside this change's scope.
+   */
+  @Test
+  public void issue1942ModeledNestedReturnThroughDiamondConstructor() {
+    makeHelper()
+        .addSourceLines(
+            "Test.java",
+            """
+            import java.util.concurrent.CompletableFuture;
+            import org.jspecify.annotations.NullMarked;
+            import org.jspecify.annotations.Nullable;
+            @NullMarked
+            class Test {
+              static class Box<T> {
+                final T value;
+                Box(T value) { this.value = value; }
+                T get() { return value; }
+              }
+              void diamondConstructorLosesNullablePayload() {
+                // Known false positives: constructor inference retains only top-level nullability.
+                // BUG: Diagnostic contains: incompatible types
+                CompletableFuture<@Nullable Void> future =
+                    // BUG: Diagnostic contains: incompatible types
+                    new Box<>(CompletableFuture.allOf()).get();
+              }
+              void inferredDiamondConstructorLosesNullablePayload() {
+                // BUG: Diagnostic contains: incompatible types
+                var future = new Box<>(CompletableFuture.allOf()).get();
+                // Known false positive: the modeled nullable payload was lost at the constructor.
+                // BUG: Diagnostic contains: incompatible types
+                CompletableFuture<@Nullable Void> valid = future;
+                // Known false negative: the nullable result of join() is currently dereferenceable.
+                future.join().toString();
+              }
+              void nonNullPayloadIsAccepted() {
+                var future = new Box<>(CompletableFuture.completedFuture("ok")).get();
+                CompletableFuture<String> valid = future;
+                future.join().length();
+              }
+            }
+            """)
+        .doTest();
+  }
+
+  @Test
+  public void issue1942NonNullVoidPayloadThroughIdentityIsCurrentlyAccepted() {
+    makeHelper()
+        .addSourceLines(
+            "Test.java",
+            """
+            import java.util.concurrent.CompletableFuture;
+            import org.jspecify.annotations.NullMarked;
+            import org.jspecify.annotations.Nullable;
+            @NullMarked
+            class Test {
+              static <T extends @Nullable Object> T id(T value) { return value; }
+              void nonNullVoidPayloadIsCurrentlyAccepted() {
+                // Known preexisting false negative for issue #1942, not fixed by this change.
+                // Deliberately no expected diagnostic: do not claim the issue is fully resolved.
+                CompletableFuture<Void> future = id(CompletableFuture.allOf());
               }
             }
             """)

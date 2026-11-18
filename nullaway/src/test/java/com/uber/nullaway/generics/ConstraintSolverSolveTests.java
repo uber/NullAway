@@ -21,8 +21,8 @@ import com.uber.nullaway.NullAwayTestsBase;
 import com.uber.nullaway.Nullness;
 import com.uber.nullaway.generics.ConstraintSolver.InferenceVariable;
 import com.uber.nullaway.generics.ConstraintSolver.InferredType;
-import com.uber.nullaway.generics.ConstraintSolver.RootOnly;
 import com.uber.nullaway.generics.ConstraintSolver.Substitution;
+import com.uber.nullaway.generics.ConstraintSolver.TopLevelOnly;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -31,15 +31,15 @@ import java.util.concurrent.atomic.AtomicInteger;
 import javax.lang.model.element.Element;
 import org.junit.Test;
 
-/** Contracts for one typed solve, solve-local resolution reuse, and explicit root-only fallback. */
-public class FoundationSolveTests extends NullAwayTestsBase {
+/** Contracts for typed constraint solving, solve-local reuse, and top-level-only fallback. */
+public class ConstraintSolverSolveTests extends NullAwayTestsBase {
 
   @Test
-  public void rootOnlyFallbackRejectsNonQualifierStates() {
-    assertThat(new RootOnly(Nullness.NONNULL).nullness()).isEqualTo(Nullness.NONNULL);
-    assertThat(new RootOnly(Nullness.NULLABLE).nullness()).isEqualTo(Nullness.NULLABLE);
-    assertThrows(IllegalArgumentException.class, () -> new RootOnly(Nullness.NULL));
-    assertThrows(IllegalArgumentException.class, () -> new RootOnly(Nullness.BOTTOM));
+  public void topLevelOnlyFallbackRejectsNonQualifierStates() {
+    assertThat(new TopLevelOnly(Nullness.NONNULL).nullness()).isEqualTo(Nullness.NONNULL);
+    assertThat(new TopLevelOnly(Nullness.NULLABLE).nullness()).isEqualTo(Nullness.NULLABLE);
+    assertThrows(IllegalArgumentException.class, () -> new TopLevelOnly(Nullness.NULL));
+    assertThrows(IllegalArgumentException.class, () -> new TopLevelOnly(Nullness.BOTTOM));
   }
 
   @Test
@@ -91,7 +91,7 @@ public class FoundationSolveTests extends NullAwayTestsBase {
   }
 
   @Test
-  public void rootOnlyFallbackRetainsNullableWildcardResult() {
+  public void topLevelOnlyFallbackRetainsNullableWildcardResult() {
     makeTestHelperWithArgs(
             JSpecifyJavacConfig.withJSpecifyModeArgs(
                 List.of("-XepOpt:NullAway:OnlyNullMarked=true")))
@@ -162,7 +162,7 @@ public class FoundationSolveTests extends NullAwayTestsBase {
   }
 
   /** Uses real compiler symbols while observing only reads of the supplied structured bounds. */
-  @BugPattern(summary = "Checks foundation solve contracts", severity = SUGGESTION)
+  @BugPattern(summary = "Checks constraint solver solve contracts", severity = SUGGESTION)
   public static final class SolveChecker extends BugChecker
       implements BugChecker.MethodTreeMatcher {
     /**
@@ -193,7 +193,11 @@ public class FoundationSolveTests extends NullAwayTestsBase {
       return NO_MATCH;
     }
 
-    /** A getter budget fails exponentially repeated work without depending on compiler speed. */
+    /**
+     * Checks reuse of successfully resolved nested lower bounds with a getter-read budget, avoiding
+     * dependence on compiler speed. This bounds reads of the original symbolic lower bounds, not
+     * the total cost of solving: constructing and comparing nested result types can do more work.
+     */
     private static void checkChain(
         MethodTree tree, Symbol.MethodSymbol method, ConstraintSolver solver, VisitorState state) {
       var declarations = method.getTypeParameters();
@@ -229,7 +233,8 @@ public class FoundationSolveTests extends NullAwayTestsBase {
     }
 
     /**
-     * Cycles retain fallback, while independent values and later graph/root updates still solve.
+     * Cycles retain fallback, while independent values and later graph/nullness updates still
+     * solve.
      */
     private static void checkCycleAndUpdate(
         MethodTree tree,
@@ -257,12 +262,13 @@ public class FoundationSolveTests extends NullAwayTestsBase {
         var before = solver.solve();
         assertThat(before).doesNotContainKey(new InferenceVariable(t, tree));
         assertThat(before.get(new InferenceVariable(u, tree)))
-            .isEqualTo(new RootOnly(Nullness.NONNULL));
+            .isEqualTo(new TopLevelOnly(Nullness.NONNULL));
         solver.addSubtypeConstraint(word, fresh.get(t), false);
         var nonNull = solver.solve();
         assertThat(nonNull).hasSize(3);
         assertThat(nonNull.get(new InferenceVariable(t, tree))).isInstanceOf(Substitution.class);
-        assertThat(nonNull.get(new InferenceVariable(t, tree)).rootNullness(analysis.getConfig()))
+        assertThat(
+                nonNull.get(new InferenceVariable(t, tree)).topLevelNullness(analysis.getConfig()))
             .isEqualTo(Nullness.NONNULL);
         Type nullable =
             TypeSubstitutionUtils.typeWithAnnot(
@@ -270,7 +276,7 @@ public class FoundationSolveTests extends NullAwayTestsBase {
         solver.addSubtypeConstraint(nullable, fresh.get(t), false);
         var after = solver.solve();
         assertThat(after).hasSize(3);
-        assertThat(after.get(new InferenceVariable(t, tree)).rootNullness(analysis.getConfig()))
+        assertThat(after.get(new InferenceVariable(t, tree)).topLevelNullness(analysis.getConfig()))
             .isEqualTo(Nullness.NULLABLE);
         Type nested =
             ((Substitution) after.get(new InferenceVariable(u, tree)))
@@ -278,7 +284,8 @@ public class FoundationSolveTests extends NullAwayTestsBase {
                 .getTypeArguments()
                 .head;
         assertThat(GenericsUtils.isAnnotatedAsNullable(nested, analysis.getConfig())).isTrue();
-        assertThat(nonNull.get(new InferenceVariable(t, tree)).rootNullness(analysis.getConfig()))
+        assertThat(
+                nonNull.get(new InferenceVariable(t, tree)).topLevelNullness(analysis.getConfig()))
             .isEqualTo(Nullness.NONNULL);
         return;
       }

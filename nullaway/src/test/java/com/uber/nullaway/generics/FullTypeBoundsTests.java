@@ -12,14 +12,12 @@ import com.google.errorprone.bugpatterns.BugChecker;
 import com.google.errorprone.matchers.Description;
 import com.google.errorprone.util.ASTHelpers;
 import com.sun.source.tree.MethodTree;
-import com.sun.source.tree.Tree;
 import com.sun.tools.javac.code.Symbol;
 import com.sun.tools.javac.code.Type;
 import com.uber.nullaway.NullAway;
 import com.uber.nullaway.Nullness;
 import com.uber.nullaway.generics.ConstraintSolver.InferenceVariable;
 import java.util.LinkedHashMap;
-import java.util.List;
 import java.util.Map;
 import javax.lang.model.element.Element;
 import org.junit.Test;
@@ -28,7 +26,7 @@ import org.junit.Test;
 public class FullTypeBoundsTests {
 
   @Test
-  public void supportedSubstitutionsAndScalarFallback() {
+  public void supportedSubstitutionsAndTopLevelOnlyFallback() {
     CompilationTestHelper.newInstance(BoundsChecker.class, getClass())
         .addSourceLines(
             "Test.java",
@@ -43,101 +41,209 @@ public class FullTypeBoundsTests {
               @Target(ElementType.TYPE_USE) @interface Marker {}
               static class Outer<V extends @Nullable Object> { class Inner {} }
               static class Strings extends ArrayList<@Nullable String> {}
+              static class StringArrays extends ArrayList<String[]> {}
+              static class WildcardLists extends ArrayList<List<?>> {}
+              // Parameter roles select instantiation, lower, and upper types independently.
+              // The capture and erroneous roles transform only the parameter carrying that role.
+              // Unsupported inference with no established top-level qualifier has No result.
+              // BUG: Diagnostic contains: Substitution
               static <T extends @Nullable Object, U extends @Nullable Object>
-                  void annotatedLower(List<@Nullable String> evidence) {}
+                  void annotatedLower(List<@Nullable String> instantiation_lower) {}
+              // BUG: Diagnostic contains: Substitution
               static <T extends @Nullable Object, U extends @Nullable Object>
-                  void upperOnly(List<@Nullable String> evidence) {}
+                  void upperOnly(List<@Nullable String> instantiation_upper) {}
+              // BUG: Diagnostic contains: Substitution
               static <T extends @Nullable Object, U extends @Nullable Object>
-                  void variableEdges(List<@Nullable String> evidence) {}
+                  void variableEdges(List<@Nullable String> instantiation_lower_edges) {}
+              // BUG: Diagnostic contains: No result
               static <T extends @Nullable Object, U extends @Nullable Object>
-                  void missingShape(List<@Nullable String> evidence) {}
+                  void missingInstantiation(List<@Nullable String> lower) {}
+              // BUG: Diagnostic contains: No result
               static <T extends @Nullable Object, U extends @Nullable Object>
-                  void noEvidence(List<@Nullable String> evidence) {}
+                  void noBounds(List<@Nullable String> instantiation) {}
+              // BUG: Diagnostic contains: No result
               static <T extends @Nullable Object, U extends @Nullable Object>
-                  void wildcardShape(List<?> evidence) {}
+                  void wildcardInstantiation(List<?> instantiation_lower) {}
+              // BUG: Diagnostic contains: No result
               static <T extends @Nullable Object, U extends @Nullable Object>
-                  void capturedShape(List<?> evidence) {}
+                  void capturedInstantiation(List<?> capture_instantiation_lower) {}
+              // BUG: Diagnostic contains: No result
               static <T extends @Nullable Object, U extends @Nullable Object>
-                  void conflictingInvariantBounds(List<@Nullable String> evidence) {}
+                  void conflictingInvariantBounds(List<@Nullable String> instantiation_lower, List<String> lower) {}
+              // List<@Nullable String> <: alpha <: List<beta> must not solve beta by incorporation.
+              // BUG: Diagnostic contains: TopLevelOnly
               static <T extends @Nullable Object, U extends @Nullable Object>
-                  void noIncorporation(List<@Nullable String> evidence) {}
+                  void noIncorporation(List<@Nullable String> instantiation_lower, List<U> dependency_upper) {}
+              // BUG: Diagnostic contains: Substitution
               static <T extends @Nullable Object, U extends @Nullable Object>
-                  void nestedDependency(List<@Nullable String> evidence) {}
+                  void nestedDependency(List<@Nullable String> nested_instantiation_dependency_lower) {}
+              // BUG: Diagnostic contains: No result
               static <T extends @Nullable Object, U extends @Nullable Object>
-                  void structuredCycle(List<String> evidence) {}
+                  void structuredCycle(List<String> instantiation_cycle_lower) {}
+              // BUG: Diagnostic contains: TopLevelOnly
               static <T extends @Nullable Object, U extends @Nullable Object>
-                  void conflictingUpper(List<@Nullable String> evidence, List<String> upper) {}
+                  void conflictingUpper(List<@Nullable String> instantiation_lower, List<String> upper) {}
+              // BUG: Diagnostic contains: No result
               static <T extends List<String>, U extends @Nullable Object>
-                  void declarationBoundMismatch(List<@Nullable String> evidence) {}
+                  void declarationBoundMismatch(List<@Nullable String> instantiation_lower) {}
+              // BUG: Diagnostic contains: TopLevelOnly
               static <T extends @Nullable Object, U extends @Nullable Object>
-                  void incompatibleArrayUpper(@Nullable String[] evidence, String[] upper) {}
+                  void incompatibleArrayUpper(@Nullable String[] instantiation_lower, String[] upper) {}
+              // BUG: Diagnostic contains: Substitution
               static <T extends @Nullable Object, U extends @Nullable Object>
-                  void compatibleArrayUpper(String[] evidence, @Nullable String[] upper) {}
+                  void compatibleArrayUpper(String[] instantiation_lower, @Nullable String[] upper) {}
+              // BUG: Diagnostic contains: Substitution
               static <T extends @Nullable Object, U extends @Nullable Object>
-                  void upperArrayMeet(@Nullable String[] evidence, String[] upper) {}
+                  void upperArrayMeet(@Nullable String[] instantiation_upper, String[] upper) {}
+              // BUG: Diagnostic contains: No result
               static <T extends @Nullable Object, U extends @Nullable Object>
-                  void invariantArrays(List<String[]> evidence, List<@Nullable String[]> other) {}
+                  void invariantArrays(List<String[]> instantiation_lower, List<@Nullable String[]> lower) {}
+              // BUG: Diagnostic contains: Substitution
               static <T extends @Nullable Object, U extends @Nullable Object>
-                  void enclosingMismatch(Outer<@Nullable String>.Inner evidence, Outer<String>.Inner upper) {}
+                  void supportedArrayArgument(List<String[]> instantiation_lower_nonNullArgument) {}
+              // BUG: Diagnostic contains: Substitution
               static <T extends @Nullable Object, U extends @Nullable Object>
-                  void unresolvedArray(String[] evidence) {}
+                  void nominalArrayArgumentProjection(StringArrays lower_nonNullArgument, List<String[]> instantiation) {}
+              // BUG: Diagnostic contains: TopLevelOnly
               static <T extends @Nullable Object, U extends @Nullable Object>
-                  void unresolvedEnclosing(Outer<String>.Inner evidence) {}
+                  void enclosingMismatch(Outer<@Nullable String>.Inner instantiation_lower, Outer<String>.Inner upper) {}
+              // BUG: Diagnostic contains: No result
               static <T extends @Nullable Object, U extends @Nullable Object>
-                  void upperArrayMeetReversed(String[] evidence, @Nullable String[] upper) {}
+                  void unresolvedArray(String[] instantiation_unresolvedArray_lower) {}
+              // BUG: Diagnostic contains: No result
               static <T extends @Nullable Object, U extends @Nullable Object>
-                  void upperArrayBothNullable(@Nullable String[] evidence, @Nullable String[] upper) {}
+                  void unresolvedEnclosing(Outer<String>.Inner instantiation_unresolvedEnclosing_lower) {}
+              // BUG: Diagnostic contains: Substitution
               static <T extends @Nullable Object, U extends @Nullable Object>
-                  void annotatedMetadata(@NonNull @Marker List<@Nullable String> evidence) {}
+                  void upperArrayMeetReversed(String[] instantiation_upper, @Nullable String[] upper) {}
+              // BUG: Diagnostic contains: Substitution
               static <T extends @Nullable Object, U extends @Nullable Object>
-                  void nominalProjection(Strings evidence, List<@Nullable String> upper) {}
+                  void upperArrayBothNullable(@Nullable String[] instantiation_upper_nullableElement, @Nullable String[] upper) {}
+              // BUG: Diagnostic contains: Substitution
               static <T extends @Nullable Object, U extends @Nullable Object>
-                  void primitiveArray(int[] evidence) {}
+                  void annotatedMetadata(@NonNull @Marker List<@Nullable String> instantiation_lower_marker) {}
+              // BUG: Diagnostic contains: Substitution
               static <T extends @Nullable Object, U extends @Nullable Object>
-                  void primitiveMatrix(int[][] evidence) {}
+                  void nominalProjection(Strings lower, List<@Nullable String> instantiation_upper) {}
+              // BUG: Diagnostic contains: Substitution
               static <T extends @Nullable Object, U extends @Nullable Object>
-                  void invariantNominal(List<ArrayList<String>> evidence, List<List<String>> upper) {}
+                  void primitiveArray(int[] instantiation_lower) {}
+              // BUG: Diagnostic contains: Substitution
               static <T extends @Nullable Object, U extends @Nullable Object>
-                  void invalidArrayClassUpper(String[] evidence, String upper) {}
+                  void primitiveMatrix(int[][] instantiation_lower) {}
+              // BUG: Diagnostic contains: TopLevelOnly
               static <T extends @Nullable Object, U extends @Nullable Object>
-                  void invalidClassArrayUpper(String evidence, String[] upper) {}
+                  void invariantNominal(List<ArrayList<String>> instantiation_lower, List<List<String>> upper) {}
+              // BUG: Diagnostic contains: TopLevelOnly
               static <T extends @Nullable Object, U extends @Nullable Object>
-                  void invalidPrimitiveArrayUpper(long[] evidence, int[] upper) {}
+                  void invalidArrayClassUpper(String[] instantiation_lower, String upper) {}
+              // BUG: Diagnostic contains: TopLevelOnly
               static <T extends @Nullable Object, U extends @Nullable Object>
-                  void projectionArrayComponent(String[] evidence, Integer[] shape) {}
+                  void invalidClassArrayUpper(String instantiation_lower, String[] upper) {}
+              // BUG: Diagnostic contains: TopLevelOnly
               static <T extends @Nullable Object, U extends @Nullable Object>
-                  void projectionArrayComponentReversed(Integer[] evidence, String[] shape) {}
+                  void invalidPrimitiveArrayUpper(long[] instantiation_lower, int[] upper) {}
+              // BUG: Diagnostic contains: TopLevelOnly
               static <T extends @Nullable Object, U extends @Nullable Object>
-                  void projectionArgument(List<String> evidence, List<Integer> shape) {}
+                  void projectionArrayComponent(String[] lower, Integer[] instantiation_upper) {}
+              // BUG: Diagnostic contains: TopLevelOnly
               static <T extends @Nullable Object, U extends @Nullable Object>
-                  void projectionArgumentReversed(List<Integer> evidence, List<String> shape) {}
+                  void projectionArrayComponentReversed(Integer[] lower, String[] instantiation_upper) {}
+              // BUG: Diagnostic contains: TopLevelOnly
               static <T extends @Nullable Object, U extends @Nullable Object>
-                  void projectionEnclosing(Outer<String>.Inner evidence, Outer<Integer>.Inner shape) {}
+                  void projectionArgument(List<String> lower, List<Integer> instantiation_upper) {}
+              // BUG: Diagnostic contains: TopLevelOnly
               static <T extends @Nullable Object, U extends @Nullable Object>
-                  void projectionEnclosingReversed(Outer<Integer>.Inner evidence, Outer<String>.Inner shape) {}
+                  void projectionArgumentReversed(List<Integer> lower, List<String> instantiation_upper) {}
+              // BUG: Diagnostic contains: TopLevelOnly
               static <T extends @Nullable Object, U extends @Nullable Object>
-                  void enclosingLowerConflict(Outer<@Nullable String>.Inner evidence, Outer<String>.Inner other) {}
+                  void projectionEnclosing(Outer<String>.Inner lower, Outer<Integer>.Inner instantiation_upper) {}
+              // BUG: Diagnostic contains: TopLevelOnly
               static <T extends @Nullable Object, U extends @Nullable Object>
-                  void enclosingLowerConflictReversed(Outer<String>.Inner evidence, Outer<@Nullable String>.Inner other) {}
+                  void projectionEnclosingReversed(Outer<Integer>.Inner lower, Outer<String>.Inner instantiation_upper) {}
+              // BUG: Diagnostic contains: No result
               static <T extends @Nullable Object, U extends @Nullable Object>
-                  void provisionalAnnotations(List<String> evidence, List<@Nullable String> shape) {}
+                  void enclosingLowerConflict(Outer<@Nullable String>.Inner instantiation_lower, Outer<String>.Inner lower) {}
+              // BUG: Diagnostic contains: No result
               static <T extends @Nullable Object, U extends @Nullable Object>
-                  void erroneousShape(List<@Nullable String> evidence) {}
+                  void enclosingLowerConflictReversed(Outer<String>.Inner instantiation_lower, Outer<@Nullable String>.Inner lower) {}
+              // BUG: Diagnostic contains: Substitution
               static <T extends @Nullable Object, U extends @Nullable Object>
-                  void wildcardArrayShape(List<?>[] evidence) {}
+                  void provisionalAnnotations(List<String> lower_publish, List<@Nullable String> instantiation) {}
+              // BUG: Diagnostic contains: No result
               static <T extends @Nullable Object, U extends @Nullable Object>
-                  void wildcardEnclosingShape(Outer<?>.Inner evidence) {}
+                  void erroneousInstantiation(List<@Nullable String> erroneous_instantiation_lower) {}
+              // BUG: Diagnostic contains: No result
               static <T extends @Nullable Object, U extends @Nullable Object>
-                  void knownNullableWildcardRoot(
-                                        @Nullable List<? extends String> evidence,
-                                        @Nullable List<? extends @Nullable String> provisional) {}
+                  void wildcardArrayInstantiation(List<?>[] instantiation_lower) {}
+              // BUG: Diagnostic contains: No result
+              static <T extends @Nullable Object, U extends @Nullable Object>
+                  void wildcardEnclosingInstantiation(Outer<?>.Inner instantiation_lower) {}
+              // BUG: Diagnostic contains: TopLevelOnly
+              static <T extends @Nullable Object, U extends @Nullable Object>
+                  void knownNullableWildcardTopLevel(
+                      @Nullable List<? extends String> lower_topLevelFallback,
+                      @Nullable List<? extends @Nullable String> instantiation_upper) {}
+
+              // Unsupported javac instantiations, each with an independently resolvable lower bound.
+              // BUG: Diagnostic contains: No result
+              static <T extends @Nullable Object, U extends @Nullable Object>
+                  void wildcardInstantiationWithProperBound(List<?> instantiation, List<String> lower) {}
+              // BUG: Diagnostic contains: No result
+              static <T extends @Nullable Object, U extends @Nullable Object>
+                  void capturedInstantiationWithProperBound(List<?> capture_instantiation, List<String> lower) {}
+              // BUG: Diagnostic contains: No result
+              static <T extends @Nullable Object, U extends @Nullable Object>
+                  void rawInstantiationWithProperBound(List instantiation, List<String> lower) {}
+              // BUG: Diagnostic contains: No result
+              static <T extends @Nullable Object, U extends @Nullable Object>
+                  void erroneousInstantiationWithProperBound(List<String> erroneous_instantiation, List<String> lower) {}
+              // BUG: Diagnostic contains: No result
+              static <T extends @Nullable Object, U extends @Nullable Object>
+                  void wildcardArrayInstantiationWithProperBound(List<?>[] instantiation, List<String>[] lower) {}
+              // BUG: Diagnostic contains: No result
+              static <T extends @Nullable Object, U extends @Nullable Object>
+                  void wildcardEnclosingInstantiationWithProperBound(Outer<?>.Inner instantiation, Outer<String>.Inner lower) {}
+
+              // Supported javac instantiations, each with an independently unsupported bound.
+              // BUG: Diagnostic contains: No result
+              static <T extends @Nullable Object, U extends @Nullable Object>
+                  void properInstantiationWithWildcardLower(List<String> instantiation, List<?> lower) {}
+              // BUG: Diagnostic contains: No result
+              static <T extends @Nullable Object, U extends @Nullable Object>
+                  void properInstantiationWithCapturedLower(List<String> instantiation, List<?> capture_lower) {}
+              // BUG: Diagnostic contains: No result
+              static <T extends @Nullable Object, U extends @Nullable Object>
+                  void properInstantiationWithRawLower(List<String> instantiation, List lower) {}
+              // BUG: Diagnostic contains: No result
+              static <T extends @Nullable Object, U extends @Nullable Object>
+                  void properInstantiationWithErroneousLower(List<String> instantiation, List<String> erroneous_lower) {}
+              // The subclass itself is proper; only its projection to List exposes the wildcard.
+              // BUG: Diagnostic contains: No result
+              static <T extends @Nullable Object, U extends @Nullable Object>
+                  void properInstantiationWithProjectedWildcardLower(List<List<String>> instantiation, WildcardLists lower) {}
+              // BUG: Diagnostic contains: No result
+              static <T extends @Nullable Object, U extends @Nullable Object>
+                  void properInstantiationWithWildcardArrayLower(List<String>[] instantiation, List<?>[] lower) {}
+              // BUG: Diagnostic contains: No result
+              static <T extends @Nullable Object, U extends @Nullable Object>
+                  void properInstantiationWithWildcardEnclosingLower(Outer<String>.Inner instantiation, Outer<?>.Inner lower) {}
+              // BUG: Diagnostic contains: TopLevelOnly
+              static <T extends @Nullable Object, U extends @Nullable Object>
+                  void properInstantiationWithWildcardUpper(List<String> instantiation_lower, List<?> upper) {}
+              // BUG: Diagnostic contains: TopLevelOnly
+              static <T extends @Nullable Object, U extends @Nullable Object>
+                  void properInstantiationWithErroneousUpper(List<String> instantiation_lower, List<String> erroneous_upper) {}
+              // BUG: Diagnostic contains: TopLevelOnly
+              static <T extends @Nullable Object, U extends @Nullable Object>
+                  void properInstantiationWithWildcardEnclosingUpper(Outer<String>.Inner instantiation_lower, Outer<?>.Inner upper) {}
             }
             """)
         .doTest();
   }
 
   @Test
-  public void dependentDeclarationBoundsUseScalarFallback() {
+  public void dependentDeclarationBoundsUseTopLevelOnlyFallback() {
     CompilationTestHelper.newInstance(BoundsChecker.class, getClass())
         .addSourceLines(
             "Test.java",
@@ -173,44 +279,23 @@ public class FullTypeBoundsTests {
               static <T extends @Nullable Object, U extends @Nullable Object>
                   void repeatedAddsLower(List<@Nullable String> first, List<String> later) {}
               static <T extends @Nullable Object, U extends @Nullable Object>
-                  void repeatedKeepsEvidence(List<@Nullable String> first) {}
+                  void repeatedKeepsInstantiation(List<@Nullable String> first) {}
+              static <T extends @Nullable Object, U extends @Nullable Object>
+                  void repeatedReceivesInstantiation(List<@Nullable String> first) {}
             }
             """)
         .doTest();
   }
 
-  /** A scalar-only implementation must not need to implement the optional full-type capability. */
-  private static final class ScalarOnlySolver implements ConstraintSolver {
-    private final Map<Element, Type.TypeVar> variables;
-
-    ScalarOnlySolver(Map<Element, Type.TypeVar> variables) {
-      this.variables = variables;
-    }
-
-    @Override
-    public Map<Element, Type.TypeVar> registerInferenceVariables(
-        Tree site, List<? extends Element> declarations) {
-      return variables;
-    }
-
-    @Override
-    public void addSubtypeConstraint(Type subtype, Type supertype, boolean localVariableType) {
-      throw new UnsupportedOperationException();
-    }
-
-    @Override
-    public Map<InferenceVariable, InferredType> solve() {
-      return Map.of();
-    }
-  }
-
   /** Checks both published annotations and deliberate omissions from the full-type capability. */
-  @BugPattern(summary = "Checks full-type bounds and scalar fallback", severity = SUGGESTION)
+  @BugPattern(
+      summary = "Checks full-type bounds and top-level-only fallback",
+      severity = SUGGESTION)
   public static final class BoundsChecker extends BugChecker
       implements BugChecker.MethodTreeMatcher {
 
     /**
-     * Runs the named scenario against fresh inference variables without changing compiler types.
+     * Runs each parameter-role scenario against fresh variables without changing compiler types.
      */
     @Override
     public Description matchMethod(MethodTree tree, VisitorState state) {
@@ -235,150 +320,140 @@ public class FullTypeBoundsTests {
         checkRepeatedRegistration(tree, method, solver, state, analysis);
         return NO_MATCH;
       }
-      Type evidence = method.getParameters().head.type;
+      Type firstType = method.getParameters().head.type;
       Element t = method.getTypeParameters().get(0);
       Element u = method.getTypeParameters().get(1);
-      Type shape = name.equals("capturedShape") ? state.getTypes().capture(evidence) : evidence;
-      if (name.equals("nestedDependency")) {
-        shape = parameterizedLike(evidence, evidence);
-      } else if (name.equals("nominalProjection")
-          || name.startsWith("projection")
-          || name.equals("provisionalAnnotations")
-          || name.equals("knownNullableWildcardRoot")) {
-        shape = method.getParameters().get(1).type;
-      } else if (name.equals("erroneousShape")) {
-        shape = state.getSymtab().errType;
+      Type instantiation = firstType;
+      boolean hasInstantiation = false;
+      for (Symbol.VarSymbol parameter : method.getParameters()) {
+        if (hasRole(parameter, "instantiation")) {
+          instantiation = parameterType(parameter, state);
+          hasInstantiation = true;
+        }
+      }
+      Symbol.VarSymbol firstParameter = method.getParameters().head;
+      if (hasRole(firstParameter, "nested")) {
+        instantiation = parameterizedLike(firstType, firstType);
       }
       Map<Element, Type.TypeVar> fresh =
           solver.registerInferenceVariables(
               tree,
               method.getTypeParameters(),
-              name.equals("missingShape") ? Map.of() : Map.of(t, shape, u, evidence));
+              hasInstantiation ? Map.of(t, instantiation, u, firstType) : Map.of());
       Type.TypeVar alpha = fresh.get(t);
       Type.TypeVar beta = fresh.get(u);
-      Type lower = evidence;
-      if (name.equals("nestedDependency")) {
-        lower = parameterizedLike(evidence, beta);
-        solver.addSubtypeConstraint(evidence, beta, false);
-      } else if (name.equals("structuredCycle")) {
-        lower = parameterizedLike(evidence, alpha);
-      } else if (name.equals("unresolvedArray")) {
+      Type lower = firstType;
+      if (hasRole(firstParameter, "dependency")) {
+        lower = parameterizedLike(firstType, beta);
+        solver.addSubtypeConstraint(firstType, beta, false);
+      } else if (hasRole(firstParameter, "cycle")) {
+        lower = parameterizedLike(firstType, alpha);
+      } else if (hasRole(firstParameter, "unresolvedArray")) {
         lower =
             TypeMetadataBuilder.TYPE_METADATA_BUILDER.createArrayType(
-                (Type.ArrayType) evidence, beta);
-      } else if (name.equals("unresolvedEnclosing")) {
-        Type enclosing = parameterizedLike(evidence.getEnclosingType(), beta);
+                (Type.ArrayType) firstType, beta);
+      } else if (hasRole(firstParameter, "unresolvedEnclosing")) {
+        Type enclosing = parameterizedLike(firstType.getEnclosingType(), beta);
         lower =
             TypeMetadataBuilder.TYPE_METADATA_BUILDER.createClassType(
-                evidence, enclosing, evidence.getTypeArguments());
+                firstType, enclosing, firstType.getTypeArguments());
       }
-      if (name.equals("upperOnly") || name.startsWith("upperArray")) {
-        solver.addSubtypeConstraint(alpha, evidence, false);
-      } else if (!name.equals("noEvidence")) {
-        solver.addSubtypeConstraint(lower, alpha, false);
-      }
-      if (method.getParameters().size() == 2 && !name.equals("provisionalAnnotations")) {
-        Type other = method.getParameters().get(1).type;
-        if (name.equals("invariantArrays") || name.startsWith("enclosingLowerConflict")) {
-          solver.addSubtypeConstraint(other, alpha, false);
-        } else {
-          solver.addSubtypeConstraint(alpha, other, false);
+      for (Symbol.VarSymbol parameter : method.getParameters()) {
+        if (hasRole(parameter, "lower")) {
+          // Identity selects the original parameter and detects whether its lower type was rebuilt.
+          @SuppressWarnings({"ReferenceEquality", "TypeEquals"})
+          Type bound =
+              parameter == firstParameter && lower != firstType
+                  ? lower
+                  : parameterType(parameter, state);
+          solver.addSubtypeConstraint(bound, alpha, false);
+        }
+        if (hasRole(parameter, "upper")) {
+          Type upper =
+              hasRole(parameter, "dependency")
+                  ? parameterizedLike(parameter.type, beta)
+                  : parameterType(parameter, state);
+          solver.addSubtypeConstraint(alpha, upper, false);
         }
       }
-      if (name.equals("variableEdges")) {
+      if (hasRole(firstParameter, "edges")) {
         solver.addSubtypeConstraint(alpha, beta, false);
         solver.addSubtypeConstraint(beta, alpha, false);
-      } else if (name.equals("conflictingInvariantBounds")) {
-        Type nonNullEvidence =
-            TypeMetadataBuilder.TYPE_METADATA_BUILDER.createClassType(
-                evidence,
-                evidence.getEnclosingType(),
-                com.sun.tools.javac.util.List.of(state.getSymtab().stringType));
-        solver.addSubtypeConstraint(nonNullEvidence, alpha, false);
-      } else if (name.equals("noIncorporation")) {
-        // List<@Nullable String> <: alpha <: List<beta> must not solve beta by incorporation.
-        Type upper =
-            TypeMetadataBuilder.TYPE_METADATA_BUILDER.createClassType(
-                evidence, evidence.getEnclosingType(), com.sun.tools.javac.util.List.of(beta));
-        solver.addSubtypeConstraint(alpha, upper, false);
       }
-      ConstraintSolver scalarOnly = new ScalarOnlySolver(fresh);
-      assertThat(scalarOnly.registerInferenceVariables(tree, method.getTypeParameters(), Map.of()))
-          .containsExactlyEntriesIn(fresh);
-      assertThat(scalarOnly.solve()).isEmpty();
+
       Map<InferenceVariable, ConstraintSolver.InferredType> solution = solver.solve();
       Map<InferenceVariable, Type> fullTypes = substitutions(solution);
-      if (name.equals("annotatedLower")
-          || name.equals("upperOnly")
-          || name.equals("variableEdges")
-          || name.equals("nestedDependency")
-          || name.equals("compatibleArrayUpper")
-          || name.startsWith("upperArray")
-          || name.equals("annotatedMetadata")
-          || name.equals("nominalProjection")
-          || name.equals("primitiveArray")
-          || name.equals("primitiveMatrix")
-          || name.equals("provisionalAnnotations")) {
+      ConstraintSolver.InferredType result = solution.get(new InferenceVariable(t, tree));
+      if (result instanceof ConstraintSolver.Substitution) {
         Type inferred = fullTypes.get(new InferenceVariable(t, tree));
         assertThat(inferred).isNotNull();
-        assertThat(state.getTypes().isSameType(inferred, shape)).isTrue();
+        assertThat(state.getTypes().isSameType(inferred, instantiation)).isTrue();
         assertThat(inferred.getAnnotationMirrors())
-            .hasSize(name.equals("annotatedMetadata") ? 2 : 1);
-        if (name.equals("annotatedMetadata")) {
+            .hasSize(hasRole(firstParameter, "marker") ? 2 : 1);
+        if (hasRole(firstParameter, "marker")) {
           assertThat(
                   inferred.getAnnotationMirrors().stream()
                       .map(annotation -> annotation.type.toString()))
               .contains("Test.Marker");
-          assertThat(evidence.getAnnotationMirrors()).hasSize(2);
+          assertThat(firstType.getAnnotationMirrors()).hasSize(2);
         }
         if (inferred instanceof Type.ArrayType array) {
           assertThat(GenericsUtils.isAnnotatedAsNullable(array.elemtype, analysis.getConfig()))
-              .isEqualTo(name.equals("upperArrayBothNullable"));
+              .isEqualTo(hasRole(firstParameter, "nullableElement"));
           assertThat(array.elemtype.getAnnotationMirrors())
               .hasSize(array.elemtype.isPrimitive() ? 0 : 1);
         } else {
           Type argument = inferred.getTypeArguments().head;
-          if (name.equals("nestedDependency")) {
+          if (hasRole(firstParameter, "nested")) {
             argument = argument.getTypeArguments().head;
             assertThat(fullTypes).containsKey(new InferenceVariable(u, tree));
           }
           assertThat(GenericsUtils.isAnnotatedAsNullable(argument, analysis.getConfig()))
-              .isEqualTo(!name.equals("provisionalAnnotations"));
+              .isEqualTo(
+                  !hasRole(firstParameter, "publish")
+                      && !hasRole(firstParameter, "nonNullArgument"));
           assertThat(argument.getAnnotationMirrors()).hasSize(1);
+          if (hasRole(firstParameter, "nonNullArgument")) {
+            assertThat(argument).isInstanceOf(Type.ArrayType.class);
+            Type element = ((Type.ArrayType) argument).elemtype;
+            assertThat(GenericsUtils.isAnnotatedAsNullable(element, analysis.getConfig()))
+                .isFalse();
+            assertThat(element.getAnnotationMirrors()).hasSize(1);
+          }
         }
-        if (name.equals("variableEdges")) {
+        if (hasRole(firstParameter, "edges")) {
           assertThat(fullTypes).containsKey(new InferenceVariable(u, tree));
         }
-        if (name.equals("provisionalAnnotations")) {
+        if (hasRole(firstParameter, "publish")) {
           assertThat(
                   GenericsUtils.isAnnotatedAsNullable(
-                      shape.getTypeArguments().head, analysis.getConfig()))
+                      instantiation.getTypeArguments().head, analysis.getConfig()))
               .isTrue();
           Type published =
               TypeSubstitutionUtils.updateTypeWithInferredTypes(
-                  shape,
+                  instantiation,
                   ((Symbol) t).type,
                   Map.of(t, new ConstraintSolver.Substitution(inferred)),
                   state,
                   analysis.getConfig());
-          assertThat(state.getTypes().isSameType(published, shape)).isTrue();
+          assertThat(state.getTypes().isSameType(published, instantiation)).isTrue();
           assertThat(
                   GenericsUtils.isAnnotatedAsNullable(
                       published.getTypeArguments().head, analysis.getConfig()))
               .isFalse();
           assertThat(
                   GenericsUtils.isAnnotatedAsNullable(
-                      shape.getTypeArguments().head, analysis.getConfig()))
+                      instantiation.getTypeArguments().head, analysis.getConfig()))
               .isTrue();
         }
       } else {
         assertThat(fullTypes).isEmpty();
       }
-      if (name.equals("knownNullableWildcardRoot")) {
+      if (hasRole(firstParameter, "topLevelFallback")) {
         ConstraintSolver.InferredType inferred = solution.get(new InferenceVariable(t, tree));
-        assertThat(inferred).isEqualTo(new ConstraintSolver.RootOnly(Nullness.NULLABLE));
+        assertThat(inferred).isEqualTo(new ConstraintSolver.TopLevelOnly(Nullness.NULLABLE));
         Type target =
-            TypeSubstitutionUtils.removeNullableAnnotation(evidence, analysis.getConfig());
+            TypeSubstitutionUtils.removeNullableAnnotation(firstType, analysis.getConfig());
         Type.WildcardType nested = (Type.WildcardType) target.getTypeArguments().head;
         assertThat(GenericsUtils.isAnnotatedAsNullable(nested.type, analysis.getConfig()))
             .isFalse();
@@ -393,12 +468,12 @@ public class FullTypeBoundsTests {
                 target, ((Symbol) t).type, Map.of(), state, analysis.getConfig());
         assertThat(GenericsUtils.isAnnotatedAsNullable(omitted, analysis.getConfig())).isFalse();
 
-        assertThat(state.getTypes().isSameType(shape, target)).isTrue();
+        assertThat(state.getTypes().isSameType(instantiation, target)).isTrue();
         Type unchecked =
             TypeSubstitutionUtils.updateTypeWithInferredTypes(
                 target,
                 ((Symbol) t).type,
-                Map.of(t, new ConstraintSolver.Substitution(shape)),
+                Map.of(t, new ConstraintSolver.Substitution(instantiation)),
                 state,
                 analysis.getConfig());
         Type.WildcardType uncheckedNested = (Type.WildcardType) unchecked.getTypeArguments().head;
@@ -407,7 +482,32 @@ public class FullTypeBoundsTests {
         assertThat(GenericsUtils.isAnnotatedAsNullable(nested.type, analysis.getConfig()))
             .isFalse();
       }
-      return NO_MATCH;
+      // Report on T so expectations sit immediately before each generic declaration.
+      return buildDescription(tree.getTypeParameters().get(0))
+          .setMessage(
+              result == null
+                  ? "No result"
+                  : result instanceof ConstraintSolver.Substitution
+                      ? "Substitution"
+                      : "TopLevelOnly")
+          .build();
+    }
+
+    /** Checks a fixture parameter's underscore-separated solver-input roles. */
+    private static boolean hasRole(Symbol.VarSymbol parameter, String role) {
+      return ("_" + parameter.getSimpleName() + "_").contains("_" + role + "_");
+    }
+
+    /**
+     * Materializes a fixture input, transforming captures and errors independently of its roles.
+     */
+    private static Type parameterType(Symbol.VarSymbol parameter, VisitorState state) {
+      if (hasRole(parameter, "erroneous")) {
+        return state.getSymtab().errType;
+      }
+      return hasRole(parameter, "capture")
+          ? state.getTypes().capture(parameter.type)
+          : parameter.type;
     }
 
     /**
@@ -436,14 +536,15 @@ public class FullTypeBoundsTests {
         solver.addSubtypeConstraint(fresh.get(u), nonNull, false);
       }
       var solution = solver.solve();
-      assertThat(solution.get(new InferenceVariable(t, tree)).rootNullness(analysis.getConfig()))
+      assertThat(
+              solution.get(new InferenceVariable(t, tree)).topLevelNullness(analysis.getConfig()))
           .isEqualTo(Nullness.NONNULL);
-      assertThat(solution.get(new InferenceVariable(u, tree)))
-          .isEqualTo(
-              new ConstraintSolver.RootOnly(
-                  tree.getName().contentEquals("dependentNonNull")
-                      ? Nullness.NONNULL
-                      : Nullness.NULLABLE));
+      ConstraintSolver.InferredType dependentResult = solution.get(new InferenceVariable(u, tree));
+      Nullness expectedTopLevel =
+          tree.getName().contentEquals("dependentNonNull") ? Nullness.NONNULL : Nullness.NULLABLE;
+      assertThat(dependentResult).isEqualTo(new ConstraintSolver.TopLevelOnly(expectedTopLevel));
+      assertThat(dependentResult.topLevelNullness(analysis.getConfig()))
+          .isEqualTo(expectedTopLevel);
       Map<InferenceVariable, Type> full = substitutions(solution);
       assertThat(full).containsKey(new InferenceVariable(t, tree));
       assertThat(full).doesNotContainKey(new InferenceVariable(u, tree));
@@ -453,8 +554,8 @@ public class FullTypeBoundsTests {
     }
 
     /**
-     * Keeps both visits' evidence and symbol identities, while allowing every visit to add
-     * constraints.
+     * Retains existing bounds, instantiations, and symbol identities while accepting instantiations
+     * supplied only by a later registration.
      */
     private static void checkRepeatedRegistration(
         MethodTree tree,
@@ -465,20 +566,27 @@ public class FullTypeBoundsTests {
       Element t = method.getTypeParameters().get(0);
       Element u = method.getTypeParameters().get(1);
       Type first = method.getParameters().get(0).type;
-      Map<Element, Type> shapes = Map.of(t, first, u, first);
+      Map<Element, Type> instantiations = Map.of(t, first, u, first);
+      boolean receivesInstantiation = tree.getName().contentEquals("repeatedReceivesInstantiation");
       Map<Element, Type.TypeVar> initial =
-          solver.registerInferenceVariables(tree, method.getTypeParameters(), shapes);
+          solver.registerInferenceVariables(
+              tree, method.getTypeParameters(), receivesInstantiation ? Map.of() : instantiations);
       if (tree.getName().contentEquals("repeatedKeepsUpper")) {
         solver.addSubtypeConstraint(initial.get(t), first, false);
       } else {
         solver.addSubtypeConstraint(first, initial.get(t), false);
       }
-      // The shape-less overload must retain both the existing shape and the collected bounds.
+      // A later visit must accept newly supplied instantiations without losing earlier bounds.
+      // An empty map must instead retain any previously supplied instantiations.
       Map<Element, Type.TypeVar> repeated =
-          solver.registerInferenceVariables(tree, method.getTypeParameters());
+          solver.registerInferenceVariables(
+              tree, method.getTypeParameters(), receivesInstantiation ? instantiations : Map.of());
       assertThat(repeated.get(t)).isSameInstanceAs(initial.get(t));
       assertThat(repeated.get(u)).isSameInstanceAs(initial.get(u));
-      assertThat(solver.registerInferenceVariables(tree, method.getTypeParameters(), shapes).get(t))
+      assertThat(
+              solver
+                  .registerInferenceVariables(tree, method.getTypeParameters(), instantiations)
+                  .get(t))
           .isSameInstanceAs(initial.get(t));
       if (method.getParameters().size() == 2) {
         Type later = method.getParameters().get(1).type;
@@ -488,8 +596,11 @@ public class FullTypeBoundsTests {
           solver.addSubtypeConstraint(later, repeated.get(t), false);
         }
       }
-      Map<InferenceVariable, Type> full = substitutions(solver.solve());
-      if (tree.getName().contentEquals("repeatedKeepsEvidence")) {
+      var solution = solver.solve();
+      Map<InferenceVariable, Type> full = substitutions(solution);
+      if (tree.getName().contentEquals("repeatedKeepsInstantiation") || receivesInstantiation) {
+        assertThat(solution.get(new InferenceVariable(t, tree)))
+            .isInstanceOf(ConstraintSolver.Substitution.class);
         Type inferred = full.get(new InferenceVariable(t, tree));
         assertThat(inferred).isNotNull();
         assertThat(state.getTypes().isSameType(inferred, first)).isTrue();
@@ -503,7 +614,7 @@ public class FullTypeBoundsTests {
     }
 
     /**
-     * Extracts supported substitutions for the existing capability assertions, never root
+     * Extracts supported substitutions for the existing capability assertions, never top-level-only
      * fallbacks.
      */
     private static Map<InferenceVariable, Type> substitutions(
@@ -518,7 +629,7 @@ public class FullTypeBoundsTests {
       return result;
     }
 
-    /** Reuses a real class type's nominal shape with one substituted type argument. */
+    /** Reuses a real class type's nominal instantiation with one substituted type argument. */
     private static Type parameterizedLike(Type template, Type argument) {
       return TypeMetadataBuilder.TYPE_METADATA_BUILDER.createClassType(
           template, template.getEnclosingType(), com.sun.tools.javac.util.List.of(argument));
