@@ -23,6 +23,20 @@
         "- project: (?<depName>\\S+)\\s+url: (?<packageName>\\S+)\\s+branch: (?<currentValue>\\S+)\\s+sha: (?<currentDigest>[0-9a-f]{40})"
       ],
       "datasourceTemplate": "git-refs"
+    },
+    {
+      "customType": "regex",
+      "description": "nullaway/build.gradle downloads the JSpecify JDK models jar from the jspecify-jdk-stubs GitHub release tagged v followed by jspecifyJdkStubs in gradle/libs.versions.toml. The release is not in a Maven repository, so this manager updates jspecifyJdkStubs from the GitHub releases. A release tag such as v2026.11.13.2 has four parts, so the versioning is loose rather than semver.",
+      "managerFilePatterns": [
+        "/^gradle/libs\\.versions\\.toml$/"
+      ],
+      "matchStrings": [
+        "jspecifyJdkStubs = \"(?<currentValue>[^\"]+)\""
+      ],
+      "depNameTemplate": "vlsi/jspecify-jdk-stubs",
+      "datasourceTemplate": "github-releases",
+      "extractVersionTemplate": "^v(?<version>.+)$",
+      "versioningTemplate": "loose"
     }
   ],
   "packageRules": [

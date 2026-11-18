@@ -55,9 +55,20 @@ configurations {
         extendsFrom errorprone
         canBeResolved = true
     }
+
+    // The jspecify-jdk-stubs jar that storedJspecifyJdkStubs repacks into the NullAway jar
+    jspecifyJdkStubs {
+        canBeConsumed = false
+        transitive = false
+    }
 }
 
 dependencies {
+    // The jar for JDK 28 early access, the newest JDK the stubs cover, so the models include every
+    // method that JDK has. Renovate updates the version only; change the classifier by hand when the
+    // stubs add a newer JDK.
+    jspecifyJdkStubs "io.github.vlsi:jspecify-jdk-stubs:${libs.versions.jspecifyJdkStubs.get()}:jdk28-ea@jar"
+
     compileOnly project(":annotations")
     compileOnly libs.auto.service.annotations
     annotationProcessor libs.auto.service
@@ -123,6 +134,24 @@ dependencies {
 }
 
 repositories {
+    // jspecify-jdk-stubs publishes its jars as GitHub release assets, not to a Maven repository.
+    exclusiveContent {
+        forRepository {
+            ivy {
+                name = "jspecifyJdkStubsReleases"
+                url = uri("https://github.com/vlsi/jspecify-jdk-stubs/releases/download/")
+                patternLayout {
+                    artifact "v[revision]/[module]-[classifier].[ext]"
+                }
+                metadataSources {
+                    artifact()
+                }
+            }
+        }
+        filter {
+            includeModule("io.github.vlsi", "jspecify-jdk-stubs")
+        }
+    }
     // This repository is scoped so we can only pull in Error Prone snapshots from it.
     maven {
         name = "SonatypeErrorProneSnapshots"
@@ -137,6 +166,22 @@ repositories {
 }
 
 apply plugin: 'com.vanniktech.maven.publish'
+
+// The NullAway jar compresses the stubs jar as a whole, so its entries are stored uncompressed: the
+// reader then inflates one stream instead of each of the ~850 class files separately.
+def storedJspecifyJdkStubs = tasks.register('storedJspecifyJdkStubs', Zip) {
+    from({ zipTree(configurations.jspecifyJdkStubs.singleFile) })
+    entryCompression = ZipEntryCompression.STORED
+    preserveFileTimestamps = false
+    reproducibleFileOrder = true
+    // LibraryModelsHandler opens the jar by this name
+    archiveFileName = 'jspecify-jdk-stubs.jar'
+    destinationDirectory = layout.buildDirectory.dir('jspecify-jdk-stubs')
+}
+
+tasks.named('processResources', ProcessResources) {
+    from(storedJspecifyJdkStubs)
+}
 
 // These --add-exports arguments are required when targeting JDK 11+ since Error Prone and NullAway access a bunch of
 // JDK-internal APIs that are not exposed otherwise.
