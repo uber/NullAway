@@ -14,7 +14,7 @@ shadow = "9.6.1"
 jmh = "0.7.4"
 shellcheck = "1.5.1"
 
-errorProne = "2.52.0"
+errorProne = "2.53.0"
 errorProneJdk17 = "2.42.0"
 errorProneOldest = "2.36.0"
 
