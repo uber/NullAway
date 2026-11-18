@@ -139,8 +139,9 @@ public final class GenericsChecks {
 
   /**
    * Maps each call or method reference that took part in a generic inference run to that run's
-   * result. Only omitted type arguments are inferred; explicit arguments can still constrain an
-   * enclosing call. If a tree is absent, no inference result has been cached for that site.
+   * result. Only omitted type arguments are inferred, but a method reference with explicit type
+   * arguments is still a key when its types constrain an enclosing generic call. If a tree is
+   * absent, no inference result has been cached for that site.
    */
   private final Map<Tree, CallInferenceResult> inferredTypeVarNullabilityForGenericCalls =
       new LinkedHashMap<>();
