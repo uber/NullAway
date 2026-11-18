@@ -311,6 +311,12 @@ public class GenericMethodLambdaOrMethodRefArgTests extends NullAwayTestsBase {
                 // Expect a parameter mismatch: nonNullString requires non-null, but the interface allows null.
                 acceptsPair(Test::nonNullString, () -> "");
               }
+              static class Holder<T extends @Nullable Object> {
+                Holder(Function<T, Box<T>> function, T value) {}
+              }
+              void diamondConstructorInfersReferenceWithEnclosingCall() {
+                new Holder<>(Test::box, null);
+              }
             }
             """);
     return compileAndReportDiagnostics(
