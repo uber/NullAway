@@ -3081,13 +3081,13 @@ public final class GenericsChecks {
   }
 
   /**
-   * Infers a generic method reference's type argument nullability from its known target type before
-   * checking argument compatibility. References already handled by enclosing generic call inference
-   * retain that joint solution. Resolving a reference while generating constraints only reads
-   * cached solutions, so it cannot recursively start this inference.
-   *
-   * <p>Called only during invocation checking, after dataflow and speculative inference, so the
-   * result can be cached for subsequent method-reference checks.
+   * Infers the nullability of the omitted type arguments of a generic method reference from its
+   * functional-interface target type, and caches the result for the reference. Does nothing for a
+   * reference to a non-generic method, a reference with explicit type arguments, or a reference
+   * that already has a cached result, such as one inferred together with an enclosing generic call.
+   * When the target's constraints cannot be satisfied, caches the failure and reports it at the
+   * reference if inference warnings are enabled. Constraint generation only reads cached results,
+   * so it never starts this inference.
    */
   private void inferMethodReferenceTypeArguments(
       MemberReferenceTree tree, Type targetType, VisitorState state) {
