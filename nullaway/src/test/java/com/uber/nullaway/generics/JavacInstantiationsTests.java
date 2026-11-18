@@ -19,15 +19,17 @@ import java.util.Map;
 import javax.lang.model.element.Element;
 import org.junit.Test;
 
-/** Checks nominal shape recovery independently of the scalar fallback used by the checker. */
-public class InferenceTypeShapesTests {
+/** Checks instantiation recovery independently of the scalar fallback used by the checker. */
+public class JavacInstantiationsTests {
 
   @Test
-  public void recoverOnlyUnambiguousAttributedShapes() {
+  public void recoverOnlyConsistentInstantiations() {
     StringBuilder source =
         new StringBuilder("import java.util.List; class Host<F> { class Inner {}\n");
     for (String name :
         List.of(
+            "consistentPairInstantiation",
+            "partialInstantiations",
             "parameterOnly",
             "returnOnly",
             "thrownOnly",
@@ -40,10 +42,10 @@ public class InferenceTypeShapesTests {
             "quantifiedDeclaration",
             "quantifiedAttribution",
             "fixedDeclaration",
-            "conflictingEvidence",
+            "conflictingInstantiations",
             "mismatchedArity",
-            "missingMethodShape",
-            "missingClassShape",
+            "missingMethodInstantiation",
+            "missingClassInstantiation",
             "wildcardKindConflict",
             "wildcardConcreteConflict",
             "errorAttribution",
@@ -60,14 +62,14 @@ public class InferenceTypeShapesTests {
                   + " Host<T>.Inner inner, F fixed) {}\n");
     }
     source.append("}\n");
-    CompilationTestHelper.newInstance(ShapeChecker.class, getClass())
+    CompilationTestHelper.newInstance(InstantiationChecker.class, getClass())
         .addSourceLines("Host.java", source.toString())
         .doTest();
   }
 
   /** Exercises one named matching rule with real symbols and synthetic executable views. */
-  @BugPattern(summary = "Checks attributed inference shapes", severity = SUGGESTION)
-  public static final class ShapeChecker extends BugChecker
+  @BugPattern(summary = "Checks javac instantiations", severity = SUGGESTION)
+  public static final class InstantiationChecker extends BugChecker
       implements BugChecker.MethodTreeMatcher {
 
     /**
@@ -93,6 +95,18 @@ public class InferenceTypeShapesTests {
       Type expected = string;
       boolean rejected = false;
       switch (tree.getName().toString()) {
+        case "consistentPairInstantiation" -> {
+          declaration =
+              executable(state, List.of(variable, variable), parameters.get(1).type, List.of());
+          attributed =
+              executable(state, List.of(string, string), parameters.get(0).type, List.of());
+        }
+        case "partialInstantiations" -> {
+          Type otherVariable = ((Symbol) method.getTypeParameters().get(1)).type;
+          declaration =
+              executable(state, List.of(variable, otherVariable, otherVariable), object, List.of());
+          attributed = executable(state, List.of(string, string, object), object, List.of());
+        }
         case "parameterOnly" -> {
           declaration = executable(state, List.of(variable), object, List.of());
           attributed = executable(state, List.of(string), object, List.of());
@@ -154,7 +168,7 @@ public class InferenceTypeShapesTests {
           declaration = parameters.get(5).type;
           rejected = true;
         }
-        case "conflictingEvidence" -> {
+        case "conflictingInstantiations" -> {
           declaration = executable(state, List.of(variable, variable, variable), object, List.of());
           attributed = executable(state, List.of(string, object, string), object, List.of());
           rejected = true;
@@ -164,11 +178,11 @@ public class InferenceTypeShapesTests {
           attributed = executable(state, List.of(), object, List.of());
           rejected = true;
         }
-        case "missingMethodShape" -> {
+        case "missingMethodInstantiation" -> {
           declaration = executable(state, List.of(variable), object, List.of());
           rejected = true;
         }
-        case "missingClassShape" -> {
+        case "missingClassInstantiation" -> {
           declaration =
               executable(state, List.of(variable, parameters.get(1).type), object, List.of());
           attributed = executable(state, List.of(string, string), object, List.of());
@@ -209,14 +223,14 @@ public class InferenceTypeShapesTests {
         }
         default -> throw new AssertionError(tree.getName());
       }
-      Map<Element, Type> shapes =
-          InferenceTypeShapes.inferInstantiations(
+      Map<Element, Type> instantiations =
+          JavacInstantiations.inferInstantiations(
               declaration, attributed, method.getTypeParameters(), state.getTypes());
       if (rejected) {
-        assertThat(shapes).isEmpty();
+        assertThat(instantiations).isEmpty();
       } else {
-        assertThat(shapes).hasSize(1);
-        assertThat(shapes.get(t)).isSameInstanceAs(expected);
+        assertThat(instantiations).hasSize(1);
+        assertThat(instantiations.get(t)).isSameInstanceAs(expected);
       }
       return NO_MATCH;
     }
@@ -231,7 +245,7 @@ public class InferenceTypeShapesTests {
           state.getSymtab().methodClass);
     }
 
-    /** Changes one class argument while preserving the enclosing type and nominal class symbol. */
+    /** Changes one class argument while preserving the enclosing type and class symbol. */
     private static Type withArgument(Type template, Type argument) {
       return TypeMetadataBuilder.TYPE_METADATA_BUILDER.createClassType(
           template, template.getEnclosingType(), com.sun.tools.javac.util.List.of(argument));

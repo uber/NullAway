@@ -111,7 +111,7 @@ final class PolyNullInference {
         solution.get(
             new ConstraintSolver.InferenceVariable(
                 inferenceContext.inferenceVariable().asElement(), invocationTree));
-    return inferred == null ? Nullness.NONNULL : inferred.rootNullness(config);
+    return inferred == null ? Nullness.NONNULL : inferred.topLevelNullness(config);
   }
 
   /**

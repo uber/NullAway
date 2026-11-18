@@ -356,7 +356,7 @@ public class TypeSubstitutionUtils {
         if (inferred instanceof ConstraintSolver.Substitution substitution) {
           inferredTypes.append(substitution.type());
         } else {
-          ConstraintSolver.RootOnly root = (ConstraintSolver.RootOnly) inferred;
+          ConstraintSolver.TopLevelOnly root = (ConstraintSolver.TopLevelOnly) inferred;
           inferredTypes.append(
               typeWithAnnot(
                   tv,

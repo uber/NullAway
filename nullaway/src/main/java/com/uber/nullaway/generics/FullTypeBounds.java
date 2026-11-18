@@ -15,7 +15,6 @@ import com.uber.nullaway.Nullness;
 import com.uber.nullaway.generics.ConstraintSolver.InferenceVariable;
 import java.util.ArrayList;
 import java.util.Collections;
-import java.util.IdentityHashMap;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
@@ -26,67 +25,75 @@ import javax.lang.model.type.NullType;
 import org.jspecify.annotations.Nullable;
 
 /**
- * Retains annotated lower and upper bounds to infer nested nullness alongside root nullness.
+ * Retains annotated lower and upper bounds to infer nested nullability alongside top-level
+ * nullability.
  *
  * <p>Resolves acyclic dependencies between inference variables at javac's inferred Java types:
- * javac determines the type structure, and bounds supply its nullness annotations. Supports non-raw
- * class types and arrays, including enclosing types.
+ * javac determines the type structure, and bounds supply its nullability annotations. Supports
+ * non-raw class types and arrays, including enclosing types. For example, with javac instantiating
+ * {@code T} as {@code List<String>}, a lower bound {@code List<@Nullable String> <: T} supplies the
+ * nullable type argument; javac's provisional annotations do not supply bounds.
  *
  * <p>Resolution follows recorded variable edges without deriving new constraints between bounds.
+ * For example, {@code List<T> <: U <: List<String>} does not derive a bound on {@code T}.
  * Unsupported types (including wildcards, captures, and fixed type variables), recursive nested
- * dependencies, or conflicting nested annotations leave the variable on root-only inference.
+ * dependencies, or conflicting nested annotations leave only top-level nullability available.
  */
 final class FullTypeBounds {
   private final Config config;
   private final VisitorState state;
-  private final IdentityHashMap<Element, InferenceVariable> variables = new IdentityHashMap<>();
+  private final Map<Element, InferenceVariable> inferenceVariables;
   private final Map<InferenceVariable, Bounds> bounds = new LinkedHashMap<>();
 
-  /** Direct bounds and the nominal shape for one call-specific variable. */
+  /** Direct bounds and javac's instantiation for one call-specific variable. */
   private static final class Bounds {
     private final Type declaredUpper;
     private final List<Type> lower = new ArrayList<>();
     private final List<Type> upper = new ArrayList<>();
-    private @Nullable Type shape;
+    private @Nullable Type javacInstantiation;
 
     Bounds(Type declaredUpper) {
       this.declaredUpper = declaredUpper;
     }
   }
 
-  FullTypeBounds(Config config, VisitorState state) {
+  /**
+   * Uses the solver's shared fresh-symbol map; registration must populate it before adding bounds.
+   */
+  FullTypeBounds(
+      Config config, VisitorState state, Map<Element, InferenceVariable> inferenceVariables) {
     this.config = config;
     this.state = state;
-  }
-
-  /** Associates fresh symbols with their call sites and declared upper bounds. */
-  void register(Tree site, Map<Element, Type.TypeVar> freshVariables) {
-    freshVariables.forEach(
-        (declaration, fresh) -> {
-          InferenceVariable variable = new InferenceVariable(declaration, site);
-          variables.put(fresh.asElement(), variable);
-          bounds.put(variable, new Bounds(fresh.getUpperBound()));
-        });
+    this.inferenceVariables = inferenceVariables;
   }
 
   /**
-   * Records javac's inferred type structure for registered variables, without using its annotations
-   * as nullness evidence.
+   * Records declared bounds and javac instantiations in one pass over a site's fresh variables.
+   * Re-registration preserves collected bounds and updates only supplied instantiations. The shared
+   * fresh-symbol map is owned and populated by the caller; javac's instantiation supplies type
+   * structure, not nullability annotations for the result.
    */
-  void setShapes(Tree site, Map<Element, Type> shapes) {
-    shapes.forEach(
-        (declaration, shape) -> {
-          Bounds variableBounds = bounds.get(new InferenceVariable(declaration, site));
-          if (variableBounds != null) {
-            variableBounds.shape = shape;
+  void register(
+      Tree site,
+      Map<Element, Type.TypeVar> freshVariables,
+      Map<Element, Type> javacInstantiations) {
+    freshVariables.forEach(
+        (declaration, fresh) -> {
+          InferenceVariable variable = new InferenceVariable(declaration, site);
+          Bounds variableBounds =
+              bounds.computeIfAbsent(variable, unused -> new Bounds(fresh.getUpperBound()));
+          Type javacInstantiation = javacInstantiations.get(declaration);
+          if (javacInstantiation != null) {
+            variableBounds.javacInstantiation = javacInstantiation;
           }
         });
   }
 
   /**
-   * Retains full types even on annotated variable uses. Such uses fix the root nullness, but not
-   * the variable's nested structure. The scalar solver remains responsible for those root
-   * overrides.
+   * Records {@code subtype} as a lower bound when {@code supertype} is an inference variable, and
+   * {@code supertype} as an upper bound when {@code subtype} is an inference variable. Annotated
+   * variable uses still contribute nested bounds; top-level nullability propagation in {@link
+   * ConstraintSolverImpl} handles their explicit qualifiers.
    */
   void addConstraint(Type subtype, Type supertype) {
     InferenceVariable sub = variable(subtype);
@@ -102,7 +109,9 @@ final class FullTypeBounds {
   /**
    * Resolves full substitutions, reusing successful results within this solve to avoid repeatedly
    * resolving shared nested variables. Failed resolutions are not cached, since a recursion cutoff
-   * depends on the active resolution path.
+   * depends on the active resolution path. The returned map omits variables without a supported
+   * full substitution; their independently inferred top-level nullability remains available to the
+   * caller.
    */
   Map<InferenceVariable, Type> solve(Map<InferenceVariable, Nullness> nullability) {
     Map<InferenceVariable, Type> result = new LinkedHashMap<>();
@@ -114,9 +123,12 @@ final class FullTypeBounds {
 
   /**
    * Builds a candidate from lower bounds, or from upper bounds when no lower bounds exist.
-   * Covariant array components can combine nullness; invariant positions must agree. Checks nested
-   * annotations against all collected bounds, returning null for root-only fallback if a type is
-   * unsupported or incompatible.
+   * Covariant array components can combine nullability; invariant positions must agree. Checks
+   * nested annotations against upper and declared bounds, returning null to retain only top-level
+   * nullability if a type is unsupported or incompatible. For example, lower bounds {@code
+   * String[]} and {@code @Nullable String[]} join to {@code @Nullable String[]}; the same upper
+   * bounds meet at {@code String[]}. Lower bounds {@code List<String>} and {@code List<@Nullable
+   * String>} disagree in an invariant position and leave only top-level nullability available.
    */
   private @Nullable Type resolve(
       InferenceVariable variable,
@@ -128,8 +140,8 @@ final class FullTypeBounds {
       return previous;
     }
     Bounds variableBounds = castToNonNull(bounds.get(variable));
-    Type shape = variableBounds.shape;
-    if (shape == null || !isProper(shape) || !resolving.add(variable)) {
+    Type javacInstantiation = variableBounds.javacInstantiation;
+    if (javacInstantiation == null || !resolving.add(variable)) {
       return null;
     }
     try {
@@ -139,8 +151,8 @@ final class FullTypeBounds {
       collect(variable, true, lower, new ArrayList<>(), new LinkedHashSet<>());
       collect(variable, false, upper, declared, new LinkedHashSet<>());
       for (Type declarationBound : declared) {
-        // For <T, U extends T>, root inference does not propagate the declaration edge U <: T.
-        // Keep root-only fallback rather than assume that this dependent bound was checked.
+        // For <T, U extends T>, top-level nullability inference does not propagate U <: T.
+        // Retain only top-level nullability rather than assume this dependent bound was checked.
         if (variable(declarationBound) != null) {
           return null;
         }
@@ -153,8 +165,8 @@ final class FullTypeBounds {
       }
       Type candidate = null;
       for (Type resolved : candidates) {
-        // An upper bound can supply annotations only when its full nominal shape matches.
-        Type projected = project(shape, resolved, fromLower);
+        // An upper bound can supply annotations only when its Java type structure matches.
+        Type projected = project(javacInstantiation, resolved, fromLower);
         if (projected == null) {
           return null;
         }
@@ -164,16 +176,12 @@ final class FullTypeBounds {
         }
       }
       if (candidate == null) {
-        // Neither javac's provisional annotations nor a declaration bound is expression evidence.
+        // Neither javac's provisional annotations nor a declared bound supplies an expression
+        // bound.
         return null;
       }
-      if (fromLower) {
-        for (Type resolved : candidates) {
-          if (!compatible(resolved, candidate, true, false)) {
-            return null;
-          }
-        }
-      }
+      // Projection and merging already make each lower bound compatible with the candidate:
+      // covariant nullability is joined, and invariant annotations must agree.
       List<Type> resolvedUpper =
           fromLower ? resolveBounds(upper, nullability, resolving, completed) : candidates;
       if (resolvedUpper == null) {
@@ -190,7 +198,7 @@ final class FullTypeBounds {
           return null;
         }
       }
-      // Root nullness, including modeled declaration-bound overrides, belongs to the scalar solver.
+      // The top-level nullability solver handles modeled declaration-bound overrides.
       Type inferred = annotate(candidate, nullability.get(variable) == Nullness.NULLABLE);
       completed.put(variable, inferred);
       return inferred;
@@ -282,20 +290,24 @@ final class FullTypeBounds {
     return type.isPrimitive() || type.hasTag(TypeTag.NONE) ? type : null;
   }
 
-  /** Checks for supported type structure with no remaining type variables or wildcards. */
-  private boolean isProper(Type type) {
+  /**
+   * Checks this implementation's full-substitution domain, not the JLS definition of a proper type.
+   * For example, {@code List<String[]>} is supported, but {@code List<?>}, raw {@code List}, and
+   * fixed type variables are not. The enclosing-type sentinel {@code NONE} is also accepted.
+   */
+  private boolean isSupportedForFullSubstitution(Type type) {
     if (type.isErroneous()) {
       return false;
     }
     if (type instanceof Type.ArrayType array) {
-      return isProper(array.elemtype);
+      return isSupportedForFullSubstitution(array.elemtype);
     }
     if (type instanceof Type.ClassType clazz && !clazz.isRaw() && !clazz.isIntersection()) {
-      if (!isProper(clazz.getEnclosingType())) {
+      if (!isSupportedForFullSubstitution(clazz.getEnclosingType())) {
         return false;
       }
       for (Type argument : clazz.getTypeArguments()) {
-        if (!isProper(argument)) {
+        if (!isSupportedForFullSubstitution(argument)) {
           return false;
         }
       }
@@ -305,30 +317,34 @@ final class FullTypeBounds {
   }
 
   /**
-   * Projects bound annotations onto javac's shape. Nominal widening is allowed only in covariant
-   * positions; class arguments and enclosing types are invariant. Every projected reference node
-   * gets explicit nullness so provisional javac annotations cannot leak into the substitution.
+   * Projects bound annotations onto javac's instantiation, or returns null if projection is
+   * unsupported. Nominal widening is allowed only in covariant positions; class arguments and
+   * enclosing types are invariant. For example, {@code ArrayList<@Nullable String>} can supply
+   * annotations for {@code List<String>}, but {@code List<ArrayList<String>>} cannot supply them
+   * for {@code List<List<String>>}. Every projected reference node gets explicit nullability so
+   * provisional javac annotations cannot leak into the substitution.
    */
-  private @Nullable Type project(Type shape, Type evidence, boolean covariant) {
-    if (shape instanceof Type.ArrayType array && evidence instanceof Type.ArrayType actual) {
+  private @Nullable Type project(Type javacInstantiation, Type bound, boolean covariant) {
+    if (javacInstantiation instanceof Type.ArrayType array
+        && bound instanceof Type.ArrayType actual) {
       Type element = project(array.elemtype, actual.elemtype, covariant);
       return element == null
           ? null
-          : annotate(TYPE_METADATA_BUILDER.createArrayType(array, element), nullable(evidence));
+          : annotate(TYPE_METADATA_BUILDER.createArrayType(array, element), nullable(bound));
     }
-    if (shape instanceof Type.ClassType clazz && evidence instanceof Type.ClassType) {
-      Type aligned = evidence;
-      if (!clazz.tsym.equals(evidence.tsym)) {
+    if (javacInstantiation instanceof Type.ClassType clazz && bound instanceof Type.ClassType) {
+      Type aligned = bound;
+      if (!clazz.tsym.equals(bound.tsym)) {
         if (!covariant) {
           return null;
         }
         aligned =
             TypeSubstitutionUtils.asSuper(
-                state.getTypes(), evidence, (Symbol.ClassSymbol) clazz.tsym, config);
+                state.getTypes(), bound, (Symbol.ClassSymbol) clazz.tsym, config);
       }
       if (!(aligned instanceof Type.ClassType actual)
           || actual.isRaw()
-          || !isProper(actual)
+          || !isSupportedForFullSubstitution(actual)
           || clazz.getTypeArguments().size() != actual.getTypeArguments().size()) {
         return null;
       }
@@ -347,14 +363,18 @@ final class FullTypeBounds {
       }
       return annotate(
           TYPE_METADATA_BUILDER.createClassType(clazz, enclosing, arguments.toList()),
-          nullable(evidence));
+          nullable(bound));
     }
-    return state.getTypes().isSameType(shape, evidence) && isProper(evidence) ? shape : null;
+    return state.getTypes().isSameType(javacInstantiation, bound)
+            && isSupportedForFullSubstitution(bound)
+        ? javacInstantiation
+        : null;
   }
 
   /**
-   * Joins lower or meets upper nullness only at covariant positions; invariant positions must
-   * agree.
+   * Joins lower or meets upper nullability only at covariant positions; invariant positions must
+   * agree. Inputs have already been projected onto the same javac instantiation; returns null if
+   * invariant annotations conflict.
    */
   private @Nullable Type merge(Type first, Type second, boolean lower, boolean covariant) {
     if (!covariant && nullable(first) != nullable(second)) {
@@ -388,7 +408,20 @@ final class FullTypeBounds {
     return first;
   }
 
-  /** Checks existing bound compatibility without adding constraints or changing Java structure. */
+  /**
+   * Checks existing bound compatibility without adding constraints or changing Java structure. The
+   * caller excludes unsupported types before comparing; top-level nullability is checked only on
+   * recursive calls, since it is inferred separately for the variable itself.
+   *
+   * <p>This is stricter than {@link GenericsChecks#subtypeParameterNullability(Type, Type,
+   * VisitorState)} (whose arguments are supertype first). That check assumes javac has already
+   * validated Java subtyping: it accepts missing supertype alignments and raw types, and can widen
+   * nominal types inside invariant arguments. For example, it accepts the nested nullability of
+   * {@code List<ArrayList<String>>} against {@code List<List<String>>}; this comparison rejects the
+   * nominal mismatch. This method also checks nullability on enclosing types themselves, while the
+   * shared visitor compares only their type arguments. Those differences matter for bounds
+   * assembled during inference rather than a javac-validated assignment.
+   */
   private boolean compatible(Type subtype, Type supertype, boolean covariant, boolean compareRoot) {
     if (compareRoot
         && (covariant
@@ -410,7 +443,7 @@ final class FullTypeBounds {
                 state.getTypes(), subtype, (Symbol.ClassSymbol) sup.tsym, config);
       }
       if (!(aligned instanceof Type.ClassType sub)
-          || !isProper(sub)
+          || !isSupportedForFullSubstitution(sub)
           || sub.getTypeArguments().size() != sup.getTypeArguments().size()
           || !compatible(sub.getEnclosingType(), sup.getEnclosingType(), false, true)) {
         return false;
@@ -431,16 +464,16 @@ final class FullTypeBounds {
   /** Identifies a registered variable even when its use has an explicit nullness annotation. */
   private @Nullable InferenceVariable variable(Type type) {
     return type instanceof Type.TypeVar variable && !(type instanceof Type.CapturedType)
-        ? variables.get(variable.asElement())
+        ? inferenceVariables.get(variable.asElement())
         : null;
   }
 
-  /** Returns the bound's effective nullness in the supported proper-type domain. */
+  /** Returns the bound's top-level nullability in the supported full-substitution domain. */
   private boolean nullable(Type type) {
     return GenericsUtils.isAnnotatedAsNullable(type, config);
   }
 
-  /** Replaces direct nullness without mutating javac-owned types or dropping unrelated metadata. */
+  /** Replaces top-level nullability without mutating javac types or dropping unrelated metadata. */
   private Type annotate(Type type, boolean nullable) {
     if (type.isPrimitive() || type.hasTag(TypeTag.NONE)) {
       return type;
