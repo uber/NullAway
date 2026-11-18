@@ -3011,22 +3011,24 @@ public final class GenericsChecks {
                       GenericsUtils.groundTargetType(formalParameter, state, config, handler);
                   inferMethodReferenceTypeArguments(
                       memberReferenceTree, groundFormalParameter, actualParameterAndState.state());
-                  GenericsUtils.processMethodRefTypeRelations(
-                      this,
-                      groundFormalParameter,
-                      memberReferenceTree,
-                      actualParameterAndState.state(),
-                      (subtype, supertype, relationKind) -> {
-                        if (!subtypeParameterNullability(supertype, subtype, state)) {
-                          if (relationKind == MethodRefTypeRelationKind.RETURN) {
-                            reportInvalidMethodReferenceReturnTypeError(
-                                memberReferenceTree, supertype, subtype, state);
-                          } else {
-                            reportInvalidMethodReferenceParameterTypeError(
-                                memberReferenceTree, subtype, supertype, state);
+                  if (!hasReportedInferenceFailure(memberReferenceTree)) {
+                    GenericsUtils.processMethodRefTypeRelations(
+                        this,
+                        groundFormalParameter,
+                        memberReferenceTree,
+                        actualParameterAndState.state(),
+                        (subtype, supertype, relationKind) -> {
+                          if (!subtypeParameterNullability(supertype, subtype, state)) {
+                            if (relationKind == MethodRefTypeRelationKind.RETURN) {
+                              reportInvalidMethodReferenceReturnTypeError(
+                                  memberReferenceTree, supertype, subtype, state);
+                            } else {
+                              reportInvalidMethodReferenceParameterTypeError(
+                                  memberReferenceTree, subtype, supertype, state);
+                            }
                           }
-                        }
-                      });
+                        });
+                  }
                 }
                 maybeStorePolyExpressionTypeFromTarget(
                     actualParameterWithoutParentheses, formalParameter, state);
@@ -3107,6 +3109,22 @@ public final class GenericsChecks {
       result = new InferenceFailure(message);
     }
     inferredTypeVarNullabilityForGenericCalls.put(tree, result);
+  }
+
+  /**
+   * Returns whether inference for this reference failed with a reported diagnostic, possibly from
+   * an enclosing joint inference run.
+   *
+   * <p>Callers deliberately skip all parameter and return compatibility checks for such a
+   * reference, including positions unrelated to inferred type variables. A failed joint inference
+   * run applies this policy to every participating reference, even one with an independent
+   * mismatch. The inference diagnostic takes precedence, avoiding misleading errors from uninferred
+   * types without tracking inference dependencies for individual comparisons. When inference
+   * warnings are disabled, compatibility checks remain enabled.
+   */
+  public boolean hasReportedInferenceFailure(MemberReferenceTree tree) {
+    return config.warnOnGenericInferenceFailure()
+        && inferredTypeVarNullabilityForGenericCalls.get(tree) instanceof InferenceFailure;
   }
 
   /**

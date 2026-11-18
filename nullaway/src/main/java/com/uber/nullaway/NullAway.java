@@ -1592,6 +1592,9 @@ public class NullAway extends BugChecker
       VisitorState state) {
     ResolvedMethodReference resolvedReference = null;
     if (memberReferenceTree != null) {
+      if (genericsChecks.hasReportedInferenceFailure(memberReferenceTree)) {
+        return Description.NO_MATCH;
+      }
       Type functionalInterfaceType = genericsChecks.getPolyExpressionType(memberReferenceTree);
       if (functionalInterfaceType != null) { // diff-coverage: ignore -- Unattributed javac tree.
         resolvedReference =
