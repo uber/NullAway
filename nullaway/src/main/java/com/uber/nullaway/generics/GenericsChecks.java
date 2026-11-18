@@ -3082,12 +3082,13 @@ public final class GenericsChecks {
 
   /**
    * Infers the nullability of the omitted type arguments of a generic method reference from its
-   * functional-interface target type, and caches the result for the reference. Does nothing for a
-   * reference to a non-generic method, a reference with explicit type arguments, or a reference
-   * that already has a cached result, such as one inferred together with an enclosing generic call.
-   * When the target's constraints cannot be satisfied, caches the failure and reports it at the
-   * reference if inference warnings are enabled. Constraint generation only reads cached results,
-   * so it never starts this inference.
+   * functional-interface target type, and caches the result for the reference when {@link
+   * #okToCacheInferenceResult(boolean)} permits it. Does nothing for a reference to a non-generic
+   * method, a reference with explicit type arguments, or a reference that already has a cached
+   * result, such as one inferred together with an enclosing generic call. When the target's
+   * constraints cannot be satisfied, reports an inference failure at the reference if inference
+   * warnings are enabled and caches the failure under the same policy. Constraint generation only
+   * reads cached results, so it never starts this inference.
    */
   private void inferMethodReferenceTypeArguments(
       MemberReferenceTree tree, Type targetType, VisitorState state) {
@@ -3108,7 +3109,9 @@ public final class GenericsChecks {
       reportInferenceFailure(tree, message, state);
       result = new InferenceFailure(message);
     }
-    inferredTypeVarNullabilityForGenericCalls.put(tree, result);
+    if (okToCacheInferenceResult(false)) { // diff-coverage: ignore -- No provisional types here.
+      inferredTypeVarNullabilityForGenericCalls.put(tree, result);
+    }
   }
 
   /**
