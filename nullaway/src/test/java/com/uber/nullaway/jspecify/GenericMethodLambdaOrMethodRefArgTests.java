@@ -178,7 +178,10 @@ public class GenericMethodLambdaOrMethodRefArgTests extends NullAwayTestsBase {
             "Test.java:87: [NullAway] inference failure: type variable T constrained to be both @NonNull and @Nullable",
             "Test.java:91: [NullAway] parameter type of referenced method is Box<String>, but parameter in functional interface method has type Box<@Nullable String>, which has mismatched type parameter nullability",
             "Test.java:98: [NullAway] inference failure: type variable T is constrained to be @Nullable, but its upper bound requires it to be @NonNull",
-            "Test.java:102: [NullAway] parameter fixed of referenced method is @NonNull, but parameter in functional interface method java.util.function.Function.apply(@Nullable String) is @Nullable");
+            "Test.java:102: [NullAway] parameter fixed of referenced method is @NonNull, but parameter in functional interface method java.util.function.Function.apply(@Nullable String) is @Nullable",
+            "Test.java:123: [NullAway] inference failure: type variable T is constrained to be @Nullable, but its upper bound requires it to be @NonNull",
+            "Test.java:130: [NullAway] inference failure: type variable T is constrained to be @Nullable, but its upper bound requires it to be @NonNull",
+            "Test.java:137: [NullAway] inference failure: type variable T is constrained to be @Nullable, but its upper bound requires it to be @NonNull");
   }
 
   @Test
@@ -199,7 +202,10 @@ public class GenericMethodLambdaOrMethodRefArgTests extends NullAwayTestsBase {
             "Test.java:91: [NullAway] parameter type of referenced method is Box<String>, but parameter in functional interface method has type Box<@Nullable String>, which has mismatched type parameter nullability",
             "Test.java:98: [NullAway] parameter fixed of referenced method is @NonNull, but parameter in functional interface method java.util.function.Function.apply(@Nullable String) is @Nullable",
             "Test.java:98: [NullAway] referenced method returns @Nullable, but functional interface method java.util.function.Supplier.get() returns @NonNull",
-            "Test.java:102: [NullAway] parameter fixed of referenced method is @NonNull, but parameter in functional interface method java.util.function.Function.apply(@Nullable String) is @Nullable");
+            "Test.java:102: [NullAway] parameter fixed of referenced method is @NonNull, but parameter in functional interface method java.util.function.Function.apply(@Nullable String) is @Nullable",
+            "Test.java:123: [NullAway] parameter value of referenced method is @NonNull, but parameter in functional interface method java.util.function.Function.apply(@Nullable String) is @Nullable",
+            "Test.java:130: [NullAway] parameter value of referenced method is @NonNull, but parameter in functional interface method java.util.function.BiFunction.apply(NonNullFactory,@Nullable String) is @Nullable",
+            "Test.java:137: [NullAway] parameter values of referenced method is @NonNull, but parameter in functional interface method java.util.function.Function.apply(@Nullable String) is @Nullable");
   }
 
   /** Compiles references against known targets with the requested inference-warning setting. */
@@ -316,6 +322,38 @@ public class GenericMethodLambdaOrMethodRefArgTests extends NullAwayTestsBase {
               }
               void diamondConstructorInfersReferenceWithEnclosingCall() {
                 new Holder<>(Test::box, null);
+              }
+              static class NonNullFactory {
+                <T> Box<T> box(T value) { return new Box<>(); }
+              }
+              @SafeVarargs
+              static <T> Box<T> nonNullVarargsBox(T... values) { return new Box<>(); }
+              static void acceptsNullableInput(Function<@Nullable String, Object> function) {}
+              static void acceptsNonNullInput(Function<String, Object> function) {}
+              static void acceptsUnboundNullableInput(
+                  BiFunction<NonNullFactory, @Nullable String, Object> function) {}
+              static void acceptsUnboundNonNullInput(
+                  BiFunction<NonNullFactory, String, Object> function) {}
+              void boundNonNullBoundRejectsNullableInput(NonNullFactory factory) {
+                // Expect inference failure; with inference warnings disabled, a parameter mismatch.
+                acceptsNullableInput(factory::box);
+              }
+              void boundNonNullBoundAcceptsNonNullInput(NonNullFactory factory) {
+                acceptsNonNullInput(factory::box);
+              }
+              void unboundNonNullBoundRejectsNullableInput() {
+                // Expect inference failure; with inference warnings disabled, a parameter mismatch.
+                acceptsUnboundNullableInput(NonNullFactory::box);
+              }
+              void unboundNonNullBoundAcceptsNonNullInput() {
+                acceptsUnboundNonNullInput(NonNullFactory::box);
+              }
+              void varargsNonNullBoundRejectsNullableInput() {
+                // Expect inference failure; with inference warnings disabled, a parameter mismatch.
+                acceptsNullableInput(Test::nonNullVarargsBox);
+              }
+              void varargsNonNullBoundAcceptsNonNullInput() {
+                acceptsNonNullInput(Test::nonNullVarargsBox);
               }
             }
             """);
