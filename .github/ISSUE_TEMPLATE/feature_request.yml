@@ -1,0 +1,52 @@
+name: Feature request
+description: Suggest an improvement to NullAway's analysis, configuration, or integrations.
+labels: [enhancement]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for helping improve NullAway! Please search [existing issues, including closed ones](https://github.com/uber/NullAway/issues?q=is%3Aissue) before submitting a request.
+        For large features, please discuss the proposal in an issue before investing in an implementation, as described in our [contributing guide](https://github.com/uber/NullAway/blob/master/CONTRIBUTING.md).
+        Before requesting support for an annotation or a JSpecify feature, check [Supported annotations](https://github.com/uber/NullAway/wiki/Supported-Annotations) and [JSpecify support](https://github.com/uber/NullAway/wiki/JSpecify-Support).
+        For usage questions, you can ask in the [NullAway Discord server](https://discord.gg/QH2F779).
+        Put annotations and code in backticks, such as `@Nullable`; otherwise GitHub can interpret annotations as user mentions.
+
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problem or use case
+      description: Describe what you are trying to do and what NullAway does today that prevents it. If you tried an existing option and it did not help, say what happened.
+    validations:
+      required: true
+
+  - type: textarea
+    id: example
+    attributes:
+      label: Example and expected behavior
+      description: A small Java example with nullness annotations, what NullAway reports for it today, and what it should report instead. Put Java code in a 
+    validations:
+      required: true
+
+  - type: textarea
+    id: solution
+    attributes:
+      label: Proposed solution
+      description: If you have an idea how NullAway could support this, such as a new configuration option or support for an annotation or a library, describe it here.
+    validations:
+      required: false
+
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Current workarounds
+      description: Describe any configuration options, library models, suppressions, or other workarounds you use today and why they are not enough.
+    validations:
+      required: false
+
+  - type: textarea
+    id: additional
+    attributes:
+      label: Additional context
+      description: Include relevant links, JSpecify or Java specifications, dependencies, or related issues.
+    validations:
+      required: false
