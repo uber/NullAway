@@ -1731,7 +1731,7 @@ public class TypeSubstitutionUtils {
       return t;
     }
 
-    /** Restores root nullness while preserving unrelated target metadata and compiler ownership. */
+    /** Restores root nullness without changing other metadata or mutating shared javac types. */
     private Type typeWithAnnot(Type t, Attribute.TypeCompound annot) {
       return typeWithInferredRoot(t, annot.type, config);
     }

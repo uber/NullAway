@@ -469,7 +469,8 @@ public final class GenericsChecks {
       ErrorMessage errorMessage =
           new ErrorMessage(
               ErrorMessage.MessageTypes.UNRECOGNIZED_NULLNESS_ANNOTATION_LOCATION,
-              "illegal location for annotation: nullness annotations cannot be written directly on a wildcard; annotate the wildcard bound instead");
+              "illegal location for annotation: nullness annotations cannot be written directly on"
+                  + " a wildcard; annotate the wildcard bound instead");
       state.reportMatch(
           errorBuilder.createErrorDescription(
               errorMessage, analysis.buildDescription(annotation), state, null));
@@ -556,7 +557,8 @@ public final class GenericsChecks {
         new ErrorMessage(
             ErrorMessage.MessageTypes.TYPE_PARAMETER_CANNOT_BE_NULLABLE,
             String.format(
-                "Type argument cannot be @Nullable, as method %s's type variable %s is not @Nullable",
+                "Type argument cannot be @Nullable, as method %s's type variable %s is not"
+                    + " @Nullable",
                 methodSymbol, typeVariable.tsym.toString()));
     state.reportMatch(
         errorBuilder.createErrorDescription(
@@ -570,7 +572,8 @@ public final class GenericsChecks {
         new ErrorMessage(
             ErrorMessage.MessageTypes.TYPE_PARAMETER_CANNOT_BE_NULLABLE,
             String.format(
-                "Generic type parameter cannot be @Nullable, as type variable %s of type %s does not have a @Nullable upper bound",
+                "Generic type parameter cannot be @Nullable, as type variable %s of type %s does"
+                    + " not have a @Nullable upper bound",
                 baseTypeVariable.tsym.toString(), baseType.tsym.toString()));
     state.reportMatch(
         errorBuilder.createErrorDescription(
@@ -1522,7 +1525,7 @@ public final class GenericsChecks {
   /** Enclosing solvers identify provisional fresh variables consumed by a nested solve. */
   private final List<ConstraintSolver> activeInferenceSolvers = new ArrayList<>();
 
-  /** Creates independent qualifier equations and declares any enclosing inference ownership. */
+  /** Creates a solver and registers enclosing solvers' fresh symbols as external inputs. */
   private ConstraintSolver makeSolver(VisitorState state, NullAway analysis) {
     ConstraintSolver solver =
         new PolyNullInference.Solver(
@@ -1735,7 +1738,12 @@ public final class GenericsChecks {
       return new InferenceFailure(e.getMessage());
     } catch (UnsatisfiableConstraintsException e) {
       String inferenceFailureMessage = inferenceFailureMessage(e, polyNullContexts);
-      reportInferenceFailure(callTree, inferenceFailureMessage, state, calledFromDataflow);
+      Tree failureSite = e.getInferenceSite();
+      reportInferenceFailure(
+          failureSite != null ? failureSite : callTree,
+          inferenceFailureMessage,
+          state,
+          calledFromDataflow);
       InferenceFailure failureResult = new InferenceFailure(inferenceFailureMessage);
       // Preserve only this root's failure, not a completed solution for nested calls.
       if (okToCacheInferenceResult(calledFromDataflow)
@@ -1761,7 +1769,8 @@ public final class GenericsChecks {
     }
     if (e.isCausedByNonNullUpperBound()) {
       return String.format(
-          "inference failure: type variable %s is constrained to be @Nullable, but its upper bound requires it to be @NonNull",
+          "inference failure: type variable %s is constrained to be @Nullable, but its upper bound"
+              + " requires it to be @NonNull",
           typeVariable);
     }
     return String.format(

@@ -788,7 +788,9 @@ public class FullTypeBoundsTests {
       assertThat(shape).isNotNull();
       var fresh =
           solver.registerInferenceVariables(
-              tree, method.getTypeParameters(), Map.of(t, shape, u, method.getParameters().head.type));
+              tree,
+              method.getTypeParameters(),
+              Map.of(t, shape, u, method.getParameters().head.type));
       for (Symbol.VarSymbol parameter : method.getParameters()) {
         if (hasRole(parameter, "lower")) {
           solver.addSubtypeConstraint(parameterType(parameter, state), fresh.get(t), false);

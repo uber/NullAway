@@ -21,7 +21,7 @@ import java.util.Map;
 import javax.lang.model.element.Element;
 import org.junit.Test;
 
-/** Checks recovery of javac's inferred type arguments independently of nullability inference. */
+/** Checks recovery of javac-inferred type arguments independently of nullness inference. */
 public class JavacInstantiationsTests {
 
   @Test
@@ -266,7 +266,8 @@ public class JavacInstantiationsTests {
         }
         case "wildcardFixedAttribution" -> {
           declaration = executable(state, List.of(variable, wildcard), object, List.of());
-          attributed = executable(state, List.of(string, parameters.get(5).type), object, List.of());
+          attributed =
+              executable(state, List.of(string, parameters.get(5).type), object, List.of());
           rejected = true;
         }
         case "errorAttribution" -> {

@@ -160,7 +160,9 @@ public class ConstraintSolverSolveTests extends NullAwayTestsBase {
   @BugPattern(summary = "Checks constraint solver solve contracts", severity = SUGGESTION)
   public static final class SolveChecker extends BugChecker
       implements BugChecker.MethodTreeMatcher {
-    /** Runs the qualifier, root-fact, or cycle/update scenario selected by the source method's name. */
+    /**
+     * Runs the qualifier, root-fact, or cycle/update scenario selected by the source method's name.
+     */
     @Override
     public Description matchMethod(MethodTree tree, VisitorState state) {
       Symbol.MethodSymbol method = ASTHelpers.getSymbol(tree);
@@ -199,7 +201,8 @@ public class ConstraintSolverSolveTests extends NullAwayTestsBase {
         ConstraintSolver solver = new ConstraintSolverImpl(analysis.getConfig(), state, analysis);
         Type evidence = parameter.type;
         var fresh =
-            solver.registerInferenceVariables(tree, method.getTypeParameters(), Map.of(t, evidence));
+            solver.registerInferenceVariables(
+                tree, method.getTypeParameters(), Map.of(t, evidence));
         assertThat(solver.knownNullness(variable)).isNull();
         solver.addSubtypeConstraint(evidence, fresh.get(t), false);
         if (!GenericsUtils.isAnnotatedAsNullable(evidence, analysis.getConfig())) {
@@ -369,7 +372,7 @@ public class ConstraintSolverSolveTests extends NullAwayTestsBase {
               });
     }
 
-    /** Recursively checks proper types in the graph fixtures. */
+    /** Checks that these fixtures' resolved types contain no type variables or wildcards. */
     private static void assertProper(Type type) {
       assertThat(type).isNotInstanceOf(Type.TypeVar.class);
       assertThat(type).isNotInstanceOf(Type.WildcardType.class);

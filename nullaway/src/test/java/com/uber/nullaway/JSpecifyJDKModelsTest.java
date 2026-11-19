@@ -318,7 +318,8 @@ public class JSpecifyJDKModelsTest extends NullAwayTestsBase {
   }
 
   @Ignore(
-      "We need to merge https://github.com/uber/NullAway/pull/1689 and re-generate JSpecify JDK models before this will work")
+      "We need to merge https://github.com/uber/NullAway/pull/1689 and re-generate JSpecify JDK"
+          + " models before this will work")
   @Test
   public void nullableArrayContents() {
     makeHelper()
@@ -358,7 +359,8 @@ public class JSpecifyJDKModelsTest extends NullAwayTestsBase {
                         s.hashCode();
                     });
                 }
-            }""")
+            }\
+            """)
         .doTest();
   }
 
@@ -386,7 +388,8 @@ public class JSpecifyJDKModelsTest extends NullAwayTestsBase {
                         .filter(Objects::nonNull)
                         .toList();
                 }
-            }""")
+            }\
+            """)
         .doTest();
   }
 

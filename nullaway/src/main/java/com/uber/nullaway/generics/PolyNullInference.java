@@ -310,8 +310,8 @@ final class PolyNullInference {
   /**
    * Keeps PolyNull's qualifier-only edges out of the full solver's nominal structural graph. A
    * modeled String and Integer can share nullness without sharing a Java type. Ordinary constraints
-   * still go through the full solver, and scalar facts are imposed on each variable's own type,
-   * preserving its shape, declaration checks, provenance, and certification.
+   * still go through the full solver, and top-level nullness is imposed on each variable's own
+   * type, preserving its shape, declaration checks, provenance, and certification.
    */
   static final class Solver implements ConstraintSolver {
     private final ConstraintSolver delegate;
@@ -431,7 +431,9 @@ final class PolyNullInference {
       }
     }
 
-    /** Combines full-type ownership facts with the live scalar dependency graph. */
+    /**
+     * Combines the delegate's external-input dependencies with those carried by qualifier links.
+     */
     @Override
     public InputDependencies inputDependencies() {
       InputDependencies inputs = delegate.inputDependencies();
@@ -589,8 +591,8 @@ final class PolyNullInference {
     /**
      * Connects a structural PolyNull use to its ordinary variable without reading annotations from
      * the recovered Java shape. Each qualifier occurrence gets a nominally typed projection: full
-     * bounds constrain its nullness, while scalar edges link it to the shared qualifier. In
-     * particular, a String and an Integer projection never acquire nominal bounds on each other.
+     * bounds constrain its nullness, while qualifier-only constraints link it to the shared
+     * qualifier. A String and an Integer projection never acquire nominal bounds on each other.
      */
     private void projectConstraint(
         Type variableType, Type modeledType, boolean local, boolean lower) {
@@ -710,7 +712,7 @@ final class PolyNullInference {
               owner.typeVariable(), failure.isCausedByNonNullUpperBound(), owner.site());
     }
 
-    /** Adds full-type evidence while retaining PolyNull ownership of synthetic projections. */
+    /** Adds a Java subtype constraint, attributing projection failures to the modeled call. */
     private void addNominalConstraint(Type lower, Type upper, boolean local) {
       try {
         delegate.addSubtypeConstraint(lower, upper, local);
@@ -719,7 +721,9 @@ final class PolyNullInference {
       }
     }
 
-    /** Returns the owned scalar variable unless an occurrence explicitly overrides its nullness. */
+    /**
+     * Returns a registered variable unless this use explicitly overrides its top-level nullness.
+     */
     private @Nullable InferenceVariable variableForUse(Type type) {
       return type instanceof Type.TypeVar
               && !GenericsUtils.isAnnotatedAsNullable(type, config)
@@ -811,7 +815,7 @@ final class PolyNullInference {
     }
 
     /**
-     * Reaches a shared scalar/full-type fixed point before taking a certified solution snapshot.
+     * Alternates Java type solving and qualifier propagation until neither adds a forced qualifier.
      */
     @Override
     public Solution solve() {
@@ -828,7 +832,7 @@ final class PolyNullInference {
       } while (forced.size() != previous);
       Set<InferenceVariable> incomplete = new LinkedHashSet<>(solution.incompleteVariables());
       incomplete.addAll(opaqueVariables);
-      // Symbolic shapes can retain a root annotation without any corresponding scalar fact.
+      // A symbolic type's root annotation need not be nullness established by constraints.
       for (ScalarConstraint constraint : scalarConstraints) {
         InferenceVariable lower = variableForUse(constraint.subtype());
         Type candidate = lower == null ? null : solution.inferredTypes().get(lower);
