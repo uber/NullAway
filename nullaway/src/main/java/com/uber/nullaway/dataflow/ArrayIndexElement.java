@@ -34,15 +34,16 @@ public class ArrayIndexElement implements AccessPathElement {
   }
 
   /**
-   * Creates an array index only when the variable's symbol faithfully represents the index.
+   * Creates an array index for a local variable or static field; returns {@code null} for an
+   * instance field.
    *
-   * <p>Instance fields require a receiver, which this representation cannot retain. Reject them
-   * rather than letting guards, reads, or writes conflate different receivers. Static fields and
-   * local variables have no receiver dependency and are invalidated when their symbols change.
+   * <p>This representation stores only the index variable's symbol, not a receiver. Tracking an
+   * instance field would therefore treat {@code a[left.i]} and {@code a[right.i]} as the same
+   * element, even when the two field values differ.
    *
    * @param javaElement the element of the array
    * @param indexElement the local variable or field element representing the index
-   * @return an instance of ArrayIndexElement, or {@code null} for a receiver-dependent index
+   * @return an instance of ArrayIndexElement, or {@code null} for an instance-field index
    */
   public static @Nullable ArrayIndexElement withVariableIndex(
       Element javaElement, Element indexElement) {

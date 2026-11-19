@@ -661,13 +661,13 @@ public class AccessPathNullnessPropagation
   }
 
   /**
-   * Conservatively recognizes expressions without explicit calls or assignment side effects.
+   * Accepts literals, variable reads, and field or array reads built from those expressions,
+   * allowing parentheses and casts. Rejects calls, assignments, and all other expression kinds.
    *
-   * <p>Only refine array assignments with stable operands: an RHS call or nested assignment can
-   * change the array/index after the CFG has evaluated the LHS location. Method-based paths can
-   * also refer to a different array on their next evaluation. Unhandled expressions conservatively
-   * receive no assignment refinement. This syntactic check is not complete alias or call-effect
-   * analysis; calls retain the existing NullAway refinement policy.
+   * <p>Used on both sides of an array assignment before recording the assigned element's nullness.
+   * For example, {@code a[i] = changeIndex()} may write to a different element than a later
+   * evaluation of {@code a[i]}; a call returning an array may also return a different array on the
+   * next read. This check does not track aliases or change how calls invalidate existing facts.
    */
   private static boolean isStableArrayAssignmentExpression(@Nullable Tree tree) {
     if (tree == null) {
@@ -942,7 +942,7 @@ public class AccessPathNullnessPropagation
       if (isElementNullable) {
         AccessPath arrayAccessPath = AccessPath.getAccessPathForNode(node, state, apContext);
         if (arrayAccessPath != null) {
-          // Assignments can store NULL, not just NULLABLE or NONNULL. Preserve the lattice value.
+          // Preserve definite null from assignments such as a[0] = null.
           resultNullness = input.getRegularStore().getNullnessOfAccessPath(arrayAccessPath);
         } else {
           resultNullness = Nullness.NULLABLE;
@@ -958,10 +958,11 @@ public class AccessPathNullnessPropagation
   }
 
   /**
-   * Checks an array read's component type without using the transfer's deliberately invalid path.
+   * Checks whether an array read's immediate element type is nullable, including inferred types.
    *
-   * <p>For a desugared enhanced-for read, resolves the original loop expression rather than the
-   * synthetic array temporary. If no source path exists, retains declared expression nullness.
+   * <p>For an enhanced-for loop, uses the source array expression rather than the temporary created
+   * by the CFG. Looks up its source path because this transfer's stored visitor state has no usable
+   * path. If the source path is unavailable, falls back to annotations on the expression or symbol.
    */
   private boolean arrayElementIsNullable(ArrayAccessNode node) {
     ExpressionTree arrayExpression = node.getArrayExpression();
@@ -1619,11 +1620,11 @@ public class AccessPathNullnessPropagation
   /**
    * Invalidates array-dependent facts affected by an assignment in JSpecify mode.
    *
-   * <p>Array writes may overlap elements reached through aliases, but distinct known integer
-   * indices do not overlap. Rebinding a local or field only invalidates paths referencing that
-   * symbol, including array indices and map keys. Field dependencies are conservatively matched by
-   * symbol across possibly aliased receivers. This is not complete alias or call-effect analysis.
-   * Callers add any known post-assignment element value after invalidation.
+   * <p>A write to {@code a[i]} invalidates facts about array elements even through other array
+   * variables, since they may refer to the same array. Distinct known integer indices are excluded.
+   * Assigning a local or field invalidates only array-dependent paths that reference that symbol,
+   * including as an index or map key. Fields are matched by symbol regardless of receiver, since
+   * receivers may alias. The caller records any known value of the assigned element afterward.
    */
   private void invalidateArrayAccessPaths(
       NullnessStore store, ReadableUpdates updates, Node target) {
@@ -1656,7 +1657,9 @@ public class AccessPathNullnessPropagation
   }
 
   /**
-   * Checks for possibly overlapping array elements without assuming distinct roots cannot alias.
+   * Checks whether {@code path}, including its map key, contains an array access whose index may
+   * equal {@code writtenIndex}. A null index means unknown; array identity is not used to rule out
+   * overlap because different array expressions may alias.
    */
   private static boolean mayOverlapArrayWrite(AccessPath path, @Nullable Integer writtenIndex) {
     for (AccessPathElement element : path.getElements()) {
@@ -1671,7 +1674,7 @@ public class AccessPathNullnessPropagation
         && mayOverlapArrayWrite(keyPath, writtenIndex);
   }
 
-  /** Checks roots, path elements, indices, and map-key paths for a rebound symbol dependency. */
+  /** Checks whether assigning {@code symbol} may change the value reached by {@code path}. */
   private static boolean referencesSymbol(AccessPath path, Element symbol) {
     if (symbol.equals(path.getRoot())) {
       return true;
