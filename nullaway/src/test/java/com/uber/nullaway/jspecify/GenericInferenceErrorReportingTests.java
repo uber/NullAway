@@ -708,18 +708,11 @@ public class GenericInferenceErrorReportingTests extends NullAwayTestsBase {
   }
 
   /**
-   * Compiles {@code sources} with NullAway in JSpecify mode and reports every diagnostic that names
-   * a position in them, as {@code <file>:<line>: <message>}. A caller asserts the returned list,
-   * whole or narrowed to the diagnostics its own name covers, so one that appears, disappears,
-   * moves to another line, or changes its wording fails the test. Severity is not part of the
-   * filter, since a check reported below warning level is still a diagnostic about the source.
-   *
-   * <p>A diagnostic is reported only when it names both a file and a line, which is what a reader
-   * of the source can locate. That leaves out javac's {@code [options]} warnings, which name no
-   * file, and its summary notes such as "uses unchecked or unsafe operations", which name a file at
-   * {@link Diagnostic#NOPOS}. Dropping those loses no error, because compilation has to succeed
-   * anyway: NullAway reports at warning severity here, so a compile error means the test source
-   * itself is broken.
+   * Compiles {@code sources} with NullAway in JSpecify mode and renders source-positioned
+   * diagnostics as {@code <file>:<line>: <message>}, regardless of severity. Diagnostics without a
+   * file or line, such as javac option warnings and summary notes, are excluded by {@link
+   * #compileAndCollectJSpecifyDiagnostics}. Compilation errors fail the test; NullAway runs at
+   * warning severity.
    *
    * @param sources the compilation units to compile
    * @return the rendered diagnostics, in the order javac emitted them
@@ -731,11 +724,9 @@ public class GenericInferenceErrorReportingTests extends NullAwayTestsBase {
   }
 
   /**
-   * Renders {@code diagnostic} as {@code <file>:<line>: <message>}, on one line. The directory the
-   * test file manager invented is dropped, as is the "see" line Error Prone appends to every
-   * NullAway diagnostic, so the result holds what a reader of the source would recognize. Both
-   * separators end a directory here: {@link javax.tools.FileObject#getName()} promises only a
-   * user-friendly name, and a file manager is free to hand back a platform path.
+   * Renders {@code diagnostic} as {@code <file>:<line>: <message>} on one line, omitting the
+   * directory and Error Prone's trailing "see" link. Handles both path separators because the file
+   * manager may return platform-specific paths.
    *
    * @param diagnostic the diagnostic to render
    * @return the rendered diagnostic

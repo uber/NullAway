@@ -1720,9 +1720,7 @@ public final class GenericsChecks {
     return treeSymbol != null && treeSymbol.getKind().equals(kind);
   }
 
-  /**
-   * Creates a solver that recognizes every active enclosing solver's fresh variables as external.
-   */
+  /** Registers every enclosing solver's fresh symbols as external inputs to this solver. */
   private ConstraintSolver makeSolver(VisitorState state, NullAway analysis) {
     ConstraintSolver solver =
         new PolyNullInference.Solver(
@@ -2288,9 +2286,9 @@ public final class GenericsChecks {
   }
 
   /**
-   * Tests one required premise using conflict facts and the original result template, independently
-   * of diagnostic history. Support alternatives, not flattened transitive context, determine which
-   * premises are required; a site's own conflict does not invalidate its originating evidence.
+   * Checks whether a source expression's result remains usable after lower-bound conflicts. The
+   * receiving call itself remains usable here; other calls are checked against their original
+   * declared result type, independently of which diagnostics have already been reported.
    */
   private boolean isAvailableConflictSource(
       SourceOrigin origin, Tree receivingSite, Map<Tree, InferencePartial> outcomes) {
@@ -2302,7 +2300,7 @@ public final class GenericsChecks {
     return sourceOutcome == null || !hasUnavailableLowerResult(sourceSite, sourceOutcome);
   }
 
-  /** Selects a source only from the chosen proof, preferring the receiving call's argument. */
+  /** Selects an origin from the chosen support, preferring one whose ownerSite is {@code site}. */
   private @Nullable SourceOrigin sourceAtSite(List<SourceOrigin> support, Tree site) {
     for (SourceOrigin origin : support) {
       if (origin.ownerSite().equals(site)) {
@@ -2313,8 +2311,9 @@ public final class GenericsChecks {
   }
 
   /**
-   * Reports the selected available proofs, retaining source-less fallback without consulting
-   * flattened context or recovering sources from the AST.
+   * Reports conflicting bounds using the selected source combinations. Prefers sources received by
+   * the conflicting call over transitive sources from nested calls. A bound needing no source is
+   * displayed using its bound type. If neither bound has a source, reports at the call site.
    */
   private void reportLowerBoundConflict(
       LowerBoundConflict conflict,
@@ -2380,7 +2379,9 @@ public final class GenericsChecks {
     return hasUnavailableLowerResult(site, outcome);
   }
 
-  /** Reads failed-result availability from the exact declared template and originating facts. */
+  /**
+   * Returns whether the result is a bare type variable whose conflict needs a direct diagnostic.
+   */
   private boolean hasUnavailableLowerResult(Tree site, InferencePartial outcome) {
     InferenceCall call = outcome.diagnosticCalls.get(site);
     return call != null
@@ -2394,7 +2395,9 @@ public final class GenericsChecks {
   }
 
   /**
-   * Keeps fixed annotations, array dimensions, and unrelated parameters independently checkable.
+   * Returns whether the argument's formal type is only a bare type variable with a lower-bound
+   * conflict requiring a direct diagnostic. Annotated uses, arrays, and unrelated parameters remain
+   * checkable.
    */
   private boolean hasUnavailableLowerArgument(Tree site, ExpressionTree argument) {
     InferencePartial outcome = diagnosticInferenceOutcome(site);
