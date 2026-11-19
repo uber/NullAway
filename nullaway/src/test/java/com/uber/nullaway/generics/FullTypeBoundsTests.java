@@ -22,7 +22,7 @@ import java.util.Map;
 import javax.lang.model.element.Element;
 import org.junit.Test;
 
-/** Exercises the capability boundary using types from an active javac compilation. */
+/** Checks full substitutions and top-level-only results using javac-attributed types. */
 public class FullTypeBoundsTests {
 
   @Test
@@ -103,7 +103,7 @@ public class FullTypeBoundsTests {
                   void supportedArrayArgument(List<String[]> instantiation_lower_nonNullArgument) {}
               // BUG: Diagnostic contains: Substitution
               static <T extends @Nullable Object, U extends @Nullable Object>
-                  void nominalArrayArgumentProjection(StringArrays lower_nonNullArgument, List<String[]> instantiation) {}
+                  void subclassArrayArgumentProjection(StringArrays lower_nonNullArgument, List<String[]> instantiation) {}
               // BUG: Diagnostic contains: TopLevelOnly
               static <T extends @Nullable Object, U extends @Nullable Object>
                   void enclosingMismatch(Outer<@Nullable String>.Inner instantiation_lower, Outer<String>.Inner upper) {}
@@ -124,7 +124,7 @@ public class FullTypeBoundsTests {
                   void annotatedMetadata(@NonNull @Marker List<@Nullable String> instantiation_lower_marker) {}
               // BUG: Diagnostic contains: Substitution
               static <T extends @Nullable Object, U extends @Nullable Object>
-                  void nominalProjection(Strings lower, List<@Nullable String> instantiation_upper) {}
+                  void subclassProjection(Strings lower, List<@Nullable String> instantiation_upper) {}
               // BUG: Diagnostic contains: Substitution
               static <T extends @Nullable Object, U extends @Nullable Object>
                   void primitiveArray(int[] instantiation_lower) {}
@@ -133,7 +133,7 @@ public class FullTypeBoundsTests {
                   void primitiveMatrix(int[][] instantiation_lower) {}
               // BUG: Diagnostic contains: TopLevelOnly
               static <T extends @Nullable Object, U extends @Nullable Object>
-                  void invariantNominal(List<ArrayList<String>> instantiation_lower, List<List<String>> upper) {}
+                  void invariantClassMismatch(List<ArrayList<String>> instantiation_lower, List<List<String>> upper) {}
               // BUG: Diagnostic contains: TopLevelOnly
               static <T extends @Nullable Object, U extends @Nullable Object>
                   void invalidArrayClassUpper(String[] instantiation_lower, String upper) {}
@@ -287,7 +287,7 @@ public class FullTypeBoundsTests {
         .doTest();
   }
 
-  /** Checks both published annotations and deliberate omissions from the full-type capability. */
+  /** Checks inferred annotations and cases where no full substitution is available. */
   @BugPattern(
       summary = "Checks full-type bounds and top-level-only fallback",
       severity = SUGGESTION)
@@ -613,10 +613,7 @@ public class FullTypeBoundsTests {
       }
     }
 
-    /**
-     * Extracts supported substitutions for the existing capability assertions, never top-level-only
-     * fallbacks.
-     */
+    /** Extracts full substitutions, excluding top-level-only results. */
     private static Map<InferenceVariable, Type> substitutions(
         Map<InferenceVariable, ConstraintSolver.InferredType> solution) {
       Map<InferenceVariable, Type> result = new LinkedHashMap<>();
@@ -629,7 +626,7 @@ public class FullTypeBoundsTests {
       return result;
     }
 
-    /** Reuses a real class type's nominal instantiation with one substituted type argument. */
+    /** Copies a class type with one replacement type argument. */
     private static Type parameterizedLike(Type template, Type argument) {
       return TypeMetadataBuilder.TYPE_METADATA_BUILDER.createClassType(
           template, template.getEnclosingType(), com.sun.tools.javac.util.List.of(argument));

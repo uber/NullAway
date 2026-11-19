@@ -414,11 +414,11 @@ final class FullTypeBounds {
    * <p>This is stricter than {@link GenericsChecks#subtypeParameterNullability(Type, Type,
    * VisitorState)} (whose arguments are supertype first). That check assumes javac has already
    * validated Java subtyping: it accepts missing supertype alignments and raw types, and can widen
-   * nominal types inside invariant arguments. For example, it accepts the nested nullability of
+   * class types inside invariant arguments. For example, it accepts the nested nullability of
    * {@code List<ArrayList<String>>} against {@code List<List<String>>}; this comparison rejects the
-   * nominal mismatch. This method also checks nullability on enclosing types themselves, while the
-   * shared visitor compares only their type arguments. Those differences matter for bounds
-   * assembled during inference rather than a javac-validated assignment.
+   * mismatch between those class types. This method also checks nullability on enclosing types
+   * themselves, while the shared visitor compares only their type arguments. Those differences
+   * matter for bounds assembled during inference rather than a javac-validated assignment.
    */
   private boolean compatible(Type subtype, Type supertype, boolean covariant, boolean compareRoot) {
     if (compareRoot

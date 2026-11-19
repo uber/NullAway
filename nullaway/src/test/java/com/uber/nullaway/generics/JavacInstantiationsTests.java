@@ -19,7 +19,7 @@ import java.util.Map;
 import javax.lang.model.element.Element;
 import org.junit.Test;
 
-/** Checks instantiation recovery independently of the scalar fallback used by the checker. */
+/** Checks recovery of javac's inferred type arguments independently of nullability inference. */
 public class JavacInstantiationsTests {
 
   @Test
