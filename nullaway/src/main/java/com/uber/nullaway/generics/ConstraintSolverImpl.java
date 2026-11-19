@@ -58,7 +58,7 @@ public final class ConstraintSolverImpl implements ConstraintSolver {
   private final Set<Element> externalInferenceSymbols = new LinkedHashSet<>();
 
   /**
-   * Variables with external inputs, recorded before constraint reduction can lose the dependency.
+   * Variables known to depend on external inference before constraint reduction loses that link.
    */
   private final Set<InferenceVariable> externalInputVariables = new LinkedHashSet<>();
 
@@ -266,10 +266,9 @@ public final class ConstraintSolverImpl implements ConstraintSolver {
   }
 
   /**
-   * Detects authoritative supplied-bound changes, including annotations that javac's nominal
-   * isSameType comparison ignores. Detached peer variables can also carry restored root contracts
-   * under unchanged symbols. Neither nested nullable positions nor unknown shapes establish root
-   * permissiveness; the same root-bound reader used for validation decides that comparison.
+   * Compares a supplied bound with the declaration, including annotations ignored by javac's {@code
+   * isSameType}. Peer variables can have the same symbols but restored upper-bound nullness, so
+   * also compare whether each bound permits a nullable value at the top level.
    */
   private boolean hasSuppliedBoundChange(Type supplied, Type declared) {
     return !state.getTypes().isSameType(supplied, declared)
@@ -277,7 +276,10 @@ public final class ConstraintSolverImpl implements ConstraintSolver {
         || upperBoundAllowsNullable(supplied) != upperBoundAllowsNullable(declared);
   }
 
-  /** Retains raw and substituted registration inputs under their specific variable owner. */
+  /**
+   * Records each variable's original and substituted bounds and attributed type for dependency
+   * checks.
+   */
   private void recordRegistrationInputs(
       Tree site,
       Map<Element, Type.TypeVar> fresh,
@@ -336,9 +338,7 @@ public final class ConstraintSolverImpl implements ConstraintSolver {
     return false;
   }
 
-  /**
-   * Records sites whose signature or result types depend on another solver's inference variables.
-   */
+  /** Marks a site whose input type contains an unsolved variable from an enclosing solver. */
   @Override
   public void recordInferenceSiteInput(Tree site, Type type) {
     if (hasExternalInputDependency(type)) {
@@ -347,9 +347,9 @@ public final class ConstraintSolverImpl implements ConstraintSolver {
   }
 
   /**
-   * Closes retained seeds over the current root, structural, and nested dependencies without
-   * preparing constraints or changing certification. Repeated snapshots also see registration
-   * inputs supplied after the first registration, even when semantic bounds remain unchanged.
+   * Propagates external-input dependencies through root constraints and nested bounds without
+   * solving constraints or changing completeness and consistency status. Includes inputs added by
+   * later registrations, even when those inputs do not change the bounds.
    */
   @Override
   public InputDependencies inputDependencies() {
@@ -376,8 +376,9 @@ public final class ConstraintSolverImpl implements ConstraintSolver {
         dependencies.addAll(st.supertypes);
         dependencies.addAll(st.structuralSubtypes);
         dependencies.addAll(st.structuralSupertypes);
-        // Nested owner/slot relationships are conservatively bidirectional. No second graph is
-        // maintained, and this also preserves dependencies before preparation or after failure.
+        // Propagate dependencies both ways between a variable and variables nested in its bounds.
+        // Use the recorded bounds so this also works before constraint preparation or after
+        // failure.
         for (InferenceVariable dependency : dependencies) {
           if (dependent.contains(dependency)) {
             changed |= dependent.add(variable);
@@ -392,19 +393,18 @@ public final class ConstraintSolverImpl implements ConstraintSolver {
   }
 
   /**
-   * Reduces a subtype relation into constraints on its component types. Dependencies on another
-   * solver's variables are recorded at those component pairs and at bound registration, so
-   * unrelated type-argument positions do not share dependencies.
+   * Reduces the subtype relation with {@link AddSubtypeConstraintsVisitor}. Dependencies on
+   * external inference are recorded for each reduced pair, not for unrelated type arguments in the
+   * original containing types.
    */
   private void constrainSubtype(Type subtype, Type supertype, boolean localVariableType) {
     subtype.accept(new AddSubtypeConstraintsVisitor(localVariableType), supertype);
   }
 
   /**
-   * Marks this solver's variables at either end of a reduced pair as dependent on external input,
-   * before nullness updates, bound deduplication, or failure can lose that dependency. Expanding an
-   * external variable's upper bound can remove its symbol; {@code foreignBoundInput} retains the
-   * dependency in that case.
+   * Marks inference variables at either end of a reduced subtype pair as externally dependent.
+   * {@code foreignBoundInput} preserves that dependency when expanding an external variable's bound
+   * has removed the external symbol from both types.
    */
   private void recordReducedPairInputDependencies(
       Type subtype, Type supertype, boolean foreignBoundInput) {
@@ -423,7 +423,9 @@ public final class ConstraintSolverImpl implements ConstraintSolver {
     }
   }
 
-  /** Updates supplied javac instantiations, retaining entries omitted by later registrations. */
+  /**
+   * Updates supplied instantiations, retaining earlier entries for variables absent from this map.
+   */
   private void recordJavacInstantiations(
       Tree site, Set<Element> variables, Map<? extends Element, ? extends Type> instantiations) {
     for (Element variable : variables) {
@@ -1346,9 +1348,10 @@ public final class ConstraintSolverImpl implements ConstraintSolver {
   }
 
   /**
-   * Structured bounds relevant to one inference variable. {@code declaredUpper} is a subset of
-   * {@code upper} retained separately so declaration violations can use a conservative diagnostic
-   * fallback without changing the established reporting site for contextual constraints.
+   * Lower and upper bounds reachable from one inference variable. {@code declaredUpper} contains
+   * the bounds in {@code upper} that come from type-parameter declarations, rather than assignment
+   * targets or call arguments. Keeping them separate allows declaration-bound violations to be
+   * diagnosed when a full substitution is unavailable.
    */
   private record StructuredBounds(List<Type> lower, List<Type> upper, List<Type> declaredUpper) {}
 
@@ -1401,7 +1404,10 @@ public final class ConstraintSolverImpl implements ConstraintSolver {
     }
   }
 
-  /** Corresponding evidence at one child position; the shape is never nullness evidence. */
+  /**
+   * Two lower-bound types at one position in javac's type structure, with the variance for
+   * comparison.
+   */
   private record LowerSlot(
       Type first, Type second, Type shape, LowerVariance variance, boolean compareRoot) {}
 
@@ -2441,7 +2447,7 @@ public final class ConstraintSolverImpl implements ConstraintSolver {
         false);
   }
 
-  /** Resolves an inference variable's type while retaining explicit annotations on this use. */
+  /** Substitutes an occurrence's inferred type while preserving its explicit root annotations. */
   private @Nullable Type resolveInvariantOccurrence(Type occurrence) {
     InferenceVariable variable = inferenceVariableForStructure(occurrence);
     Type resolved = resolveInvariantVariable(variable);
@@ -2452,9 +2458,10 @@ public final class ConstraintSolverImpl implements ConstraintSolver {
   }
 
   /**
-   * Resolves acyclic comparison evidence using the same shaped resolver as final candidates. The
-   * legacy nominal annotation source is an explicitly uncertified fallback only when attribution
-   * supplied no shape; recursive or otherwise unknown evidence is never cached as a default.
+   * Resolves an acyclic variable for invariant comparison using the same resolver as final inferred
+   * types. Without a javac instantiation, falls back to {@link #structuredBound}; that fallback
+   * does not make the variable complete. Recursive or unresolved results are not cached as
+   * defaults.
    */
   private @Nullable Type resolveInvariantVariable(@Nullable InferenceVariable variable) {
     if (variable == null

@@ -308,10 +308,10 @@ final class PolyNullInference {
   }
 
   /**
-   * Keeps PolyNull's qualifier-only edges out of the full solver's nominal structural graph. A
-   * modeled String and Integer can share nullness without sharing a Java type. Ordinary constraints
-   * still go through the full solver, and top-level nullness is imposed on each variable's own
-   * type, preserving its shape, declaration checks, provenance, and certification.
+   * Solves PolyNull qualifier relationships separately from Java subtype constraints. Modeled
+   * {@code String} and {@code Integer} positions can share nullness without becoming subtypes of
+   * each other. Ordinary constraints go through the delegate; solved nullness is applied to each
+   * variable's own type so its structure and declaration-bound checks are preserved.
    */
   static final class Solver implements ConstraintSolver {
     private final ConstraintSolver delegate;
@@ -432,7 +432,7 @@ final class PolyNullInference {
     }
 
     /**
-     * Combines the delegate's external-input dependencies with those carried by qualifier links.
+     * Combines delegate dependencies with dependencies propagated through PolyNull qualifier edges.
      */
     @Override
     public InputDependencies inputDependencies() {
@@ -589,10 +589,11 @@ final class PolyNullInference {
     }
 
     /**
-     * Connects a structural PolyNull use to its ordinary variable without reading annotations from
-     * the recovered Java shape. Each qualifier occurrence gets a nominally typed projection: full
-     * bounds constrain its nullness, while qualifier-only constraints link it to the shared
-     * qualifier. A String and an Integer projection never acquire nominal bounds on each other.
+     * Connects a modeled PolyNull use to an ordinary inference variable. Each qualifier occurrence
+     * gets a fresh variable with the corresponding javac-inferred Java type; bounds determine its
+     * nullness, not javac's annotations. Nullness-only edges link it to the shared qualifier, so
+     * {@code String} and {@code Integer} occurrences do not impose Java subtype bounds on each
+     * other.
      */
     private void projectConstraint(
         Type variableType, Type modeledType, boolean local, boolean lower) {
@@ -616,9 +617,9 @@ final class PolyNullInference {
     }
 
     /**
-     * Replaces only modeled qualifier occurrences with fresh ordinary variables at the recovered
-     * nominal positions. The recovered annotations are passed solely as javac instantiations, so
-     * the full solver projects actual bounds rather than treating these annotations as evidence.
+     * Replaces modeled qualifier occurrences with fresh variables whose Java types come from the
+     * corresponding positions in {@code shape}. Passes these types as javac instantiations, so the
+     * delegate obtains nullness from bounds rather than from the supplied types' annotations.
      */
     private @Nullable Type projectQualifiers(
         Type modeled, Type shape, InferenceVariable projectionOwner) {

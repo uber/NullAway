@@ -21,7 +21,7 @@ import java.util.Map;
 import javax.lang.model.element.Element;
 import org.junit.Test;
 
-/** Repeated registration preserves graph identity, bounds, shapes, and external-input ownership. */
+/** Repeated registration preserves fresh-variable identity, bounds, and external dependencies. */
 public class RegistrationLifecycleTests {
   @Test
   public void registrationAndDependentRootsRetainTheirContracts() {

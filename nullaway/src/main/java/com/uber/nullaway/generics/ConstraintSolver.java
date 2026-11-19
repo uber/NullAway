@@ -33,8 +33,9 @@ public interface ConstraintSolver {
   record InferenceVariable(Element typeVariable, Tree site) {}
 
   /**
-   * Variables and sites that depend on unresolved inference variables from another solver. A site
-   * dependency records a signature or result input; it does not mark every variable at that site.
+   * Variables and sites that depend on unsolved inference in an enclosing solver. A site can be
+   * listed because its signature or result contains an external variable, without every inferred
+   * variable at that site depending on it.
    */
   record InputDependencies(Set<InferenceVariable> variables, Set<Tree> sites) {
     /** Takes immutable, insertion-ordered snapshots of both dependency sets. */
@@ -50,7 +51,7 @@ public interface ConstraintSolver {
     }
   }
 
-  /** Inferred annotation sources, their completion and consistency status, and external inputs. */
+  /** Inferred types, variables that are incomplete or inconsistent, and external dependencies. */
   record Solution(
       Map<InferenceVariable, Type> inferredTypes,
       Set<InferenceVariable> incompleteVariables,
@@ -127,10 +128,9 @@ public interface ConstraintSolver {
   }
 
   /**
-   * Registers inference variables with javac's inferred Java type arguments. These determine the
-   * classes, array dimensions, and type-argument positions onto which inferred nullness is copied;
-   * the solver never replaces that Java structure. Missing instantiations yield incomplete results,
-   * even if an annotation source is available.
+   * Registers inference variables with javac's inferred Java type arguments. Bounds supply nullness
+   * annotations for these types; the solver never replaces their Java structure. A variable without
+   * a javac instantiation remains incomplete, even if a bound supplies annotations.
    *
    * @param site the inference site
    * @param typeVariables the declared variables inferred at the site
