@@ -216,7 +216,7 @@ public final class GenericsChecks {
   /** Active solvers whose fresh variables must be treated as external by nested solvers. */
   private final List<ConstraintSolver> activeInferenceSolvers = new ArrayList<>();
 
-  /** Query capability is independent of inference lifecycle and cache-publication eligibility. */
+  /** Whether type queries may start dataflow analysis or only read an analysis already running. */
   private enum DataflowQueryPolicy {
     ALLOW_START,
     RUNNING_ONLY
@@ -1030,12 +1030,11 @@ public final class GenericsChecks {
   }
 
   /**
-   * Checks the immediate component nullability of an array expression using its enhanced type.
+   * Checks whether an array's immediate elements may be null, including nullability inferred for
+   * generic calls and {@code var} locals. Also honors annotations on the array expression's symbol.
    *
-   * <p>The declared-expression fallback preserves support for declaration annotations, enclosing
-   * parentheses, and older annotation encodings. Dataflow callers must pass {@code true} so
-   * incomplete inference results are not cached. Transfer-driven recovery separately scopes queries
-   * to running analyses, including queries needed while resolving nested lambda types.
+   * <p>Dataflow callers must pass {@code true} to avoid caching incomplete inference results or
+   * starting another dataflow analysis, including when resolving types inside nested lambdas.
    *
    * @param expression the array expression
    * @param state visitor state whose path points to {@code expression}
@@ -3663,7 +3662,7 @@ public final class GenericsChecks {
       // argument
       refinedNullness = nullnessAnalysis.getNullnessFromRunning(exprPath, state.context);
     } else if (runningOnly) {
-      // Use the declared root until this expression's own analysis is running.
+      // Keep exprType's top-level nullness rather than starting analysis of its enclosing body.
       refinedNullness = null;
     } else {
       refinedNullness = nullnessAnalysis.getNullness(exprPath, state.context);
@@ -3687,9 +3686,9 @@ public final class GenericsChecks {
   }
 
   /**
-   * Scopes query capabilities without changing inference lifecycle or publication eligibility.
-   * Nested scopes cannot relax an enclosing running-only restriction; restoration also covers
-   * failures during type recovery or constraint generation.
+   * Runs {@code action} with the given policy for starting dataflow analysis. A nested action
+   * cannot allow analysis starts when an enclosing action forbids them. Restores the previous
+   * policy even if the action throws; this does not change whether inference results may be cached.
    */
   private <T extends @Nullable Object> T withDataflowQueryPolicy(
       DataflowQueryPolicy policy, java.util.function.Supplier<T> action) {

@@ -4087,8 +4087,8 @@ public class GenericMethodTests extends NullAwayTestsBase {
                 return source.get();
               }
               static void test(String[] nonNullElements, @Nullable String[] nullableElements) {
-                // Recovering this array during transfer visits a lambda inside another lambda
-                // whose analysis is not running. Environment setup must not start that analysis.
+                // Inferring the array type visits both lambdas while analyzing test(). Setting up
+                // the inner lambda must not start analysis of the outer lambda as a side effect.
                 // BUG: Diagnostic contains: dereferenced expression
                 supplied(() -> supplied(() -> nullableElements))[0].length();
                 supplied(() -> supplied(() -> nonNullElements))[0].length();
@@ -4167,7 +4167,7 @@ public class GenericMethodTests extends NullAwayTestsBase {
                 // BUG: Diagnostic contains: dereferenced expression 'a[right.i]' is @Nullable
                 a[right.i].length();
                 a[left.i] = "safe";
-                // Receiver-dependent indices cannot justify even same-receiver refinement.
+                // Instance-field indices are not tracked, even for another read of a[left.i].
                 // BUG: Diagnostic contains: dereferenced expression 'a[left.i]' is @Nullable
                 a[left.i].length();
               }
