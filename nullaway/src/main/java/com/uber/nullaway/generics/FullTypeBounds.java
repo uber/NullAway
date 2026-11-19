@@ -68,10 +68,9 @@ final class FullTypeBounds {
   }
 
   /**
-   * Records declared bounds and javac instantiations in one pass over a site's fresh variables.
-   * Re-registration preserves collected bounds and updates only supplied instantiations. The shared
-   * fresh-symbol map is owned and populated by the caller; javac's instantiation supplies type
-   * structure, not nullability annotations for the result.
+   * Records declared bounds and javac instantiations for a site's fresh variables. Re-registration
+   * preserves bounds and updates only supplied instantiations. The caller populates the shared
+   * variable map; instantiations supply Java types, not nullability bounds.
    */
   void register(
       Tree site,
@@ -107,11 +106,9 @@ final class FullTypeBounds {
   }
 
   /**
-   * Resolves full substitutions, reusing successful results within this solve to avoid repeatedly
-   * resolving shared nested variables. Failed resolutions are not cached, since a recursion cutoff
-   * depends on the active resolution path. The returned map omits variables without a supported
-   * full substitution; their independently inferred top-level nullability remains available to the
-   * caller.
+   * Resolves full substitutions, caching successful results for this solve. Failures are not cached
+   * because recursion cutoffs depend on the active path. Omits unresolved variables; the caller
+   * retains their separately inferred top-level nullability.
    */
   Map<InferenceVariable, Type> solve(Map<InferenceVariable, Nullness> nullability) {
     Map<InferenceVariable, Type> result = new LinkedHashMap<>();
@@ -176,8 +173,7 @@ final class FullTypeBounds {
         }
       }
       if (candidate == null) {
-        // Neither javac's provisional annotations nor a declared bound supplies an expression
-        // bound.
+        // No lower or upper bound is available to infer nested nullability.
         return null;
       }
       // Projection and merging already make each lower bound compatible with the candidate:
@@ -253,7 +249,9 @@ final class FullTypeBounds {
   }
 
   /**
-   * Substitutes only supported nested inference variables, without unfolding fixed-variable bounds.
+   * Replaces nested inference variables with their resolved substitutions. Returns null if a
+   * variable cannot be resolved or any part of the type is unsupported: a wildcard, capture, fixed
+   * type variable, raw type, or intersection.
    */
   private @Nullable Type resolveType(
       Type type,
@@ -291,9 +289,9 @@ final class FullTypeBounds {
   }
 
   /**
-   * Checks this implementation's full-substitution domain, not the JLS definition of a proper type.
-   * For example, {@code List<String[]>} is supported, but {@code List<?>}, raw {@code List}, and
-   * fixed type variables are not. The enclosing-type sentinel {@code NONE} is also accepted.
+   * Accepts non-raw class types and arrays with supported arguments and enclosing types, plus
+   * primitives and the enclosing-type sentinel {@code NONE}. Rejects wildcards, captures, fixed
+   * type variables, intersections, and erroneous types.
    */
   private boolean isSupportedForFullSubstitution(Type type) {
     if (type.isErroneous()) {
@@ -318,11 +316,11 @@ final class FullTypeBounds {
 
   /**
    * Projects bound annotations onto javac's instantiation, or returns null if projection is
-   * unsupported. Nominal widening is allowed only in covariant positions; class arguments and
-   * enclosing types are invariant. For example, {@code ArrayList<@Nullable String>} can supply
-   * annotations for {@code List<String>}, but {@code List<ArrayList<String>>} cannot supply them
-   * for {@code List<List<String>>}. Every projected reference node gets explicit nullability so
-   * provisional javac annotations cannot leak into the substitution.
+   * unsupported. Mapping a bound to a supertype with {@code asSuper} is allowed only in covariant
+   * positions; class arguments and enclosing types are invariant. For example, {@code
+   * ArrayList<@Nullable String>} can supply annotations for {@code List<String>}, but {@code
+   * List<ArrayList<String>>} cannot supply them for {@code List<List<String>>}. Replaces
+   * nullability annotations on javac's inferred type with those from the bound.
    */
   private @Nullable Type project(Type javacInstantiation, Type bound, boolean covariant) {
     if (javacInstantiation instanceof Type.ArrayType array
