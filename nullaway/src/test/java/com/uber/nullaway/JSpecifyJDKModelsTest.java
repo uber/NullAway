@@ -595,6 +595,11 @@ public class JSpecifyJDKModelsTest extends NullAwayTestsBase {
             import org.jspecify.annotations.Nullable;
             @NullMarked
             class Test {
+              static class Box<T extends @Nullable Object> {
+                final T value;
+                Box(T value) { this.value = value; }
+                T get() { return value; }
+              }
               void directAssignmentPreservesNullablePayload() {
                 CompletableFuture<@Nullable Void> f1 = CompletableFuture.allOf();
               }
@@ -642,6 +647,27 @@ public class JSpecifyJDKModelsTest extends NullAwayTestsBase {
                 Optional.of(Optional.of(CompletableFuture.completedFuture("ok")))
                     .get().get().join().length();
               }
+              void diamondConstructorPreservesNullablePayload() {
+                CompletableFuture<@Nullable Void> valid =
+                    new Box<>(CompletableFuture.allOf()).get();
+              }
+              void diamondConstructorRejectsNonNullPayload() {
+                // BUG: Diagnostic contains: incompatible types
+                CompletableFuture<Void> invalid = new Box<>(CompletableFuture.allOf()).get();
+              }
+              void inferredDiamondConstructorPreservesNullablePayload() {
+                var future = new Box<>(CompletableFuture.allOf()).get();
+                CompletableFuture<@Nullable Void> valid = future;
+                // BUG: Diagnostic contains: incompatible types
+                CompletableFuture<Void> invalid = future;
+                // BUG: Diagnostic contains: dereferenced expression
+                future.join().toString();
+              }
+              void diamondConstructorPreservesNonNullPayload() {
+                var future = new Box<>(CompletableFuture.completedFuture("ok")).get();
+                CompletableFuture<String> valid = future;
+                future.join().length();
+              }
             }
             """)
         .doTest();
@@ -675,6 +701,19 @@ public class JSpecifyJDKModelsTest extends NullAwayTestsBase {
               }
               void identityPreservesNonNullPayload() {
                 identity(CompletableFuture.completedFuture("ok")).join().length();
+              }
+              void inferredIdentityPreservesNullablePayload() {
+                var future = identity(CompletableFuture.allOf());
+                CompletableFuture<@Nullable Void> valid = future;
+                // BUG: Diagnostic contains: incompatible types
+                CompletableFuture<Void> invalid = future;
+                // BUG: Diagnostic contains: dereferenced expression
+                future.join().toString();
+              }
+              void nestedIdentityRejectsNonNullPayload() {
+                CompletableFuture<@Nullable Void> valid = identity(identity(CompletableFuture.allOf()));
+                // BUG: Diagnostic contains: incompatible types
+                CompletableFuture<Void> invalid = identity(identity(CompletableFuture.allOf()));
               }
             }
             """)
