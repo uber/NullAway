@@ -94,7 +94,9 @@ public final class GenericsChecks {
   /** Marker interface for results of attempting to infer nullability of type variables at a call */
   private interface CallInferenceResult {}
 
-  /** Complete and partial outcomes expose site-scoped substitutions and their solution facts. */
+  /**
+   * Inferred types grouped by call or method reference, with completeness and dependency status.
+   */
   private interface InferenceWithTypes extends CallInferenceResult {
     Solution solution();
 
@@ -108,7 +110,9 @@ public final class GenericsChecks {
     }
   }
 
-  /** A completed, consistent solution eligible for publication subject to lifecycle guards. */
+  /**
+   * A complete, consistent solution; caching still requires independent inputs and a safe context.
+   */
   private record InferenceSuccess(
       Solution solution,
       Map<Tree, Map<Element, Type>> typesBySite,
@@ -117,8 +121,8 @@ public final class GenericsChecks {
       implements InferenceWithTypes {}
 
   /**
-   * Uncertified or contradictory evidence used for ordinary checking, never success caching.
-   * Diagnostic call templates retain their original declared failed-variable positions.
+   * Incomplete or inconsistent inferred types retained for ordinary compatibility checks, not
+   * cached as successful inference.
    */
   private record InferencePartial(
       Solution solution,
@@ -126,7 +130,7 @@ public final class GenericsChecks {
       Map<MethodInvocationTree, Nullness> polyNullnessByInvocation)
       implements InferenceWithTypes {}
 
-  /** Indexes immutable site-scoped substitution views once, without changing certification. */
+  /** Groups inferred types by call or reference once, without changing their solution status. */
   private static Map<Tree, Map<Element, Type>> indexInferredTypesBySite(Solution solution) {
     Map<Tree, Map<Element, Type>> bySite = new LinkedHashMap<>();
     solution
@@ -140,7 +144,7 @@ public final class GenericsChecks {
     return Map.copyOf(bySite);
   }
 
-  /** Exact participating inputs and ownership of this inference problem's fresh symbols. */
+  /** Calls, input types, and fresh-symbol-to-declaration mappings for one inference problem. */
   private static final class InferenceCacheState {
     final Set<MemberReferenceTree> methodReferences = new LinkedHashSet<>();
     final Map<Tree, InferenceCall> calls = new LinkedHashMap<>();
@@ -150,19 +154,23 @@ public final class GenericsChecks {
     final IdentityHashMap<MethodInvocationTree, PolyNullInferenceContext> polyNullContexts =
         new IdentityHashMap<>();
 
-    /** Records fixed inputs as well as inputs containing locally inferred variables. */
+    /** Records a site's input type and checks it for unsolved variables from enclosing solvers. */
     void recordInput(ConstraintSolver solver, Tree site, Type type) {
       inputsBySite.computeIfAbsent(site, unused -> new ArrayList<>()).add(type);
       solver.recordInferenceSiteInput(site, type);
     }
 
-    /** Retains contextual inputs separately from the call templates completed on success. */
+    /**
+     * Keeps the assignment target separate from signatures and results substituted after solving.
+     */
     void recordCallContext(ConstraintSolver solver, Tree site, Type type) {
       callContexts.computeIfAbsent(site, unused -> new ArrayList<>()).add(type);
       recordInput(solver, site, type);
     }
 
-    /** Retains the site identity needed to complete fresh symbols from the full solution. */
+    /**
+     * Maps each fresh symbol to its declared variable and call or reference site for substitution.
+     */
     void recordVariables(Tree site, Map<Element, Type.TypeVar> variables) {
       variables.forEach(
           (declaration, fresh) ->
@@ -180,8 +188,8 @@ public final class GenericsChecks {
   }
 
   /**
-   * Immutable publication policy for one completed attempt. Each site is selected independently;
-   * poly targets are completed and certified before any consumer can publish them.
+   * Selects which call results, method-reference results, diagnostics, and functional targets may
+   * be cached after one inference attempt. Each site is checked separately.
    */
   private record InferencePublicationDecision(
       InferenceTypePublication types,
@@ -198,7 +206,7 @@ public final class GenericsChecks {
     }
   }
 
-  /** Solvers whose owned symbols are external inputs to a newly nested inference problem. */
+  /** Active solvers whose fresh variables must be treated as external by nested solvers. */
   private final List<ConstraintSolver> activeInferenceSolvers = new ArrayList<>();
 
   /** Indicates failed inference of nullability of type variables at a call */
@@ -217,13 +225,15 @@ public final class GenericsChecks {
   private final Map<Tree, CallInferenceResult> inferredTypeVarNullabilityForGenericCalls =
       new LinkedHashMap<>();
 
-  /** Final root contexts retained only when their inference inputs are independently reusable. */
+  /**
+   * Assignment targets retained for root calls whose inputs do not depend on enclosing inference.
+   */
   private final Map<Tree, CallAndContext> completedCallContexts = new LinkedHashMap<>();
 
   /**
-   * Completed enclosing or independent inference results indexed by generic method references. Each
-   * published reference has independent inputs and fully completed owned substitutions, even if
-   * other sites in the same inference problem depend on external unresolved inputs.
+   * Completed solutions indexed by generic method reference. Each cached reference has all fresh
+   * variables substituted and does not depend on unsolved enclosing inference variables, even if
+   * another site in the same problem does.
    */
   private final Map<MemberReferenceTree, InferenceSuccess>
       inferredResultsForGenericMethodReferences = new LinkedHashMap<>();
@@ -238,7 +248,8 @@ public final class GenericsChecks {
   private final Set<Tree> reportedNestedUpperBoundViolations = new LinkedHashSet<>();
 
   /**
-   * Completed uncertified outcomes, distinct from reusable inference and diagnostic deduplication.
+   * Partial results retained for compatibility diagnostics, separate from successful-result caches
+   * and sets of already reported errors.
    */
   private final Map<Tree, InferencePartial> diagnosticInferenceResults = new LinkedHashMap<>();
 
@@ -282,7 +293,10 @@ public final class GenericsChecks {
     }
   }
 
-  /** One stable syntax recipe for a regular invocation, constructor chain, or allocation. */
+  /**
+   * Syntax and declaration for a method call, {@code this(...)} or {@code super(...)}, or
+   * allocation.
+   */
   private final class CallSite {
     final ExpressionTree tree;
     final Symbol.MethodSymbol symbol;
@@ -330,7 +344,9 @@ public final class GenericsChecks {
       return allocatedType != null;
     }
 
-    /** Resolves annotated receiver types and witnesses without publishing provisional types. */
+    /**
+     * Substitutes receiver and explicit type arguments without caching types that may be unsolved.
+     */
     InferenceCall resolve(@Nullable TreePath path, VisitorState state, boolean calledFromDataflow) {
       Type executable = symbol.type;
       Type resultTemplate;
@@ -368,7 +384,10 @@ public final class GenericsChecks {
       return new InferenceCall(this, executable.asMethodType(), resultTemplate);
     }
 
-    /** Collects javac's independent executable and allocated-type shape evidence for this site. */
+    /**
+     * Recovers javac's type arguments from the attributed signature and, for allocations, class
+     * type.
+     */
     Map<Element, Type> javacInstantiations(Type.MethodType declaration, VisitorState state) {
       Map<Element, Type> result = new LinkedHashMap<>();
       Type attributedSignature;
@@ -388,7 +407,7 @@ public final class GenericsChecks {
       return result;
     }
 
-    /** Returns the instantiated javac signature, preserving the existing fallback source. */
+    /** Returns javac's instantiated signature, which may lack nested nullness annotations. */
     Type.MethodType attributedSignature() {
       return (allocatedType != null
               ? ((JCTree.JCNewClass) tree).constructorType
@@ -403,9 +422,9 @@ public final class GenericsChecks {
   }
 
   /**
-   * Context-resolved snapshots of all participating calls during constraint generation, including
-   * calls in lambda bodies. Publication completes owned symbols and checks external dependencies
-   * per target rather than excluding calls just because provisional lambda maps are active. Nested
+   * Resolved call signatures and results recorded during constraint generation, including calls in
+   * lambda bodies. They may still contain unsolved variables; caching later substitutes those
+   * variables and checks each functional target for dependencies on enclosing inference. Nested
    * inference problems save and restore this map; {@code null} outside generation.
    */
   private @Nullable Map<Tree, InferenceCall> callTypesForPolyArguments = null;
@@ -1692,7 +1711,9 @@ public final class GenericsChecks {
     return treeSymbol != null && treeSymbol.getKind().equals(kind);
   }
 
-  /** Initializes foreign-symbol ownership from every enclosing active inference problem. */
+  /**
+   * Creates a solver that recognizes every active enclosing solver's fresh variables as external.
+   */
   private ConstraintSolver makeSolver(VisitorState state, NullAway analysis) {
     ConstraintSolver solver =
         new PolyNullInference.Solver(
@@ -1923,8 +1944,8 @@ public final class GenericsChecks {
               state);
       invalidateMethodReferenceResults(publication.methodReferences());
       if (publication.types() == InferenceTypePublication.FAILURE_SITE) {
-        // Contextual scalar contradictions complete only this root problem. Nested calls must
-        // still infer their own arguments and contexts independently.
+        // Cache this root call's nullness failure only. Nested calls must still infer their own
+        // arguments using their own assignment targets.
         inferredTypeVarNullabilityForGenericCalls.put(callTree, failureResult);
         diagnosticInferenceResults.remove(callTree);
       }
@@ -1935,8 +1956,9 @@ public final class GenericsChecks {
   }
 
   /**
-   * Checks that contradictory root substitutions retain javac's complete Java instantiations.
-   * Contradictions can also be marked incomplete; that must not admit unshaped fallback sources.
+   * Checks that every inferred type argument for {@code call} matches javac's type structure,
+   * ignoring annotations. A contradictory result may also be incomplete, so its diagnostic types
+   * cannot be assumed to have javac's structure.
    */
   private boolean hasShapedDiagnosticTypes(
       ExpressionTree call,
@@ -1960,10 +1982,10 @@ public final class GenericsChecks {
   }
 
   /**
-   * Selects publication by ownership and site-local input dependencies, after lifecycle
-   * restoration. Fixed signature inputs can disqualify a whole call without disqualifying
-   * independent functional targets. Failure decisions use the solver's live dependencies even when
-   * no solution exists.
+   * Selects results to cache after temporary lambda state has been restored. A call cannot be
+   * reused if its signature, result, or assignment target depends on unsolved enclosing inference
+   * variables. A functional argument's target is checked separately, so it may still be cached.
+   * Failed attempts use the solver's current dependencies because no solution is available.
    */
   private InferencePublicationDecision inferencePublicationDecision(
       CallInferenceResult result,
@@ -2090,7 +2112,7 @@ public final class GenericsChecks {
   }
 
   /**
-   * Maps every owned fresh symbol to its site-specific solution, including enclosing local calls.
+   * Maps fresh symbols recorded for this problem's calls and references to their inferred types.
    */
   private Map<Element, Type> completedVariableSubstitutions(
       InferenceCacheState inputs, Solution solution) {
@@ -2106,8 +2128,9 @@ public final class GenericsChecks {
   }
 
   /**
-   * Completes chains of owned fresh variables without replacing stable caller type parameters.
-   * Cyclic or opaque chains remain symbolic and are rejected by publication eligibility checks.
+   * Substitutes chains of fresh variables created for this problem, leaving caller type parameters
+   * unchanged. The number of substitutions bounds the loop; any fresh variables remaining in a
+   * cycle or unresolved chain prevent the type from being cached.
    */
   private Type completeOwnedType(Type type, Map<Element, Type> substitutions, VisitorState state) {
     for (int i = 0; i < substitutions.size(); i++) {
@@ -2177,7 +2200,7 @@ public final class GenericsChecks {
         solution, Map.copyOf(bySite), Map.copyOf(calls), Map.copyOf(polyNullness));
   }
 
-  /** Keeps independent partial annotation sources separate from certified inference publication. */
+  /** Stores partial results for diagnostics without replacing cached successes or failures. */
   private void publishDiagnosticInferenceOutcomes(Set<Tree> sites, InferenceWithTypes result) {
     Map<Tree, InferencePartial> outcomes = new LinkedHashMap<>();
     for (Tree site : sites) {
@@ -2207,9 +2230,9 @@ public final class GenericsChecks {
   }
 
   /**
-   * Selects targets independently of fixed inputs elsewhere in their call's signature. Each target
-   * must use only certified, externally independent variables and contain no escaping fresh symbols
-   * after applying the full solution's owned substitutions.
+   * Selects lambda and method-reference targets separately from other parameters in the call.
+   * Variables used in a target must be complete, consistent, and independent of unsolved enclosing
+   * inference. After substitution, the target must contain no fresh inference variables.
    */
   private Map<Tree, Type> certifiedPolyTargets(
       InferenceCacheState inputs,
@@ -2859,12 +2882,13 @@ public final class GenericsChecks {
   }
 
   /**
-   * Resolves a block-lambda var initializer on demand in the solver owning the local read.
+   * Resolves a block-lambda {@code var} initializer on demand in the current lambda's solver.
    *
-   * <p>Generic initializers retain symbolic result types, keeping dependencies on provisional
-   * lambda parameters in the same constraint graph. Seed the declaration type for reentrant
-   * dataflow reads; the completed symbolic type remains lambda-scoped and is never published.
-   * Scalar nullness is refined at each use rather than taken from the initializer.
+   * <p>Generic initializers retain unsolved result types so constraints involving lambda parameters
+   * stay in the same solver. Store the declaration type first to stop recursive dataflow reads of
+   * the local from resolving the initializer again. The resulting type is kept only while checking
+   * the lambda; the local's top-level nullness is refined at each use, not taken from its
+   * initializer.
    */
   private @Nullable Type getSymbolicLambdaVarLocalType(
       Symbol symbol,
@@ -3381,8 +3405,8 @@ public final class GenericsChecks {
         && expr instanceof IdentifierTree
         && lambdaVarLocalInference != null
         && lambdaVarLocalInference.types().containsKey(ASTHelpers.getSymbol(expr))) {
-      // A local read's scalar nullness must not constrain its initializer's symbolic root variable.
-      // Keep structural ownership, but override root nullness with the dataflow value at this use.
+      // Use dataflow nullness for this read without constraining the initializer's root nullness.
+      // Retain the inference variable so constraints on nested type arguments still reach it.
       return TypeSubstitutionUtils.typeWithAnnot(
           exprType,
           NullabilityUtil.nullnessToBool(refinedNullness)
@@ -3627,11 +3651,12 @@ public final class GenericsChecks {
   }
 
   /**
-   * Replaces an inner allocation's enclosing type with the enhanced instance viewed as the class
-   * declaring the inner type. Explicit qualifiers retain inherited annotations; inference without a
-   * qualifier can use the nearest lexical class supplying that outer instance.
+   * Replaces {@code type}'s enclosing type with the enclosing instance's annotated type, viewed as
+   * the class declaring the inner type. For {@code outer.new Inner()}, uses {@code outer}'s type;
+   * without a qualifier, uses the nearest lexical class supplying the enclosing instance.
    *
-   * @return the corrected type, or null for static allocations and unavailable or raw owner views
+   * @return the corrected type, or {@code null} if there is no enclosing class type or the
+   *     enclosing instance's type as the declaring class is unavailable or raw
    */
   private @Nullable Type withEnclosingTypeFromQualifier(
       Type type, NewClassTree newClassTree, VisitorState state, boolean calledFromDataflow) {
@@ -4178,7 +4203,7 @@ public final class GenericsChecks {
    *
    * @param reference the generic method reference without explicit type arguments
    * @param state visitor state whose path ends at the reference
-   * @return the completed solution, or {@code null} if no final target is available or inference
+   * @return the inferred types, which may be incomplete, or {@code null} if inference cannot run or
    *     fails
    */
   private @Nullable InferenceWithTypes inferGenericMethodReferenceIndependently(
@@ -4733,7 +4758,7 @@ public final class GenericsChecks {
     return com.sun.tools.javac.util.List.from(types);
   }
 
-  /** Resolves the receiver and witnesses before substituting inferred arguments. */
+  /** Substitutes receiver and explicit type arguments before applying inferred type arguments. */
   private Type.MethodType getResolvedCallSignature(
       ExpressionTree tree,
       @Nullable TreePath path,
@@ -4744,9 +4769,9 @@ public final class GenericsChecks {
   }
 
   /**
-   * Substitutes site-scoped inferred arguments into a receiver- and witness-resolved signature.
-   * Method and class inference variables use the same path without inventing a quantified
-   * constructor signature. Existing partial and failed-result fallback policies are retained.
+   * Substitutes this call's inferred type arguments into a signature whose receiver and explicit
+   * type arguments have already been resolved. Uses javac's instantiated signature as a fallback
+   * for partial or failed inference, restoring nullness annotations where available.
    *
    * @param call the context-resolved executable description
    * @param path the path to the invocation tree, or null if not available
@@ -4849,7 +4874,7 @@ public final class GenericsChecks {
         }
       }
       if (result instanceof InferenceWithTypes successResult) {
-        // Retain the javac call-site shape with a diagnostic overlay for uncertified inference.
+        // Keep javac's type structure and copy inferred nullness for partial-result diagnostics.
         return modelResolvedSignature(
             call,
             TypeSubstitutionUtils.updateMethodTypeWithInferredNullability(
@@ -5098,7 +5123,9 @@ public final class GenericsChecks {
     return getResolvedCallSignature((ExpressionTree) tree, path, state, calledFromDataflow);
   }
 
-  /** Applies ordinary models and then the site-owned PolyNull qualifier, without publishing it. */
+  /**
+   * Applies signature models, then this invocation's inferred PolyNull qualifier when available.
+   */
   private Type.MethodType modelResolvedSignature(
       InferenceCall call,
       Type.MethodType signature,
