@@ -89,7 +89,7 @@ public class RegistrationLifecycleTests {
       if (name.startsWith("repeated")) {
         ConstraintSolver outer = new ConstraintSolverImpl(analysis.getConfig(), state, analysis);
         Map<Element, Type.TypeVar> foreign =
-            outer.registerInferenceVariables(tree, method.getTypeParameters());
+            outer.registerInferenceVariables(tree, method.getTypeParameters(), Map.of());
         if (name.equals("repeatedOwnership")) {
           solver.registerExternalInferenceSymbols(outer.inferenceVariableSymbols());
         }

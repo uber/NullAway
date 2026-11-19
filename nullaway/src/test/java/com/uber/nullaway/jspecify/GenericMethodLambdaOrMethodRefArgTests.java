@@ -14,6 +14,7 @@ import com.google.errorprone.util.ASTHelpers;
 import com.sun.source.tree.CompilationUnitTree;
 import com.sun.source.tree.MemberReferenceTree;
 import com.sun.source.tree.MethodInvocationTree;
+import com.sun.source.util.TreePath;
 import com.sun.tools.javac.code.Type;
 import com.uber.nullaway.NullAway;
 import com.uber.nullaway.NullAwayTestsBase;
@@ -2971,7 +2972,8 @@ public class GenericMethodLambdaOrMethodRefArgTests extends NullAwayTestsBase {
           .isEqualTo(Nullness.NONNULL);
 
       if (inner.getArguments().size() == 1) {
-        Type result = checks.getTreeType(inner, state);
+        Type result =
+            checks.getTreeType(inner, state.withPath(new TreePath(state.getPath(), inner)));
         assertThat(
                 GenericsUtils.isAnnotatedAsNullable(
                     result.getTypeArguments().head, analysis.getConfig()))
