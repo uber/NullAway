@@ -3423,8 +3423,8 @@ public class GenericMethodTests extends NullAwayTestsBase {
   }
 
   /**
-   * Pins the current root-only constructor inference limitations for the modeled nullable payload
-   * from issue #1942; full nested constructor substitutions are outside this change's scope.
+   * Records the false diagnostics and missed nullable dereference caused by top-level-only
+   * constructor inference in issue #1942.
    */
   @Test
   public void issue1942ModeledNestedReturnThroughDiamondConstructor() {
@@ -3455,7 +3455,7 @@ public class GenericMethodTests extends NullAwayTestsBase {
                 // Known false positive: the modeled nullable payload was lost at the constructor.
                 // BUG: Diagnostic contains: incompatible types
                 CompletableFuture<@Nullable Void> valid = future;
-                // Known false negative: the nullable result of join() is currently dereferenceable.
+                // Known false negative: dereferencing the nullable join() result is not reported.
                 future.join().toString();
               }
               void nonNullPayloadIsAccepted() {
@@ -3481,8 +3481,7 @@ public class GenericMethodTests extends NullAwayTestsBase {
             class Test {
               static <T extends @Nullable Object> T id(T value) { return value; }
               void nonNullVoidPayloadIsCurrentlyAccepted() {
-                // Known preexisting false negative for issue #1942, not fixed by this change.
-                // Deliberately no expected diagnostic: do not claim the issue is fully resolved.
+                // Known false negative (#1942): inference loses the modeled nullable type argument.
                 CompletableFuture<Void> future = id(CompletableFuture.allOf());
               }
             }
