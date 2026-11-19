@@ -2,11 +2,15 @@ package com.uber.nullaway.generics;
 
 import com.sun.source.tree.Tree;
 import com.sun.tools.javac.code.Type;
-import com.uber.nullaway.Config;
 import com.uber.nullaway.Nullness;
+import java.util.Collections;
+import java.util.LinkedHashMap;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import javax.lang.model.element.Element;
+import org.jspecify.annotations.Nullable;
 
 /**
  * An interface for solving constraints on type variables, such as subtype relationships between
@@ -29,6 +33,64 @@ public interface ConstraintSolver {
   record InferenceVariable(Element typeVariable, Tree site) {}
 
   /**
+   * Variables and sites that depend on unresolved inference variables from another solver. A site
+   * dependency records a signature or result input; it does not mark every variable at that site.
+   */
+  record InputDependencies(Set<InferenceVariable> variables, Set<Tree> sites) {
+    /** Takes immutable, insertion-ordered snapshots of both dependency sets. */
+    public InputDependencies {
+      variables = Collections.unmodifiableSet(new LinkedHashSet<>(variables));
+      sites = Collections.unmodifiableSet(new LinkedHashSet<>(sites));
+    }
+
+    /** Returns whether neither variable values nor raw/fixed inputs depend on foreign inference. */
+    public boolean isIndependentForSite(Tree site) {
+      return !sites.contains(site)
+          && variables.stream().noneMatch(variable -> variable.site().equals(site));
+    }
+  }
+
+  /** Inferred annotation sources, their completion and consistency status, and external inputs. */
+  record Solution(
+      Map<InferenceVariable, Type> inferredTypes,
+      Set<InferenceVariable> incompleteVariables,
+      Set<InferenceVariable> inconsistentVariables,
+      InputDependencies inputDependencies) {
+    /** Creates a result without external unresolved inputs. */
+    public Solution(
+        Map<InferenceVariable, Type> types,
+        Set<InferenceVariable> incomplete,
+        Set<InferenceVariable> inconsistent) {
+      this(types, incomplete, inconsistent, new InputDependencies(Set.of(), Set.of()));
+    }
+
+    /** Freezes candidate and status collections before any frontend publication. */
+    public Solution {
+      inferredTypes = Collections.unmodifiableMap(new LinkedHashMap<>(inferredTypes));
+      incompleteVariables = Collections.unmodifiableSet(new LinkedHashSet<>(incompleteVariables));
+      inconsistentVariables =
+          Collections.unmodifiableSet(new LinkedHashSet<>(inconsistentVariables));
+    }
+
+    /** Returns whether every registered variable has a certified, consistent candidate. */
+    public boolean isComplete() {
+      return incompleteVariables.isEmpty() && inconsistentVariables.isEmpty();
+    }
+
+    /** Returns whether this site's variables are complete and consistent. */
+    public boolean isCompleteForSite(Tree site) {
+      return incompleteVariables.stream().noneMatch(variable -> variable.site().equals(site))
+          && inconsistentVariables.stream().noneMatch(variable -> variable.site().equals(site));
+    }
+  }
+
+  /** Registers javac-inferred type arguments using the variables' declaration bounds. */
+  default Map<Element, Type.TypeVar> registerInferenceVariables(
+      Tree site, List<? extends Element> variables, Map<Element, Type> shapes) {
+    return registerInferenceVariables(site, variables, Map.of(), Set.copyOf(variables), shapes);
+  }
+
+  /**
    * Registers the type variables whose nullability is inferred at {@code site}. Must be called
    * before adding constraints involving these variables; type variables not registered via this
    * method are treated as fixed types.
@@ -41,63 +103,77 @@ public interface ConstraintSolver {
    * retain the original declaration for library-modeled bound nullability, even when a separate
    * inference problem treats the fresh variables as fixed types.
    *
-   * <p>Javac's inferred Java types supply the structure of full substitutions; nullness annotations
-   * come from the collected bounds. Pass an empty map when no inferred structure is available.
-   *
-   * <p>Re-registering a site with the same declarations returns its existing fresh variables and
-   * retains all constraints. Passing different declarations fails verification. Supplied javac
-   * instantiations replace earlier entries; omitted entries leave earlier entries unchanged.
-   * Separate inference problems use separate solvers.
+   * <p>Registering the same site again returns the same fresh type variables, preserving their
+   * identity in existing constraints. Different declarations fail verification. Later registrations
+   * retain additional bound inputs and replace supplied javac instantiations; omitted
+   * instantiations retain their earlier values. Separate inference problems use separate solvers.
    *
    * @param site the tree whose type arguments are inferred
    * @param typeVariables the declared type variables inferred at {@code site}
-   * @param javacInstantiations javac's inferred type arguments, keyed by declared variable; any
-   *     variable may be omitted and then receives at most a {@link TopLevelOnly} result unless an
-   *     earlier registration supplied its instantiation. These types supply Java structure only;
-   *     their nullness annotations are not bounds.
+   * @param instantiatedUpperBounds upper bounds after receiver/class substitutions, keyed by the
+   *     corresponding declared type variable; an explicit nullable library-model override takes
+   *     precedence over the substituted bound's top-level nullness
+   * @param variablesWithNullnessMarkedBounds variables whose declaration upper-bound annotations
+   *     are an authoritative nullness contract
    * @return a map from each declared type variable to its fresh type variable for {@code site}
    */
+  default Map<Element, Type.TypeVar> registerInferenceVariables(
+      Tree site,
+      List<? extends Element> typeVariables,
+      Map<? extends Element, ? extends Type> instantiatedUpperBounds,
+      Set<? extends Element> variablesWithNullnessMarkedBounds) {
+    return registerInferenceVariables(
+        site, typeVariables, instantiatedUpperBounds, variablesWithNullnessMarkedBounds, Map.of());
+  }
+
+  /**
+   * Registers inference variables with javac's inferred Java type arguments. These determine the
+   * classes, array dimensions, and type-argument positions onto which inferred nullness is copied;
+   * the solver never replaces that Java structure. Missing instantiations yield incomplete results,
+   * even if an annotation source is available.
+   *
+   * @param site the inference site
+   * @param typeVariables the declared variables inferred at the site
+   * @param instantiatedUpperBounds receiver/class-substituted declaration upper bounds
+   * @param variablesWithNullnessMarkedBounds declarations with authoritative nullness bounds
+   * @param javacInstantiations attributed Java type arguments, keyed by declared variable element
+   * @return the fresh variables, as in the four-argument overload
+   */
   Map<Element, Type.TypeVar> registerInferenceVariables(
-      Tree site, List<? extends Element> typeVariables, Map<Element, Type> javacInstantiations);
+      Tree site,
+      List<? extends Element> typeVariables,
+      Map<? extends Element, ? extends Type> instantiatedUpperBounds,
+      Set<? extends Element> variablesWithNullnessMarkedBounds,
+      Map<? extends Element, ? extends Type> javacInstantiations);
+
+  /** Returns an immutable snapshot of the fresh symbols currently owned by this solver. */
+  Set<Element> inferenceVariableSymbols();
 
   /**
-   * The inferred type argument for one variable at a call site. A {@link Substitution} includes
-   * nested nullness, such as {@code List<@Nullable String>}; a {@link TopLevelOnly} records just
-   * the top-level nullness when a full substitution is unavailable.
+   * Registers explicitly foreign unresolved inference symbols before consuming their types. Stable
+   * caller type parameters must not be registered. Owned fresh symbols are never external.
    */
-  sealed interface InferredType permits Substitution, TopLevelOnly {
-    /** Returns the established top-level qualifier for either kind of result. */
-    default Nullness topLevelNullness(Config config) {
-      if (this instanceof TopLevelOnly topLevel) {
-        return topLevel.nullness();
-      }
-      return GenericsUtils.isAnnotatedAsNullable(((Substitution) this).type(), config)
-          ? Nullness.NULLABLE
-          : Nullness.NONNULL;
-    }
-  }
+  void registerExternalInferenceSymbols(Set<? extends Element> symbols);
+
+  /** Returns whether the type, including nested positions and bounds, consumes foreign symbols. */
+  boolean hasExternalInputDependency(Type type);
 
   /**
-   * An inferred replacement type, including nested nullness and containing no inference variables.
+   * Records a raw signature/result input consuming foreign symbols at a site, without seeding
+   * unrelated variable values merely because they share that site.
    */
-  record Substitution(Type type) implements InferredType {}
+  void recordInferenceSiteInput(Tree site, Type type);
 
   /**
-   * An inferred top-level nullness qualifier. Consumers retain the attributed type's nested
-   * structure, including annotations restored by {@link NestedTypeVarSubstitutionRepairVisitor}.
+   * Returns an immutable snapshot of the current dependencies, even after constraint generation
+   * throws. This status is independent of completeness and consistency.
    */
-  record TopLevelOnly(Nullness nullness) implements InferredType {
-    /**
-     * Only NONNULL and NULLABLE are type qualifiers; other states describe dataflow values.
-     *
-     * @throws IllegalArgumentException if nullness is neither NONNULL nor NULLABLE
-     */
-    public TopLevelOnly {
-      if (nullness != Nullness.NONNULL && nullness != Nullness.NULLABLE) {
-        throw new IllegalArgumentException("Expected an inferred top-level nullness qualifier");
-      }
-    }
-  }
+  InputDependencies inputDependencies();
+
+  /**
+   * Returns established top-level nullness, excluding defaults and javac-attributed annotations.
+   */
+  @Nullable Nullness knownNullness(InferenceVariable variable);
 
   /**
    * Exception thrown when the constraints added to the solver are determined to be unsatisfiable.
@@ -113,14 +189,28 @@ public interface ConstraintSolver {
     /** Whether a {@code @Nullable} constraint conflicts with the type variable's upper bound. */
     private final boolean causedByNonNullUpperBound;
 
+    /** Site owning the conflicting inference variable, when available. */
+    private final @Nullable Tree inferenceSite;
+
     public UnsatisfiableConstraintsException(Element typeVariable) {
       this(typeVariable, false);
     }
 
     public UnsatisfiableConstraintsException(
         Element typeVariable, boolean causedByNonNullUpperBound) {
+      this(typeVariable, causedByNonNullUpperBound, null);
+    }
+
+    /** Records the declaration, root-bound cause, and owning inference site of a contradiction. */
+    public UnsatisfiableConstraintsException(
+        Element typeVariable, boolean causedByNonNullUpperBound, @Nullable Tree inferenceSite) {
       this.typeVariable = typeVariable;
       this.causedByNonNullUpperBound = causedByNonNullUpperBound;
+      this.inferenceSite = inferenceSite;
+    }
+
+    public @Nullable Tree getInferenceSite() {
+      return inferenceSite;
     }
 
     public Element getTypeVariable() {
@@ -133,35 +223,45 @@ public interface ConstraintSolver {
   }
 
   /**
-   * Add a subtype constraint between two types. Also constrains nested types appropriately (e.g.,
-   * generic type parameters of the two types must have identical nullability). Inference variables
-   * must appear in the types as the fresh type variables returned by {@link
-   * #registerInferenceVariables(Tree, List, Map)}.
-   *
-   * @param subtype the subtype
-   * @param supertype the supertype
-   * @param localVariableType whether this constraint arises from assigning to a local variable. In
-   *     such a case, the top-level types are not constrained to be subtypes (as local variable
-   *     types are separately inferred), but the nested types are still constrained.
-   * @throws UnsatisfiableConstraintsException if the constraints are determined to be unsatisfiable
+   * Indicates a proven nested-nullness violation of a declaration upper bound for which no safe
+   * annotation source can preserve ordinary compatibility diagnostics. This includes cyclic
+   * inference, non-generic subclasses of annotated generic bounds, and incompatible nominal shapes
+   * nested inside arrays. The caller reports the violation; the solver does not emit diagnostics.
    */
-  void addSubtypeConstraint(Type subtype, Type supertype, boolean localVariableType)
-      throws UnsatisfiableConstraintsException;
+  class NestedUpperBoundViolationException extends UnsatisfiableConstraintsException {
+    private final Tree site;
+    private final Type lowerBound;
+    private final Type upperBound;
+
+    /** Records the inference site and the lower/declaration-bound pair proving the violation. */
+    public NestedUpperBoundViolationException(
+        Element typeVariable, Tree site, Type lowerBound, Type upperBound) {
+      super(typeVariable, false, site);
+      this.site = site;
+      this.lowerBound = lowerBound;
+      this.upperBound = upperBound;
+    }
+
+    public Tree getSite() {
+      return site;
+    }
+
+    public Type getLowerBound() {
+      return lowerBound;
+    }
+
+    public Type getUpperBound() {
+      return upperBound;
+    }
+  }
+
+  /** Adds a subtype relation, excluding the root nullness of a local-variable target. */
+  void addSubtypeConstraint(Type subtype, Type supertype, boolean localVariableType);
 
   /**
-   * Solves nullness constraints and returns an immutable map of inferred type arguments. Each
-   * result contains either a full substitution or just the top-level nullness when nested inference
-   * is unsupported or its bounds disagree. Variables with neither top-level constraints nor
-   * supported type bounds are omitted.
-   *
-   * <p>A full substitution requires javac's instantiation to be a non-raw class or array type,
-   * including enclosing types, without wildcards, captures, or fixed type variables. A dependency
-   * cycle or disagreement at an invariant position, such as lower bounds {@code List<String>} and
-   * {@code List<@Nullable String>}, leaves only top-level nullability available. See {@link
-   * FullTypeBounds} for the resolution rules.
-   *
-   * @return inferred type arguments keyed by call-specific inference variables
-   * @throws UnsatisfiableConstraintsException if top-level constraints are unsatisfiable
+   * Solves the collected constraints and checks each inferred type against its bounds. Incomplete
+   * or inconsistent types may still supply annotations for compatibility diagnostics, but must not
+   * be cached as successful inference results.
    */
-  Map<InferenceVariable, InferredType> solve() throws UnsatisfiableConstraintsException;
+  Solution solve() throws UnsatisfiableConstraintsException;
 }

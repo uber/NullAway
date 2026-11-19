@@ -12,13 +12,12 @@ import com.sun.tools.javac.code.Types;
 import java.util.Collections;
 import java.util.IdentityHashMap;
 import java.util.LinkedHashSet;
-import java.util.Objects;
 import java.util.Set;
 import javax.lang.model.element.Element;
 import org.jspecify.annotations.Nullable;
 
 /**
- * Visitor that collects every TypeVar whose symbol is the given Element.
+ * Visitor that collects every TypeVar with a given symbol.
  *
  * <p>Usage:
  *
@@ -36,6 +35,7 @@ public final class TypeVarWithSymbolCollector
   private final Element symbol;
   private final Set<TypeVar> matches = new LinkedHashSet<>();
 
+  /** Creates a collector for occurrences of a single type variable symbol. */
   public TypeVarWithSymbolCollector(Element symbol) {
     this.symbol = symbol;
   }
@@ -57,7 +57,7 @@ public final class TypeVarWithSymbolCollector
   // ---- Core matching logic ----
   @Override
   public @Nullable Void visitTypeVar(TypeVar t, @Nullable Void p) {
-    if (Objects.equals(t.tsym, symbol)) {
+    if (symbol.equals(t.tsym)) {
       matches.add(t);
     }
     scan(t.getUpperBound());
@@ -68,6 +68,11 @@ public final class TypeVarWithSymbolCollector
   // ---- Common container types ----
   @Override
   public @Nullable Void visitClassType(ClassType t, @Nullable Void p) {
+    if (t instanceof Type.IntersectionClassType intersection) {
+      for (Type component : intersection.getExplicitComponents()) {
+        scan(component);
+      }
+    }
     for (Type arg : t.getTypeArguments()) {
       scan(arg);
     }
