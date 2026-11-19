@@ -596,6 +596,18 @@ public interface ConstraintSolver {
   }
 
   /**
+   * A fixed caller type variable with a nullable upper bound cannot fit {@code ? extends U} when
+   * U's upper bound excludes null. Records the call inferring U, which may be nested inside the
+   * call that started inference.
+   */
+  class NonNullWildcardBoundViolationException extends UnsatisfiableConstraintsException {
+    /** Records the variable whose non-null bound conflicts with the actual's fixed bound. */
+    public NonNullWildcardBoundViolationException(InferenceVariable variable) {
+      super(variable.typeVariable(), true, variable.site());
+    }
+  }
+
+  /**
    * Indicates a proven nested-nullness violation of a declaration upper bound for which no safe
    * annotation source can preserve ordinary compatibility diagnostics. This includes cyclic
    * inference, non-generic subclasses of annotated generic bounds, and incompatible nominal shapes
