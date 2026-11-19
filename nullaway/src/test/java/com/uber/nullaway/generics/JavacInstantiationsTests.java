@@ -21,14 +21,13 @@ import java.util.Map;
 import javax.lang.model.element.Element;
 import org.junit.Test;
 
-/** Checks recovery of javac's inferred type arguments independently of nullability inference. */
+/** Checks recovery of javac-inferred type arguments independently of nullness inference. */
 public class JavacInstantiationsTests {
 
   @Test
   public void recoverOnlyConsistentInstantiations() {
     StringBuilder source =
-        new StringBuilder("import com.uber.nullaway.NullAway;
-import java.util.List; class Host<F> { class Inner {}\n");
+        new StringBuilder("import java.util.List; class Host<F> { class Inner {}\n");
     for (String name :
         List.of(
             "consistentPairInstantiation",
@@ -228,8 +227,12 @@ import java.util.List; class Host<F> { class Inner {}\n");
       }
       Map<Element, Type> instantiations =
           JavacInstantiations.inferInstantiations(
-              declaration, attributed, method.getTypeParameters(), state,
-              new NullAway(ErrorProneFlags.fromMap(Map.of("NullAway:OnlyNullMarked", "true"))).getConfig());
+              declaration,
+              attributed,
+              method.getTypeParameters(),
+              state,
+              new NullAway(ErrorProneFlags.fromMap(Map.of("NullAway:OnlyNullMarked", "true")))
+                  .getConfig());
       if (rejected) {
         assertThat(instantiations).isEmpty();
       } else {

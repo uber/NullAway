@@ -23,20 +23,20 @@ import javax.lang.model.element.Element;
 import javax.lang.model.type.TypeVariable;
 import org.jspecify.annotations.Nullable;
 
-/** Recovers javac's nominal instantiations without inferring their nullness. */
+/** Recovers javac-inferred type arguments by matching type structure, ignoring nullness. */
 final class JavacInstantiations {
 
   private JavacInstantiations() {}
 
   /**
-   * Matches a declaration against its javac-attributed shape, recovering only variables in {@code
-   * vars}.
+   * Matches {@code declaration} against {@code attributed}, recovering javac's inferred types only
+   * for variables in {@code vars}.
    *
    * <p>For calls, the declaration should be the receiver-substituted executable type and the
    * attributed type should be the invocation's method-select type (or attributed constructor
    * signature). Class instantiations can instead be recovered by matching the constructed class's
-   * declaration against its attributed constructed type. For anonymous classes, callers must supply
-   * their existing view of the constructed class, not the anonymous class declaration.
+   * declaration against its attributed constructed type. For anonymous classes, the inputs must
+   * describe the constructed superclass or interface, not the anonymous class.
    *
    * <p>Returned types retain javac's metadata, but their annotations are provisional, not nullness
    * evidence. Repeated occurrences must have the same nominal shape, ignoring annotations; a
@@ -101,8 +101,7 @@ final class JavacInstantiations {
         rejectVariables(declaration);
         return;
       }
-      // A capture's originating wildcard is explicit shape evidence; its synthesized bounds are
-      // not.
+      // Match the wildcard that produced the capture, not bounds synthesized by capture conversion.
       if (declaration instanceof CapturedType capture) {
         match(capture.wildcard, attributed);
         return;
@@ -161,8 +160,7 @@ final class JavacInstantiations {
         }
         return;
       }
-      // A concrete adapted bound is useful, but a fixed type variable's upper bound is not
-      // evidence.
+      // A fixed type variable must remain symbolic, not be replaced by its upper bound.
       if (attributed instanceof TypeVar) {
         rejectVariables(declaration);
         return;

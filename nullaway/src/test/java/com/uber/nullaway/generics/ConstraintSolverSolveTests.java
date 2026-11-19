@@ -322,7 +322,7 @@ public class ConstraintSolverSolveTests extends NullAwayTestsBase {
               });
     }
 
-    /** Recursively checks the ordinary proper types in the retained foundation graph fixtures. */
+    /** Checks that these fixtures' resolved types contain no type variables or wildcards. */
     private static void assertProper(Type type) {
       assertThat(type).isNotInstanceOf(Type.TypeVar.class);
       assertThat(type).isNotInstanceOf(Type.WildcardType.class);

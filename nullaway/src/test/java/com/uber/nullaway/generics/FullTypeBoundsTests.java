@@ -702,8 +702,9 @@ public class FullTypeBoundsTests {
 
     /**
      * Checks independently supplied shapes and bounds using typed certification rather than the
-     * retired helper's capability boundary. Wildcards are supported; captures, raw types, and errors
-     * cannot certify a shape, and an incompatible lower bound cannot certify a proper instantiation.
+     * retired helper's capability boundary. Wildcards are supported; captures, raw types, and
+     * errors cannot certify a shape, and an incompatible lower bound cannot certify a proper
+     * instantiation.
      */
     private static void checkIndependentBounds(
         MethodTree tree,
@@ -722,7 +723,9 @@ public class FullTypeBoundsTests {
       assertThat(shape).isNotNull();
       var fresh =
           solver.registerInferenceVariables(
-              tree, method.getTypeParameters(), Map.of(t, shape, u, method.getParameters().head.type));
+              tree,
+              method.getTypeParameters(),
+              Map.of(t, shape, u, method.getParameters().head.type));
       for (Symbol.VarSymbol parameter : method.getParameters()) {
         if (hasRole(parameter, "lower")) {
           solver.addSubtypeConstraint(parameterType(parameter, state), fresh.get(t), false);

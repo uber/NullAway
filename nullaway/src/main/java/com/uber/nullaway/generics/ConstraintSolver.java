@@ -33,8 +33,8 @@ public interface ConstraintSolver {
   record InferenceVariable(Element typeVariable, Tree site) {}
 
   /**
-   * External unresolved inputs affecting variable values or raw/fixed site inputs. Site provenance
-   * does not imply that unrelated variables at that site depend on those inputs.
+   * Variables and sites that depend on unresolved inference variables from another solver. A site
+   * dependency records a signature or result input; it does not mark every variable at that site.
    */
   record InputDependencies(Set<InferenceVariable> variables, Set<Tree> sites) {
     /** Takes immutable, insertion-ordered snapshots of both dependency sets. */
@@ -50,7 +50,7 @@ public interface ConstraintSolver {
     }
   }
 
-  /** Annotated candidates and independent certification/ownership status. */
+  /** Inferred annotation sources, their completion and consistency status, and external inputs. */
   record Solution(
       Map<InferenceVariable, Type> inferredTypes,
       Set<InferenceVariable> incompleteVariables,
@@ -84,7 +84,7 @@ public interface ConstraintSolver {
     }
   }
 
-  /** Registers attributed shapes using the variables' declaration bounds. */
+  /** Registers javac-inferred type arguments using the variables' declaration bounds. */
   default Map<Element, Type.TypeVar> registerInferenceVariables(
       Tree site, List<? extends Element> variables, Map<Element, Type> shapes) {
     return registerInferenceVariables(site, variables, Map.of(), Set.copyOf(variables), shapes);
@@ -105,8 +105,8 @@ public interface ConstraintSolver {
    *
    * <p>Registering the same site again returns the same fresh type variables, preserving their
    * identity in existing constraints. Different declarations fail verification. Later registrations
-   * retain additional bound inputs and replace supplied javac instantiations; omitted instantiations
-   * retain their earlier values. Separate inference problems use separate solvers.
+   * retain additional bound inputs and replace supplied javac instantiations; omitted
+   * instantiations retain their earlier values. Separate inference problems use separate solvers.
    *
    * @param site the tree whose type arguments are inferred
    * @param typeVariables the declared type variables inferred at {@code site}
@@ -127,9 +127,10 @@ public interface ConstraintSolver {
   }
 
   /**
-   * Registers inference variables with javac's authoritative Java instantiations. Nullness evidence
-   * is projected onto these shapes; the solver never replaces their Java structure. Missing shapes
-   * yield incomplete results, even if an annotation source is available.
+   * Registers inference variables with javac's inferred Java type arguments. These determine the
+   * classes, array dimensions, and type-argument positions onto which inferred nullness is copied;
+   * the solver never replaces that Java structure. Missing instantiations yield incomplete results,
+   * even if an annotation source is available.
    *
    * @param site the inference site
    * @param typeVariables the declared variables inferred at the site
@@ -164,12 +165,14 @@ public interface ConstraintSolver {
   void recordInferenceSiteInput(Tree site, Type type);
 
   /**
-   * Returns a live immutable dependency snapshot, also usable after constraint generation throws.
-   * This status is independent of completeness and consistency.
+   * Returns an immutable snapshot of the current dependencies, even after constraint generation
+   * throws. This status is independent of completeness and consistency.
    */
   InputDependencies inputDependencies();
 
-  /** Returns an established scalar fact, excluding candidate defaults and provisional shapes. */
+  /**
+   * Returns established top-level nullness, excluding defaults and javac-attributed annotations.
+   */
   @Nullable Nullness knownNullness(InferenceVariable variable);
 
   /**
@@ -256,7 +259,9 @@ public interface ConstraintSolver {
   void addSubtypeConstraint(Type subtype, Type supertype, boolean localVariableType);
 
   /**
-   * Incorporates structural bounds, propagates nullness, and independently certifies candidates.
+   * Solves the collected constraints and checks each inferred type against its bounds. Incomplete
+   * or inconsistent types may still supply annotations for compatibility diagnostics, but must not
+   * be cached as successful inference results.
    */
   Solution solve() throws UnsatisfiableConstraintsException;
 }

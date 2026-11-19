@@ -57,7 +57,9 @@ public final class ConstraintSolverImpl implements ConstraintSolver {
   /** Explicit foreign unresolved symbols, never generic caller type parameters by default. */
   private final Set<Element> externalInferenceSymbols = new LinkedHashSet<>();
 
-  /** Seeds retained before scalar reduction or structural deduplication can discard evidence. */
+  /**
+   * Variables with external inputs, recorded before constraint reduction can lose the dependency.
+   */
   private final Set<InferenceVariable> externalInputVariables = new LinkedHashSet<>();
 
   private final Set<Tree> externalInputSites = new LinkedHashSet<>();
@@ -333,7 +335,9 @@ public final class ConstraintSolverImpl implements ConstraintSolver {
     return false;
   }
 
-  /** Retains fixed-input ownership before type reduction can discard the enclosing fresh symbol. */
+  /**
+   * Records sites whose signature or result types depend on another solver's inference variables.
+   */
   @Override
   public void recordInferenceSiteInput(Tree site, Type type) {
     if (hasExternalInputDependency(type)) {
@@ -387,18 +391,19 @@ public final class ConstraintSolverImpl implements ConstraintSolver {
   }
 
   /**
-   * Records fixed/no-variable site inputs, then reduces the relation using the existing visitor.
-   * Variable dependencies are seeded only at reduced pairs and bound registration, so unrelated
-   * container slots do not share foreign-input provenance.
+   * Reduces a subtype relation into constraints on its component types. Dependencies on another
+   * solver's variables are recorded at those component pairs and at bound registration, so
+   * unrelated type-argument positions do not share dependencies.
    */
   private void constrainSubtype(Type subtype, Type supertype, boolean localVariableType) {
     subtype.accept(new AddSubtypeConstraintsVisitor(localVariableType), supertype);
   }
 
   /**
-   * Seeds only owned endpoints of a reduced pair before scalar changes, bound deduplication, or
-   * failure. Foreign fixed-bound expansion can carry provenance even when the reduced types no
-   * longer contain the foreign symbol. Origins identify fixed-input owners, not dependency proof.
+   * Marks this solver's variables at either end of a reduced pair as dependent on external input,
+   * before nullness updates, bound deduplication, or failure can lose that dependency. Expanding an
+   * external variable's upper bound can remove its symbol; {@code foreignBoundInput} retains the
+   * dependency in that case.
    */
   private void recordReducedPairInputDependencies(
       Type subtype, Type supertype, boolean foreignBoundInput) {
@@ -417,7 +422,7 @@ public final class ConstraintSolverImpl implements ConstraintSolver {
     }
   }
 
-  /** Records supplied shapes without discarding earlier shapes on repeated registration. */
+  /** Updates supplied javac instantiations, retaining entries omitted by later registrations. */
   private void recordJavacInstantiations(
       Tree site, Set<Element> variables, Map<? extends Element, ? extends Type> instantiations) {
     for (Element variable : variables) {
@@ -2433,7 +2438,7 @@ public final class ConstraintSolverImpl implements ConstraintSolver {
         false);
   }
 
-  /** Resolves structural ownership while retaining explicit root annotations on the occurrence. */
+  /** Resolves an inference variable's type while retaining explicit annotations on this use. */
   private @Nullable Type resolveInvariantOccurrence(Type occurrence) {
     InferenceVariable variable = inferenceVariableForStructure(occurrence);
     Type resolved = resolveInvariantVariable(variable);
@@ -2725,13 +2730,13 @@ public final class ConstraintSolverImpl implements ConstraintSolver {
   }
 
   /**
-   * Adds the scalar and structural constraints implied by {@code s <: t}.
+   * Adds top-level nullness and nested-type constraints implied by {@code s <: t}.
    *
    * <p>Only a registered inference variable with no explicit root nullness annotation takes a
-   * scalar constraint; see {@link #inferenceVariableForUse(Type)}. Explicitly annotated occurrences
-   * still retain structural ownership through {@link #inferenceVariableForStructure(Type)}, so
-   * their nested declaration contracts and structural bounds are constrained independently of the
-   * root annotation. Other type variables, including enclosing type parameters, remain fixed
+   * top-level nullness constraint; see {@link #inferenceVariableForUse(Type)}. Annotated
+   * occurrences still identify their variable through {@link #inferenceVariableForStructure(Type)},
+   * so their nested declaration contracts and structural bounds are constrained independently of
+   * the root annotation. Other type variables, including enclosing type parameters, remain fixed
    * evidence rather than inference variables; normal type compatibility checks report any
    * incompatibility not handled by inference.
    *
@@ -2752,7 +2757,7 @@ public final class ConstraintSolverImpl implements ConstraintSolver {
       addInferenceVariableEdge(sVar, tVar);
     }
 
-    // Root use-site annotations affect scalar constraints, not the variable's nested contract.
+    // Use-site annotations override top-level nullness, not the variable's nested-type constraints.
     InferenceVariable sStructure = inferenceVariableForStructure(s);
     InferenceVariable tStructure = inferenceVariableForStructure(t);
     if (tStructure != null) {
@@ -2855,7 +2860,7 @@ public final class ConstraintSolverImpl implements ConstraintSolver {
             || upperBoundAllowsNullable(typeVariable.getUpperBound(), visiting));
   }
 
-  /** Creates scalar state once, including for registered variables without constraints. */
+  /** Creates nullness state once, including for registered variables without constraints. */
   private VarState getState(InferenceVariable inferenceVar) {
     VarState existing = vars.get(inferenceVar);
     if (existing != null) {
@@ -2877,7 +2882,7 @@ public final class ConstraintSolverImpl implements ConstraintSolver {
     return created;
   }
 
-  /** Returns structural variable ownership independently of an occurrence's root annotation. */
+  /** Returns the registered inference variable even when this use overrides its root nullness. */
   private @Nullable InferenceVariable inferenceVariableForStructure(Type type) {
     return type instanceof TypeVar variable && !(type instanceof CapturedType)
         ? inferenceVariables.get(variable.asElement())
@@ -2885,9 +2890,9 @@ public final class ConstraintSolverImpl implements ConstraintSolver {
   }
 
   /**
-   * Returns an inference variable only when its use has no explicit root nullness override.
-   * Annotated occurrences still retain structural ownership through {@link
-   * #inferenceVariableForStructure(Type)}.
+   * Returns an inference variable only when its use has no explicit root nullness override. For
+   * nested-type constraints, {@link #inferenceVariableForStructure(Type)} identifies the variable
+   * even on annotated uses.
    */
   private @Nullable InferenceVariable inferenceVariableForUse(Type t) {
     if (!(t instanceof TypeVar tv)) {
