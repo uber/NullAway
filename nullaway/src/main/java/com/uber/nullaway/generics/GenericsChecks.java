@@ -163,12 +163,14 @@ public final class GenericsChecks {
 
   /** A context-resolved executable and the result template used for inference. */
   private record InferenceCall(CallSite site, Type executableType, Type resultTemplate) {
-    /** Returns the executable signature independently of its quantified declaration wrapper. */
+    /** Returns the method type, unwrapping {@link Type.ForAll} if present. */
     Type.MethodType signature() {
       return executableType.asMethodType();
     }
 
-    /** Applies signature models while retaining an allocation's non-void result template. */
+    /**
+     * Replaces the signature, keeping the constructed type rather than a constructor's void return.
+     */
     InferenceCall withSignature(Type.MethodType signature) {
       return new InferenceCall(
           site, signature, site.tree instanceof NewClassTree ? resultTemplate : signature.restype);
@@ -183,7 +185,9 @@ public final class GenericsChecks {
     final List<? extends Tree> explicitArguments;
     final Type attributedResult;
 
-    /** Records the same inferred variables and constructor declaration as the existing paths. */
+    /**
+     * Records the call's symbol, type parameters, explicit type arguments, and attributed result.
+     */
     CallSite(ExpressionTree tree) {
       this.tree = tree;
       symbol = (Symbol.MethodSymbol) castToNonNull(ASTHelpers.getSymbol(tree));
@@ -220,7 +224,7 @@ public final class GenericsChecks {
     }
 
     /**
-     * Resolves an ordinary-checking signature, including already instantiated constructor owners.
+     * Resolves {@code declaration} as a member of the receiver or constructed type for checking.
      */
     InferenceCall resolveForChecking(
         Symbol.MethodSymbol declaration,
@@ -237,7 +241,7 @@ public final class GenericsChecks {
       return new InferenceCall(this, executable, attributedResult);
     }
 
-    /** Returns the attributed executable signature, not authoritative nullness evidence. */
+    /** Returns javac's instantiated signature, which may lack nested nullness annotations. */
     Type.MethodType attributedSignature() {
       return (tree instanceof MethodInvocationTree invocation
               ? castToNonNull(ASTHelpers.getType(invocation.getMethodSelect()))
@@ -246,7 +250,7 @@ public final class GenericsChecks {
     }
   }
 
-  /** Creates a request-local description without caching receiver-dependent types. */
+  /** Describes call syntax without caching the receiver-dependent executable type. */
   private CallSite callSite(ExpressionTree tree) {
     return new CallSite(tree);
   }

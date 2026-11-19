@@ -5,7 +5,7 @@ import com.uber.nullaway.generics.JSpecifyJavacConfig;
 import java.util.List;
 import org.junit.Test;
 
-/** Preserves receiver, witness, constructor, and model behavior across shared call preparation. */
+/** Shared call preparation preserves receiver annotations, explicit type arguments, and models. */
 public class CallPreparationTests extends NullAwayTestsBase {
   @Test
   public void preparationKeepsExistingCallTyping() {
