@@ -596,8 +596,9 @@ public interface ConstraintSolver {
   }
 
   /**
-   * A fixed-variable bound cannot satisfy a non-null wildcard inference requirement. Unlike a
-   * contextual scalar contradiction, this deferred proof belongs to the wildcard's own call site.
+   * A fixed caller type variable with a nullable upper bound cannot fit {@code ? extends U} when
+   * U's upper bound excludes null. Records the call inferring U, which may be nested inside the
+   * call that started inference.
    */
   class NonNullWildcardBoundViolationException extends UnsatisfiableConstraintsException {
     /** Records the variable whose non-null bound conflicts with the actual's fixed bound. */

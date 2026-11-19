@@ -609,7 +609,9 @@ public class FullTypeBoundsTests {
     }
 
     /**
-     * Checks capture-converted actuals against fresh wildcard targets using fixed caller bounds.
+     * Checks captured {@code Box<? extends T>} against {@code Box<? extends U>}, where T is fixed
+     * and U is inferred. Only an unannotated T with a nullable bound and a non-null-bounded U
+     * fails.
      */
     private static void checkCapturedWildcard(
         MethodTree tree,
