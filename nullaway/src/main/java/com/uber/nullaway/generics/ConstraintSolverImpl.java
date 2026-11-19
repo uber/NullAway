@@ -150,8 +150,7 @@ public final class ConstraintSolverImpl implements ConstraintSolver {
   private static final class VarState {
     /**
      * Whether the effective upper bound permits nullable instantiations. Used to reject nullable
-     * scalar constraints and to identify wildcard containment obligations requiring non-null
-     * bounds.
+     * top-level constraints and wildcard arguments whose fixed type-variable bounds permit null.
      */
     final boolean nullableAllowed;
 
@@ -196,7 +195,10 @@ public final class ConstraintSolverImpl implements ConstraintSolver {
 
     final Map<String, BoundEvidence> lowerBoundEvidence = new LinkedHashMap<>();
 
-    /** Fixed lower uses that constrain this variable's root, not an annotated projection of it. */
+    /**
+     * Fixed type-variable lower bounds on this variable itself, excluding annotated target uses
+     * such as {@code @Nullable E}.
+     */
     final List<Type> rootFixedLowerBounds = new ArrayList<>();
 
     final Set<String> rootFixedLowerBoundKeys = new LinkedHashSet<>();
@@ -1212,9 +1214,12 @@ public final class ConstraintSolverImpl implements ConstraintSolver {
   }
 
   /**
-   * Applies wildcard containment obligations after nested calls have contributed their evidence. A
-   * fixed variable with a nullable bound remains symbolic for nullable-accepting calls, but no
-   * instantiation of a non-null-bounded wildcard variable can contain all its possible values.
+   * Checks fixed caller bounds after nested calls have contributed their constraints. In
+   * null-marked code, {@code <U> void requireNonNull(Box<? extends U> b)} cannot accept {@code
+   * Box<T>} for {@code T extends @Nullable Object}: U excludes null, but T can be instantiated with
+   * a nullable type. For {@code requireNonNull(id(box))}, this check must wait for id's lower
+   * bounds. A U with a nullable upper bound can instead retain T itself, without replacing it with
+   * {@code @Nullable T} or its upper bound.
    */
   private void constrainNonNullWildcardRequirements() {
     for (NonNullWildcardRequirement requirement : nonNullWildcardRequirements) {
@@ -1303,9 +1308,10 @@ public final class ConstraintSolverImpl implements ConstraintSolver {
   }
 
   /**
-   * Finds explicitly nullable fixed-variable evidence through root-inference subtype edges. Using
-   * structural edges here would ignore occurrence-level non-null projections. The graph is complete
-   * before this walk, so the result does not depend on whether an outer call was visited first.
+   * Finds fixed type-variable lower bounds that explicitly permit null, following edges that
+   * propagate top-level nullness. Structural edges would also follow annotated uses such as
+   * {@code @NonNull T}, incorrectly ignoring the annotation. All calls have contributed their lower
+   * bounds before this walk, so visiting an outer call first does not change the result.
    */
   private boolean hasNullableFixedLowerBound(Type actual) {
     if (Nullness.hasNonNullAnnotation(actual.getAnnotationMirrors().stream(), config)) {
@@ -1343,9 +1349,10 @@ public final class ConstraintSolverImpl implements ConstraintSolver {
   }
 
   /**
-   * Reads explicit nullable-bound evidence without treating an unmarked default as nullable. Root
-   * projections take precedence over inherited bounds; an intersection permits null only if all
-   * components do. Cyclic bounds provide no additional evidence.
+   * Reads explicit or library-modeled nullable bounds, without treating an unmarked default as
+   * nullable. An explicit {@code @NonNull T} overrides T's nullable bound. An intersection permits
+   * null only if all components do: {@code @Nullable Object & Runnable} excludes null, unlike
+   * {@code @Nullable Object & @Nullable Runnable}. Cyclic bounds provide no additional evidence.
    */
   private boolean explicitlyNullableBound(Type type, Set<Element> visiting) {
     if (Nullness.hasNonNullAnnotation(type.getAnnotationMirrors().stream(), config)) {

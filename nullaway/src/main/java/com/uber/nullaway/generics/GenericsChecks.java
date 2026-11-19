@@ -1921,14 +1921,11 @@ public final class GenericsChecks {
     } catch (UnsatisfiableConstraintsException e) {
       String inferenceFailureMessage =
           inferenceFailureMessage(e, inferenceCacheState.polyNullContexts);
-      Tree failureSite = e.getInferenceSite();
-      reportInferenceFailure(
-          failureSite != null ? failureSite : callTree,
-          inferenceFailureMessage,
-          state,
-          calledFromDataflow);
+      Tree reportedSite = e.getInferenceSite();
+      Tree inferenceSite = reportedSite != null ? reportedSite : callTree;
+      reportInferenceFailure(inferenceSite, inferenceFailureMessage, state, calledFromDataflow);
       InferenceFailure failureResult = new InferenceFailure(inferenceFailureMessage);
-      // Deferred wildcard obligations belong to their call, not necessarily this problem's root.
+      // In id(List.copyOf(xs)), a fixed-bound wildcard failure belongs to copyOf, not id.
       Tree failureSite =
           e instanceof NonNullWildcardBoundViolationException ? inferenceSite : callTree;
       InferencePublicationDecision publication =
