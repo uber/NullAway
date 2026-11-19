@@ -31,7 +31,7 @@ import java.util.concurrent.atomic.AtomicInteger;
 import javax.lang.model.element.Element;
 import org.junit.Test;
 
-/** Contracts for typed constraint solving, solve-local reuse, and top-level-only fallback. */
+/** Checks inferred substitutions, reuse within a solve, and top-level-only results. */
 public class ConstraintSolverSolveTests extends NullAwayTestsBase {
 
   @Test
@@ -66,7 +66,7 @@ public class ConstraintSolverSolveTests extends NullAwayTestsBase {
   }
 
   @Test
-  public void cyclesAndLaterEvidenceDoNotPoisonOtherResolutions() {
+  public void cyclesAndLaterBoundsDoNotPoisonOtherResolutions() {
     CompilationTestHelper.newInstance(SolveChecker.class, getClass())
         .addSourceLines(
             "Test.java",
@@ -80,9 +80,9 @@ public class ConstraintSolverSolveTests extends NullAwayTestsBase {
               <T extends @Nullable Object, U extends @Nullable Object, V extends @Nullable Object>
                   void cycleReverse(Box<String> box, String word) {}
               <T extends @Nullable Object, U extends @Nullable Object, V extends @Nullable Object>
-                  void properLowerBeforeCycle(Box<String> box, String word) {}
+                  void concreteLowerBeforeCycle(Box<String> box, String word) {}
               <T extends Comparable<T>, U extends @Nullable Object, V extends @Nullable Object>
-                  void fBoundWithProperLower(Box<String> box, String word) {}
+                  void fBoundWithConcreteLower(Box<String> box, String word) {}
               <T extends @Nullable Object, U extends @Nullable Object, V extends @Nullable Object>
                   void graphUpdate(Box<String> box, String word) {}
             }
@@ -194,22 +194,22 @@ public class ConstraintSolverSolveTests extends NullAwayTestsBase {
     }
 
     /**
-     * Checks reuse of successfully resolved nested lower bounds with a getter-read budget, avoiding
-     * dependence on compiler speed. This bounds reads of the original symbolic lower bounds, not
-     * the total cost of solving: constructing and comparing nested result types can do more work.
+     * Fails if solving a chain of n nested lower bounds calls their {@code getTypeArguments()}
+     * methods more than 4n times. Counts repeated resolution without relying on compiler speed;
+     * constructing and comparing result types may do additional work.
      */
     private static void checkChain(
         MethodTree tree, Symbol.MethodSymbol method, ConstraintSolver solver, VisitorState state) {
       var declarations = method.getTypeParameters();
       Type.ClassType box = (Type.ClassType) method.getParameters().get(0).type;
       Type word = method.getParameters().get(1).type;
-      Map<Element, Type> shapes = new LinkedHashMap<>();
-      Type shape = word;
+      Map<Element, Type> instantiations = new LinkedHashMap<>();
+      Type instantiation = word;
       for (int index = declarations.size() - 1; index >= 0; index--) {
-        shapes.put(declarations.get(index), shape);
-        shape = withArgument(box, shape);
+        instantiations.put(declarations.get(index), instantiation);
+        instantiation = withArgument(box, instantiation);
       }
-      var fresh = solver.registerInferenceVariables(tree, declarations, shapes);
+      var fresh = solver.registerInferenceVariables(tree, declarations, instantiations);
       AtomicInteger reads = new AtomicInteger();
       int budget = 4 * declarations.size();
       for (int index = 0; index < declarations.size(); index++) {
@@ -224,8 +224,9 @@ public class ConstraintSolverSolveTests extends NullAwayTestsBase {
       assertThat(result).hasSize(declarations.size());
       for (Element declaration : declarations) {
         Substitution inferred = (Substitution) result.get(new InferenceVariable(declaration, tree));
-        assertThat(state.getTypes().isSameType(inferred.type(), shapes.get(declaration))).isTrue();
-        assertProper(inferred.type());
+        assertThat(state.getTypes().isSameType(inferred.type(), instantiations.get(declaration)))
+            .isTrue();
+        assertSupportedSubstitution(inferred.type());
       }
       assertThat(reads.get()).isGreaterThan(0);
       assertThat(reads.get()).isAtMost(budget);
@@ -250,11 +251,11 @@ public class ConstraintSolverSolveTests extends NullAwayTestsBase {
       Type box = method.getParameters().get(0).type;
       Type word = method.getParameters().get(1).type;
       var order = name.equals("cycleReverse") ? List.of(u, t, v) : List.of(t, u, v);
-      var shapes =
-          name.equals("graphUpdate") || name.equals("fBoundWithProperLower")
+      var instantiations =
+          name.equals("graphUpdate") || name.equals("fBoundWithConcreteLower")
               ? Map.of(t, word, u, box, v, word)
               : Map.of(t, box, u, box, v, word);
-      var fresh = solver.registerInferenceVariables(tree, order, shapes);
+      var fresh = solver.registerInferenceVariables(tree, order, instantiations);
       solver.addSubtypeConstraint(word, fresh.get(v), false);
       if (name.equals("graphUpdate")) {
         solver.addSubtypeConstraint(withArgument(box, fresh.get(t)), fresh.get(u), false);
@@ -289,7 +290,7 @@ public class ConstraintSolverSolveTests extends NullAwayTestsBase {
             .isEqualTo(Nullness.NONNULL);
         return;
       }
-      if (name.equals("fBoundWithProperLower")) {
+      if (name.equals("fBoundWithConcreteLower")) {
         solver.addSubtypeConstraint(word, fresh.get(t), false);
         Type upper = ((Type.TypeVar) ((Symbol) t).type).getUpperBound();
         upper =
@@ -297,7 +298,7 @@ public class ConstraintSolverSolveTests extends NullAwayTestsBase {
                 upper, Map.of(t, word), state.getTypes(), analysis.getConfig());
         assertThat(state.getTypes().isSubtype(word, upper)).isTrue();
       } else {
-        if (name.equals("properLowerBeforeCycle")) {
+        if (name.equals("concreteLowerBeforeCycle")) {
           solver.addSubtypeConstraint(box, fresh.get(t), false);
         }
         solver.addSubtypeConstraint(withArgument(box, fresh.get(u)), fresh.get(t), false);
@@ -309,25 +310,23 @@ public class ConstraintSolverSolveTests extends NullAwayTestsBase {
       assertThat(result.get(new InferenceVariable(v, tree))).isInstanceOf(Substitution.class);
     }
 
-    /**
-     * Recursively rules out any declared/fresh variable or unsupported shape in published types.
-     */
-    private static void assertProper(Type type) {
+    /** Checks that substitutions contain only class types, arrays, primitives, and {@code NONE}. */
+    private static void assertSupportedSubstitution(Type type) {
       assertThat(type).isNotInstanceOf(Type.TypeVar.class);
       assertThat(type).isNotInstanceOf(Type.WildcardType.class);
       if (type instanceof Type.ClassType clazz) {
-        assertProper(clazz.getEnclosingType());
+        assertSupportedSubstitution(clazz.getEnclosingType());
         for (Type argument : clazz.getTypeArguments()) {
-          assertProper(argument);
+          assertSupportedSubstitution(argument);
         }
       } else if (type instanceof Type.ArrayType array) {
-        assertProper(array.elemtype);
+        assertSupportedSubstitution(array.elemtype);
       } else {
         assertThat(type.isPrimitive() || type.hasTag(TypeTag.NONE)).isTrue();
       }
     }
 
-    /** Creates a regular nominal shape, not the counting bound used by the work regression. */
+    /** Creates a class type without the type-argument read counter used by the lower bounds. */
     private static Type withArgument(Type template, Type argument) {
       return TypeMetadataBuilder.TYPE_METADATA_BUILDER.createClassType(
           template, template.getEnclosingType(), com.sun.tools.javac.util.List.of(argument));
