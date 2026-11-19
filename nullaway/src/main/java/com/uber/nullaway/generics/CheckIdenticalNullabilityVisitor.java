@@ -212,7 +212,8 @@ public class CheckIdenticalNullabilityVisitor extends Types.DefaultTypeVisitor<B
   private boolean haveIdenticalNullability(Type lhsType, Type rhsType) {
     boolean isLHSNullableAnnotated = genericsChecks.isNullableAnnotated(lhsType);
     boolean isRHSNullableAnnotated = genericsChecks.isNullableAnnotated(rhsType);
-    if (isLHSNullableAnnotated != isRHSNullableAnnotated) {
+    if (!OverrideNullnessMask.ignoresNullness(lhsType, rhsType)
+        && isLHSNullableAnnotated != isRHSNullableAnnotated) {
       return false;
     }
     return lhsType.accept(this, rhsType);
@@ -292,7 +293,9 @@ public class CheckIdenticalNullabilityVisitor extends Types.DefaultTypeVisitor<B
   private boolean typeArgumentSubtype(Type lhsType, Type rhsType) {
     boolean isLHSNullableAnnotated = genericsChecks.isNullableAnnotated(lhsType);
     boolean isRHSNullableAnnotated = genericsChecks.isNullableAnnotated(rhsType);
-    if (isRHSNullableAnnotated && !isLHSNullableAnnotated) {
+    if (!OverrideNullnessMask.ignoresNullness(lhsType, rhsType)
+        && isRHSNullableAnnotated
+        && !isLHSNullableAnnotated) {
       return false;
     }
     return genericsChecks.subtypeParameterNullability(lhsType, rhsType, state, this);

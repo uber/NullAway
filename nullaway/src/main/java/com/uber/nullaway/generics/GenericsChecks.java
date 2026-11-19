@@ -2597,7 +2597,9 @@ public final class GenericsChecks {
       boolean isLHSNullableAnnotated = isNullableAnnotated(lhsComponentType);
       boolean isRHSNullableAnnotated = isNullableAnnotated(rhsComponentType);
       // an array of @Nullable references is _not_ a subtype of an array of @NonNull references
-      if (isRHSNullableAnnotated && !isLHSNullableAnnotated) {
+      if (!OverrideNullnessMask.ignoresNullness(lhsComponentType, rhsComponentType)
+          && isRHSNullableAnnotated
+          && !isLHSNullableAnnotated) {
         return false;
       }
       if (lhsComponentType.getKind().equals(TypeKind.ARRAY)
@@ -3133,8 +3135,15 @@ public final class GenericsChecks {
             .isSymbolUnannotated(overriddenMethod, config, handler)) {
       return;
     }
-    checkTypeParameterNullnessForOverridingMethodReturnType(tree, overriddenMethodType, state);
-    checkTypeParameterNullnessForOverridingMethodParameterType(tree, overriddenMethodType, state);
+    Type.MethodType comparisonType =
+        OverrideNullnessMask.apply(
+            overriddenMethodType.asMethodType(),
+            handler.onGetPolyNullLocations(overriddenMethod, state),
+            state);
+    checkTypeParameterNullnessForOverridingMethodReturnType(
+        tree, overriddenMethodType, comparisonType, state);
+    checkTypeParameterNullnessForOverridingMethodParameterType(
+        tree, overriddenMethodType, comparisonType, state);
     checkMethodTypeVariableUpperBoundNullnessForOverriding(
         tree, overridingMethod, overriddenMethod, overriddenMethodType, state);
   }
@@ -3189,6 +3198,9 @@ public final class GenericsChecks {
    *
    * <p>The {@link Type.ForAll} wrapper must be retained for subsequent checks of method type
    * variable bounds, while handlers operate on its underlying {@link Type.MethodType}.
+   *
+   * <p>PolyNull locations are masked separately during declaration compatibility checks. This type
+   * retains fixed models and declared annotations for diagnostics and type-variable bound checks.
    *
    * @param overridingMethod symbol of the overriding method
    * @param overriddenMethod symbol of the overridden method
@@ -4468,11 +4480,15 @@ public final class GenericsChecks {
    * match
    *
    * @param tree tree for overriding method
-   * @param overriddenMethodType type of the overridden method
+   * @param overriddenMethodType type of the overridden method, used for diagnostics
+   * @param comparisonType overridden method type with PolyNull locations masked
    * @param state the visitor state
    */
   private void checkTypeParameterNullnessForOverridingMethodParameterType(
-      MethodTree tree, Type overriddenMethodType, VisitorState state) {
+      MethodTree tree,
+      Type overriddenMethodType,
+      Type.MethodType comparisonType,
+      VisitorState state) {
     List<? extends VariableTree> methodParameters = tree.getParameters();
     List<Type> overriddenMethodParameterTypes = overriddenMethodType.getParameterTypes();
     for (int i = 0; i < methodParameters.size(); i++) {
@@ -4481,7 +4497,7 @@ public final class GenericsChecks {
       if (overridingMethodParameterType != null) {
         // allow contravariant subtyping
         if (!subtypeParameterNullability(
-            overridingMethodParameterType, overriddenMethodParameterType, state)) {
+            overridingMethodParameterType, comparisonType.getParameterTypes().get(i), state)) {
           reportInvalidOverridingMethodParamTypeError(
               methodParameters.get(i),
               overriddenMethodParameterType,
@@ -4498,11 +4514,15 @@ public final class GenericsChecks {
    * match
    *
    * @param tree tree for overriding method
-   * @param overriddenMethodType type of the overridden method
+   * @param overriddenMethodType type of the overridden method, used for diagnostics
+   * @param comparisonType overridden method type with PolyNull locations masked
    * @param state the visitor state
    */
   private void checkTypeParameterNullnessForOverridingMethodReturnType(
-      MethodTree tree, Type overriddenMethodType, VisitorState state) {
+      MethodTree tree,
+      Type overriddenMethodType,
+      Type.MethodType comparisonType,
+      VisitorState state) {
     Type overriddenMethodReturnType = overriddenMethodType.getReturnType();
     // We get the return type from the Symbol; the type attached to tree may not have correct
     // annotations for array types
@@ -4512,7 +4532,7 @@ public final class GenericsChecks {
     }
     // allow covariant subtyping
     if (!subtypeParameterNullability(
-        overriddenMethodReturnType, overridingMethodReturnType, state)) {
+        comparisonType.getReturnType(), overridingMethodReturnType, state)) {
       reportInvalidOverridingMethodReturnTypeError(
           tree, overriddenMethodReturnType, overridingMethodReturnType, state);
     }

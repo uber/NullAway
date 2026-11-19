@@ -848,7 +848,7 @@ public class TypeSubstitutionUtils {
       return replaceCapturedTypeWildcard((Type.CapturedType) updated, updatedWildcard);
     }
 
-    /** Returns a synthetic top-level nullness annotation for {@code type}, if one is present. */
+    /** Returns a synthetic nullness annotation or override comparison mask, if present. */
     private Attribute.@Nullable TypeCompound getDirectSyntheticNullnessAnnotation(Type type) {
       if (type instanceof Type.IntersectionClassType source) {
         for (Type component : GenericsUtils.nullabilityMatchingComponents(source, config)) {
@@ -863,7 +863,8 @@ public class TypeSubstitutionUtils {
         if (annotation.type.tsym == null) {
           continue;
         }
-        if (GenericsChecks.isSyntheticNullnessAnnotation(annotation.type)) {
+        if (GenericsChecks.isSyntheticNullnessAnnotation(annotation.type)
+            || OverrideNullnessMask.isMaskAnnotation(annotation.type)) {
           return annotation;
         }
       }
@@ -909,7 +910,8 @@ public class TypeSubstitutionUtils {
         }
         String qualifiedName = annot.type.tsym.getQualifiedName().toString();
         if (Nullness.isNullableAnnotation(qualifiedName, config)
-            || Nullness.isNonNullAnnotation(qualifiedName, config)) {
+            || Nullness.isNonNullAnnotation(qualifiedName, config)
+            || OverrideNullnessMask.isMaskAnnotation(annot.type)) {
           return typeWithAnnot(t, annot);
         }
       }
