@@ -23,12 +23,10 @@ final class JavacInstantiations {
    * pair(String, String)} yields {@code T -> String}: both parameters and the return type agree on
    * the instantiation. This compares two views of the same method, not arbitrary subtypes.
    *
-   * <p>The result may be partial. A variable with no matched occurrence is omitted. If any
-   * occurrence is missing, erroneous, unresolved, or conflicts with another occurrence, that
-   * variable is rejected entirely, even if a later occurrence matches. Other variables can still be
-   * recovered. Declaration bounds are never substituted for missing instantiations, and bounds of
-   * fixed type variables are not traversed. The solver separately decides whether it supports a
-   * recovered type.
+   * <p>Omits a variable if any occurrence has no matching type, has an erroneous type, still
+   * contains one of {@code variables}, or disagrees with another occurrence. A later match does not
+   * restore an omitted variable. Variables with no occurrences are also omitted. Declaration bounds
+   * are not used to fill missing entries, and fixed type-variable bounds are not traversed.
    *
    * @param declaration the method declaration type after substituting receiver type arguments
    * @param attributed javac's attributed type of the method select for the same method invocation
