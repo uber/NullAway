@@ -215,6 +215,14 @@ public final class GenericsChecks {
   /** Active solvers whose fresh variables must be treated as external by nested solvers. */
   private final List<ConstraintSolver> activeInferenceSolvers = new ArrayList<>();
 
+  /** Whether type queries may start dataflow analysis or only read an analysis already running. */
+  private enum DataflowQueryPolicy {
+    ALLOW_START,
+    RUNNING_ONLY
+  }
+
+  private DataflowQueryPolicy dataflowQueryPolicy = DataflowQueryPolicy.ALLOW_START;
+
   /** Indicates failed inference of nullability of type variables at a call */
   private record InferenceFailure(@SuppressWarnings("UnusedVariable") @Nullable String errorMessage)
       implements CallInferenceResult {
@@ -1018,6 +1026,29 @@ public final class GenericsChecks {
     state.reportMatch(
         errorBuilder.createErrorDescription(
             errorMessage, analysis.buildDescription(formalParameterTree), state, null));
+  }
+
+  /**
+   * Checks whether an array's immediate elements may be null, including nullability inferred for
+   * generic calls and {@code var} locals. Also honors annotations on the array expression's symbol.
+   *
+   * <p>Dataflow callers must pass {@code true} to avoid caching incomplete inference results or
+   * starting another dataflow analysis, including when resolving types inside nested lambdas.
+   *
+   * @param expression the array expression
+   * @param state visitor state whose path points to {@code expression}
+   * @param calledFromDataflow whether this check is part of dataflow analysis
+   * @return whether the array's immediate elements may be null
+   */
+  public boolean isArrayElementNullable(
+      ExpressionTree expression, VisitorState state, boolean calledFromDataflow) {
+    return withDataflowQueryPolicy(
+        calledFromDataflow ? DataflowQueryPolicy.RUNNING_ONLY : DataflowQueryPolicy.ALLOW_START,
+        () -> {
+          Type arrayType = getTreeType(expression, state, calledFromDataflow);
+          return NullabilityUtil.isArrayElementNullable(arrayType, config)
+              || NullabilityUtil.isArrayExpressionElementNullable(expression, config);
+        });
   }
 
   /**
@@ -3617,10 +3648,12 @@ public final class GenericsChecks {
     if (enclosingPath == null) {
       return exprType;
     }
-    // If the expression is inside a lambda, we need to ensure that the environment mapping for
-    // the lambda is set up so that dataflow analysis can be run within the lambda body
+    // Running-only queries must not set up lambda environments: doing so can start an enclosing
+    // analysis before we even query the expression. A running lambda already has its environment.
+    // Other queries retain lambda-local refinement, even during dataflow-driven inference.
+    boolean runningOnly = dataflowQueryPolicy == DataflowQueryPolicy.RUNNING_ONLY;
     boolean enclosingIsLambda = enclosingPath.getLeaf() instanceof LambdaExpressionTree;
-    if (enclosingIsLambda) {
+    if (!runningOnly && enclosingIsLambda) {
       TreePath methodEnclosingLambda =
           NullabilityUtil.findEnclosingMethodOrLambdaOrInitializer(enclosingPath);
       if (methodEnclosingLambda == null) {
@@ -3635,6 +3668,9 @@ public final class GenericsChecks {
       // dataflow analysis is already running, so just get the current dataflow value for the
       // argument
       refinedNullness = nullnessAnalysis.getNullnessFromRunning(exprPath, state.context);
+    } else if (runningOnly) {
+      // Keep exprType's top-level nullness rather than starting analysis of its enclosing body.
+      refinedNullness = null;
     } else {
       refinedNullness = nullnessAnalysis.getNullness(exprPath, state.context);
     }
@@ -3654,6 +3690,24 @@ public final class GenericsChecks {
               : getSyntheticNonNullAnnotType(state));
     }
     return updateTypeWithNullness(state, exprType, refinedNullness);
+  }
+
+  /**
+   * Runs {@code action} with the given policy for starting dataflow analysis. A nested action
+   * cannot allow analysis starts when an enclosing action forbids them. Restores the previous
+   * policy even if the action throws; this does not change whether inference results may be cached.
+   */
+  private <T extends @Nullable Object> T withDataflowQueryPolicy(
+      DataflowQueryPolicy policy, java.util.function.Supplier<T> action) {
+    DataflowQueryPolicy previous = dataflowQueryPolicy;
+    if (previous != DataflowQueryPolicy.RUNNING_ONLY) {
+      dataflowQueryPolicy = policy;
+    }
+    try {
+      return action.get();
+    } finally {
+      dataflowQueryPolicy = previous;
+    }
   }
 
   /**

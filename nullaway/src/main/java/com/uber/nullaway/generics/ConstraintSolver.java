@@ -500,12 +500,13 @@ public interface ConstraintSolver {
       Set<? extends Element> variablesWithNullnessMarkedBounds,
       Map<? extends Element, ? extends Type> javacInstantiations);
 
-  /** Returns an immutable snapshot of the fresh symbols currently owned by this solver. */
+  /** Returns an immutable snapshot of the fresh type-variable symbols registered in this solver. */
   Set<Element> inferenceVariableSymbols();
 
   /**
-   * Registers explicitly foreign unresolved inference symbols before consuming their types. Stable
-   * caller type parameters must not be registered. Owned fresh symbols are never external.
+   * Registers unresolved fresh type-variable symbols from other active solvers before using types
+   * that contain them. Do not register caller type parameters whose nullness is not being inferred.
+   * Symbols registered as this solver's inference variables are never treated as external.
    */
   void registerExternalInferenceSymbols(Set<? extends Element> symbols);
 

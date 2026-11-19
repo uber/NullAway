@@ -556,7 +556,7 @@ public final class ConstraintSolverImpl implements ConstraintSolver {
         support.origins(), support, () -> constrainSubtype(subtype, supertype, localVariableType));
   }
 
-  /** Returns scalar provenance independently of candidate construction or certification. */
+  /** Returns premises for established top-level nullness without constructing an inferred type. */
   @Override
   public SourceSupport nullnessSupport(InferenceVariable variable) {
     VarState value = vars.get(variable);
