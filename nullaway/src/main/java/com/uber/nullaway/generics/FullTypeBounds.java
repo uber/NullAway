@@ -25,19 +25,18 @@ import javax.lang.model.type.NullType;
 import org.jspecify.annotations.Nullable;
 
 /**
- * Retains annotated lower and upper bounds to infer nested nullability alongside top-level
- * nullability.
+ * Infers nested nullability from annotated lower and upper bounds.
  *
- * <p>Resolves acyclic dependencies between inference variables at javac's inferred Java types:
- * javac determines the type structure, and bounds supply its nullability annotations. Supports
- * non-raw class types and arrays, including enclosing types. For example, with javac instantiating
- * {@code T} as {@code List<String>}, a lower bound {@code List<@Nullable String> <: T} supplies the
- * nullable type argument; javac's provisional annotations do not supply bounds.
+ * <p>Uses javac's inferred type arguments for Java type structure, but takes nullability
+ * annotations from bounds. For example, if javac infers {@code T = List<String>}, a lower bound
+ * {@code List<@Nullable String> <: T} supplies the nullable type argument. Supports non-raw class
+ * types and arrays, including enclosing types.
  *
- * <p>Resolution follows recorded variable edges without deriving new constraints between bounds.
- * For example, {@code List<T> <: U <: List<String>} does not derive a bound on {@code T}.
- * Unsupported types (including wildcards, captures, and fixed type variables), recursive nested
- * dependencies, or conflicting nested annotations leave only top-level nullability available.
+ * <p>Uses recorded bounds and variable-to-variable constraints only. For example, given {@code
+ * List<@Nullable String> <: T <: List<U>}, it does not infer a bound on {@code U} from these two
+ * bounds on {@code T}. Unsupported types (wildcards, captures, and fixed type variables), recursive
+ * nested dependencies, or conflicting nested annotations leave the variable without a full
+ * substitution; the caller retains its top-level nullability.
  */
 final class FullTypeBounds {
   private final Config config;
