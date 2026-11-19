@@ -39,19 +39,21 @@ public interface ConstraintSolver {
   record InferenceVariable(Element typeVariable, Tree site) {}
 
   /**
-   * Explicit source expression, the site receiving its constraint, and its original attributed
-   * type. For a call argument, {@code ownerSite} is that call, including when {@code expression} is
-   * a nested invocation. For a lambda return, it is the root call receiving the lambda argument
-   * when available, otherwise the lambda itself. Neither ownership nor {@code originalType} is
-   * rewritten when evidence propagates through another inference variable.
+   * Source expression, the site receiving its constraint, and its type when the constraint was
+   * recorded (which may include dataflow refinements). For a call argument, {@code ownerSite} is
+   * that call, including when {@code expression} is a nested invocation. For a lambda return, it is
+   * the root call receiving the lambda argument when available, otherwise the lambda itself.
+   * Neither {@code ownerSite} nor {@code originalType} changes when the constraint propagates
+   * through another inference variable.
    */
   record SourceOrigin(Tree expression, Tree ownerSite, Type originalType) {}
 
   /**
-   * Immutable monotone source proof, represented by a reduced ordered decision DAG rather than
-   * distributed alternatives. Canonical roots give semantic equality and finite fixed points even
-   * when provenance traverses cycles. Origin order is diagnostic preference, not Boolean identity.
-   * Factoring avoids enumerating independent choices; arbitrary decision DAGs can still be large.
+   * Immutable source combinations sufficient to establish a bound or nullness fact. AND requires
+   * both supports; OR allows either. A reduced ordered decision DAG shares these combinations
+   * without enumerating every alternative. Canonical roots make equivalent combinations equal and
+   * let propagation reach a fixed point even through cycles. Origin order selects diagnostic
+   * sources, not Boolean identity. Arbitrary decision DAGs can still be large.
    */
   final class SourceSupport {
     private final Factory factory;
@@ -81,7 +83,7 @@ public interface ConstraintSolver {
       this.origins = List.copyOf(new LinkedHashSet<>(origins));
     }
 
-    /** Returns flattened origin context, never an enumeration of satisfying proofs. */
+    /** Returns origins in diagnostic order, not the combinations required to establish a fact. */
     public List<SourceOrigin> origins() {
       return origins;
     }
@@ -91,7 +93,7 @@ public interface ConstraintSolver {
       return combine(other, false);
     }
 
-    /** Returns the exact conjunction without a Cartesian product of proofs. */
+    /** Requires both supports without enumerating every pair of source combinations. */
     public SourceSupport and(SourceSupport other) {
       return combine(other, true);
     }
@@ -105,9 +107,10 @@ public interface ConstraintSolver {
     }
 
     /**
-     * Selects one wholly available witness in origin insertion order. Empty support is a present
-     * empty witness; impossible support is absent. Memoization visits shared nodes only once and
-     * never enumerates alternative proofs. The predicate is evaluated once per encountered origin.
+     * Selects a sufficient source combination whose origins all satisfy {@code available},
+     * preferring earlier origins. Returns a present empty list when no source is needed, or an
+     * empty Optional when no combination is available. Memoization visits shared nodes only once
+     * without enumerating alternatives. The predicate is evaluated once per encountered origin.
      */
     public Optional<List<SourceOrigin>> availableSupport(Predicate<SourceOrigin> available) {
       Map<SourceOrigin, Integer> priority = new HashMap<>();
@@ -329,8 +332,9 @@ public interface ConstraintSolver {
   }
 
   /**
-   * A solver bound with alternative supporting proofs and flattened diagnostic context. Flattened
-   * origins retain insertion order and transitive context; they are not conjunctive requirements.
+   * A bound type, the source combinations sufficient to establish it, and origins for diagnostics.
+   * The origins list includes transitive sources in insertion order; not all are required by each
+   * combination in {@code support}.
    */
   record BoundEvidence(Type type, List<SourceOrigin> origins, SourceSupport support) {
     /** Treats the supplied origins as one conjunctive proof, including source-less evidence. */
@@ -352,19 +356,17 @@ public interface ConstraintSolver {
   }
 
   /**
-   * A proven invariant disagreement at javac's shape, retaining both original solver bounds. A
-   * frontend must select an available support for each bound rather than vetoing all evidence on an
-   * unavailable flattened context origin. When reporting at {@code variable.site()}, prefer origins
-   * in that chosen support with that exact {@code ownerSite}, rather than substituting a transitive
-   * inner-leaf expression for a direct argument. This choice requires only explicit owner identity,
-   * not AST recovery or type-to-source matching.
+   * Two lower bounds with conflicting nullness at an invariant position in javac's inferred type
+   * {@code shape}. Retains the original bound types and their source support, rather than projected
+   * types. Each bound's support records alternative source combinations; an unavailable origin in
+   * its diagnostic context need not invalidate every combination.
    */
   record LowerBoundConflict(
       InferenceVariable variable, BoundEvidence first, BoundEvidence second, Type shape) {}
 
   /**
-   * External unresolved inputs affecting variable values or raw/fixed site inputs. Site provenance
-   * does not imply that unrelated variables at that site depend on those inputs.
+   * Variables and sites that depend on unresolved inference variables from another solver. A site
+   * dependency records a signature or result input; it does not mark every variable at that site.
    */
   record InputDependencies(Set<InferenceVariable> variables, Set<Tree> sites) {
     /** Takes immutable, insertion-ordered snapshots of both dependency sets. */
@@ -391,7 +393,7 @@ public interface ConstraintSolver {
       Set<InferenceVariable> inconsistentVariables,
       List<LowerBoundConflict> lowerConflicts,
       InputDependencies inputDependencies) {
-    /** Preserves callers that do not supply external-input dependencies. */
+    /** Creates a result with no external-input dependencies. */
     public Solution(
         Map<InferenceVariable, Type> inferredTypes,
         Set<InferenceVariable> incompleteVariables,
@@ -405,7 +407,7 @@ public interface ConstraintSolver {
           new InputDependencies(Set.of(), Set.of()));
     }
 
-    /** Preserves callers that do not supply lower-bound conflict facts. */
+    /** Creates a result with no lower-bound conflicts or external-input dependencies. */
     public Solution(
         Map<InferenceVariable, Type> inferredTypes,
         Set<InferenceVariable> incompleteVariables,
@@ -478,9 +480,10 @@ public interface ConstraintSolver {
   }
 
   /**
-   * Registers inference variables with javac's inferred Java type arguments. Bounds supply nullness
-   * annotations for these types; the solver never replaces their Java structure. A variable without
-   * a javac instantiation remains incomplete, even if a bound supplies annotations.
+   * Registers inference variables with javac's inferred Java type arguments. These determine the
+   * classes, array dimensions, and type-argument positions onto which inferred nullness is copied;
+   * the solver never replaces that Java structure. Missing instantiations yield incomplete results,
+   * even if an annotation source is available.
    *
    * @param site the inference site
    * @param typeVariables the declared variables inferred at the site
@@ -547,7 +550,9 @@ public interface ConstraintSolver {
     /** Site owning the conflicting inference variable, when available. */
     private final @Nullable Tree inferenceSite;
 
-    /** Supporting scalar premises, when the throwing solver tracks source provenance. */
+    /**
+     * Source combinations supporting the conflicting nullness facts, when tracked by the solver.
+     */
     private final @Nullable SourceSupport sourceSupport;
 
     public UnsatisfiableConstraintsException(Element typeVariable) {
@@ -633,9 +638,9 @@ public interface ConstraintSolver {
    * must appear in the types as the fresh type variables returned by {@link
    * #registerInferenceVariables(Tree, List, Map, Set)}.
    *
-   * <p>External-input dependencies are seeded at reduced pairs and whole-variable bounds before
-   * scalar updates or bound deduplication. Independent slots do not share dependencies merely
-   * because they appear in the same structured relation.
+   * <p>Dependencies on another solver's variables are recorded at component type pairs and bounds
+   * before nullness updates or bound deduplication. Independent type-argument positions do not
+   * share dependencies merely because they appear in the same subtype relation.
    *
    * @param subtype the subtype
    * @param supertype the supertype
@@ -648,8 +653,9 @@ public interface ConstraintSolver {
       throws UnsatisfiableConstraintsException;
 
   /**
-   * Adds a constraint with an explicit source owner. Origins survive bound deduplication,
-   * substitution, projection, and derived constraints; no type-to-source lookup is performed.
+   * Adds a constraint with its source expression and receiving site. Origins survive bound
+   * deduplication, substitution, projection, and derived constraints; no type-to-source lookup is
+   * performed.
    */
   void addSubtypeConstraint(
       Type subtype, Type supertype, boolean localVariableType, SourceOrigin origin)
@@ -663,8 +669,9 @@ public interface ConstraintSolver {
       Type subtype, Type supertype, boolean localVariableType, SourceSupport support);
 
   /**
-   * Returns the proof of a current scalar fact, or the source-less identity when no fact was
-   * established. This is provenance only: it does not establish nullness or certify a candidate.
+   * Returns source support for established top-level nullness, or support requiring no source if
+   * none is established. Use {@link #knownNullness} to determine whether nullness is established;
+   * this method alone does not certify an inferred type.
    */
   SourceSupport nullnessSupport(InferenceVariable variable);
 

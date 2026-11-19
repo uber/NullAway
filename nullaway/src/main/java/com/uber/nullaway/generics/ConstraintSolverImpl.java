@@ -51,7 +51,9 @@ public final class ConstraintSolverImpl implements ConstraintSolver {
   /** Explicit source context, scoped around direct and derived constraint generation. */
   private List<SourceOrigin> currentOrigins = List.of();
 
-  /** One canonical proof scope for all direct, derived, and cyclic evidence in this solver. */
+  /**
+   * Shares canonical source-support nodes across all constraints in this solver, including cycles.
+   */
   private final SourceSupport.Factory sourceSupports = new SourceSupport.Factory();
 
   private SourceSupport currentSupport = sourceSupports.conjunction(List.of());
@@ -80,7 +82,9 @@ public final class ConstraintSolverImpl implements ConstraintSolver {
 
   private final Set<LowerConflictKey> lowerConflictKeys = new LinkedHashSet<>();
 
-  /** Deduplicates semantic proofs without using projected types as diagnostic source identities. */
+  /**
+   * Identifies a conflict by its variable, bound fingerprints, and javac-inferred type structure.
+   */
   private record LowerConflictKey(
       InferenceVariable variable, String first, String second, String shape) {}
 
@@ -95,7 +99,7 @@ public final class ConstraintSolverImpl implements ConstraintSolver {
   private final Set<Element> externalInferenceSymbols = new LinkedHashSet<>();
 
   /**
-   * Variables known to depend on external inference before constraint reduction loses that link.
+   * Variables with external inputs, recorded before constraint reduction can lose the dependency.
    */
   private final Set<InferenceVariable> externalInputVariables = new LinkedHashSet<>();
 
@@ -390,7 +394,9 @@ public final class ConstraintSolverImpl implements ConstraintSolver {
     return false;
   }
 
-  /** Retains fixed-input ownership before reduction can discard its enclosing fresh symbol. */
+  /**
+   * Records sites whose signature or result types depend on another solver's inference variables.
+   */
   @Override
   public void recordInferenceSiteInput(Tree site, Type type) {
     if (hasExternalInputDependency(type)) {
@@ -462,9 +468,11 @@ public final class ConstraintSolverImpl implements ConstraintSolver {
   }
 
   /**
-   * Marks inference variables at either end of a reduced subtype pair as externally dependent.
-   * {@code foreignBoundInput} preserves that dependency when expanding an external variable's bound
-   * has removed the external symbol from both types.
+   * Marks this solver's variables at either end of a reduced pair as dependent on external input,
+   * before nullness updates, bound deduplication, or failure can lose that dependency. Expanding an
+   * external variable's upper bound can remove its symbol; {@code foreignBoundInput} retains the
+   * dependency in that case. For pairs without local variables, origins identify the receiving
+   * sites.
    */
   private void recordReducedPairInputDependencies(
       Type subtype, Type supertype, boolean foreignBoundInput) {
@@ -490,9 +498,7 @@ public final class ConstraintSolverImpl implements ConstraintSolver {
     }
   }
 
-  /**
-   * Updates supplied instantiations, retaining earlier entries for variables absent from this map.
-   */
+  /** Updates supplied javac instantiations, retaining entries omitted by later registrations. */
   private void recordJavacInstantiations(
       Tree site, Set<Element> variables, Map<? extends Element, ? extends Type> instantiations) {
     for (Element variable : variables) {
@@ -564,7 +570,7 @@ public final class ConstraintSolverImpl implements ConstraintSolver {
     }
   }
 
-  /** Combines independent derivation premises without losing origin order or ownership. */
+  /** Combines required source support without changing origin order or receiving sites. */
   private static List<SourceOrigin> combinedOrigins(
       List<SourceOrigin> first, List<SourceOrigin> second) {
     Set<SourceOrigin> origins = new LinkedHashSet<>(first);
@@ -2733,7 +2739,7 @@ public final class ConstraintSolverImpl implements ConstraintSolver {
         false);
   }
 
-  /** Substitutes an occurrence's inferred type while preserving its explicit root annotations. */
+  /** Resolves an inference variable's type while retaining explicit annotations on this use. */
   private @Nullable Type resolveInvariantOccurrence(Type occurrence) {
     InferenceVariable variable = inferenceVariableForStructure(occurrence);
     Type resolved = resolveInvariantVariable(variable);
