@@ -45,7 +45,8 @@ public class CheckIdenticalNullabilityVisitor extends Types.DefaultTypeVisitor<B
 
   /**
    * Stops recursive bounds from rechecking the same wildcard/RHS pair, using object identity. The
-   * cache key alone cannot do this: capture conversion may recreate the other type arguments.
+   * cache's {@link ContainmentKey} can change when capture conversion recreates other type
+   * arguments, so it cannot replace this recursion guard.
    */
   private @Nullable IdentityHashMap<Type.WildcardType, Set<Type>> activeWildcardComparisons;
 
