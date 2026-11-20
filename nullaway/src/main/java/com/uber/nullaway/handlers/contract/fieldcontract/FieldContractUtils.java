@@ -32,6 +32,7 @@ import com.uber.nullaway.ErrorMessage;
 import com.uber.nullaway.NullAway;
 import java.util.Collections;
 import java.util.Set;
+import org.jspecify.annotations.Nullable;
 
 public class FieldContractUtils {
 
@@ -45,6 +46,9 @@ public class FieldContractUtils {
    * @param state the visitor state
    * @param tree tree for the overriding method
    * @param overriddenMethod the method that is being overridden
+   * @param fallbackAttributeName alternative attribute name for the field list (see {@link
+   *     com.uber.nullaway.NullabilityUtil#getAnnotationValueArray(Symbol.MethodSymbol, String,
+   *     boolean, String)})
    */
   public static void ensureStrictPostConditionInheritance(
       String annotName,
@@ -52,8 +56,10 @@ public class FieldContractUtils {
       NullAway analysis,
       VisitorState state,
       MethodTree tree,
-      Symbol.MethodSymbol overriddenMethod) {
-    Set<String> overriddenFieldNames = getAnnotationValueArray(overriddenMethod, annotName, false);
+      Symbol.MethodSymbol overriddenMethod,
+      @Nullable String fallbackAttributeName) {
+    Set<String> overriddenFieldNames =
+        getAnnotationValueArray(overriddenMethod, annotName, false, fallbackAttributeName);
     if (overriddenFieldNames == null) {
       return;
     }
