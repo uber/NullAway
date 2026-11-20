@@ -40,7 +40,6 @@ import com.sun.tools.javac.code.BoundKind;
 import com.sun.tools.javac.code.Symbol;
 import com.sun.tools.javac.code.Symtab;
 import com.sun.tools.javac.code.Type;
-import com.sun.tools.javac.code.Types;
 import com.sun.tools.javac.tree.JCTree;
 import com.sun.tools.javac.tree.TreeInfo;
 import com.sun.tools.javac.util.Name;
@@ -200,7 +199,7 @@ public final class GenericsChecks {
   }
 
   /**
-   * Returns the substituted functional-interface method type of a lambda or method reference.
+   * Returns the substituted, modeled functional-interface method type for nested return checking.
    *
    * @param polyExpressionTree lambda or method-reference tree
    * @param state visitor state
@@ -210,7 +209,6 @@ public final class GenericsChecks {
   @SuppressWarnings("ReferenceEquality") // locate the existing path to the expression
   public Type.@Nullable MethodType getFunctionalInterfaceMethodType(
       ExpressionTree polyExpressionTree, VisitorState state) {
-    Type functionalInterfaceType = getPolyExpressionType(polyExpressionTree);
     TreePath expressionPath = state.getPath();
     while (expressionPath != null && expressionPath.getLeaf() != polyExpressionTree) {
       expressionPath = expressionPath.getParentPath();
@@ -227,10 +225,23 @@ public final class GenericsChecks {
       // inference solution, but only the outer call's direct arguments have cached poly types.
       return null;
     }
+    return getModeledFunctionalInterfaceMethodType(polyExpressionTree, state);
+  }
+
+  /**
+   * Returns the functional-interface method type after substitution and library modeling.
+   *
+   * @param polyExpressionTree lambda or method reference
+   * @param state visitor state
+   * @return the modeled method type, or {@code null} if the target is unavailable or raw
+   */
+  public Type.@Nullable MethodType getModeledFunctionalInterfaceMethodType(
+      ExpressionTree polyExpressionTree, VisitorState state) {
+    Type functionalInterfaceType = getPolyExpressionType(polyExpressionTree);
     if (functionalInterfaceType == null || functionalInterfaceType.isRaw()) {
       return null;
     }
-    return getFunctionalInterfaceMethodType(
+    return getModeledFunctionalInterfaceMethodType(
         NullabilityUtil.getFunctionalInterfaceMethod(polyExpressionTree, state.getTypes()),
         functionalInterfaceType,
         state);
@@ -1135,15 +1146,11 @@ public final class GenericsChecks {
               VariableTree param = params.get(i);
               Symbol paramSymbol = ASTHelpers.getSymbol(param);
               if (paramSymbol != null && paramSymbol.equals(symbol)) {
-                // get the type of the functional interface method as a member of the inferred type
-                // of the lambda
-                Types types = state.getTypes();
-                var fiMethodType =
-                    TypeSubstitutionUtils.memberType(
-                        types,
+                Type.MethodType fiMethodType =
+                    getModeledFunctionalInterfaceMethodType(
+                        NullabilityUtil.getFunctionalInterfaceMethod(lambdaTree, state.getTypes()),
                         inferredLambdaType,
-                        NullabilityUtil.getFunctionalInterfaceMethod(lambdaTree, types),
-                        config);
+                        state);
                 return fiMethodType.getParameterTypes().get(i);
               }
             }
@@ -2133,7 +2140,7 @@ public final class GenericsChecks {
         NullabilityUtil.getFunctionalInterfaceMethod(memberReferenceTree, state.getTypes());
     Type.MethodType functionalInterfaceMethodType =
         config.isJSpecifyMode()
-            ? getFunctionalInterfaceMethodType(
+            ? getModeledFunctionalInterfaceMethodType(
                 functionalInterfaceMethod,
                 GenericsUtils.groundTargetType(targetType, state, config, handler),
                 state)
@@ -2232,7 +2239,8 @@ public final class GenericsChecks {
 
   /**
    * Gets a functional interface method's type as a member of the ground target type, preserving
-   * nullness when substituting type arguments. Only suitable for use in JSpecify mode.
+   * nullness when substituting type arguments and applying library models. Only suitable for use in
+   * JSpecify mode.
    *
    * @param functionalInterfaceMethod the functional interface method
    * @param targetType the method reference's ground target type from javac attribution, with any
@@ -2240,12 +2248,14 @@ public final class GenericsChecks {
    * @param state the current visitor state
    * @return the functional interface method type as a member of the ground target type
    */
-  private Type.MethodType getFunctionalInterfaceMethodType(
+  private Type.MethodType getModeledFunctionalInterfaceMethodType(
       Symbol.MethodSymbol functionalInterfaceMethod, Type targetType, VisitorState state) {
     verify(config.isJSpecifyMode(), "Method only suitable for use in JSpecify mode");
-    return TypeSubstitutionUtils.memberType(
-            state.getTypes(), targetType, functionalInterfaceMethod, config)
-        .asMethodType();
+    Type.MethodType methodType =
+        TypeSubstitutionUtils.memberType(
+                state.getTypes(), targetType, functionalInterfaceMethod, config)
+            .asMethodType();
+    return handler.onOverrideMethodType(functionalInterfaceMethod, methodType, state, null);
   }
 
   /**
@@ -3188,26 +3198,22 @@ public final class GenericsChecks {
    *
    * @param tree the lambda
    * @param fiMethod the functional interface method the lambda implements
+   * @param fiMethodType its substituted, modeled type, or {@code null} for a raw target
    * @param state the visitor state
    */
   public void checkTypeParameterNullnessForExplicitLambdaParameters(
-      LambdaExpressionTree tree, Symbol.MethodSymbol fiMethod, VisitorState state) {
+      LambdaExpressionTree tree,
+      Symbol.MethodSymbol fiMethod,
+      Type.@Nullable MethodType fiMethodType,
+      VisitorState state) {
     if (((JCTree.JCLambda) tree).paramKind != JCTree.JCLambda.ParameterKind.EXPLICIT
         || CodeAnnotationInfo.instance(state.context)
             .isSymbolUnannotated(fiMethod, config, handler)) {
       return;
     }
-    Type targetType = typeOrNullIfRawNonArray(getPolyExpressionType(tree));
-    if (targetType == null) {
+    if (fiMethodType == null) {
       return;
     }
-    Type.MethodType fiMethodType =
-        handler.onOverrideMethodType(
-            fiMethod,
-            TypeSubstitutionUtils.memberType(state.getTypes(), targetType, fiMethod, config)
-                .asMethodType(),
-            state,
-            null);
     List<? extends VariableTree> parameters = tree.getParameters();
     List<Type> fiParameterTypes = fiMethodType.getParameterTypes();
     for (int i = 0; i < parameters.size(); i++) {
