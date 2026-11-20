@@ -308,10 +308,11 @@ public class EnsuresNonNullIfHandler extends AbstractFieldContractHandler {
           // Invalid annotation, will result in an error during validation.
           continue;
         }
+        // Use the receiver of the call, so that `other.hasF()` establishes `other.f`, not `this.f`.
         AccessPath accessPath =
             field.getModifiers().contains(Modifier.STATIC)
                 ? AccessPath.fromStaticField(field)
-                : AccessPath.fromFieldElement(field);
+                : AccessPath.fromBaseAndElement(node.getTarget().getReceiver(), field, apContext);
 
         if (accessPath == null) {
           // Also likely to be an invalid annotation, will result in an error during validation.
