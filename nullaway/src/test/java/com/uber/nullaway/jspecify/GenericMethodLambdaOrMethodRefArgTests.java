@@ -189,7 +189,8 @@ public class GenericMethodLambdaOrMethodRefArgTests extends NullAwayTestsBase {
             "Test.java:150: [NullAway] inference failure: type variable T is constrained to be @Nullable, but its upper bound requires it to be @NonNull",
             "Test.java:150: [NullAway] parameter fixed of referenced method is @NonNull, but parameter in functional interface method java.util.function.Function.apply(@Nullable String) is @Nullable",
             "Test.java:153: [NullAway] inference failure: type variable T is constrained to be @Nullable, but its upper bound requires it to be @NonNull",
-            "Test.java:159: [NullAway] inference failure: type variable T is constrained to be @Nullable, but its upper bound requires it to be @NonNull");
+            "Test.java:159: [NullAway] inference failure: type variable T is constrained to be @Nullable, but its upper bound requires it to be @NonNull",
+            "Test.java:164: [NullAway] inference failure: type variable T is constrained to be @Nullable, but its upper bound requires it to be @NonNull");
   }
 
   @Test
@@ -221,7 +222,9 @@ public class GenericMethodLambdaOrMethodRefArgTests extends NullAwayTestsBase {
             "Test.java:153: [NullAway] parameter fixed of referenced method is @NonNull, but parameter in functional interface method java.util.function.Function.apply(@Nullable String) is @Nullable",
             "Test.java:153: [NullAway] referenced method returns @Nullable, but functional interface method java.util.function.Supplier.get() returns @NonNull",
             "Test.java:159: [NullAway] parameter fixed of referenced method is @NonNull, but parameter in functional interface method java.util.function.Function.apply(@Nullable String) is @Nullable",
-            "Test.java:159: [NullAway] referenced method returns @Nullable, but functional interface method java.util.function.Supplier.get() returns @NonNull");
+            "Test.java:159: [NullAway] referenced method returns @Nullable, but functional interface method java.util.function.Supplier.get() returns @NonNull",
+            "Test.java:164: [NullAway] referenced method returns Box<T>, but functional interface method returns Box<@Nullable String>, which has mismatched type parameter nullability",
+            "Test.java:164: [NullAway] parameter value of referenced method is @NonNull, but parameter in functional interface method java.util.function.Function.apply(@Nullable String) is @Nullable");
   }
 
   /** Compiles references against known targets with the requested inference-warning setting. */
@@ -389,6 +392,11 @@ public class GenericMethodLambdaOrMethodRefArgTests extends NullAwayTestsBase {
                   java.util.function.Supplier<T> supplier) {}
               void failedJointInferenceSuppressesNestedDependentReferenceMismatch() {
                 acceptsNestedPair(Test::fixedBox, Test::nullableValue);
+              }
+              void inferenceFailureIsReportedAtTheFailingReference() {
+                acceptsBoth(
+                    Test::box,
+                    Test::nonNullBox);
               }
             }
             """);
