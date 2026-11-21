@@ -1,9 +1,14 @@
 package com.uber.nullaway.jspecify;
 
+import static com.google.common.truth.Truth.assertThat;
+
 import com.google.errorprone.CompilationTestHelper;
+import com.google.errorprone.FileObjects;
 import com.uber.nullaway.NullAwayTestsBase;
 import com.uber.nullaway.generics.JSpecifyJavacConfig;
 import java.util.Arrays;
+import java.util.List;
+import javax.tools.JavaFileObject;
 import org.junit.Ignore;
 import org.junit.Test;
 
@@ -77,6 +82,332 @@ public class GenericMethodLambdaOrMethodRefArgTests extends NullAwayTestsBase {
             }
             """)
         .doTest();
+  }
+
+  /**
+   * Regression for issue 2063: generic method references accepting marked or unmarked publishers
+   * with wildcard type arguments infer successfully both inline and when assigned first.
+   */
+  @Test
+  public void issue2063InlineGenericMethodReference() {
+    makeHelper()
+        .addSourceLines(
+            "com/uber/marked/MarkedPublisherRepro.java",
+            """
+            package com.uber.marked;
+            import java.util.function.Function;
+            import org.jspecify.annotations.NullMarked;
+            import org.jspecify.annotations.Nullable;
+            @NullMarked
+            class MarkedPublisherRepro {
+              interface Publisher<T extends @Nullable Object> {}
+              static class Mono<T extends @Nullable Object> implements Publisher<T> {
+                static <T extends @Nullable Object> Mono<T> from(Publisher<? extends T> source) {
+                  return new Mono<>();
+                }
+              }
+              Function<Publisher<?>, Object> assigned = Mono::from;
+              static void register(Function<Publisher<?>, Object> adapter) {}
+              static <Unused> void registerGeneric(Function<Publisher<?>, Object> adapter) {}
+              static class Adapter {
+                Adapter(Function<Publisher<?>, Object> adapter) {}
+              }
+              void inlineReference() { register(Mono::from); }
+              void parenthesizedReference() { register((Mono::from)); }
+              void constructorArgument() { new Adapter(Mono::from); }
+              void explicitTypeArgument() { register(Mono::<@Nullable Object>from); }
+              void lambda() { register(source -> Mono.from(source)); }
+              void assignedReference() {
+                Function<Publisher<?>, Object> adapter = Mono::from;
+                register(adapter);
+              }
+              void genericEnclosingCall() { registerGeneric(Mono::from); }
+              void explicitEnclosingTypeArgument() { MarkedPublisherRepro.<Object>registerGeneric(Mono::from); }
+            }
+            """)
+        .addSourceLines(
+            "com/uber/unmarked/UnmarkedPublisherRepro.java",
+            """
+            package com.uber.unmarked;
+            import java.util.function.Function;
+            import org.jspecify.annotations.NullMarked;
+            import org.jspecify.annotations.NullUnmarked;
+            import org.jspecify.annotations.Nullable;
+            @NullMarked
+            class UnmarkedPublisherRepro {
+              @NullUnmarked interface Publisher<T> {}
+              static class Mono<T extends @Nullable Object> implements Publisher<T> {
+                static <T extends @Nullable Object> Mono<T> from(Publisher<? extends T> source) {
+                  return new Mono<>();
+                }
+              }
+              Function<Publisher<?>, Object> assigned = Mono::from;
+              static void register(Function<Publisher<?>, Object> adapter) {}
+              static <Unused> void registerGeneric(Function<Publisher<?>, Object> adapter) {}
+              static class Adapter {
+                Adapter(Function<Publisher<?>, Object> adapter) {}
+              }
+              void inlineReference() { register(Mono::from); }
+              void parenthesizedReference() { register((Mono::from)); }
+              void constructorArgument() { new Adapter(Mono::from); }
+              void explicitTypeArgument() { register(Mono::<@Nullable Object>from); }
+              void lambda() { register(source -> Mono.from(source)); }
+              void assignedReference() {
+                Function<Publisher<?>, Object> adapter = Mono::from;
+                register(adapter);
+              }
+              void genericEnclosingCall() { registerGeneric(Mono::from); }
+              void explicitEnclosingTypeArgument() { UnmarkedPublisherRepro.<Object>registerGeneric(Mono::from); }
+            }
+            """)
+        .doTest();
+  }
+
+  @Test
+  public void genericMethodReferenceInferenceFailureReportsNoCompatibilityErrors() {
+    assertThat(compileGenericMethodReferenceDiagnostics(true))
+        .containsExactly(
+            "Test.java:43: [NullAway] inference failure: type variable T constrained to be both @NonNull and @Nullable",
+            "Test.java:47: [NullAway] inference failure: type variable T constrained to be both @NonNull and @Nullable",
+            "Test.java:51: [NullAway] inference failure: type variable T is constrained to be @Nullable, but its upper bound requires it to be @NonNull",
+            "Test.java:55: [NullAway] referenced method returns Box<String>, but functional interface method returns Box<@Nullable String>, which has mismatched type parameter nullability",
+            "Test.java:55: [NullAway] parameter value of referenced method is @NonNull, but parameter in functional interface method java.util.function.Function.apply(@Nullable String) is @Nullable",
+            "Test.java:61: [NullAway] inference failure: type variable T is constrained to be @Nullable, but its upper bound requires it to be @NonNull",
+            "Test.java:79: [NullAway] inference failure: type variable T constrained to be both @NonNull and @Nullable",
+            "Test.java:83: [NullAway] parameter fixed of referenced method is @NonNull, but parameter in functional interface method java.util.function.BiFunction.apply(@Nullable String,@Nullable String) is @Nullable",
+            "Test.java:87: [NullAway] inference failure: type variable T constrained to be both @NonNull and @Nullable",
+            "Test.java:91: [NullAway] parameter type of referenced method is Box<String>, but parameter in functional interface method has type Box<@Nullable String>, which has mismatched type parameter nullability",
+            "Test.java:98: [NullAway] inference failure: type variable T is constrained to be @Nullable, but its upper bound requires it to be @NonNull",
+            "Test.java:98: [NullAway] parameter fixed of referenced method is @NonNull, but parameter in functional interface method java.util.function.Function.apply(@Nullable String) is @Nullable",
+            "Test.java:102: [NullAway] parameter fixed of referenced method is @NonNull, but parameter in functional interface method java.util.function.Function.apply(@Nullable String) is @Nullable",
+            "Test.java:123: [NullAway] inference failure: type variable T is constrained to be @Nullable, but its upper bound requires it to be @NonNull",
+            "Test.java:130: [NullAway] inference failure: type variable T is constrained to be @Nullable, but its upper bound requires it to be @NonNull",
+            "Test.java:137: [NullAway] inference failure: type variable T is constrained to be @Nullable, but its upper bound requires it to be @NonNull",
+            "Test.java:146: [NullAway] inference failure: type variable T is constrained to be @Nullable, but its upper bound requires it to be @NonNull",
+            "Test.java:146: [NullAway] incompatible types: Box<@Nullable String> cannot be converted to Box<String>",
+            "Test.java:146: [NullAway] referenced method returns @Nullable, but functional interface method java.util.function.Supplier.get() returns @NonNull",
+            "Test.java:150: [NullAway] inference failure: type variable T is constrained to be @Nullable, but its upper bound requires it to be @NonNull",
+            "Test.java:150: [NullAway] parameter fixed of referenced method is @NonNull, but parameter in functional interface method java.util.function.Function.apply(@Nullable String) is @Nullable",
+            "Test.java:153: [NullAway] inference failure: type variable T is constrained to be @Nullable, but its upper bound requires it to be @NonNull",
+            "Test.java:159: [NullAway] inference failure: type variable T is constrained to be @Nullable, but its upper bound requires it to be @NonNull",
+            "Test.java:164: [NullAway] inference failure: type variable T is constrained to be @Nullable, but its upper bound requires it to be @NonNull");
+  }
+
+  @Test
+  public void genericMethodReferenceCompatibilityCheckedWhenInferenceWarningsDisabled() {
+    assertThat(compileGenericMethodReferenceDiagnostics(false))
+        .containsExactly(
+            "Test.java:43: [NullAway] parameter value of referenced method is @NonNull, but parameter in functional interface method java.util.function.Function.apply(@Nullable String) is @Nullable",
+            "Test.java:47: [NullAway] parameter type of referenced method is Box<T>, but parameter in functional interface method has type Box<@Nullable String>, which has mismatched type parameter nullability",
+            "Test.java:51: [NullAway] referenced method returns Box<T>, but functional interface method returns Box<@Nullable String>, which has mismatched type parameter nullability",
+            "Test.java:51: [NullAway] parameter value of referenced method is @NonNull, but parameter in functional interface method java.util.function.Function.apply(@Nullable String) is @Nullable",
+            "Test.java:55: [NullAway] referenced method returns Box<String>, but functional interface method returns Box<@Nullable String>, which has mismatched type parameter nullability",
+            "Test.java:55: [NullAway] parameter value of referenced method is @NonNull, but parameter in functional interface method java.util.function.Function.apply(@Nullable String) is @Nullable",
+            "Test.java:61: [NullAway] referenced method returns @Nullable, but functional interface method java.util.function.Supplier.get() returns @NonNull",
+            "Test.java:79: [NullAway] parameter fixed of referenced method is @NonNull, but parameter in functional interface method java.util.function.BiFunction.apply(@Nullable String,@Nullable String) is @Nullable",
+            "Test.java:83: [NullAway] parameter fixed of referenced method is @NonNull, but parameter in functional interface method java.util.function.BiFunction.apply(@Nullable String,@Nullable String) is @Nullable",
+            "Test.java:87: [NullAway] parameter type of referenced method is Box<String>, but parameter in functional interface method has type Box<@Nullable String>, which has mismatched type parameter nullability",
+            "Test.java:87: [NullAway] parameter value of referenced method is @NonNull, but parameter in functional interface method java.util.function.BiFunction.apply(Box<@Nullable String>,@Nullable String) is @Nullable",
+            "Test.java:91: [NullAway] parameter type of referenced method is Box<String>, but parameter in functional interface method has type Box<@Nullable String>, which has mismatched type parameter nullability",
+            "Test.java:98: [NullAway] parameter fixed of referenced method is @NonNull, but parameter in functional interface method java.util.function.Function.apply(@Nullable String) is @Nullable",
+            "Test.java:98: [NullAway] referenced method returns @Nullable, but functional interface method java.util.function.Supplier.get() returns @NonNull",
+            "Test.java:102: [NullAway] parameter fixed of referenced method is @NonNull, but parameter in functional interface method java.util.function.Function.apply(@Nullable String) is @Nullable",
+            "Test.java:123: [NullAway] parameter value of referenced method is @NonNull, but parameter in functional interface method java.util.function.Function.apply(@Nullable String) is @Nullable",
+            "Test.java:130: [NullAway] parameter value of referenced method is @NonNull, but parameter in functional interface method java.util.function.BiFunction.apply(NonNullFactory,@Nullable String) is @Nullable",
+            "Test.java:137: [NullAway] parameter values of referenced method is @NonNull, but parameter in functional interface method java.util.function.Function.apply(@Nullable String) is @Nullable",
+            "Test.java:146: [NullAway] incompatible types: Box<@Nullable String> cannot be converted to Box<String>",
+            "Test.java:146: [NullAway] referenced method returns @Nullable, but functional interface method java.util.function.Supplier.get() returns @NonNull",
+            "Test.java:150: [NullAway] parameter fixed of referenced method is @NonNull, but parameter in functional interface method java.util.function.Function.apply(@Nullable String) is @Nullable",
+            "Test.java:150: [NullAway] referenced method returns @Nullable, but functional interface method java.util.function.Supplier.get() returns @NonNull",
+            "Test.java:153: [NullAway] parameter fixed of referenced method is @NonNull, but parameter in functional interface method java.util.function.Function.apply(@Nullable String) is @Nullable",
+            "Test.java:153: [NullAway] referenced method returns @Nullable, but functional interface method java.util.function.Supplier.get() returns @NonNull",
+            "Test.java:159: [NullAway] parameter fixed of referenced method is @NonNull, but parameter in functional interface method java.util.function.Function.apply(@Nullable String) is @Nullable",
+            "Test.java:159: [NullAway] referenced method returns @Nullable, but functional interface method java.util.function.Supplier.get() returns @NonNull",
+            "Test.java:164: [NullAway] referenced method returns Box<T>, but functional interface method returns Box<@Nullable String>, which has mismatched type parameter nullability",
+            "Test.java:164: [NullAway] parameter value of referenced method is @NonNull, but parameter in functional interface method java.util.function.Function.apply(@Nullable String) is @Nullable");
+  }
+
+  /** Compiles references against known targets with the requested inference-warning setting. */
+  private List<String> compileGenericMethodReferenceDiagnostics(boolean warnOnInferenceFailure) {
+    JavaFileObject source =
+        FileObjects.forSourceLines(
+            "Test.java",
+            """
+            package com.uber;
+            import java.util.function.BiFunction;
+            import java.util.function.Function;
+            import org.jspecify.annotations.NullMarked;
+            import org.jspecify.annotations.Nullable;
+            @NullMarked
+            class Test {
+              static class Box<T extends @Nullable Object> {}
+              static class Factory {
+                <T extends @Nullable Object> Box<T> box(T value) { return new Box<>(); }
+              }
+              static <T extends @Nullable Object> Box<T> box(T value) { return new Box<>(); }
+              static <T extends @Nullable Object> Box<T> copyBox(Box<T> value) { return value; }
+              static <T> Box<T> nonNullBox(T value) { return new Box<>(); }
+              @SafeVarargs
+              static <T extends @Nullable Object> Box<T> varargsBox(T... values) {
+                return new Box<>();
+              }
+              static void acceptsNonNull(Function<String, Box<String>> function) {}
+              static void acceptsNullable(
+                  Function<@Nullable String, Box<@Nullable String>> function) {}
+              static void acceptsBoth(Function<String, Box<String>> first,
+                  Function<@Nullable String, Box<@Nullable String>> second) {}
+              static void acceptsUnbound(
+                  BiFunction<Factory, @Nullable String, Box<@Nullable String>> function) {}
+              static void acceptsArray(
+                  Function<@Nullable String[], Box<@Nullable String>> function) {}
+              static void acceptsIncompatible(Function<@Nullable String, Box<String>> function) {}
+              static void acceptsIncompatibleBox(
+                  Function<Box<@Nullable String>, Box<String>> function) {}
+              void nonNullInputAndReturn() { acceptsNonNull(Test::box); }
+              void nullableInputAndReturn() { acceptsNullable(Test::box); }
+              void nonNullBoundWithNonNullInput() { acceptsNonNull(Test::nonNullBox); }
+              void boundReference(Factory factory) { acceptsNullable(factory::box); }
+              void unboundReference() { acceptsUnbound(Factory::box); }
+              void variableArityReference() { acceptsNullable(Test::varargsBox); }
+              void fixedArityReference() { acceptsArray(Test::varargsBox); }
+              void referencesAreInferredSeparately() {
+                acceptsBoth(Test::box, Test::box);
+              }
+              void incompatibleInputAndReturn() {
+                // Expect inference failure; with inference warnings disabled, a parameter mismatch.
+                acceptsIncompatible(Test::box);
+              }
+              void incompatibleNestedInputAndReturn() {
+                // Expect inference failure; with inference warnings disabled, a nested parameter mismatch.
+                acceptsIncompatibleBox(Test::copyBox);
+              }
+              void nonNullBoundWithNullableInput() {
+                // Expect inference failure; with inference warnings disabled, return and parameter mismatches.
+                acceptsNullable(Test::nonNullBox);
+              }
+              void explicitTypeArgumentIsPreserved() {
+                // Expect return and parameter mismatches; the explicit type argument skips inference.
+                acceptsNullable(Test::<String>box);
+              }
+              static @Nullable String nullableValue() { return null; }
+              static <T> void acceptsNonNullResult(java.util.function.Supplier<T> supplier) {}
+              void incompatibleEnclosingCall() {
+                // Expect inference failure; with inference warnings disabled, a nullable return mismatch.
+                acceptsNonNullResult(Test::nullableValue);
+              }
+              static <T extends @Nullable Object> Box<T> boxWithFixedParameter(String fixed, T value) {
+                return new Box<>();
+              }
+              static <T extends @Nullable Object> Box<T> boxWithFixedNestedParameter(Box<String> fixed, T value) {
+                return new Box<>();
+              }
+              static void acceptsFixedParameter(
+                  BiFunction<@Nullable String, @Nullable String, Box<String>> function) {}
+              static void acceptsFixedParameterWithNullableResult(
+                  BiFunction<@Nullable String, @Nullable String, Box<@Nullable String>> function) {}
+              static void acceptsFixedNestedParameter(
+                  BiFunction<Box<@Nullable String>, @Nullable String, Box<String>> function) {}
+              static void acceptsFixedNestedParameterWithNullableResult(
+                  BiFunction<Box<@Nullable String>, @Nullable String, Box<@Nullable String>> function) {}
+              void inferenceFailureSuppressesUnrelatedParameterMismatch() {
+                // Expect only inference failure; with inference warnings disabled, a mismatch for fixed.
+                acceptsFixedParameter(Test::boxWithFixedParameter);
+              }
+              void successfulInferenceReportsUnrelatedParameterMismatch() {
+                // Expect a parameter mismatch: fixed requires non-null, but the interface allows null.
+                acceptsFixedParameterWithNullableResult(Test::boxWithFixedParameter);
+              }
+              void inferenceFailureSuppressesUnrelatedNestedParameterMismatch() {
+                // Expect only inference failure; with inference warnings disabled, nested and value parameter mismatches.
+                acceptsFixedNestedParameter(Test::boxWithFixedNestedParameter);
+              }
+              void successfulInferenceReportsUnrelatedNestedParameterMismatch() {
+                // Expect a nested parameter mismatch: fixed requires Box<String>, but the interface supplies Box<@Nullable String>.
+                acceptsFixedNestedParameterWithNullableResult(Test::boxWithFixedNestedParameter);
+              }
+              static String nonNullString(String fixed) { return fixed; }
+              static <T> void acceptsPair(Function<@Nullable String, String> function,
+                  java.util.function.Supplier<T> supplier) {}
+              void failedJointInferenceReportsIndependentReferenceMismatch() {
+                // Expect a parameter mismatch and joint inference failure; without inference warnings, a return mismatch too.
+                acceptsPair(Test::nonNullString, Test::nullableValue);
+              }
+              void successfulJointInferenceReportsUnrelatedReferenceMismatch() {
+                // Expect a parameter mismatch: nonNullString requires non-null, but the interface allows null.
+                acceptsPair(Test::nonNullString, () -> "");
+              }
+              static class Holder<T extends @Nullable Object> {
+                Holder(Function<T, Box<T>> function, T value) {}
+              }
+              void diamondConstructorInfersReferenceWithEnclosingCall() {
+                new Holder<>(Test::box, null);
+              }
+              static class NonNullFactory {
+                <T> Box<T> box(T value) { return new Box<>(); }
+              }
+              @SafeVarargs
+              static <T> Box<T> nonNullVarargsBox(T... values) { return new Box<>(); }
+              static void acceptsNullableInput(Function<@Nullable String, Object> function) {}
+              static void acceptsNonNullInput(Function<String, Object> function) {}
+              static void acceptsUnboundNullableInput(
+                  BiFunction<NonNullFactory, @Nullable String, Object> function) {}
+              static void acceptsUnboundNonNullInput(
+                  BiFunction<NonNullFactory, String, Object> function) {}
+              void boundNonNullBoundRejectsNullableInput(NonNullFactory factory) {
+                // Expect inference failure; with inference warnings disabled, a parameter mismatch.
+                acceptsNullableInput(factory::box);
+              }
+              void boundNonNullBoundAcceptsNonNullInput(NonNullFactory factory) {
+                acceptsNonNullInput(factory::box);
+              }
+              void unboundNonNullBoundRejectsNullableInput() {
+                // Expect inference failure; with inference warnings disabled, a parameter mismatch.
+                acceptsUnboundNullableInput(NonNullFactory::box);
+              }
+              void unboundNonNullBoundAcceptsNonNullInput() {
+                acceptsUnboundNonNullInput(NonNullFactory::box);
+              }
+              void varargsNonNullBoundRejectsNullableInput() {
+                // Expect inference failure; with inference warnings disabled, a parameter mismatch.
+                acceptsNullableInput(Test::nonNullVarargsBox);
+              }
+              void varargsNonNullBoundAcceptsNonNullInput() {
+                acceptsNonNullInput(Test::nonNullVarargsBox);
+              }
+              static <T> void unrelated(java.util.function.Supplier<String> supplier,
+                  Box<T> first, Box<T> second) {}
+              void failedJointInferenceReportsIndependentReturnMismatch(
+                  Box<@Nullable String> nullable, Box<String> nonNull) {
+                unrelated(Test::nullableValue, nullable, nonNull);
+              }
+              static <T> String genericString(String fixed) { return fixed; }
+              void failedJointInferenceReportsExplicitReferenceMismatch() {
+                acceptsPair(Test::<String>genericString, Test::nullableValue);
+              }
+              void failedJointInferenceSuppressesGenericReferenceMismatch() {
+                acceptsPair(Test::genericString, Test::nullableValue);
+              }
+              static Box<String> fixedBox(String fixed) { return new Box<>(); }
+              static <T> void acceptsNestedPair(Function<@Nullable String, Box<T>> function,
+                  java.util.function.Supplier<T> supplier) {}
+              void failedJointInferenceSuppressesNestedDependentReferenceMismatch() {
+                acceptsNestedPair(Test::fixedBox, Test::nullableValue);
+              }
+              void inferenceFailureIsReportedAtTheFailingReference() {
+                acceptsBoth(
+                    Test::box,
+                    Test::nonNullBox);
+              }
+            }
+            """);
+    return compileAndReportDiagnostics(
+        List.of(source),
+        JSpecifyJavacConfig.withJSpecifyModeArgs(
+            Arrays.asList(
+                "-d",
+                temporaryFolder.getRoot().getAbsolutePath(),
+                "-XepOpt:NullAway:AnnotatedPackages=com.uber",
+                "-XepOpt:NullAway:WarnOnGenericInferenceFailure=" + warnOnInferenceFailure)));
   }
 
   @Test
@@ -1299,7 +1630,7 @@ public class GenericMethodLambdaOrMethodRefArgTests extends NullAwayTestsBase {
                 return factory.apply(new Foo() {});
               }
               String testPositive() {
-                // BUG: Diagnostic contains: referenced method returns @Nullable, but functional interface method
+                // BUG: Diagnostic contains: inference failure: type variable T is constrained to be @Nullable, but its upper bound requires it to be @NonNull
                 return createNonNull(Foo::getNullable);
               }
               @Nullable String testNegative() {
