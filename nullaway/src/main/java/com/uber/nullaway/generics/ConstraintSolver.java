@@ -49,6 +49,13 @@ public interface ConstraintSolver {
       Tree site, List<? extends Element> typeVariables);
 
   /**
+   * Returns whether {@code type}, including its nested types and bounds, mentions a fresh type
+   * variable registered with this solver. Fresh variables from other inference runs are fixed types
+   * for this query.
+   */
+  boolean containsInferenceVariable(Type type);
+
+  /**
    * Exception thrown when the constraints added to the solver are determined to be unsatisfiable.
    *
    * <p>This is an unchecked exception since in our current solver implementation it needs to be

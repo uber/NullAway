@@ -124,6 +124,14 @@ public final class ConstraintSolverImpl implements ConstraintSolver {
   }
 
   @Override
+  public boolean containsInferenceVariable(Type type) {
+    TypeVarWithSymbolCollector collector =
+        new TypeVarWithSymbolCollector(inferenceVariables::containsKey);
+    type.accept(collector, null);
+    return !collector.getMatches().isEmpty();
+  }
+
+  @Override
   public void addSubtypeConstraint(Type subtype, Type supertype, boolean localVariableType)
       throws UnsatisfiableConstraintsException {
     subtype.accept(new AddSubtypeConstraintsVisitor(localVariableType), supertype);

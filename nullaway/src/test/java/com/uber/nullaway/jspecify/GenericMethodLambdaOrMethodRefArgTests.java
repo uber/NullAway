@@ -178,10 +178,18 @@ public class GenericMethodLambdaOrMethodRefArgTests extends NullAwayTestsBase {
             "Test.java:87: [NullAway] inference failure: type variable T constrained to be both @NonNull and @Nullable",
             "Test.java:91: [NullAway] parameter type of referenced method is Box<String>, but parameter in functional interface method has type Box<@Nullable String>, which has mismatched type parameter nullability",
             "Test.java:98: [NullAway] inference failure: type variable T is constrained to be @Nullable, but its upper bound requires it to be @NonNull",
+            "Test.java:98: [NullAway] parameter fixed of referenced method is @NonNull, but parameter in functional interface method java.util.function.Function.apply(@Nullable String) is @Nullable",
             "Test.java:102: [NullAway] parameter fixed of referenced method is @NonNull, but parameter in functional interface method java.util.function.Function.apply(@Nullable String) is @Nullable",
             "Test.java:123: [NullAway] inference failure: type variable T is constrained to be @Nullable, but its upper bound requires it to be @NonNull",
             "Test.java:130: [NullAway] inference failure: type variable T is constrained to be @Nullable, but its upper bound requires it to be @NonNull",
-            "Test.java:137: [NullAway] inference failure: type variable T is constrained to be @Nullable, but its upper bound requires it to be @NonNull");
+            "Test.java:137: [NullAway] inference failure: type variable T is constrained to be @Nullable, but its upper bound requires it to be @NonNull",
+            "Test.java:146: [NullAway] inference failure: type variable T is constrained to be @Nullable, but its upper bound requires it to be @NonNull",
+            "Test.java:146: [NullAway] incompatible types: Box<@Nullable String> cannot be converted to Box<String>",
+            "Test.java:146: [NullAway] referenced method returns @Nullable, but functional interface method java.util.function.Supplier.get() returns @NonNull",
+            "Test.java:150: [NullAway] inference failure: type variable T is constrained to be @Nullable, but its upper bound requires it to be @NonNull",
+            "Test.java:150: [NullAway] parameter fixed of referenced method is @NonNull, but parameter in functional interface method java.util.function.Function.apply(@Nullable String) is @Nullable",
+            "Test.java:153: [NullAway] inference failure: type variable T is constrained to be @Nullable, but its upper bound requires it to be @NonNull",
+            "Test.java:159: [NullAway] inference failure: type variable T is constrained to be @Nullable, but its upper bound requires it to be @NonNull");
   }
 
   @Test
@@ -205,7 +213,15 @@ public class GenericMethodLambdaOrMethodRefArgTests extends NullAwayTestsBase {
             "Test.java:102: [NullAway] parameter fixed of referenced method is @NonNull, but parameter in functional interface method java.util.function.Function.apply(@Nullable String) is @Nullable",
             "Test.java:123: [NullAway] parameter value of referenced method is @NonNull, but parameter in functional interface method java.util.function.Function.apply(@Nullable String) is @Nullable",
             "Test.java:130: [NullAway] parameter value of referenced method is @NonNull, but parameter in functional interface method java.util.function.BiFunction.apply(NonNullFactory,@Nullable String) is @Nullable",
-            "Test.java:137: [NullAway] parameter values of referenced method is @NonNull, but parameter in functional interface method java.util.function.Function.apply(@Nullable String) is @Nullable");
+            "Test.java:137: [NullAway] parameter values of referenced method is @NonNull, but parameter in functional interface method java.util.function.Function.apply(@Nullable String) is @Nullable",
+            "Test.java:146: [NullAway] incompatible types: Box<@Nullable String> cannot be converted to Box<String>",
+            "Test.java:146: [NullAway] referenced method returns @Nullable, but functional interface method java.util.function.Supplier.get() returns @NonNull",
+            "Test.java:150: [NullAway] parameter fixed of referenced method is @NonNull, but parameter in functional interface method java.util.function.Function.apply(@Nullable String) is @Nullable",
+            "Test.java:150: [NullAway] referenced method returns @Nullable, but functional interface method java.util.function.Supplier.get() returns @NonNull",
+            "Test.java:153: [NullAway] parameter fixed of referenced method is @NonNull, but parameter in functional interface method java.util.function.Function.apply(@Nullable String) is @Nullable",
+            "Test.java:153: [NullAway] referenced method returns @Nullable, but functional interface method java.util.function.Supplier.get() returns @NonNull",
+            "Test.java:159: [NullAway] parameter fixed of referenced method is @NonNull, but parameter in functional interface method java.util.function.Function.apply(@Nullable String) is @Nullable",
+            "Test.java:159: [NullAway] referenced method returns @Nullable, but functional interface method java.util.function.Supplier.get() returns @NonNull");
   }
 
   /** Compiles references against known targets with the requested inference-warning setting. */
@@ -309,8 +325,8 @@ public class GenericMethodLambdaOrMethodRefArgTests extends NullAwayTestsBase {
               static String nonNullString(String fixed) { return fixed; }
               static <T> void acceptsPair(Function<@Nullable String, String> function,
                   java.util.function.Supplier<T> supplier) {}
-              void failedJointInferenceSuppressesUnrelatedReferenceMismatch() {
-                // Expect only joint inference failure; with inference warnings disabled, parameter and return mismatches.
+              void failedJointInferenceReportsIndependentReferenceMismatch() {
+                // Expect a parameter mismatch and joint inference failure; without inference warnings, a return mismatch too.
                 acceptsPair(Test::nonNullString, Test::nullableValue);
               }
               void successfulJointInferenceReportsUnrelatedReferenceMismatch() {
@@ -354,6 +370,25 @@ public class GenericMethodLambdaOrMethodRefArgTests extends NullAwayTestsBase {
               }
               void varargsNonNullBoundAcceptsNonNullInput() {
                 acceptsNonNullInput(Test::nonNullVarargsBox);
+              }
+              static <T> void unrelated(java.util.function.Supplier<String> supplier,
+                  Box<T> first, Box<T> second) {}
+              void failedJointInferenceReportsIndependentReturnMismatch(
+                  Box<@Nullable String> nullable, Box<String> nonNull) {
+                unrelated(Test::nullableValue, nullable, nonNull);
+              }
+              static <T> String genericString(String fixed) { return fixed; }
+              void failedJointInferenceReportsExplicitReferenceMismatch() {
+                acceptsPair(Test::<String>genericString, Test::nullableValue);
+              }
+              void failedJointInferenceSuppressesGenericReferenceMismatch() {
+                acceptsPair(Test::genericString, Test::nullableValue);
+              }
+              static Box<String> fixedBox(String fixed) { return new Box<>(); }
+              static <T> void acceptsNestedPair(Function<@Nullable String, Box<T>> function,
+                  java.util.function.Supplier<T> supplier) {}
+              void failedJointInferenceSuppressesNestedDependentReferenceMismatch() {
+                acceptsNestedPair(Test::fixedBox, Test::nullableValue);
               }
             }
             """);
