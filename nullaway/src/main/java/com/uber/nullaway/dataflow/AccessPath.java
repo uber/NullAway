@@ -229,7 +229,7 @@ public final class AccessPath implements MapKey {
       Node base, AccessPathElement apElement, AccessPathContext apContext) {
     ArrayDeque<AccessPathElement> elements = new ArrayDeque<>();
     elements.push(apElement);
-    return buildAccessPathRecursive(base, elements, apContext, null);
+    return buildAccessPathRecursive(stripCasts(base), elements, apContext, null);
   }
 
   /**

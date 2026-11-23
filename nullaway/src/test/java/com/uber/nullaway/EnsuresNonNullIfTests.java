@@ -453,6 +453,11 @@ public class EnsuresNonNullIfTests extends NullAwayTestsBase {
                   other.nullableItem.call();
                 }
               }
+              public void castThisReceiver() {
+                if (((Foo) this).hasNullableItem()) {
+                  nullableItem.call();
+                }
+              }
             }
             """)
         .addSourceLines(
