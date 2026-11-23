@@ -144,32 +144,32 @@ jobs:
           - project: caffeine
             url: https://github.com/ben-manes/caffeine.git
             branch: master
-            sha: 10646b00c14a7837fe16a16a2a7b1f82e5fa3155
+            sha: 96d43f370671742b4d32bd630ba03f7772306875
             build: JAVA_VERSION=26 ./gradlew --init-script use-snapshot.gradle.kts compileAllJava
           - project: spring-framework
             url: https://github.com/spring-projects/spring-framework.git
             branch: main
-            sha: 4cb62d893e09e23791d661e8d9b35aedee7006d0
+            sha: a85686ec92020c5a2f90373227758a38ace5b679
             build: ./gradlew --init-script use-snapshot.gradle.kts compileAllJava
           - project: junit-framework
             url: https://github.com/junit-team/junit-framework.git
             branch: main
-            sha: 369385ca736a85e874fabbd3d27b449df9d2a99d
+            sha: 68e59c02a55f456a39df0c9a672b479e48a43474
             build: ./gradlew --init-script use-snapshot.gradle.kts compileAllJava
           - project: spring-boot
             url: https://github.com/spring-projects/spring-boot.git
             branch: main
-            sha: 3d8ad8ecf3899381514e413877a90e16e6a52b00
+            sha: ebb5e11c70c50469c45f8aada56dd6d477c6b77f
             build: ./gradlew --init-script use-snapshot.gradle.kts compileAllJava
           - project: reactor-core
             url: https://github.com/reactor/reactor-core.git
             branch: main
-            sha: 12aff1092412e892f255a743827663e3cee84d6f
+            sha: c7558a44573277db75ea275c190cb4b310c8c5a0
             build: ./gradlew --init-script use-snapshot.gradle.kts compileAllJava
           - project: spring-batch
             url: https://github.com/spring-projects/spring-batch.git
             branch: main
-            sha: 899ccc33e2cfe1b26ce267a3dbdc9c8bf606cd1a
+            sha: 8352aa1b511679acf5511706534a1937b9022cae
             build: ./mvnw -B -ntp -nsu -Dnullaway.version="$NULLAWAY_VERSION" -Dspring-javaformat.skip=true test-compile
           - project: vavr
             url: https://github.com/vavr-io/vavr.git
