@@ -262,6 +262,13 @@ public class GenericMethodLambdaOrMethodRefArgTests extends NullAwayTestsBase {
                     outer -> outer.flatMap(inner -> outer.flatMap(ignored -> inner)));
                 acceptsNullable(flat);
               }
+
+              static void nestedInferenceWithParenthesizedLambdas(
+                  Box<Box<Box<@Nullable String>>> nested) {
+                var flat = nested.flatMap(
+                    (outer -> outer.flatMap((inner -> outer.flatMap((ignored -> inner))))));
+                acceptsNullable(flat);
+              }
             }
             """)
         .doTest();

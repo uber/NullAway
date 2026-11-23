@@ -532,9 +532,9 @@ public class GenericsUtils {
   }
 
   /**
-   * Handler for method reference type relations, used by {{@link
+   * Handler for method reference type relations, used by {@link
    * #processMethodRefTypeRelations(GenericsChecks, Type, MemberReferenceTree, VisitorState,
-   * MethodRefTypeRelationHandler)}}
+   * MethodRefTypeRelationHandler)}.
    */
   @FunctionalInterface
   interface MethodRefTypeRelationHandler {
@@ -559,14 +559,6 @@ public class GenericsUtils {
       MemberReferenceTree memberReferenceTree,
       VisitorState state,
       MethodRefTypeRelationHandler relationHandler) {
-    Verify.verify(
-        state.getPath().getLeaf() == memberReferenceTree,
-        "Expected current path to end at member reference %s, but found %s",
-        memberReferenceTree,
-        state.getPath().getLeaf());
-    Types types = state.getTypes();
-
-    // First, resolve the referenced method and its qualifier type.
     Symbol.MethodSymbol referencedMethod = ASTHelpers.getSymbol(memberReferenceTree);
     if (referencedMethod == null) { // diff-coverage: ignore -- Unattributed javac tree.
       return;
@@ -574,9 +566,27 @@ public class GenericsUtils {
     ResolvedMethodReference resolvedMethodReference =
         genericsChecks.resolveMemberReference(
             memberReferenceTree, referencedMethod, targetType, state);
-    if (resolvedMethodReference == null) {
-      return;
+    if (resolvedMethodReference != null) {
+      processMethodRefTypeRelations(
+          genericsChecks, resolvedMethodReference, memberReferenceTree, state, relationHandler);
     }
+  }
+
+  /** Processes method-reference type relations using an already resolved reference. */
+  @SuppressWarnings("ReferenceEquality") // deliberate reference equality check
+  static void processMethodRefTypeRelations(
+      GenericsChecks genericsChecks,
+      ResolvedMethodReference resolvedMethodReference,
+      MemberReferenceTree memberReferenceTree,
+      VisitorState state,
+      MethodRefTypeRelationHandler relationHandler) {
+    Verify.verify(
+        state.getPath().getLeaf() == memberReferenceTree,
+        "Expected current path to end at member reference %s, but found %s",
+        memberReferenceTree,
+        state.getPath().getLeaf());
+    Types types = state.getTypes();
+    Symbol.MethodSymbol referencedMethod = ASTHelpers.getSymbol(memberReferenceTree);
     Type qualifierType = resolvedMethodReference.qualifierType();
     Type.MethodType referencedMethodType = resolvedMethodReference.methodType();
 

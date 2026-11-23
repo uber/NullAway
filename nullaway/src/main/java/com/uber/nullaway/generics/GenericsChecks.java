@@ -200,6 +200,43 @@ public final class GenericsChecks {
   }
 
   /**
+   * Returns the substituted functional-interface method type of a lambda or method reference.
+   *
+   * @param polyExpressionTree lambda or method-reference tree
+   * @param state visitor state
+   * @return the method type, or {@code null} if the target type is unavailable or raw, or call
+   *     inference already checks the expression's nested types
+   */
+  @SuppressWarnings("ReferenceEquality") // locate the existing path to the expression
+  public Type.@Nullable MethodType getFunctionalInterfaceMethodType(
+      ExpressionTree polyExpressionTree, VisitorState state) {
+    Type functionalInterfaceType = getPolyExpressionType(polyExpressionTree);
+    TreePath expressionPath = state.getPath();
+    while (expressionPath != null && expressionPath.getLeaf() != polyExpressionTree) {
+      expressionPath = expressionPath.getParentPath();
+    }
+    TreePath parentPath = expressionPath == null ? null : expressionPath.getParentPath();
+    while (parentPath != null && parentPath.getLeaf() instanceof ParenthesizedTree) {
+      parentPath = parentPath.getParentPath();
+    }
+    if (parentPath != null
+        && parentPath.getLeaf() instanceof ExpressionTree parentExpression
+        && isCallNeedingInference(parentExpression)) {
+      // Call inference already checks nested lambda return types while generating constraints.
+      // A separate check using the javac target can reject valid code: nested calls share an
+      // inference solution, but only the outer call's direct arguments have cached poly types.
+      return null;
+    }
+    if (functionalInterfaceType == null || functionalInterfaceType.isRaw()) {
+      return null;
+    }
+    return getFunctionalInterfaceMethodType(
+        NullabilityUtil.getFunctionalInterfaceMethod(polyExpressionTree, state.getTypes()),
+        functionalInterfaceType,
+        state);
+  }
+
+  /**
    * Handles cases where a poly expression (lambda or method reference) is passed as a parameter,
    * and the invoked function has a library model for the corresponding formal. In such cases, we
    * ensure the appropriate formal parameter type from the library model is used when inferring the
@@ -710,6 +747,36 @@ public final class GenericsChecks {
     state.reportMatch(
         errorBuilder.createErrorDescription(
             errorMessage, analysis.buildDescription(memberReferenceTree), state, null));
+  }
+
+  /**
+   * Checks nested parameter and return nullability against a method reference's functional
+   * interface.
+   *
+   * @param memberReferenceTree the method reference being checked
+   * @param resolvedReference shared method-reference resolution, including the substituted target
+   * @param state visitor state whose path ends at the method reference
+   */
+  public void checkTypeParameterNullnessForMethodReference(
+      MemberReferenceTree memberReferenceTree,
+      ResolvedMethodReference resolvedReference,
+      VisitorState state) {
+    GenericsUtils.processMethodRefTypeRelations(
+        this,
+        resolvedReference,
+        memberReferenceTree,
+        state,
+        (subtype, supertype, relationKind) -> {
+          if (!subtypeParameterNullability(supertype, subtype, state)) {
+            if (relationKind == MethodRefTypeRelationKind.RETURN) {
+              reportInvalidMethodReferenceReturnTypeError(
+                  memberReferenceTree, supertype, subtype, state);
+            } else {
+              reportInvalidMethodReferenceParameterTypeError(
+                  memberReferenceTree, subtype, supertype, state);
+            }
+          }
+        });
   }
 
   private void reportInvalidOverridingMethodReturnTypeError(
@@ -2485,21 +2552,20 @@ public final class GenericsChecks {
   }
 
   /**
-   * Checks that the nullability of type parameters for a returned expression matches that of the
-   * type parameters of the enclosing method's return type.
+   * Checks that nested nullability in a returned expression is compatible with the effective formal
+   * return type, including functional-interface substitutions for a lambda.
    *
    * @param retExpr the returned expression
-   * @param methodSymbol symbol for enclosing method
+   * @param formalReturnType effective formal return type, including substitutions
    * @param state the visitor state
    */
   public void checkTypeParameterNullnessForFunctionReturnType(
-      ExpressionTree retExpr, Symbol.MethodSymbol methodSymbol, VisitorState state) {
+      ExpressionTree retExpr, Type formalReturnType, VisitorState state) {
     Config config = analysis.getConfig();
     if (!config.isJSpecifyMode()) {
       return;
     }
 
-    Type formalReturnType = methodSymbol.getReturnType();
     if (formalReturnType.isRaw()) {
       // bail out of any checking involving raw types for now
       return;
@@ -2989,40 +3055,13 @@ public final class GenericsChecks {
                   NullabilityUtil.stripParensAndUpdateTreePath(
                       currentActualParam, state.withPath(pathToParam));
               ExpressionTree actualParameterWithoutParentheses = actualParameterAndState.expr();
-              if (actualParameterWithoutParentheses
-                  instanceof MemberReferenceTree memberReferenceTree) {
-                // the type of the method reference tree provided by javac may not capture
-                // nullability of nested types. So, do explicit type checks based on the return
-                // and parameter types of the referenced method. Type arguments of an unmarked
-                // functional interface method have unspecified nullness and are not checked, as
-                // for the arguments of a call to an unmarked method.
-                if (!CodeAnnotationInfo.instance(state.context)
-                    .isSymbolUnannotated(
-                        NullabilityUtil.getFunctionalInterfaceMethod(
-                            memberReferenceTree, state.getTypes()),
-                        config,
-                        handler)) {
-                  Type groundFormalParameter =
-                      GenericsUtils.groundTargetType(formalParameter, state, config, handler);
-                  GenericsUtils.processMethodRefTypeRelations(
-                      this,
-                      groundFormalParameter,
-                      memberReferenceTree,
-                      actualParameterAndState.state(),
-                      (subtype, supertype, relationKind) -> {
-                        if (!subtypeParameterNullability(supertype, subtype, state)) {
-                          if (relationKind == MethodRefTypeRelationKind.RETURN) {
-                            reportInvalidMethodReferenceReturnTypeError(
-                                memberReferenceTree, supertype, subtype, state);
-                          } else {
-                            reportInvalidMethodReferenceParameterTypeError(
-                                memberReferenceTree, subtype, supertype, state);
-                          }
-                        }
-                      });
-                }
+              if (actualParameterWithoutParentheses instanceof MemberReferenceTree) {
+                // The member-reference matcher checks nested parameter and return types. Store the
+                // final call-site target type here for that matcher to use.
                 maybeStorePolyExpressionTypeFromTarget(
-                    actualParameterWithoutParentheses, formalParameter, state);
+                    actualParameterWithoutParentheses,
+                    formalParameter,
+                    actualParameterAndState.state());
                 return;
               }
 
