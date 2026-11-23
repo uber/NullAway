@@ -9,6 +9,112 @@ import org.junit.Test;
 public class GenericDiamondTests extends NullAwayTestsBase {
 
   @Test
+  public void switchArgumentsUseTheConstructorInferenceTarget() {
+    makeHelper()
+        .addSourceLines(
+            "Test.java",
+            """
+            import org.jspecify.annotations.*;
+            @NullMarked
+            class Test {
+              static class Box<T extends @Nullable Object> {
+                final T value;
+                Box(T value) { this.value = value; }
+                T get() { return value; }
+              }
+              void nonNullArrow(int selector) {
+                Box<String> box = new Box<>(switch (selector) { default -> "x"; });
+              }
+              void nonNullYield(int selector) {
+                Box<String> box = new Box<>(switch (selector) { default -> { yield "x"; } });
+              }
+              void nullableArrow(int selector) {
+                Box<@Nullable String> box = new Box<>(switch (selector) {
+                  case 0 -> "x";
+                  default -> null;
+                });
+              }
+              void nullableYield(int selector) {
+                Box<@Nullable String> box = new Box<>(switch (selector) {
+                  case 0 -> { yield "x"; }
+                  default -> { yield null; }
+                });
+              }
+              void incompatibleArrow(int selector) {
+                // BUG: Diagnostic contains: inference failure
+                Box<String> box = new Box<>(switch (selector) { default -> nullableValue(); });
+              }
+              void incompatibleYield(int selector) {
+                // BUG: Diagnostic contains: inference failure
+                Box<String> box = new Box<>(switch (selector) { default -> { yield nullableValue(); } });
+              }
+              void inferredNullableResult(int selector) {
+                var box = new Box<>(switch (selector) { default -> nullableValue(); });
+                // BUG: Diagnostic contains: dereferenced expression 'box.get()' is @Nullable
+                box.get().hashCode();
+              }
+              void colonYields(int selector) {
+                var box = new Box<>(switch (selector) {
+                  case 0: yield "x";
+                  default: yield nullableValue();
+                });
+                // BUG: Diagnostic contains: dereferenced expression 'box.get()' is @Nullable
+                box.get().hashCode();
+              }
+              void nestedSwitch(int selector) {
+                var box = new Box<>(switch (selector) {
+                  case 0 -> { yield switch (selector) { default -> nullableValue(); }; }
+                  default -> "x";
+                });
+                // BUG: Diagnostic contains: dereferenced expression 'box.get()' is @Nullable
+                box.get().hashCode();
+              }
+              void nestedLocalSwitchDoesNotConstrainResult(int selector) {
+                Box<String> box = new Box<>(switch (selector) {
+                  default -> {
+                    var ignored = switch (selector) { default -> { yield nullableValue(); } };
+                    yield "x";
+                  }
+                });
+              }
+              static <T extends @Nullable Object> T identity(T value) { return value; }
+              void genericCallResult(int selector) {
+                var box = new Box<>(switch (selector) { default -> identity(nullableValue()); });
+                // BUG: Diagnostic contains: dereferenced expression 'box.get()' is @Nullable
+                box.get().hashCode();
+              }
+              void conditionalResult(int selector, boolean flag) {
+                var box = new Box<>((switch (selector) { default -> flag ? "x" : nullableValue(); }));
+                // BUG: Diagnostic contains: dereferenced expression 'box.get()' is @Nullable
+                box.get().hashCode();
+              }
+              static class FactoryBox<T extends @Nullable Object> {
+                FactoryBox(java.util.function.Supplier<T> factory) {}
+              }
+              static @Nullable String nullableValue() { return null; }
+              void methodReferenceResult(int selector) {
+                FactoryBox<@Nullable String> box = new FactoryBox<>(switch (selector) {
+                  default -> Test::nullableValue;
+                });
+              }
+              void incompatibleMethodReferenceResult(int selector) {
+                // BUG: Diagnostic contains: inference failure
+                FactoryBox<String> box = new FactoryBox<>(switch (selector) {
+                  // BUG: Diagnostic contains: referenced method returns @Nullable
+                  default -> Test::nullableValue;
+                });
+              }
+              void lambdaResult(int selector) {
+                FactoryBox<String> box = new FactoryBox<>(switch (selector) {
+                  default -> () -> "x";
+                });
+              }
+            }
+            """)
+        .doTest();
+  }
+
+  @Test
   public void assignToLocal() {
     makeHelper()
         .addSourceLines(

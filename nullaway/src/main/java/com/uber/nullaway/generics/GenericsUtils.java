@@ -538,7 +538,12 @@ public class GenericsUtils {
    */
   @FunctionalInterface
   interface MethodRefTypeRelationHandler {
-    void handle(Type subtype, Type supertype, MethodRefTypeRelationKind relationKind);
+    /** Handles a relation, with the functional parameter index or {@code -1} for a return. */
+    void handle(
+        Type subtype,
+        Type supertype,
+        MethodRefTypeRelationKind relationKind,
+        int functionalParameterIndex);
   }
 
   /**
@@ -598,7 +603,10 @@ public class GenericsUtils {
     if (functionalInterfaceReturnType.getKind() != TypeKind.VOID
         && referencedReturnType.getKind() != TypeKind.VOID) {
       relationHandler.handle(
-          referencedReturnType, functionalInterfaceReturnType, MethodRefTypeRelationKind.RETURN);
+          referencedReturnType,
+          functionalInterfaceReturnType,
+          MethodRefTypeRelationKind.RETURN,
+          -1);
     }
 
     //  i^{th} functional interface parameter type <: i^{th} method reference parameter type,
@@ -610,7 +618,8 @@ public class GenericsUtils {
         relationHandler.handle(
             functionalInterfaceParamTypes.get(0),
             qualifierType,
-            MethodRefTypeRelationKind.PARAMETER);
+            MethodRefTypeRelationKind.PARAMETER,
+            0);
       }
       functionalInterfaceStartIndex = 1;
     }
@@ -626,7 +635,8 @@ public class GenericsUtils {
       relationHandler.handle(
           functionalInterfaceParamTypes.get(functionalInterfaceStartIndex + i),
           referencedParamTypes.get(i),
-          MethodRefTypeRelationKind.PARAMETER);
+          MethodRefTypeRelationKind.PARAMETER,
+          functionalInterfaceStartIndex + i);
     }
     if (!referencedMethod.isVarArgs()) {
       return;
@@ -652,7 +662,8 @@ public class GenericsUtils {
       relationHandler.handle(
           functionalInterfaceParamTypes.get(firstVarargsFiParamIndex),
           varargsArrayType,
-          MethodRefTypeRelationKind.PARAMETER);
+          MethodRefTypeRelationKind.PARAMETER,
+          firstVarargsFiParamIndex);
     } else {
       // javac resolved this member reference using varargs (variable-arity) adaptation.
       // Use the element type from the referenced varargs array type
@@ -661,7 +672,8 @@ public class GenericsUtils {
         relationHandler.handle(
             functionalInterfaceParamTypes.get(functionalInterfaceStartIndex + i),
             varargsElementType,
-            MethodRefTypeRelationKind.PARAMETER);
+            MethodRefTypeRelationKind.PARAMETER,
+            functionalInterfaceStartIndex + i);
       }
     }
   }

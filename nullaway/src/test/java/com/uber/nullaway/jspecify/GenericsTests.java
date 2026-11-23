@@ -1123,6 +1123,802 @@ public class GenericsTests extends NullAwayTestsBase {
   }
 
   @Test
+  public void lambdaResultTargetsRespectUnmarkedFunctionalInterfaces() {
+    makeHelper()
+        .addSourceLines(
+            "other/UFn.java",
+            """
+            package other;
+            import java.util.List;
+            public interface UFn {
+              List<String> get();
+              interface Outer { java.util.function.Supplier<List<String>> get(); }
+            }
+            """)
+        .addSourceLines(
+            "Test.java",
+            """
+            package com.uber;
+            import java.util.List;
+            import org.jspecify.annotations.Nullable;
+            import other.UFn;
+            class Test {
+              interface MarkedFn { List<String> get(); }
+              interface MarkedOuter { java.util.function.Supplier<List<String>> get(); }
+              static List<@Nullable String> nullableList() { return List.of(); }
+              static List<String> nonNullList() { return List.of(); }
+              static void take(UFn f) {}
+              void directUnmarked() { UFn f = () -> nullableList(); }
+              void conditionalUnmarked(boolean flag) {
+                UFn f = () -> flag ? nullableList() : nonNullList();
+              }
+              void conditionalBlockUnmarked(boolean flag) {
+                UFn f = () -> { return flag ? nullableList() : nonNullList(); };
+              }
+              void switchUnmarked(int selector) {
+                UFn f = () -> switch (selector) { default -> nullableList(); };
+              }
+              void switchBlockUnmarked(int selector) {
+                UFn f = () -> { return switch (selector) { default -> nullableList(); }; };
+              }
+              void argumentUnmarked(boolean flag) {
+                take(() -> flag ? nullableList() : nonNullList());
+              }
+              void referenceUnmarked() { UFn.Outer f = () -> Test::nullableList; }
+              void referenceBlockUnmarked() { UFn.Outer f = () -> { return Test::nullableList; }; }
+              void referenceConditionalUnmarked(boolean flag) {
+                UFn.Outer f = () -> flag ? Test::nullableList : Test::nonNullList;
+              }
+              void referenceSwitchUnmarked(int selector) {
+                UFn.Outer f = () -> switch (selector) { default -> Test::nullableList; };
+              }
+              void referenceYieldUnmarked(int selector) {
+                UFn.Outer f = () -> { return switch (selector) { default -> { yield Test::nullableList; } }; };
+              }
+              void referenceMarked() {
+                // BUG: Diagnostic contains: referenced method returns List<@Nullable String>
+                MarkedOuter f = () -> Test::nullableList;
+              }
+              void referenceBlockMarked() {
+                // BUG: Diagnostic contains: referenced method returns List<@Nullable String>
+                MarkedOuter f = () -> { return Test::nullableList; };
+              }
+              void conditionalMarked(boolean flag) {
+                // BUG: Diagnostic contains: Conditional expression must have type List<String>
+                MarkedFn f = () -> flag ? nullableList() : nonNullList();
+              }
+              void switchMarked(int selector) {
+                // BUG: Diagnostic contains: Switch expression must have type List<String>
+                MarkedFn f = () -> switch (selector) { default -> nullableList(); };
+              }
+            }
+            """)
+        .doTest();
+  }
+
+  @Test
+  public void polyExpressionTargetsRespectUnmarkedDeclarations() {
+    makeTestHelperWithArgs(
+            JSpecifyJavacConfig.withJSpecifyModeArgs(
+                List.of(
+                    "-XepOpt:NullAway:AnnotatedPackages=com.uber",
+                    "-XepOpt:NullAway:WarnOnGenericInferenceFailure=true")))
+        .addSourceLines(
+            "other/UnmarkedLib.java",
+            """
+            package other;
+            import java.util.List;
+            import java.util.function.Consumer;
+            import java.util.function.Function;
+            import org.jspecify.annotations.Nullable;
+            public class UnmarkedLib {
+              public static List<String> field;
+              public static Function<String, List<String>> fnField;
+              public UnmarkedLib(List<String> values) {}
+              public UnmarkedLib(Function<String, List<String>> fn) {}
+              public static void takeList(List<String> values) {}
+              public static void takeFn(Function<String, List<String>> fn) {}
+              public static void takeConsumer(Consumer<List<@Nullable String>> consumer) {}
+            }
+            """)
+        .addSourceLines(
+            "Test.java",
+            """
+            package com.uber;
+            import java.util.List;
+            import java.util.function.Consumer;
+            import java.util.function.Function;
+            import org.jspecify.annotations.NullMarked;
+            import org.jspecify.annotations.Nullable;
+            import other.UnmarkedLib;
+            @NullMarked
+            class Test {
+              static class MarkedLib {
+                static List<String> field = List.of();
+                static Function<String, List<String>> fnField = s -> List.of();
+                MarkedLib(List<String> values) {}
+                MarkedLib(Function<String, List<String>> fn) {}
+                static void takeList(List<String> values) {}
+                static void takeFn(Function<String, List<String>> fn) {}
+                static void takeConsumer(Consumer<List<@Nullable String>> consumer) {}
+              }
+              static List<@Nullable String> make(String s) { return List.of(); }
+              static <T> void nonNullElements(List<T> values) {}
+              void directUnmarked(List<@Nullable String> values) {
+                UnmarkedLib.takeList(values);
+                UnmarkedLib.takeFn(s -> make(s));
+                UnmarkedLib.field = values;
+              }
+              void switchArgumentUnmarked(int selector, List<@Nullable String> values) {
+                UnmarkedLib.takeList(switch (selector) { default -> values; });
+              }
+              void switchArgumentMarked(int selector, List<@Nullable String> values) {
+                // BUG: Diagnostic contains: Switch expression must have type List<String>
+                MarkedLib.takeList(switch (selector) { default -> values; });
+              }
+              void conditionalArgumentUnmarked(boolean flag, List<@Nullable String> values) {
+                UnmarkedLib.takeList(flag ? values : values);
+              }
+              void conditionalArgumentMarked(boolean flag, List<@Nullable String> values) {
+                // BUG: Diagnostic contains: Conditional expression must have type List<String>
+                MarkedLib.takeList(flag ? values : values);
+              }
+              void referenceArgumentUnmarked() { UnmarkedLib.takeFn((Test::make)); }
+              void referenceArgumentMarked() {
+                // BUG: Diagnostic contains: referenced method returns List<@Nullable String>
+                MarkedLib.takeFn((Test::make));
+              }
+              void genericReferenceArgumentUnmarked() { UnmarkedLib.takeConsumer(Test::nonNullElements); }
+              void genericReferenceArgumentMarked() {
+                // BUG: Diagnostic contains: inference failure
+                MarkedLib.takeConsumer(Test::nonNullElements);
+              }
+              void switchConstructorUnmarked(int selector, List<@Nullable String> values) {
+                new UnmarkedLib(switch (selector) { default -> values; });
+              }
+              void switchConstructorMarked(int selector, List<@Nullable String> values) {
+                // BUG: Diagnostic contains: Switch expression must have type List<String>
+                new MarkedLib(switch (selector) { default -> values; });
+              }
+              void conditionalConstructorUnmarked(boolean flag, List<@Nullable String> values) {
+                new UnmarkedLib(flag ? values : values);
+              }
+              void conditionalConstructorMarked(boolean flag, List<@Nullable String> values) {
+                // BUG: Diagnostic contains: Conditional expression must have type List<String>
+                new MarkedLib(flag ? values : values);
+              }
+              void referenceConstructorUnmarked() { new UnmarkedLib(Test::make); }
+              void referenceConstructorMarked() {
+                // BUG: Diagnostic contains: referenced method returns List<@Nullable String>
+                new MarkedLib(Test::make);
+              }
+              void switchAssignmentUnmarked(int selector, List<@Nullable String> values) {
+                UnmarkedLib.field = switch (selector) { default -> values; };
+              }
+              void switchAssignmentMarked(int selector, List<@Nullable String> values) {
+                // BUG: Diagnostic contains: Switch expression must have type List<String>
+                MarkedLib.field = switch (selector) { default -> values; };
+              }
+              void conditionalAssignmentUnmarked(boolean flag, List<@Nullable String> values) {
+                UnmarkedLib.field = flag ? values : values;
+              }
+              void conditionalAssignmentMarked(boolean flag, List<@Nullable String> values) {
+                // BUG: Diagnostic contains: Conditional expression must have type List<String>
+                MarkedLib.field = flag ? values : values;
+              }
+              void arrayElementAssignmentRetainsTarget(int selector,
+                  List<@Nullable String> values, List<String>[] targets) {
+                // BUG: Diagnostic contains: Switch expression must have type List<String>
+                targets[0] = switch (selector) { default -> values; };
+              }
+              void referenceAssignmentUnmarked() { UnmarkedLib.fnField = Test::make; }
+              void referenceAssignmentMarked() {
+                // BUG: Diagnostic contains: referenced method returns List<@Nullable String>
+                MarkedLib.fnField = Test::make;
+              }
+              void nestedReferenceUnmarked(int selector, boolean flag) {
+                UnmarkedLib.takeFn(switch (selector) { default -> flag ? Test::make : Test::make; });
+              }
+              void nestedReferenceMarked(int selector, boolean flag) {
+                // BUG: Diagnostic contains: referenced method returns List<@Nullable String>
+                MarkedLib.takeFn(switch (selector) { default -> flag ? Test::make : Test::make; });
+              }
+            }
+            """)
+        .doTest();
+  }
+
+  @Test
+  public void lambdaResultTargetsRespectUnmarkedDeclarations() {
+    makeHelper()
+        .addSourceLines(
+            "Test.java",
+            """
+            package com.uber;
+            import java.util.List;
+            import org.jspecify.annotations.NullUnmarked;
+            import org.jspecify.annotations.Nullable;
+            class Test {
+              interface Sup<T extends @Nullable Object> { T get(); }
+              interface ConcreteOuter { Sup<List<String>> get(); }
+              @NullUnmarked static class Legacy {
+                static Sup<List<String>> field;
+                Legacy(Sup<List<String>> s) {}
+                static void take(Sup<List<String>> s) {}
+                static void takeNested(Sup<Sup<List<String>>> s) {}
+                static void takeConcrete(ConcreteOuter s) {}
+              }
+              static class Marked {
+                static Sup<List<String>> field = () -> List.of();
+                Marked(Sup<List<String>> s) {}
+                static void take(Sup<List<String>> s) {}
+              }
+              static List<@Nullable String> nullableList() { return List.of(); }
+              static List<String> nonNullList() { return List.of(); }
+              void directUnmarked() { Legacy.take(() -> nullableList()); }
+              void conditionalArgumentUnmarked(boolean flag) {
+                Legacy.take(() -> flag ? nullableList() : nonNullList());
+              }
+              void switchConstructorUnmarked(int selector) {
+                new Legacy(() -> switch (selector) { default -> nullableList(); });
+              }
+              void switchFieldUnmarked(int selector) {
+                Legacy.field = () -> { return switch (selector) { default -> nullableList(); }; };
+              }
+              void referenceArgumentUnmarked() { Legacy.takeNested(() -> Test::nullableList); }
+              void referenceBlockUnmarked() { Legacy.takeNested(() -> { return Test::nullableList; }); }
+              void nestedLambdasUnmarked(int selector) {
+                Legacy.takeNested(() -> () -> switch (selector) { default -> nullableList(); });
+              }
+              void parenthesizedConditionalLambdaUnmarked(boolean flag, int selector) {
+                Legacy.take((flag ? (() -> switch (selector) { default -> nullableList(); }) : () -> nonNullList()));
+              }
+              void switchLambdaUnmarked(int selector) {
+                Legacy.take(switch (selector) { default -> () -> true ? nullableList() : nonNullList(); });
+              }
+              void conditionalArgumentMarked(boolean flag) {
+                // BUG: Diagnostic contains: Conditional expression must have type List<String>
+                Marked.take(() -> flag ? nullableList() : nonNullList());
+              }
+              void switchConstructorMarked(int selector) {
+                // BUG: Diagnostic contains: Switch expression must have type List<String>
+                new Marked(() -> switch (selector) { default -> nullableList(); });
+              }
+              void switchFieldMarked(int selector) {
+                // BUG: Diagnostic contains: Switch expression must have type List<String>
+                Marked.field = () -> { return switch (selector) { default -> nullableList(); }; };
+              }
+              void concreteReturnRetainsReferenceContract() {
+                // BUG: Diagnostic contains: referenced method returns List<@Nullable String>
+                Legacy.takeConcrete(() -> Test::nullableList);
+              }
+              void concreteReturnRetainsBlockReferenceContract() {
+                // BUG: Diagnostic contains: referenced method returns List<@Nullable String>
+                Legacy.takeConcrete(() -> { return Test::nullableList; });
+              }
+              void markedLocalInsideUnmarkedLambda() {
+                Legacy.take(() -> {
+                  // BUG: Diagnostic contains: referenced method returns List<@Nullable String>
+                  Sup<List<String>> local = Test::nullableList;
+                  return nonNullList();
+                });
+              }
+            }
+            """)
+        .doTest();
+  }
+
+  @Test
+  public void genericWrappersPreserveUnmarkedLambdaTargets() {
+    makeHelper()
+        .addSourceLines(
+            "Test.java",
+            """
+            package com.uber;
+            import java.util.List;
+            import org.jspecify.annotations.NullUnmarked;
+            import org.jspecify.annotations.Nullable;
+            class Test {
+              interface Sup<T extends @Nullable Object> { T get(); }
+              static class Box<T extends @Nullable Object> { Box(Sup<T> s) {} }
+              interface Fn<A extends @Nullable Object, R extends @Nullable Object> { R apply(A a); }
+              interface Sink<T extends @Nullable Object> { void accept(T value); }
+              interface BiSink<A extends @Nullable Object, B extends @Nullable Object> { void accept(A a, B b); }
+              static class Holder<T> {}
+              static class Publisher<T extends @Nullable Object> {
+                <U> Sup<T> publish(U unused, Sup<T> s) { return s; }
+              }
+              @NullUnmarked static class Legacy {
+                static Sup<List<String>> field;
+                Legacy(Sup<List<String>> s) {}
+                static void take(Sup<List<String>> s) {}
+                static void takeNested(Sup<Sup<List<String>>> s) {}
+                static void takeBox(Box<List<String>> b) {}
+                static void takeHolder(Holder<String> h) {}
+                static void takeArray(List<String>[] values) {}
+                static void takeSink(Sink<List<String>> s) {}
+                static void takeBiSink(BiSink<List<String>, List<String>> s) {}
+              }
+              static <T extends @Nullable Object> T identity(T t) { return t; }
+              static <T extends @Nullable Object> Sup<T> memoize(Sup<T> s) { return s; }
+              static <T extends @Nullable Object> Sink<T> wrapSink(Sink<T> s) { return s; }
+              static <T extends @Nullable Object> BiSink<List<String>, T> wrapBiSink(BiSink<List<String>, T> s) { return s; }
+              static <T extends @Nullable Object> Box<T> keepBox(Box<T> b) { return b; }
+              static <T extends @Nullable Object> T[] array(Sup<T> s) { throw new RuntimeException(); }
+              static <T extends @Nullable Object> T[] keepArray(T[] values) { return values; }
+              static <T extends @Nullable Object> Sup<T> from(Fn<List<String>, T> f) {
+                return () -> f.apply(List.of());
+              }
+              static <T, U extends @Nullable Object> U second(T first, U value) { return value; }
+              static <T extends @Nullable Object> T fixed(Sup<List<String>> s, T t) { return t; }
+              static <T> Holder<T> wrap(Fn<T, List<String>> f) { return new Holder<>(); }
+              static void markedTake(Sup<List<String>> s) {}
+              static List<@Nullable String> nullableList() { return List.of(); }
+              static List<String> nonNullList() { return List.of(); }
+              static List<@Nullable String> mixed(List<@Nullable String> values) { return values; }
+              static void nullableElements(List<@Nullable String> values) {}
+              static void secondNullable(List<String> first, List<@Nullable String> second) {}
+              static void firstNullable(List<@Nullable String> first, List<String> second) {}
+              static <T extends @Nullable Object> List<@Nullable T> genericNullableList() { return List.of(); }
+              void conditionalMethod(boolean flag) {
+                Legacy.take(identity(() -> flag ? nullableList() : nonNullList()));
+              }
+              void switchMethod(int selector) {
+                Legacy.take(identity(() -> switch (selector) { default -> nullableList(); }));
+              }
+              void conditionalDiamond(boolean flag) {
+                Legacy.takeBox(new Box<>(() -> flag ? nullableList() : nonNullList()));
+              }
+              void switchDiamond(int selector) {
+                Legacy.takeBox(new Box<>(() -> switch (selector) { default -> nullableList(); }));
+              }
+              void anonymousDiamond(boolean flag) {
+                Legacy.takeBox(new Box<>(() -> flag ? nullableList() : nonNullList()) {});
+              }
+              void secondTypeVariable(boolean flag) {
+                Legacy.take(second("", () -> flag ? nullableList() : nonNullList()));
+              }
+              void fieldTarget(boolean flag) {
+                Legacy.field = identity(() -> flag ? nullableList() : nonNullList());
+              }
+              void constructorTarget(int selector) {
+                new Legacy(identity(() -> switch (selector) { default -> nullableList(); }));
+              }
+              void returnedReference() { Legacy.takeNested(identity(() -> Test::nullableList)); }
+              void directReference() { Legacy.take(identity(Test::nullableList)); }
+              void memoizedReference() { Legacy.take(memoize(Test::nullableList)); }
+              void nestedMemoizedLambda(boolean flag) {
+                Legacy.take(memoize(identity(() -> flag ? nullableList() : nonNullList())));
+              }
+              void nestedBox(boolean flag) {
+                Legacy.takeBox(keepBox(new Box<>(() -> flag ? nullableList() : nonNullList())));
+              }
+              void arrayWrapper(boolean flag) {
+                Legacy.takeArray(keepArray(array(() -> flag ? nullableList() : nonNullList())));
+              }
+              void diamondReference() { Legacy.takeBox(new Box<>(Test::nullableList)); }
+              void genericMemoizedReference() { Legacy.take(memoize(Test::genericNullableList)); }
+              void genericDiamondReference() { Legacy.takeBox(new Box<>(Test::genericNullableList)); }
+              void inferredReferenceInput() { Legacy.takeSink(wrapSink(Test::nullableElements)); }
+              void inferredSecondReferenceInput() { Legacy.takeBiSink(wrapBiSink(Test::secondNullable)); }
+              void fixedFirstReferenceInput() {
+                // BUG: Diagnostic contains: parameter type of referenced method is List<@Nullable String>
+                Legacy.takeBiSink(wrapBiSink(Test::firstNullable));
+              }
+              void fixedReferenceInput() {
+                // BUG: Diagnostic contains: parameter type of referenced method is List<@Nullable String>
+                Legacy.take(from(Test::mixed));
+              }
+              void nestedWrappers(boolean flag) {
+                Legacy.take(identity((identity(() -> flag ? nullableList() : nonNullList()))));
+              }
+              void markedTarget(boolean flag) {
+                // BUG: Diagnostic contains: Conditional expression must have type List<String>
+                markedTake(identity(() -> flag ? nullableList() : nonNullList()));
+              }
+              void fixedFormalParameter(boolean flag) {
+                // BUG: Diagnostic contains: Conditional expression must have type List<String>
+                Legacy.take(fixed(() -> flag ? nullableList() : nonNullList(), () -> nonNullList()));
+              }
+              void fixedReturnWithInferredInput(boolean flag) {
+                // BUG: Diagnostic contains: Conditional expression must have type List<String>
+                Legacy.takeHolder(wrap(value -> flag ? nullableList() : nonNullList()));
+              }
+              void receiverTypeVariableRetainsContract(boolean flag) {
+                // BUG: Diagnostic contains: Conditional expression must have type List<String>
+                Legacy.take(new Publisher<List<String>>().publish("", () -> flag ? nullableList() : nonNullList()));
+              }
+              void explicitMethodTypeArgument(boolean flag) {
+                // BUG: Diagnostic contains: Conditional expression must have type List<String>
+                Legacy.take(Test.<Sup<List<String>>>identity(() -> flag ? nullableList() : nonNullList()));
+              }
+              void explicitClassTypeArgument(boolean flag) {
+                // BUG: Diagnostic contains: Conditional expression must have type List<String>
+                Legacy.takeBox(new Box<List<String>>(() -> flag ? nullableList() : nonNullList()));
+              }
+            }
+            """)
+        .doTest();
+  }
+
+  @Test
+  public void inheritedLambdaReturnsKeepDeclaredNullnessInUnmarkedContexts() {
+    makeHelper()
+        .addSourceLines(
+            "Test.java",
+            """
+            package com.uber;
+            import java.util.List;
+            import org.jspecify.annotations.NullUnmarked;
+            import org.jspecify.annotations.Nullable;
+            class Test {
+              interface Sup<T extends @Nullable Object> { T get(); }
+              interface Fixed extends Sup<List<String>> {}
+              interface Parametric<T extends @Nullable Object> extends Sup<T> {}
+              interface NestedInherited<T extends @Nullable Object> extends Sup<List<T>> {}
+              interface Nested<T extends @Nullable Object> { List<T> get(); }
+              @NullUnmarked static class Legacy {
+                static void takeFixed(Fixed s) {}
+                static void takeParametric(Parametric<List<String>> s) {}
+                static void takeNested(Nested<String> s) {}
+              }
+              static List<@Nullable String> nullableList() { return List.of(); }
+              static List<String> nonNullList() { return List.of(); }
+              static @Nullable List<String> nullableReference() { return null; }
+              void fixedConditional(boolean flag) {
+                // BUG: Diagnostic contains: Conditional expression must have type List<String>
+                Legacy.takeFixed(() -> flag ? nullableList() : nonNullList());
+              }
+              void fixedSwitch(int selector) {
+                // BUG: Diagnostic contains: Switch expression must have type List<String>
+                Legacy.takeFixed(() -> switch (selector) { default -> nullableList(); });
+              }
+              void fixedPlainReturn() {
+                // BUG: Diagnostic contains: incompatible types: List<@Nullable String> cannot be converted to List<String>
+                Legacy.takeFixed(() -> nullableList());
+              }
+              void fixedBlockReturn() {
+                Legacy.takeFixed(() -> {
+                  // BUG: Diagnostic contains: incompatible types: List<@Nullable String> cannot be converted to List<String>
+                  return nullableList();
+                });
+              }
+              void fixedNullReturn() {
+                // BUG: Diagnostic contains: returning @Nullable expression
+                Legacy.takeFixed(() -> null);
+              }
+              void fixedNullableReference() {
+                // BUG: Diagnostic contains: referenced method returns @Nullable
+                Legacy.takeFixed(Test::nullableReference);
+              }
+              void fixedCompatible(boolean flag) {
+                Legacy.takeFixed(() -> flag ? nonNullList() : nonNullList());
+              }
+              void inheritedNullableTypeArgument() {
+                NestedInherited<@Nullable String> s = () -> nullableList();
+              }
+              void inheritedNullableTypeArgumentBlock() {
+                NestedInherited<@Nullable String> s = () -> { return nullableList(); };
+              }
+              void parametricConditional(boolean flag) {
+                Legacy.takeParametric(() -> flag ? nullableList() : nonNullList());
+              }
+              void parametricSwitch(int selector) {
+                Legacy.takeParametric(() -> switch (selector) { default -> nullableList(); });
+              }
+              void parametricNullReturn() { Legacy.takeParametric(() -> null); }
+              void parametricNullableReference() { Legacy.takeParametric(Test::nullableReference); }
+              void nestedTypeVariableConditional(boolean flag) {
+                // BUG: Diagnostic contains: Conditional expression must have type List<String>
+                Legacy.takeNested(() -> flag ? nullableList() : nonNullList());
+              }
+              void nestedTypeVariableSwitch(int selector) {
+                // BUG: Diagnostic contains: Switch expression must have type List<String>
+                Legacy.takeNested(() -> switch (selector) { default -> nullableList(); });
+              }
+              void nestedTypeVariableCompatible() { Legacy.takeNested(() -> nonNullList()); }
+            }
+            """)
+        .doTest();
+  }
+
+  @Test
+  public void polyExpressionTargetsInMarkedMethodsOfUnmarkedClasses() {
+    makeHelper()
+        .addSourceLines(
+            "Test.java",
+            """
+            package com.uber;
+            import java.util.List;
+            import org.jspecify.annotations.NullMarked;
+            import org.jspecify.annotations.NullUnmarked;
+            import org.jspecify.annotations.Nullable;
+            @NullUnmarked class Test {
+              @NullMarked interface Sup { List<String> get(); }
+              static Sup field;
+              @NullMarked static List<@Nullable String> nullableList() { return List.of(); }
+              @NullMarked static List<String> nonNullList() { return List.of(); }
+              @NullMarked void localReferenceInitializer() {
+                // BUG: Diagnostic contains: referenced method returns List<@Nullable String>
+                Sup local = Test::nullableList;
+              }
+              @NullMarked void conditionalReferenceInitializer(boolean flag, Sup other) {
+                // BUG: Diagnostic contains: referenced method returns List<@Nullable String>
+                Sup local = flag ? Test::nullableList : other;
+              }
+              @NullMarked void switchReferenceInitializer(int selector) {
+                // BUG: Diagnostic contains: referenced method returns List<@Nullable String>
+                Sup local = switch (selector) { default -> Test::nullableList; };
+              }
+              @NullMarked void localReferenceAssignment() {
+                Sup local = Test::nonNullList;
+                // BUG: Diagnostic contains: referenced method returns List<@Nullable String>
+                local = Test::nullableList;
+              }
+              @NullMarked void parameterReferenceAssignment(Sup parameter) {
+                // BUG: Diagnostic contains: referenced method returns List<@Nullable String>
+                parameter = Test::nullableList;
+              }
+              @NullMarked void conditionalValueInitializer(boolean flag) {
+                // BUG: Diagnostic contains: Conditional expression must have type List<String>
+                List<String> local = flag ? nullableList() : nonNullList();
+              }
+              @NullMarked void switchValueInitializer(int selector) {
+                // BUG: Diagnostic contains: Switch expression must have type List<String>
+                List<String> local = switch (selector) { default -> nullableList(); };
+              }
+              @NullMarked void unmarkedFieldAssignment() { field = Test::nullableList; }
+            }
+            """)
+        .doTest();
+  }
+
+  @Test
+  public void conditionalAndSwitchResultsCheckNestedNullability() {
+    makeHelper()
+        .addSourceLines(
+            "Test.java",
+            """
+            package com.uber;
+            import java.util.List;
+            import java.util.function.Supplier;
+            import org.jspecify.annotations.Nullable;
+            class Test {
+              interface ListSupplier { List<String> get(); }
+              void compatibleConditional(boolean flag, List<String> values) {
+                List<String> result = flag ? values : values;
+              }
+              void incompatibleConditional(boolean flag, List<@Nullable String> values) {
+                // BUG: Diagnostic contains: Conditional expression must have type List<String> but the sub-expression has type List<@Nullable String>
+                List<String> result = flag ? values : values;
+              }
+              void compatibleSwitch(int selector, List<String> values) {
+                List<String> result = switch (selector) { default -> values; };
+              }
+              void incompatibleArrow(int selector, List<@Nullable String> values) {
+                // BUG: Diagnostic contains: Switch expression must have type List<String> but the sub-expression has type List<@Nullable String>
+                List<String> result = switch (selector) { default -> values; };
+              }
+              void incompatibleYield(int selector, List<@Nullable String> values) {
+                List<String> result = switch (selector) {
+                  default -> {
+                    // BUG: Diagnostic contains: Switch expression must have type List<String> but the sub-expression has type List<@Nullable String>
+                    yield values;
+                  }
+                };
+              }
+              void switchWithoutTarget(int selector, List<@Nullable String> values) {
+                var result = switch (selector) { default -> values; };
+              }
+              void incompatibleLambdaConditional(boolean flag,
+                  List<@Nullable String> nullableValues, List<String> nonNullValues) {
+                // BUG: Diagnostic contains: Conditional expression must have type List<String>
+                ListSupplier s = () -> flag ? nullableValues : nonNullValues;
+              }
+              void incompatibleLambdaSwitch(int selector, List<@Nullable String> values) {
+                // BUG: Diagnostic contains: Switch expression must have type List<String>
+                ListSupplier s = () -> switch (selector) { default -> values; };
+              }
+              ListSupplier incompatibleLambdaConditionalBlock(boolean flag,
+                  List<@Nullable String> nullableValues, List<String> nonNullValues) {
+                return () -> {
+                  // BUG: Diagnostic contains: Conditional expression must have type List<String>
+                  return flag ? nonNullValues : nullableValues;
+                };
+              }
+              ListSupplier incompatibleLambdaSwitchBlock(int selector,
+                  List<@Nullable String> values) {
+                return () -> {
+                  return switch (selector) {
+                    default -> {
+                      // BUG: Diagnostic contains: Switch expression must have type List<String>
+                      yield values;
+                    }
+                  };
+                };
+              }
+              void compatibleLambdaConditional(boolean flag, List<String> values) {
+                ListSupplier s = () -> flag ? values : values;
+              }
+              void compatibleLambdaSwitch(int selector, List<String> values) {
+                ListSupplier s = () -> switch (selector) { default -> values; };
+              }
+              ListSupplier compatibleLambdaConditionalBlock(boolean flag, List<String> values) {
+                return () -> { return flag ? values : values; };
+              }
+              ListSupplier compatibleLambdaSwitchBlock(int selector, List<String> values) {
+                return () -> { return switch (selector) { default -> { yield values; } }; };
+              }
+              void incompatibleGenericLambdaConditional(boolean flag,
+                  List<@Nullable String> nullableValues, List<String> nonNullValues) {
+                // BUG: Diagnostic contains: Conditional expression must have type List<String>
+                Supplier<List<String>> s = () -> flag ? nullableValues : nonNullValues;
+              }
+              void incompatibleGenericLambdaSwitch(int selector, List<@Nullable String> values) {
+                // BUG: Diagnostic contains: Switch expression must have type List<String>
+                Supplier<List<String>> s = () -> switch (selector) { default -> values; };
+              }
+              Supplier<List<String>> incompatibleGenericLambdaConditionalBlock(boolean flag,
+                  List<@Nullable String> nullableValues, List<String> nonNullValues) {
+                return () -> {
+                  // BUG: Diagnostic contains: Conditional expression must have type List<String>
+                  return flag ? nullableValues : nonNullValues;
+                };
+              }
+              Supplier<List<String>> incompatibleGenericLambdaSwitchBlock(int selector,
+                  List<@Nullable String> values) {
+                return () -> {
+                  // BUG: Diagnostic contains: Switch expression must have type List<String>
+                  return switch (selector) { default -> values; };
+                };
+              }
+              void compatibleGenericLambdaConditional(boolean flag, List<String> values) {
+                Supplier<List<String>> s = () -> flag ? values : values;
+              }
+              void compatibleGenericLambdaSwitch(int selector, List<String> values) {
+                Supplier<List<String>> s = () -> switch (selector) { default -> values; };
+              }
+              Supplier<List<String>> compatibleGenericLambdaConditionalBlock(boolean flag,
+                  List<String> values) {
+                return () -> { return flag ? values : values; };
+              }
+              Supplier<List<String>> compatibleGenericLambdaSwitchBlock(int selector,
+                  List<String> values) {
+                return () -> { return switch (selector) { default -> values; }; };
+              }
+              List rawConditionalReturn(boolean flag, List<String> values) {
+                return flag ? values : values;
+              }
+              List rawSwitchReturn(int selector, List<String> values) {
+                return switch (selector) { default -> values; };
+              }
+            }
+            """)
+        .doTest();
+  }
+
+  /**
+   * Switch labels do not inherit the switch result's target type, while parenthesized arrow bodies
+   * still do.
+   */
+  @Test
+  public void switchTargetsApplyOnlyToResultExpressions() {
+    makeHelper()
+        .addSourceLines(
+            "Test.java",
+            """
+            package com.uber;
+            import java.util.List;
+            import java.util.function.Supplier;
+            import org.jspecify.annotations.Nullable;
+            class Test<T> {
+              List<@Nullable T> nullableValues() { throw new UnsupportedOperationException(); }
+              void accept(Supplier<List<@Nullable T>> supplier) {}
+
+              void statementLabel(int value) {
+                switch (value) {
+                  case true ? 1 : 2 -> {}
+                  default -> {}
+                }
+              }
+              List<@Nullable T> expressionLabel(int value) {
+                return switch (value) {
+                  case true ? 1 : 2 -> nullableValues();
+                  default -> nullableValues();
+                };
+              }
+              static void parenthesizedArrowBody(Test<String> target, int value) {
+                target.accept(switch (value) { default -> (target::nullableValues); });
+              }
+              static void conditionalArrowBody(Test<String> target, int value, boolean flag) {
+                target.accept(switch (value) {
+                  default -> (flag ? target::nullableValues : target::nullableValues);
+                });
+              }
+              static void nestedSwitchArrowBody(Test<String> target, int value) {
+                target.accept(switch (value) {
+                  default -> (switch (value) { default -> target::nullableValues; });
+                });
+              }
+              static Supplier<List<String>> incompatibleArrowBody(Test<String> target, int value) {
+                return switch (value) {
+                  // BUG: Diagnostic contains: referenced method returns List<@Nullable String>
+                  default -> (target::nullableValues);
+                };
+              }
+            }
+            """)
+        .doTest();
+  }
+
+  @Test
+  public void conditionalConditionsDoNotInheritResultTargets() {
+    makeHelper()
+        .addSourceLines(
+            "Test.java",
+            """
+            package com.uber;
+            import java.util.List;
+            import org.jspecify.annotations.Nullable;
+            class Test {
+              static <T> T id(T value) { return value; }
+              void arrowCondition(int key, Boolean flag,
+                  // Relax Comparable's bound on the parameter without suppressing body checks.
+                  @SuppressWarnings("NullAway") Comparable<@Nullable Boolean> value) {
+                value = (switch (key) { default -> flag; }) ? value : value;
+              }
+              void yieldCondition(int key, Boolean flag,
+                  @SuppressWarnings("NullAway") Comparable<@Nullable Boolean> value) {
+                value = (switch (key) { default -> { yield flag; } }) ? value : value;
+              }
+              void genericCondition(int key, Boolean flag,
+                  @SuppressWarnings("NullAway") Comparable<@Nullable Boolean> value) {
+                value = (switch (key) { default -> id(flag); }) ? value : value;
+              }
+              void nestedCondition(boolean first, Boolean second, Boolean third,
+                  @SuppressWarnings("NullAway") Comparable<@Nullable Boolean> value) {
+                value = ((first ? second : third)) ? value : value;
+              }
+              void ordinaryCondition(Boolean flag,
+                  @SuppressWarnings("NullAway") Comparable<@Nullable Boolean> value) {
+                value = flag ? value : value;
+              }
+              void incompatibleResultArm(int key, List<@Nullable String> values,
+                  List<String> other) {
+                List<String> result = switch (key) {
+                  // BUG: Diagnostic contains: Switch expression must have type
+                  default -> values;
+                };
+              }
+            }
+            """)
+        .doTest();
+  }
+
+  @Test
+  public void boxedConditionalGuardsDoNotInheritSwitchResultTargets() {
+    Assume.assumeTrue(Runtime.version().feature() >= 21);
+    makeHelper()
+        .addSourceLines(
+            "Test.java",
+            """
+            package com.uber;
+            import org.jspecify.annotations.Nullable;
+            class Test {
+              void expressionGuard(Object value, boolean flag, Boolean first, Boolean second,
+                  // Relax Comparable's bound only on the parameter declaration, not in the body.
+                  @SuppressWarnings("NullAway") Comparable<@Nullable Boolean> result) {
+                result = switch (value) {
+                  case String s when (flag ? first : second) -> result;
+                  default -> result;
+                };
+              }
+            }
+            """)
+        .doTest();
+  }
+
+  @Test
   public void ternaryOperatorComplexSubtyping() {
     makeHelper()
         .addSourceLines(
