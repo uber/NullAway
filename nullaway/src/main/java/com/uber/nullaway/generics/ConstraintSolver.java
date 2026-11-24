@@ -72,8 +72,9 @@ public interface ConstraintSolver {
 
     /**
      * The type variable with an explicitly nullable bound through which {@link
-     * #nullableBoundTypeArgument} admits null: that argument itself, or the bound of a wildcard
-     * argument; {@code null} where {@link #nullableBoundTypeArgument} is.
+     * #nullableBoundTypeArgument} admits null: that argument itself, or the effective upper bound
+     * of a wildcard or captured argument whose type parameter admits null; {@code null} where
+     * {@link #nullableBoundTypeArgument} is.
      */
     private final @Nullable Type nullableBoundTypeVariable;
 
@@ -89,8 +90,8 @@ public interface ConstraintSolver {
     /**
      * Creates an exception for a {@code typeVariable} whose bound excludes null, passed {@code
      * nullableBoundTypeArgument} for a {@code ? extends typeVariable} wildcard, where {@code
-     * nullableBoundTypeVariable} has an explicitly nullable bound and is that argument or the bound
-     * of that argument.
+     * nullableBoundTypeVariable} has an explicitly nullable bound and is that argument or the
+     * effective upper bound of a wildcard or captured argument whose type parameter admits null.
      */
     public UnsatisfiableConstraintsException(
         Element typeVariable, Type nullableBoundTypeArgument, Type nullableBoundTypeVariable) {

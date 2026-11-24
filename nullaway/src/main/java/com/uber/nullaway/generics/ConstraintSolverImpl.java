@@ -240,7 +240,7 @@ public final class ConstraintSolverImpl implements ConstraintSolver {
       for (int i = 0; i < numTypeArgs; i++) {
         Type supertypeTypeArg = supertypeTypeArguments.get(i);
         Type subtypeTypeArg = subtypeTypeArguments.get(i);
-        constrainTypeArgumentContainment(subtypeTypeArg, supertypeTypeArg);
+        constrainTypeArgumentContainment(subtypeTypeArg, supertypeTypeArg, subtype, i);
       }
       Type subtypeEnclosing = subtype.getEnclosingType();
       Type supertypeEnclosing = supertype.getEnclosingType();
@@ -258,9 +258,11 @@ public final class ConstraintSolverImpl implements ConstraintSolver {
      * Adds nullability constraints for containment of one type argument by another during generic
      * class/interface subtyping. For non-wildcard arguments, NullAway requires identical
      * nullability. When either side is a wildcard, containment is reduced to constraints between
-     * the wildcard bound and the opposing argument.
+     * the wildcard bound and the opposing argument. {@code subtypeTypeArg} is the argument at
+     * {@code index} of {@code subtype}.
      */
-    private void constrainTypeArgumentContainment(Type subtypeTypeArg, Type supertypeTypeArg) {
+    private void constrainTypeArgumentContainment(
+        Type subtypeTypeArg, Type supertypeTypeArg, Type subtype, int index) {
       if (!config.handleWildcardGenerics()) {
         equateTypeArguments(subtypeTypeArg, supertypeTypeArg);
         return;
@@ -268,7 +270,7 @@ public final class ConstraintSolverImpl implements ConstraintSolver {
       // A captured formal is a type variable, not a wildcard containment target. Expanding
       // its backing wildcard can repeatedly unfold self-referential bounds (see issue #1934).
       if (supertypeTypeArg instanceof WildcardType supertypeWildcard) {
-        constrainContainedByWildcard(subtypeTypeArg, supertypeWildcard);
+        constrainContainedByWildcard(subtypeTypeArg, supertypeWildcard, subtype, index);
         return;
       }
       WildcardType subtypeWildcard = GenericsUtils.asWildcard(subtypeTypeArg);
@@ -291,18 +293,25 @@ public final class ConstraintSolverImpl implements ConstraintSolver {
      * Adds constraints for type-argument containment where the formal argument is a wildcard. For
      * {@code ? extends S} and {@code ?}, containment requires the actual argument's effective upper
      * bound to be a subtype of {@code S}. For {@code ? extends U}, where {@code U} is an inference
-     * variable whose bound excludes null, an actual that is an unannotated type variable {@code T}
-     * with an explicitly nullable bound, {@code ? extends T}, or a capture of {@code ? extends T}
-     * also constrains {@code U} to be {@code @Nullable}, which no solution satisfies. For {@code ?
-     * super S}, concrete actual arguments require {@code S <: subtypeTypeArg}; {@code ? super T}
-     * actual arguments require {@code S <: T}. Other actual wildcard forms place no useful
-     * nullability constraint.
+     * variable whose bound excludes null, an actual whose effective upper bound is an unannotated
+     * type variable {@code T} with an explicitly nullable bound, such as {@code T}, {@code ?
+     * extends T}, or a capture of a wildcard bounded by {@code T}, also constrains {@code U} to be
+     * {@code @Nullable}, which no solution satisfies, unless the actual is a wildcard or a capture
+     * whose type parameter excludes null. For {@code ? super S}, concrete actual arguments require
+     * {@code S <: subtypeTypeArg}; {@code ? super T} actual arguments require {@code S <: T}. Other
+     * actual wildcard forms place no useful nullability constraint.
      *
      * <p>Self-referential bounds such as {@code N extends Node<?>} can lead back to the exact same
      * containment check. Re-entering a check that is already in progress adds no constraints, since
      * the outer visit of that pair is already adding them.
+     *
+     * @param subtypeTypeArg the actual argument, at {@code index} of {@code subtype}
+     * @param supertypeWildcard the formal wildcard argument
+     * @param subtype the parameterization that passes {@code subtypeTypeArg}
+     * @param index the position of {@code subtypeTypeArg} among the arguments of {@code subtype}
      */
-    private void constrainContainedByWildcard(Type subtypeTypeArg, WildcardType supertypeWildcard) {
+    private void constrainContainedByWildcard(
+        Type subtypeTypeArg, WildcardType supertypeWildcard, Type subtype, int index) {
       Set<Type> activeSubtypeArguments = activeWildcardContainments.get(supertypeWildcard);
       if (activeSubtypeArguments == null) {
         activeSubtypeArguments = Collections.newSetFromMap(new IdentityHashMap<>());
@@ -320,9 +329,11 @@ public final class ConstraintSolverImpl implements ConstraintSolver {
                 GenericsUtils.wildcardUpperBound(supertypeWildcard, state, config, handler);
             InferenceVariable supertypeVar = inferenceVariableForUse(supertypeUpperBound);
             if (supertypeWildcard.kind == BoundKind.EXTENDS
-                && admitsNullThroughExplicitBound(subtypeUpperBound)
                 && supertypeVar != null
-                && !getState(supertypeVar).nullableAllowed) {
+                && !getState(supertypeVar).nullableAllowed
+                && admitsNullThroughExplicitBound(subtypeUpperBound)
+                && (GenericsUtils.asWildcard(subtypeTypeArg) == null
+                    || typeParameterAdmitsNull(subtype, index))) {
               // Under JSpecify, an unannotated T whose bound is @Nullable is a subtype of U only
               // where U is @Nullable, and the non-null bound of U forbids that. Where the bound of
               // U allows null, U is left unconstrained: the solver infers one nullness per
@@ -590,6 +601,36 @@ public final class ConstraintSolverImpl implements ConstraintSolver {
         && !inferenceVariables.containsKey(tv.asElement())
         && !GenericsUtils.hasNullnessAnnotation(t, config)
         && GenericsUtils.boundIsExplicitlyNullable(tv.asElement(), config, handler, state);
+  }
+
+  /**
+   * Returns whether the type parameter at {@code index} of the class of {@code container} admits
+   * null in that parameterization. A wildcard argument of {@code class Box<E>} with a non-null
+   * {@code E} holds no null, whatever its own bound, and neither does the {@code B} of {@code
+   * Pair<Object, ? extends T>} for {@code class Pair<A extends @Nullable Object, B extends A>}. A
+   * bound that is another type parameter of the same class, passed a class type, is replaced by
+   * that class type; any other bound admits null where it, or a bound it reaches through type
+   * variables, is explicitly nullable. javac rejects {@code ? extends U} for {@code B} where {@code
+   * A} is passed a type variable or a wildcard, and for a {@code B} bounded by a type parameter of
+   * an enclosing class, so no other substitution can change the result.
+   */
+  private boolean typeParameterAdmitsNull(Type container, int index) {
+    List<Type> typeParameters = container.tsym.type.getTypeArguments();
+    Type typeParameter = typeParameters.get(index);
+    if (GenericsUtils.declaredUpperBoundIsNullable(typeParameter.tsym, config, handler, state)) {
+      return true;
+    }
+    Type bound = typeParameter.getUpperBound();
+    if (GenericsUtils.isAnnotatedAsNonNull(bound, config) || !(bound instanceof TypeVar)) {
+      return false;
+    }
+    for (int i = 0; i < typeParameters.size(); i++) {
+      Type argument = container.getTypeArguments().get(i);
+      if (typeParameters.get(i).tsym.equals(bound.tsym) && argument instanceof ClassType) {
+        return GenericsUtils.isAnnotatedAsNullable(argument, config);
+      }
+    }
+    return GenericsUtils.upperBoundIsNullable(bound.tsym, config, handler, state);
   }
 
   /** Returns whether a type is explicitly nullable or is the null type. */
