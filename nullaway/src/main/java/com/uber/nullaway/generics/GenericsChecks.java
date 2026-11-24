@@ -99,7 +99,8 @@ public final class GenericsChecks {
     private final IdentityHashMap<Tree, Map<Element, ConstraintSolver.InferredNullability>>
         typeVarNullabilityBySite = new IdentityHashMap<>();
 
-    private final IdentityHashMap<MethodInvocationTree, Nullness> polyNullnessByInvocation;
+    private final IdentityHashMap<MethodInvocationTree, ConstraintSolver.InferredNullability>
+        polyNullnessByInvocation;
 
     /**
      * Groups the solution by tree identity, preserving solution iteration order within each site's
@@ -110,7 +111,8 @@ public final class GenericsChecks {
      */
     private InferenceSuccess(
         Map<ConstraintSolver.InferenceVariable, ConstraintSolver.InferredNullability> solution,
-        IdentityHashMap<MethodInvocationTree, Nullness> polyNullnessByInvocation) {
+        IdentityHashMap<MethodInvocationTree, ConstraintSolver.InferredNullability>
+            polyNullnessByInvocation) {
       this.polyNullnessByInvocation = polyNullnessByInvocation;
       solution.forEach(
           (inferenceVar, nullability) ->
@@ -173,8 +175,8 @@ public final class GenericsChecks {
    * PolyNull results inferred separately from generic call inference, cached by invocation
    * identity. Results from joint generic inference remain in {@link InferenceSuccess}.
    */
-  private final IdentityHashMap<MethodInvocationTree, Nullness> separatelyInferredPolyNullness =
-      new IdentityHashMap<>();
+  private final IdentityHashMap<MethodInvocationTree, ConstraintSolver.InferredNullability>
+      separatelyInferredPolyNullness = new IdentityHashMap<>();
 
   /**
    * Tracks generic method invocations currently undergoing nested-nullability repair so re-entrant
@@ -1445,15 +1447,24 @@ public final class GenericsChecks {
     if (callTree instanceof MethodInvocationTree invocationTree) {
       Type inferredCallType =
           TypeSubstitutionUtils.updateTypeWithInferredNullability(
-              typeAtCallSite, executableType.getReturnType(), typeVarNullability, state, config);
+              typeAtCallSite,
+              executableType.getReturnType(),
+              typeVarNullability,
+              state,
+              config,
+              handler);
       if (result instanceof InferenceSuccess successResult) {
-        Nullness polyNullness = successResult.polyNullnessByInvocation.get(invocationTree);
+        ConstraintSolver.InferredNullability polyNullness =
+            successResult.polyNullnessByInvocation.get(invocationTree);
         if (polyNullness != null) {
           inferredCallType =
               PolyNullInference.applyToReturnType(
                   inferredCallType,
                   handler.onGetPolyNullLocations(ASTHelpers.getSymbol(invocationTree), state),
-                  polyNullAnnotationType(polyNullness, state));
+                  polyNullness,
+                  state,
+                  config,
+                  handler);
         }
       }
       return inferredCallType;
@@ -1462,7 +1473,12 @@ public final class GenericsChecks {
     Type constructedTypeAtCallSite = getConstructedTypeAtCallSite((NewClassTree) callTree);
     Type constructedTypeWithTypeVars = constructedTypeAtCallSite.tsym.type;
     return TypeSubstitutionUtils.updateTypeWithInferredNullability(
-        constructedTypeAtCallSite, constructedTypeWithTypeVars, typeVarNullability, state, config);
+        constructedTypeAtCallSite,
+        constructedTypeWithTypeVars,
+        typeVarNullability,
+        state,
+        config,
+        handler);
   }
 
   /**
@@ -1555,7 +1571,8 @@ public final class GenericsChecks {
                               formalParamGroundTargetType,
                               typeVarNullability,
                               state,
-                              config);
+                              config,
+                              handler);
                       inferredPolyExpressionTypes.put(argument, typeWithInferredNullability);
                     }
                   }
@@ -1584,6 +1601,12 @@ public final class GenericsChecks {
         PolyNullInference.getInvocationForInferenceVariable(polyNullContexts, typeVariable);
     if (polyNullInvocation != null) {
       return PolyNullInference.inferenceFailureMessage(ASTHelpers.getSymbol(polyNullInvocation));
+    }
+    Type nullableBoundTypeArgument = e.getNullableBoundTypeArgument();
+    if (nullableBoundTypeArgument != null) {
+      return String.format(
+          "inference failure: type variable %s is constrained to be @Nullable, but its upper bound requires it to be @NonNull; the type argument %s passed for ? extends %s admits null, since %s has a @Nullable upper bound",
+          typeVariable, nullableBoundTypeArgument, typeVariable, e.getNullableBoundTypeVariable());
     }
     if (e.isCausedByNonNullUpperBound()) {
       return String.format(
@@ -3118,8 +3141,12 @@ public final class GenericsChecks {
         // whose nullness depends on it resolves to; the referenced method's type variables are
         // inferred at the method reference itself
         Type referentType = ((JCTree.JCMemberReference) memberReferenceTree).referentType;
+        // the inferred nullness is copied parameter by parameter, so a referent type of another
+        // arity falls back to the declared type; no call shape is known to produce one, a
+        // varargs method referenced with two arguments included
         Type.MethodType typeToUpdate =
             referentType instanceof Type.MethodType referentMethodType
+                    // diff-coverage: ignore -- defensive guard, no known call shape reaches it
                     && referentMethodType.getParameterTypes().size()
                         == methodType.getParameterTypes().size()
                 ? referentMethodType
@@ -3129,7 +3156,8 @@ public final class GenericsChecks {
             methodType,
             successResult.typeVarNullabilityForSite(memberReferenceTree),
             state,
-            config);
+            config,
+            handler);
       }
     }
     return methodType;
@@ -3650,7 +3678,7 @@ public final class GenericsChecks {
             : ((NewClassTree) tree).getTypeArguments();
     com.sun.tools.javac.util.List<Type> explicitTypeArgs = convertTreesToTypes(typeArgumentTrees);
     Type.MethodType substitutedMethodType;
-    Nullness jointlyInferredPolyNullness = null;
+    ConstraintSolver.InferredNullability jointlyInferredPolyNullness = null;
     boolean genericInferenceFailed = false;
 
     // There are no explicit type arguments, so use the inferred types
@@ -3701,7 +3729,8 @@ public final class GenericsChecks {
                 methodType,
                 successResult.typeVarNullabilityForSite(invocationTree),
                 state,
-                config);
+                config,
+                handler);
         jointlyInferredPolyNullness = successResult.polyNullnessByInvocation.get(invocationTree);
       } else {
         // Inference failed; use the call-site type without inferred nullability substitutions.
@@ -4004,7 +4033,7 @@ public final class GenericsChecks {
       Symbol.MethodSymbol methodSymbol,
       MethodInvocationTree invocationTree,
       Type.MethodType substitutedMethodType,
-      @Nullable Nullness jointlyInferredPolyNullness,
+      ConstraintSolver.@Nullable InferredNullability jointlyInferredPolyNullness,
       @Nullable TreePath path,
       VisitorState state,
       boolean calledFromDataflow) {
@@ -4012,7 +4041,7 @@ public final class GenericsChecks {
     if (locations.isEmpty()) {
       return substitutedMethodType;
     }
-    Nullness polyNullness =
+    ConstraintSolver.InferredNullability polyNullness =
         jointlyInferredPolyNullness != null
             ? jointlyInferredPolyNullness
             : inferPolyNullnessSeparately(
@@ -4027,7 +4056,7 @@ public final class GenericsChecks {
       return substitutedMethodType;
     }
     return PolyNullInference.applyToMethodType(
-        substitutedMethodType, locations, polyNullAnnotationType(polyNullness, state));
+        substitutedMethodType, locations, polyNullness, state, config, handler);
   }
 
   /**
@@ -4040,10 +4069,10 @@ public final class GenericsChecks {
    *
    * @return the inferred shared nullness, or {@code null} if no modeled parameter location applies.
    *     Unsatisfiable constraints return {@code null} when {@code WarnOnGenericInferenceFailure} is
-   *     enabled; otherwise they return {@code Nullness.NULLABLE} to preserve ordinary nullness
-   *     errors. They are reported only outside dataflow.
+   *     enabled; otherwise they return {@code NULLABLE} to preserve ordinary nullness errors. They
+   *     are reported only outside dataflow.
    */
-  private @Nullable Nullness inferPolyNullnessSeparately(
+  private ConstraintSolver.@Nullable InferredNullability inferPolyNullnessSeparately(
       Symbol.MethodSymbol methodSymbol,
       MethodInvocationTree invocationTree,
       Type.MethodType substitutedMethodType,
@@ -4051,7 +4080,8 @@ public final class GenericsChecks {
       @Nullable TreePath path,
       VisitorState state,
       boolean calledFromDataflow) {
-    Nullness cached = separatelyInferredPolyNullness.get(invocationTree);
+    ConstraintSolver.InferredNullability cached =
+        separatelyInferredPolyNullness.get(invocationTree);
     if (cached != null) {
       return cached;
     }
@@ -4088,7 +4118,7 @@ public final class GenericsChecks {
           calledFromDataflow);
       Map<ConstraintSolver.InferenceVariable, ConstraintSolver.InferredNullability> solution =
           solver.solve();
-      Nullness resolved =
+      ConstraintSolver.InferredNullability resolved =
           PolyNullInference.resolveContext(invocationTree, inferenceContext, solution);
       if (!calledFromDataflow) {
         separatelyInferredPolyNullness.put(invocationTree, resolved);
@@ -4100,7 +4130,9 @@ public final class GenericsChecks {
           PolyNullInference.inferenceFailureMessage(ASTHelpers.getSymbol(invocationTree)),
           state,
           calledFromDataflow);
-      return config.warnOnGenericInferenceFailure() ? null : Nullness.NULLABLE;
+      return config.warnOnGenericInferenceFailure()
+          ? null
+          : ConstraintSolver.InferredNullability.NULLABLE;
     }
   }
 
@@ -4197,17 +4229,12 @@ public final class GenericsChecks {
                 errorMessage, analysis.buildDescription(callTree), state, null));
   }
 
-  /** Returns the synthetic annotation type representing the resolved PolyNull qualifier. */
-  private static Type polyNullAnnotationType(Nullness nullness, VisitorState state) {
-    return nullness == Nullness.NULLABLE
-        ? getSyntheticNullableAnnotType(state)
-        : getSyntheticNonNullAnnotType(state);
-  }
-
   /**
    * Returns the type of a generic constructor at a diamond call, with the nullness inferred for the
    * constructor's own type variables. Returns {@code forAllType} unchanged where the call has
-   * explicit type arguments or no inference result.
+   * explicit type arguments or no inference result, and where the constructor javac resolved has
+   * more parameters than the declared one, as the constructor of an anonymous subclass of an inner
+   * class has: it takes the enclosing instance first.
    *
    * @param tree the constructor call
    * @param forAllType the constructor's type, with the class type variables already substituted
@@ -4232,7 +4259,8 @@ public final class GenericsChecks {
         declaredMethodType,
         successResult.typeVarNullabilityForSite(tree),
         state,
-        config);
+        config,
+        handler);
   }
 
   /**

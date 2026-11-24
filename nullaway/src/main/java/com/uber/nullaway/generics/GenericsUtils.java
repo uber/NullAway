@@ -382,6 +382,25 @@ public class GenericsUtils {
   }
 
   /**
+   * Returns whether {@code type}, which javac inferred for a variable that inference resolved to
+   * {@code TYPE_VARIABLE_OR_NULLABLE} or {@code TYPE_VARIABLE_OR_NONNULL}, stays as written rather
+   * than taking the annotation those results give. It stays where it already holds the null of a
+   * type variable that flowed into the variable: an unannotated type variable whose bound admits
+   * null, or an intersection type, whose nullness comes from its elements. A captured type variable
+   * or a type variable with a nullness annotation takes the annotation.
+   */
+  static boolean keepsInferredTypeAsWritten(
+      Type type, Config config, Handler handler, VisitorState state) {
+    if (type.isCompound()) {
+      return true;
+    }
+    return type instanceof Type.TypeVar typeVariable
+        && !(type instanceof Type.CapturedType)
+        && !hasNullnessAnnotation(type, config)
+        && upperBoundIsNullable(typeVariable.asElement(), config, handler, state);
+  }
+
+  /**
    * Returns true if the upper bound of the given type variable should be treated as nullable.
    *
    * <p>A bound is nullable when the enclosing method or class comes from unannotated code, when a
@@ -445,7 +464,7 @@ public class GenericsUtils {
   }
 
   /** Returns true if a library model overrides the upper bound of the given type variable. */
-  static boolean libraryModelMakesBoundNullable(
+  private static boolean libraryModelMakesBoundNullable(
       Element typeVarElement, Handler handler, VisitorState state) {
     // Models use declaration indices, which fresh inference symbols do not have, so consult the
     // original declaration of a fresh symbol.
@@ -475,7 +494,7 @@ public class GenericsUtils {
     return false;
   }
 
-  static boolean fromUnannotatedMethodOrClass(
+  private static boolean fromUnannotatedMethodOrClass(
       Element typeVarElement, Config config, Handler handler, VisitorState state) {
     Element enclosingElement = typeVarElement.getEnclosingElement();
     if (!(enclosingElement instanceof Symbol.MethodSymbol)
