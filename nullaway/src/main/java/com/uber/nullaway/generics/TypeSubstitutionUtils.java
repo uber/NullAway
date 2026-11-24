@@ -237,9 +237,9 @@ public class TypeSubstitutionUtils {
    * the final result will be {@code List<@Nullable String>}. Step 1 leaves a variable inferred as
    * {@link ConstraintSolver.InferredNullability#TYPE_VARIABLE_OR_NULLABLE} or {@link
    * ConstraintSolver.InferredNullability#TYPE_VARIABLE_OR_NONNULL} unannotated, and step 3 resolves
-   * it: a type that {@link GenericsUtils#keepsInferredTypeAsWritten} accepts, such as a type
-   * variable whose bound admits null, stays as written, and any other type becomes
-   * {@code @Nullable} or {@code @NonNull}, as the result says.
+   * it with {@link GenericsUtils#inferredNullnessAnnotation}: a type variable whose bound admits
+   * null takes no synthetic annotation, and any other type becomes {@code @Nullable} or
+   * {@code @NonNull}, as the result says.
    *
    * @param typeToUpdate the type to update
    * @param origType the original type with type variables and possibly explicit nullability
@@ -932,8 +932,8 @@ public class TypeSubstitutionUtils {
      * annotation of the first explicit component that carries one and whose nullability matches the
      * intersection's. If no such component exists, returns {@code t} unchanged. Where {@code other}
      * is an unannotated type variable that inference resolved to {@code TYPE_VARIABLE_OR_NULLABLE}
-     * or {@code TYPE_VARIABLE_OR_NONNULL}, annotates {@code t} as that result says, unless {@link
-     * GenericsUtils#keepsInferredTypeAsWritten} keeps {@code t} as written.
+     * or {@code TYPE_VARIABLE_OR_NONNULL}, adds to {@code t} the annotation that {@link
+     * GenericsUtils#inferredNullnessAnnotation} gives it, if any.
      *
      * @param t the type to update
      * @param other the type to update from
@@ -971,14 +971,9 @@ public class TypeSubstitutionUtils {
           && inferred != ConstraintSolver.InferredNullability.TYPE_VARIABLE_OR_NONNULL) {
         return t;
       }
-      if (GenericsUtils.keepsInferredTypeAsWritten(t, config, handler, state)) {
-        return t;
-      }
-      return TypeSubstitutionUtils.typeWithAnnot(
-          t,
-          inferred.isNullableWhereNotKeptAsWritten()
-              ? GenericsChecks.getSyntheticNullableAnnotType(state)
-              : GenericsChecks.getSyntheticNonNullAnnotType(state));
+      Type annotationType =
+          GenericsUtils.inferredNullnessAnnotation(t, inferred, config, handler, state);
+      return annotationType == null ? t : TypeSubstitutionUtils.typeWithAnnot(t, annotationType);
     }
 
     /**

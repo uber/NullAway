@@ -78,7 +78,7 @@ public final class ConstraintSolverImpl implements ConstraintSolver {
      * Whether a type variable that is not under inference, carries no nullness annotation, and is
      * bounded by a type that admits null flowed into this variable. Such a flow fixes no nullness,
      * but where javac inferred a type variable whose bound admits null, the variable takes that
-     * type variable as written rather than the non-null default.
+     * type variable with no synthetic annotation rather than the non-null default.
      */
     boolean parametric;
 
@@ -291,11 +291,12 @@ public final class ConstraintSolverImpl implements ConstraintSolver {
      * Adds constraints for type-argument containment where the formal argument is a wildcard. For
      * {@code ? extends S} and {@code ?}, containment requires the actual argument's effective upper
      * bound to be a subtype of {@code S}. For {@code ? extends U}, where {@code U} is an inference
-     * variable whose bound excludes null, an uncaptured actual that is an unannotated type variable
-     * with an explicitly nullable bound also constrains {@code U} to be {@code @Nullable}, which no
-     * solution satisfies. For {@code ? super S}, concrete actual arguments require {@code S <:
-     * subtypeTypeArg}; {@code ? super T} actual arguments require {@code S <: T}. Other actual
-     * wildcard forms place no useful nullability constraint.
+     * variable whose bound excludes null, an actual that is an unannotated type variable {@code T}
+     * with an explicitly nullable bound, {@code ? extends T}, or a capture of {@code ? extends T}
+     * also constrains {@code U} to be {@code @Nullable}, which no solution satisfies. For {@code ?
+     * super S}, concrete actual arguments require {@code S <: subtypeTypeArg}; {@code ? super T}
+     * actual arguments require {@code S <: T}. Other actual wildcard forms place no useful
+     * nullability constraint.
      *
      * <p>Self-referential bounds such as {@code N extends Node<?>} can lead back to the exact same
      * containment check. Re-entering a check that is already in progress adds no constraints, since
@@ -319,7 +320,6 @@ public final class ConstraintSolverImpl implements ConstraintSolver {
                 GenericsUtils.wildcardUpperBound(supertypeWildcard, state, config, handler);
             InferenceVariable supertypeVar = inferenceVariableForUse(supertypeUpperBound);
             if (supertypeWildcard.kind == BoundKind.EXTENDS
-                && !(subtypeTypeArg instanceof CapturedType)
                 && admitsNullThroughExplicitBound(subtypeUpperBound)
                 && supertypeVar != null
                 && !getState(supertypeVar).nullableAllowed) {
@@ -330,7 +330,11 @@ public final class ConstraintSolverImpl implements ConstraintSolver {
               // @Nullable T, and List<T> c = copy(in), with <U extends @Nullable Object> List<U>
               // copy(List<? extends U> in), would be reported.
               throw new UnsatisfiableConstraintsException(
-                  supertypeVar.typeVariable(), subtypeTypeArg, subtypeUpperBound);
+                  supertypeVar.typeVariable(),
+                  subtypeTypeArg instanceof CapturedType captured
+                      ? captured.wildcard
+                      : subtypeTypeArg,
+                  subtypeUpperBound);
             }
             subtypeUpperBound.accept(this, supertypeUpperBound);
           }
@@ -424,7 +428,7 @@ public final class ConstraintSolverImpl implements ConstraintSolver {
       }
     }
 
-    /* a type variable that flowed into a variable flows into every variable above it */
+    /* a type variable that flowed into a variable flows into each of its supertype variables */
     vars.forEach(
         (inferenceVar, st) -> {
           if (st.parametric) {

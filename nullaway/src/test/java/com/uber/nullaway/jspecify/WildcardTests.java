@@ -2397,7 +2397,7 @@ public class WildcardTests extends NullAwayTestsBase {
               }
               static <R extends @Nullable Object, T extends R> void inferredTypeVariableWhoseBoundAdmitsNull(
                   T t, R r) {
-                // a false negative: R is kept as written, and dataflow reads it as non-null (#1727)
+                // a false negative: R takes no synthetic annotation, and dataflow reads it as non-null (#1727)
                 pick(t, r).toString();
               }
               static <T extends @Nullable Object> void boundNonNullThroughAVariable(T t) {
@@ -2658,6 +2658,7 @@ public class WildcardTests extends NullAwayTestsBase {
         .addSourceLines(
             "Test.java",
             """
+            import java.util.ArrayList;
             import java.util.List;
             import org.jspecify.annotations.NullMarked;
             import org.jspecify.annotations.NullUnmarked;
@@ -2679,13 +2680,30 @@ public class WildcardTests extends NullAwayTestsBase {
                 throw new UnsupportedOperationException();
               }
               static <T extends @Nullable Object> void intoNonNullVariable(Box<T> b) {
-                // BUG: Diagnostic contains: inference failure: type variable U is constrained to be @Nullable, but its upper bound requires it to be @NonNull; the type argument T passed for ? extends U admits null, since T has a @Nullable upper bound
+                // BUG: Diagnostic contains: inference failure: type variable U of Test.nonNullVariable is constrained to be @Nullable, but its upper bound requires it to be @NonNull; the type argument T passed for ? extends U admits null, since T of Test.intoNonNullVariable has a @Nullable upper bound
                 Object o = nonNullVariable(b);
               }
               static <T extends @Nullable Object> void intoNonNullVariableThroughAWildcard(
                   Box<? extends T> b) {
-                // BUG: Diagnostic contains: the type argument ? extends T passed for ? extends U admits null, since T has a @Nullable upper bound
+                // BUG: Diagnostic contains: the type argument ? extends T passed for ? extends U admits null, since T of Test.intoNonNullVariableThroughAWildcard has a @Nullable upper bound
                 Object o = nonNullVariable(b);
+              }
+              static class Holder<T extends @Nullable Object> {
+                Box<? extends T> wildBox() {
+                  throw new UnsupportedOperationException();
+                }
+                List<? extends T> wildList() {
+                  throw new UnsupportedOperationException();
+                }
+              }
+              static <T extends @Nullable Object> void intoNonNullVariableThroughACapture(
+                  Holder<T> h) {
+                // BUG: Diagnostic contains: the type argument ? extends T passed for ? extends U admits null, since T of Test.intoNonNullVariableThroughACapture has a @Nullable upper bound
+                Object o = nonNullVariable(h.wildBox());
+              }
+              static <T extends @Nullable Object> void intoJdkCopyOfThroughACapture(Holder<T> h) {
+                // BUG: Diagnostic contains: type variable E of List.copyOf is constrained to be @Nullable, but its upper bound requires it to be @NonNull; the type argument ? extends T passed for ? extends E admits null, since T of Test.intoJdkCopyOfThroughACapture has a @Nullable upper bound
+                List<? extends T> copy = List.copyOf(h.wildList());
               }
               static <T extends @Nullable Object> void intoNullableVariable(Box<T> b) {
                 nullableVariable(b).toString();
@@ -2699,7 +2717,7 @@ public class WildcardTests extends NullAwayTestsBase {
               }
               static <T extends @Nullable Object> void failureDiscardsTheOtherVariablesOfTheCall(
                   Box<T> b) {
-                // BUG: Diagnostic contains: inference failure: type variable U is constrained to be @Nullable
+                // BUG: Diagnostic contains: inference failure: type variable U of Test.pair is constrained to be @Nullable
                 pair(b,
                         // BUG: Diagnostic contains: passing @Nullable parameter 'null' where @NonNull is required
                         null)
@@ -2714,7 +2732,7 @@ public class WildcardTests extends NullAwayTestsBase {
               static <T extends @Nullable Object> void intoJdkCopyOfThroughAnUnmarkedCall(
                   List<T> in) {
                 var inferred = Legacy.identity(in);
-                // BUG: Diagnostic contains: inference failure: type variable E is constrained to be @Nullable
+                // BUG: Diagnostic contains: inference failure: type variable E of List.copyOf is constrained to be @Nullable
                 List<T> copy = List.copyOf(inferred);
               }
               static <T extends @Nullable Object> void intoJdkCopyOfNestingAnUnmarkedCall(
@@ -2722,9 +2740,32 @@ public class WildcardTests extends NullAwayTestsBase {
                 // a false negative: the unmarked call's result reaches copyOf without a local (#1947)
                 List<T> copy = List.copyOf(Legacy.identity(in));
               }
+              static <V extends @Nullable Object> List<V> markedIdentity(List<V> xs) {
+                return xs;
+              }
+              static <T extends @Nullable Object> void intoJdkCopyOfNestingAMarkedCall(
+                  List<T> in) {
+                // a false negative: the marked call's result reaches copyOf without a local (#1947)
+                List<T> copy = List.copyOf(markedIdentity(in));
+              }
+              static <T extends @Nullable Object> void intoJdkCopyOfThroughADiamond(List<T> in) {
+                // a false negative: the diamond's result reaches copyOf without a local (#1947)
+                List<T> copy = List.copyOf(new ArrayList<>(in));
+              }
               static <T extends @Nullable Object> void intoJdkCopyOf(List<T> in) {
-                // BUG: Diagnostic contains: inference failure: type variable E is constrained to be @Nullable, but its upper bound requires it to be @NonNull; the type argument T passed for ? extends E admits null, since T has a @Nullable upper bound
+                // BUG: Diagnostic contains: inference failure: type variable E of List.copyOf is constrained to be @Nullable, but its upper bound requires it to be @NonNull; the type argument T passed for ? extends E admits null, since T of Test.intoJdkCopyOf has a @Nullable upper bound
                 List<T> copy = List.copyOf(in);
+              }
+              static <E extends @Nullable Object> void sameNameAsTheVariableOfCopyOf(List<E> in) {
+                // BUG: Diagnostic contains: type variable E of List.copyOf is constrained to be @Nullable, but its upper bound requires it to be @NonNull; the type argument E passed for ? extends E admits null, since E of Test.sameNameAsTheVariableOfCopyOf has a @Nullable upper bound
+                List<E> copy = List.copyOf(in);
+              }
+              static class GenericConstructor<C extends @Nullable Object> {
+                <W> GenericConstructor(Box<? extends W> b) {}
+              }
+              static <T extends @Nullable Object> void intoAGenericConstructor(Box<T> b) {
+                // BUG: Diagnostic contains: type variable W of the constructor of GenericConstructor is constrained to be @Nullable
+                GenericConstructor<String> c = new GenericConstructor<>(b);
               }
             }
             """)
