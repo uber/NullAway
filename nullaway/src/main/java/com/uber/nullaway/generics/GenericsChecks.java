@@ -1604,12 +1604,16 @@ public final class GenericsChecks {
     }
     Type nullableBoundTypeArgument = e.getNullableBoundTypeArgument();
     if (nullableBoundTypeArgument != null) {
+      Element nullableBoundTypeVariable = castToNonNull(e.getNullableBoundTypeVariable()).tsym;
+      String constrained = withDeclaringElement(typeVariable, false);
+      String passed = withDeclaringElement(nullableBoundTypeVariable, false);
+      if (constrained.equals(passed)) {
+        constrained = withDeclaringElement(typeVariable, true);
+        passed = withDeclaringElement(nullableBoundTypeVariable, true);
+      }
       return String.format(
           "inference failure: type variable %s is constrained to be @Nullable, but its upper bound requires it to be @NonNull; the type argument %s passed for ? extends %s admits null, since %s has a @Nullable upper bound",
-          withDeclaringElement(typeVariable),
-          nullableBoundTypeArgument,
-          typeVariable,
-          withDeclaringElement(castToNonNull(e.getNullableBoundTypeVariable()).tsym));
+          constrained, nullableBoundTypeArgument, typeVariable, passed);
     }
     if (e.isCausedByNonNullUpperBound()) {
       return String.format(
@@ -1623,17 +1627,31 @@ public final class GenericsChecks {
 
   /**
    * Returns the name of {@code typeVariable} followed by the class or method that declares it, such
-   * as {@code E of List.copyOf}, so that two type variables with one name can be told apart.
+   * as {@code E of List.copyOf}, so that type variables of one name declared by different classes
+   * or methods can be told apart.
+   *
+   * @param qualified whether to name the class by its flat name, such as {@code java.util.List},
+   *     rather than its simple name
    */
-  private static String withDeclaringElement(Element typeVariable) {
+  private static String withDeclaringElement(Element typeVariable, boolean qualified) {
     Symbol owner = ((Symbol) typeVariable).owner;
     String ownerName =
         owner instanceof Symbol.MethodSymbol method
             ? method.isConstructor()
-                ? "the constructor of " + method.owner.getSimpleName()
-                : method.owner.getSimpleName() + "." + method.getSimpleName()
-            : owner.getSimpleName().toString();
+                ? "the constructor of " + className(method.owner, qualified)
+                : className(method.owner, qualified) + "." + method.getSimpleName()
+            : className(owner, qualified);
     return typeVariable.getSimpleName() + " of " + ownerName;
+  }
+
+  /**
+   * Returns the flat name of {@code type}, such as {@code Test$Inner}, where {@code qualified} is
+   * set or the class has no simple name, as an anonymous class does; its simple name otherwise.
+   */
+  private static String className(Symbol type, boolean qualified) {
+    return qualified || type.getSimpleName().isEmpty()
+        ? type.flatName().toString()
+        : type.getSimpleName().toString();
   }
 
   /** Returns the type parameters whose nullability is inferred for {@code callTree}. */
@@ -3137,7 +3155,8 @@ public final class GenericsChecks {
    * diamond {@code new} whose inference succeeded.
    *
    * @param memberReferenceTree the generic method reference
-   * @param methodType the declared type of the referenced method
+   * @param methodType the member type of the referenced method, with the receiver's type arguments
+   *     substituted, before inference of the method's own type arguments
    * @param state the visitor state (generic method reference should be leaf of {@code
    *     state.getPath()})
    * @return the type javac inferred for the referenced method at the reference, with the inferred

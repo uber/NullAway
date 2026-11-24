@@ -237,9 +237,8 @@ public class TypeSubstitutionUtils {
    * the final result will be {@code List<@Nullable String>}. Step 1 leaves a variable inferred as
    * {@link ConstraintSolver.InferredNullability#TYPE_VARIABLE_OR_NULLABLE} or {@link
    * ConstraintSolver.InferredNullability#TYPE_VARIABLE_OR_NONNULL} unannotated, and step 3 resolves
-   * it with {@link GenericsUtils#inferredNullnessAnnotation}: a type variable whose bound admits
-   * null takes no synthetic annotation, and any other type becomes {@code @Nullable} or
-   * {@code @NonNull}, as the result says.
+   * it with the annotation, if any, that {@link GenericsUtils#inferredNullnessAnnotation} gives the
+   * type javac inferred.
    *
    * @param typeToUpdate the type to update
    * @param origType the original type with type variables and possibly explicit nullability

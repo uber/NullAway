@@ -2701,6 +2701,62 @@ public class WildcardTests extends NullAwayTestsBase {
                 // BUG: Diagnostic contains: the type argument ? extends T passed for ? extends U admits null, since T of Test.intoNonNullVariableThroughACapture has a @Nullable upper bound
                 Object o = nonNullVariable(h.wildBox());
               }
+              static class NonNullBox<E> {
+                NonNullBox<E> same() {
+                  return this;
+                }
+              }
+              static class BoundedByANonNullVariable<V, E extends V> {
+                BoundedByANonNullVariable<V, E> same() {
+                  return this;
+                }
+              }
+              static class BoundedByANullableVariable<T extends @Nullable Object, X extends T> {
+                Box<X> box() {
+                  throw new UnsupportedOperationException();
+                }
+              }
+              static <U> void intoNonNullBox(NonNullBox<? extends U> b) {}
+              static <U> void intoChainedBox(BoundedByANonNullVariable<Object, ? extends U> b) {}
+              static <T extends @Nullable Object> void wildcardOfANonNullTypeParameter(
+                  NonNullBox<? extends T> b) {
+                intoNonNullBox(b);
+                intoNonNullBox(b.same());
+              }
+              static <T extends @Nullable Object> void wildcardOfATypeParameterBoundedByANonNullVariable(
+                  BoundedByANonNullVariable<Object, ? extends T> b) {
+                intoChainedBox(b.same());
+              }
+              static <T extends @Nullable Object> void captureOfATypeParameterBoundedByANullableVariable(
+                  BoundedByANullableVariable<T, ?> h) {
+                // BUG: Diagnostic contains: the type argument ? passed for ? extends U admits null, since T of Test.captureOfATypeParameterBoundedByANullableVariable has a @Nullable upper bound
+                Object o = nonNullVariable(h.box());
+              }
+              static class Pair<A extends @Nullable Object, B extends A> {
+                Pair<A, B> same() {
+                  return this;
+                }
+              }
+              static <U> void intoObjectPair(Pair<Object, ? extends U> p) {}
+              static <U> void intoNullablePair(Pair<@Nullable Object, ? extends U> p) {}
+              static <T extends @Nullable Object> void siblingTypeParameterPassedANonNullType(
+                  Pair<Object, ? extends T> p) {
+                intoObjectPair(p);
+                intoObjectPair(p.same());
+              }
+              static <T extends @Nullable Object> void siblingTypeParameterPassedANullableType(
+                  Pair<@Nullable Object, ? extends T> p) {
+                // BUG: Diagnostic contains: since T of Test.siblingTypeParameterPassedANullableType has a @Nullable upper bound
+                intoNullablePair(p);
+                // BUG: Diagnostic contains: since T of Test.siblingTypeParameterPassedANullableType has a @Nullable upper bound
+                intoNullablePair(p.same());
+              }
+              static class Set {
+                <E extends @Nullable Object> void copyOf(java.util.Collection<E> in) {
+                  // BUG: Diagnostic contains: type variable E of java.util.Set.copyOf is constrained to be @Nullable, but its upper bound requires it to be @NonNull; the type argument E passed for ? extends E admits null, since E of Test$Set.copyOf has a @Nullable upper bound
+                  java.util.Set<E> copy = java.util.Set.copyOf(in);
+                }
+              }
               static <T extends @Nullable Object> void intoJdkCopyOfThroughACapture(Holder<T> h) {
                 // BUG: Diagnostic contains: type variable E of List.copyOf is constrained to be @Nullable, but its upper bound requires it to be @NonNull; the type argument ? extends T passed for ? extends E admits null, since T of Test.intoJdkCopyOfThroughACapture has a @Nullable upper bound
                 List<? extends T> copy = List.copyOf(h.wildList());
@@ -2759,6 +2815,14 @@ public class WildcardTests extends NullAwayTestsBase {
               static <E extends @Nullable Object> void sameNameAsTheVariableOfCopyOf(List<E> in) {
                 // BUG: Diagnostic contains: type variable E of List.copyOf is constrained to be @Nullable, but its upper bound requires it to be @NonNull; the type argument E passed for ? extends E admits null, since E of Test.sameNameAsTheVariableOfCopyOf has a @Nullable upper bound
                 List<E> copy = List.copyOf(in);
+              }
+              static void genericMethodOfAnAnonymousClass() {
+                new Object() {
+                  <E extends @Nullable Object> void copy(List<E> in) {
+                    // BUG: Diagnostic contains: since E of Test$1.copy has a @Nullable upper bound
+                    List<E> copy = List.copyOf(in);
+                  }
+                };
               }
               static class GenericConstructor<C extends @Nullable Object> {
                 <W> GenericConstructor(Box<? extends W> b) {}
