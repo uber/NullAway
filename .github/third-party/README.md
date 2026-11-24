@@ -1,7 +1,8 @@
 # Patches for third-party projects built in CI
 
 The `compile-other-projects` job in [continuous-integration.yml](../workflows/continuous-integration.yml) builds
-caffeine, spring-framework, junit-framework, spring-boot, reactor-core, spring-batch, and vavr with the NullAway snapshot.
+caffeine, spring-framework, junit-framework, spring-boot, reactor-core, spring-batch, vavr, and calcite with the NullAway
+snapshot.
 Each project builds at the commit in the `sha` field of its matrix entry, with the patches in
 `.github/third-party/<project>/` applied in file name order, by running the command in the `build` field.
 
@@ -83,6 +84,12 @@ its ErrorProne CI configuration. Caffeine's default Java 11 target selects JUnit
 and enables NullAway checking of JUnit's annotated API, exposing additional generic-inference diagnostics. reactor-core
 also needs JDK 8, 11, 17, and 21 toolchains to configure its build; Gradle downloads them through the foojay toolchain
 resolver its settings apply.
+
+Calcite runs Gradle 8.14, which does not start on JDK 25, so its command runs Gradle with `JAVA_HOME_21_X64`. Its
+`javac` tasks request a JDK 25 toolchain, which Gradle finds among the JDKs the job installed. `-PenableErrorprone` adds
+Error Prone and NullAway to the build.
+Calcite runs NullAway only on its main and JMH sources, so the command compiles `classes` and `jmhClasses` and skips the
+test sources.
 
 ## What CI does with each patch
 
