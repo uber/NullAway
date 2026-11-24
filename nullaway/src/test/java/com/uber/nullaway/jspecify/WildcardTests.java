@@ -2485,6 +2485,8 @@ public class WildcardTests extends NullAwayTestsBase {
                 throw new UnsupportedOperationException();
               }
               void constructorReference(T t) {
+                // W takes no inference constraint from a constructor reference, so it stays non-null
+                // (#1468)
                 // BUG: Diagnostic contains: parameter w of referenced method is @NonNull, but parameter in functional interface method java.util.function.Function.apply(@Nullable Object) is @Nullable
                 map(t, new Object(), GenericConstructor::new);
               }
@@ -2717,7 +2719,7 @@ public class WildcardTests extends NullAwayTestsBase {
               }
               static <T extends @Nullable Object> void intoJdkCopyOfNestingAnUnmarkedCall(
                   List<T> in) {
-                // a false negative: the unmarked call's result reaches copyOf without a local
+                // a false negative: the unmarked call's result reaches copyOf without a local (#1947)
                 List<T> copy = List.copyOf(Legacy.identity(in));
               }
               static <T extends @Nullable Object> void intoJdkCopyOf(List<T> in) {
