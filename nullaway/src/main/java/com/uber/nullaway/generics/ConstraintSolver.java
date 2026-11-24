@@ -5,6 +5,7 @@ import com.sun.tools.javac.code.Type;
 import java.util.List;
 import java.util.Map;
 import javax.lang.model.element.Element;
+import org.jspecify.annotations.Nullable;
 
 /**
  * An interface for solving constraints on type variables, such as subtype relationships between
@@ -62,14 +63,49 @@ public interface ConstraintSolver {
     /** Whether a {@code @Nullable} constraint conflicts with the type variable's upper bound. */
     private final boolean causedByNonNullUpperBound;
 
+    /**
+     * The type argument, as passed for a {@code ? extends} wildcard, whose {@code @Nullable}
+     * constraint conflicts with the bound of {@link #typeVariable}, or {@code null} where another
+     * constraint caused the conflict.
+     */
+    private final @Nullable Type nullableBoundTypeArgument;
+
+    /**
+     * The type variable with an explicitly nullable bound through which {@link
+     * #nullableBoundTypeArgument} admits null: that argument itself, or the bound of a wildcard
+     * argument; {@code null} where {@link #nullableBoundTypeArgument} is.
+     */
+    private final @Nullable Type nullableBoundTypeVariable;
+
     public UnsatisfiableConstraintsException(Element typeVariable) {
       this(typeVariable, false);
     }
 
     public UnsatisfiableConstraintsException(
         Element typeVariable, boolean causedByNonNullUpperBound) {
+      this(typeVariable, causedByNonNullUpperBound, null, null);
+    }
+
+    /**
+     * Creates an exception for a {@code typeVariable} whose bound excludes null, passed {@code
+     * nullableBoundTypeArgument} for a {@code ? extends typeVariable} wildcard, where {@code
+     * nullableBoundTypeVariable} has an explicitly nullable bound and is that argument or the bound
+     * of that argument.
+     */
+    public UnsatisfiableConstraintsException(
+        Element typeVariable, Type nullableBoundTypeArgument, Type nullableBoundTypeVariable) {
+      this(typeVariable, true, nullableBoundTypeArgument, nullableBoundTypeVariable);
+    }
+
+    private UnsatisfiableConstraintsException(
+        Element typeVariable,
+        boolean causedByNonNullUpperBound,
+        @Nullable Type nullableBoundTypeArgument,
+        @Nullable Type nullableBoundTypeVariable) {
       this.typeVariable = typeVariable;
       this.causedByNonNullUpperBound = causedByNonNullUpperBound;
+      this.nullableBoundTypeArgument = nullableBoundTypeArgument;
+      this.nullableBoundTypeVariable = nullableBoundTypeVariable;
     }
 
     public Element getTypeVariable() {
@@ -78,6 +114,14 @@ public interface ConstraintSolver {
 
     public boolean isCausedByNonNullUpperBound() {
       return causedByNonNullUpperBound;
+    }
+
+    public @Nullable Type getNullableBoundTypeArgument() {
+      return nullableBoundTypeArgument;
+    }
+
+    public @Nullable Type getNullableBoundTypeVariable() {
+      return nullableBoundTypeVariable;
     }
   }
 
@@ -99,31 +143,44 @@ public interface ConstraintSolver {
 
   /** The nullness the solver found for an inference variable. */
   enum InferredNullability {
-    /** A constraint fixed the variable to be non-null. */
+    /**
+     * A constraint fixed the variable to be non-null, or no constraint fixed it and no unannotated
+     * type variable that is not under inference and whose bound admits null flowed into it, so
+     * non-null is the least solution.
+     */
     NONNULL,
     /** A constraint fixed the variable to be nullable. */
     NULLABLE,
     /**
      * No constraint fixed the variable, a type variable {@code T} whose bound is explicitly
      * nullable flowed into it, and the variable's own bound is explicitly nullable. Where javac
-     * inferred a type variable, the variable is that type variable as written; where javac inferred
-     * an intersection type, it carries no annotation; where javac inferred any other type, such as
-     * the least upper bound of {@code T} and {@code String}, the variable is {@code @Nullable}, the
-     * least type that holds a null {@code T}.
-     *
-     * <p>A variable that no constraint fixed and no such type variable reached is {@link #NONNULL},
-     * the least solution.
+     * inferred a unannotated type variable whose bound admits null, the variable is that type
+     * variable as written; where javac inferred an intersection type, it carries no annotation;
+     * where javac inferred any other type, such as the least upper bound of {@code T} and {@code
+     * String}, or a type variable {@code R} whose bound excludes null for {@code T
+     * extends @Nullable R}, the variable is {@code @Nullable}, the least type that holds a null
+     * {@code T}.
      */
     TYPE_VARIABLE_OR_NULLABLE,
     /**
-     * No constraint fixed the variable and a type variable whose bound admits null flowed into it,
-     * but no type variable whose bound is explicitly nullable did, or the variable's own bound is
-     * not explicitly nullable. Where javac inferred a type variable, the variable is that type
-     * variable as written; where javac inferred an intersection type, it carries no annotation;
-     * where javac inferred any other type, the variable is {@code @NonNull}, as if no type variable
-     * had reached it.
+     * No constraint fixed the variable and an unannotated type variable that is not under inference
+     * and whose bound admits null flowed into it, but {@link #TYPE_VARIABLE_OR_NULLABLE} does not
+     * apply: no such type variable has an explicitly nullable bound, or the variable's own bound is
+     * not explicitly nullable. Where javac inferred an unannotated type variable whose bound admits
+     * null, the variable is that type variable as written; where javac inferred an intersection
+     * type, it carries no annotation; where javac inferred any other type, the variable is
+     * {@code @NonNull}, as if no type variable had flowed into it.
      */
-    TYPE_VARIABLE_OR_NONNULL
+    TYPE_VARIABLE_OR_NONNULL;
+
+    /**
+     * Returns whether the variable is {@code @Nullable} where javac inferred a type that {@link
+     * GenericsUtils#keepsInferredTypeAsWritten} does not keep as written, such as a class type, or
+     * where such a type stands at a location of a PolyNull model.
+     */
+    boolean isNullableWhereNotKeptAsWritten() {
+      return this == NULLABLE || this == TYPE_VARIABLE_OR_NULLABLE;
+    }
   }
 
   /**

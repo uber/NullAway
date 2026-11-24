@@ -10,6 +10,8 @@ import com.sun.tools.javac.code.Types;
 import com.sun.tools.javac.util.ListBuffer;
 import com.uber.nullaway.generics.TypeSubstitutionUtils;
 import com.uber.nullaway.libmodel.NestedAnnotationInfo;
+import java.util.function.Predicate;
+import org.jspecify.annotations.Nullable;
 
 /** Updates a type at a nested location identified by a library-model type path. */
 @SuppressWarnings({"ReferenceEquality", "TypeEquals"}) // deliberate reference equality checks
@@ -24,13 +26,18 @@ public final class NestedTypePathUpdater extends Types.MapVisitor<Integer> {
   private final Type annotationOrReplacementType;
   private final UpdateKind updateKind;
 
+  /** The types that an added annotation leaves as written, or {@code null} for none. */
+  private final @Nullable Predicate<Type> keepAsWritten;
+
   private NestedTypePathUpdater(
       ImmutableList<NestedAnnotationInfo.TypePathEntry> typePath,
       Type annotationOrReplacementType,
-      UpdateKind updateKind) {
+      UpdateKind updateKind,
+      @Nullable Predicate<Type> keepAsWritten) {
     this.typePath = typePath;
     this.annotationOrReplacementType = annotationOrReplacementType;
     this.updateKind = updateKind;
+    this.keepAsWritten = keepAsWritten;
   }
 
   /**
@@ -40,7 +47,25 @@ public final class NestedTypePathUpdater extends Types.MapVisitor<Integer> {
    */
   public static Type addAnnotation(
       Type type, ImmutableList<NestedAnnotationInfo.TypePathEntry> typePath, Type annotationType) {
-    return new NestedTypePathUpdater(typePath, annotationType, UpdateKind.ADD_ANNOTATION)
+    return new NestedTypePathUpdater(typePath, annotationType, UpdateKind.ADD_ANNOTATION, null)
+        .apply(type);
+  }
+
+  /**
+   * Adds {@code annotationType} to {@code type} at {@code typePath}, as {@link #addAnnotation}
+   * does, except that a type at {@code typePath} that {@code keepAsWritten} accepts is left as
+   * written. A wildcard or a captured type variable at {@code typePath} is annotated as {@link
+   * #addAnnotation} annotates it, without the test.
+   *
+   * @return the updated type, or the original {@code type} instance if no change was made
+   */
+  public static Type addAnnotationUnless(
+      Type type,
+      ImmutableList<NestedAnnotationInfo.TypePathEntry> typePath,
+      Type annotationType,
+      Predicate<Type> keepAsWritten) {
+    return new NestedTypePathUpdater(
+            typePath, annotationType, UpdateKind.ADD_ANNOTATION, keepAsWritten)
         .apply(type);
   }
 
@@ -51,7 +76,8 @@ public final class NestedTypePathUpdater extends Types.MapVisitor<Integer> {
    */
   public static Type replaceType(
       Type type, ImmutableList<NestedAnnotationInfo.TypePathEntry> typePath, Type replacement) {
-    return new NestedTypePathUpdater(typePath, replacement, UpdateKind.REPLACE_TYPE).apply(type);
+    return new NestedTypePathUpdater(typePath, replacement, UpdateKind.REPLACE_TYPE, null)
+        .apply(type);
   }
 
   private Type apply(Type type) {
@@ -59,9 +85,14 @@ public final class NestedTypePathUpdater extends Types.MapVisitor<Integer> {
   }
 
   private Type updateLeaf(Type type) {
-    return updateKind == UpdateKind.ADD_ANNOTATION
-        ? TypeSubstitutionUtils.typeWithAnnot(type, annotationOrReplacementType)
-        : annotationOrReplacementType;
+    return updateKind == UpdateKind.ADD_ANNOTATION ? annotate(type) : annotationOrReplacementType;
+  }
+
+  /** Adds the annotation to {@code type}, unless {@link #keepAsWritten} accepts it. */
+  private Type annotate(Type type) {
+    return keepAsWritten != null && keepAsWritten.test(type)
+        ? type
+        : TypeSubstitutionUtils.typeWithAnnot(type, annotationOrReplacementType);
   }
 
   @Override

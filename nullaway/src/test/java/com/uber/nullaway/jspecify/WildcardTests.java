@@ -2368,6 +2368,12 @@ public class WildcardTests extends NullAwayTestsBase {
               static <E extends F, F extends @Nullable Object> List<E> ofThroughAVariable(E a, E b) {
                 throw new UnsupportedOperationException();
               }
+              static <E extends F, F> List<E> ofThroughANonNullVariable(E a, E b) {
+                throw new UnsupportedOperationException();
+              }
+              static <U extends @Nullable Object> U pick(U a, U b) {
+                return a;
+              }
               static <E> List<E> nonNullOf(E a, E b) {
                 throw new UnsupportedOperationException();
               }
@@ -2383,6 +2389,19 @@ public class WildcardTests extends NullAwayTestsBase {
               static <T extends @Nullable Object> void boundNullableThroughAVariable(T t) {
                 // BUG: Diagnostic contains: dereferenced expression 'ofThroughAVariable(t, "x").get(0)' is @Nullable
                 ofThroughAVariable(t, "x").get(0).toString();
+              }
+              static <R, T extends @Nullable R> void inferredTypeVariableWhoseBoundExcludesNull(
+                  T t, R r) {
+                // BUG: Diagnostic contains: dereferenced expression 'pick(t, r)' is @Nullable
+                pick(t, r).toString();
+              }
+              static <R extends @Nullable Object, T extends R> void inferredTypeVariableWhoseBoundAdmitsNull(
+                  T t, R r) {
+                // a false negative: R is kept as written, and dataflow reads it as non-null (#1727)
+                pick(t, r).toString();
+              }
+              static <T extends @Nullable Object> void boundNonNullThroughAVariable(T t) {
+                ofThroughANonNullVariable(t, "x").get(0).toString();
               }
               static <T extends @Nullable Object> void ownBoundExcludesNull(T t) {
                 nonNullOf(t, "x").get(0).toString();
@@ -2403,6 +2422,16 @@ public class WildcardTests extends NullAwayTestsBase {
                   // BUG: Diagnostic contains: incompatible types
                   List<? super @Nullable Object> sink = inferred;
                 }
+                @NullMarked
+                <N extends @Nullable Object> void nullableBoundInsideUnannotatedOutside(N n, T t) {
+                  // BUG: Diagnostic contains: dereferenced expression 'pick(pick(n, "x"), t)' is @Nullable
+                  pick(pick(n, "x"), t).toString();
+                }
+                @NullMarked
+                <N extends @Nullable Object> void unannotatedInsideNullableBoundOutside(N n, T t) {
+                  // BUG: Diagnostic contains: dereferenced expression 'pick(pick(t, "x"), n)' is @Nullable
+                  pick(pick(t, "x"), n).toString();
+                }
               }
             }
             """)
@@ -2421,6 +2450,7 @@ public class WildcardTests extends NullAwayTestsBase {
             "Test.java",
             """
             import java.util.List;
+            import java.util.function.Consumer;
             import java.util.function.Function;
             import org.jspecify.annotations.NullMarked;
             import org.jspecify.annotations.Nullable;
@@ -2429,6 +2459,12 @@ public class WildcardTests extends NullAwayTestsBase {
               static class Box<E extends @Nullable Object> {
                 <U extends @Nullable Object> Box(Box<? extends U> input, U hint) {}
               }
+              static class Taker<E extends @Nullable Object> {
+                <U extends @Nullable Object> Taker(U a, U b, Consumer<U> c) {}
+              }
+              class InnerTaker<E extends @Nullable Object> {
+                <U extends @Nullable Object> InnerTaker(U a, U b) {}
+              }
               static class Holder<E extends @Nullable Object> {
                 Holder(E a, E b, Function<E, List<E>> function) {}
               }
@@ -2436,8 +2472,34 @@ public class WildcardTests extends NullAwayTestsBase {
               static <V extends @Nullable Object> List<V> singleton(V value) {
                 throw new UnsupportedOperationException();
               }
+              static <V> List<V> nonNullSingleton(V value) {
+                throw new UnsupportedOperationException();
+              }
               void methodReference(T t) {
                 use(t, new Object(), Test::singleton);
+              }
+              static class GenericConstructor {
+                <W> GenericConstructor(W w) {}
+              }
+              static <U extends @Nullable Object, R> R map(U a, U b, Function<U, R> function) {
+                throw new UnsupportedOperationException();
+              }
+              void constructorReference(T t) {
+                // BUG: Diagnostic contains: parameter w of referenced method is @NonNull, but parameter in functional interface method java.util.function.Function.apply(@Nullable Object) is @Nullable
+                map(t, new Object(), GenericConstructor::new);
+              }
+              void methodReferenceToANonNullVariable(T t) {
+                // BUG: Diagnostic contains: parameter value of referenced method is @NonNull
+                use(t, new Object(), Test::nonNullSingleton);
+              }
+              void lambdaPassedToAConstructor(T t) {
+                new Taker<>(t, "x", u -> {
+                  // BUG: Diagnostic contains: dereferenced expression 'u' is @Nullable
+                  u.toString();
+                });
+              }
+              void anonymousSubclassOfAnInnerClass(T t) {
+                this.new InnerTaker<>(t, "x") {};
               }
               void methodReferenceIntoADiamond(T t) {
                 var holder = new Holder<>(t, new Object(), Test::singleton);
@@ -2487,7 +2549,8 @@ public class WildcardTests extends NullAwayTestsBase {
   /**
    * Dataflow reads a {@code T} whose bound admits null as non-null whether or not the code checked
    * it (#1727), so inference cannot tell a checked {@code t} from an unchecked one, and a
-   * class-type result is {@code @Nullable} after a null check too. This is a false positive.
+   * class-type result is {@code @Nullable} after a null check or {@code requireNonNull} too. These
+   * are false positives; an explicit type argument skips inference and avoids them.
    */
   @Test
   public void aNullCheckOfATypeVariableDoesNotReachInference() {
@@ -2495,6 +2558,7 @@ public class WildcardTests extends NullAwayTestsBase {
         .addSourceLines(
             "Test.java",
             """
+            import java.util.Objects;
             import org.jspecify.annotations.NullMarked;
             import org.jspecify.annotations.Nullable;
             @NullMarked
@@ -2502,10 +2566,20 @@ public class WildcardTests extends NullAwayTestsBase {
               static <U extends @Nullable Object> U pick(U a, U b) {
                 return a;
               }
-              void f(T t) {
+              void nullCheck(T t) {
                 if (t != null) {
                   // BUG: Diagnostic contains: dereferenced expression 'pick(t, "x")' is @Nullable
                   pick(t, "x").toString();
+                }
+              }
+              void requireNonNull(T t) {
+                T checked = Objects.requireNonNull(t);
+                // BUG: Diagnostic contains: dereferenced expression 'pick(checked, "x")' is @Nullable
+                pick(checked, "x").toString();
+              }
+              void explicitTypeArgument(T t) {
+                if (t != null) {
+                  Test.<Object>pick(t, "x").toString();
                 }
               }
             }
@@ -2584,6 +2658,7 @@ public class WildcardTests extends NullAwayTestsBase {
             """
             import java.util.List;
             import org.jspecify.annotations.NullMarked;
+            import org.jspecify.annotations.NullUnmarked;
             import org.jspecify.annotations.Nullable;
             @NullMarked
             class Test {
@@ -2594,18 +2669,59 @@ public class WildcardTests extends NullAwayTestsBase {
               static <U extends @Nullable Object> U nullableVariable(Box<? extends U> b) {
                 throw new UnsupportedOperationException();
               }
+              static <U extends @Nullable Object> U intoAWildcardOfAFixedType(
+                  Box<? extends @Nullable Object> b, U u) {
+                return u;
+              }
+              static <U, V extends @Nullable Object> V pair(Box<? extends U> b, V v) {
+                throw new UnsupportedOperationException();
+              }
               static <T extends @Nullable Object> void intoNonNullVariable(Box<T> b) {
-                // BUG: Diagnostic contains: inference failure: type variable U is constrained to be @Nullable
+                // BUG: Diagnostic contains: inference failure: type variable U is constrained to be @Nullable, but its upper bound requires it to be @NonNull; the type argument T passed for ? extends U admits null, since T has a @Nullable upper bound
+                Object o = nonNullVariable(b);
+              }
+              static <T extends @Nullable Object> void intoNonNullVariableThroughAWildcard(
+                  Box<? extends T> b) {
+                // BUG: Diagnostic contains: the type argument ? extends T passed for ? extends U admits null, since T has a @Nullable upper bound
                 Object o = nonNullVariable(b);
               }
               static <T extends @Nullable Object> void intoNullableVariable(Box<T> b) {
-                Object o = nullableVariable(b);
+                nullableVariable(b).toString();
+              }
+              static <T extends @Nullable Object> void intoAWildcardThatIsNotAnInferenceVariable(
+                  Box<T> b) {
+                Object o = intoAWildcardOfAFixedType(b, "x");
               }
               static <T> void nonNullBoundIntoNonNullVariable(Box<T> b) {
                 Object o = nonNullVariable(b);
               }
-              static <T extends @Nullable Object> void intoJdkCopyOf(List<T> in) {
+              static <T extends @Nullable Object> void failureDiscardsTheOtherVariablesOfTheCall(
+                  Box<T> b) {
+                // BUG: Diagnostic contains: inference failure: type variable U is constrained to be @Nullable
+                pair(b,
+                        // BUG: Diagnostic contains: passing @Nullable parameter 'null' where @NonNull is required
+                        null)
+                    .hashCode();
+              }
+              @NullUnmarked
+              static class Legacy {
+                static <E> List<E> identity(List<E> xs) {
+                  return xs;
+                }
+              }
+              static <T extends @Nullable Object> void intoJdkCopyOfThroughAnUnmarkedCall(
+                  List<T> in) {
+                var inferred = Legacy.identity(in);
                 // BUG: Diagnostic contains: inference failure: type variable E is constrained to be @Nullable
+                List<T> copy = List.copyOf(inferred);
+              }
+              static <T extends @Nullable Object> void intoJdkCopyOfNestingAnUnmarkedCall(
+                  List<T> in) {
+                // a false negative: the unmarked call's result reaches copyOf without a local
+                List<T> copy = List.copyOf(Legacy.identity(in));
+              }
+              static <T extends @Nullable Object> void intoJdkCopyOf(List<T> in) {
+                // BUG: Diagnostic contains: inference failure: type variable E is constrained to be @Nullable, but its upper bound requires it to be @NonNull; the type argument T passed for ? extends E admits null, since T has a @Nullable upper bound
                 List<T> copy = List.copyOf(in);
               }
             }

@@ -1438,6 +1438,66 @@ public class PolyNullLibraryModelsTests extends NullAwayTestsBase {
         .doTest();
   }
 
+  @Test
+  public void anArgumentWhoseTypeVariableHasANullableBoundMakesThePolyNullLocationsNullable() {
+    makeHelper()
+        .addSourceLines(
+            "Test.java",
+            """
+            import com.uber.lib.unannotated.PolyNullMethods;
+            import java.util.Map;
+            import java.util.Optional;
+            import java.util.function.Function;
+            import java.util.function.Supplier;
+            import org.jspecify.annotations.NullMarked;
+            import org.jspecify.annotations.NullUnmarked;
+            import org.jspecify.annotations.Nullable;
+
+            @NullMarked
+            class Test<T extends @Nullable Object> {
+              void lambdaArgument(T t) {
+                // BUG: Diagnostic contains: dereferenced expression 'PolyNullMethods.genericObject(t, () -> "x")' is @Nullable
+                PolyNullMethods.genericObject(t, () -> "x").toString();
+                T first = PolyNullMethods.genericFirst(t, () -> "x");
+              }
+              static <X extends @Nullable Object> void accept(X x) {}
+              void typeVariableResultPassedToAGenericMethod(T t) {
+                accept(PolyNullMethods.genericFirst(t, () -> "x"));
+              }
+              void lambdaParameter(T t) {
+                // BUG: Diagnostic contains: dereferenced expression 'value' is @Nullable
+                PolyNullMethods.withMapper(t, value -> value.toString());
+              }
+              void supplierOfTheTypeVariable(Optional<Object> optional, Supplier<T> supplier) {
+                // BUG: Diagnostic contains: dereferenced expression 'optional.orElseGet(supplier)' is @Nullable
+                optional.orElseGet(supplier).hashCode();
+              }
+              void functionReturningTheTypeVariable(Map<String, Object> map, Function<String, T> f) {
+                // BUG: Diagnostic contains: dereferenced expression 'map.computeIfAbsent("key", f)' is @Nullable
+                map.computeIfAbsent("key", f).hashCode();
+              }
+              void nonNullSupplier(Optional<String> optional, Supplier<String> supplier) {
+                optional.orElseGet(supplier).hashCode();
+              }
+              <R, S extends @Nullable R> void typeVariableWhoseBoundExcludesNull(
+                  Optional<R> optional, S fallback) {
+                // BUG: Diagnostic contains: dereferenced expression 'optional.orElseGet(() -> fallback)' is @Nullable
+                optional.orElseGet(() -> fallback).hashCode();
+              }
+              @NullUnmarked
+              static class Unmarked<X> {
+                @NullMarked
+                void explicitlyNullableTypeArgument(X x) {
+                  if (x != null) {
+                    PolyNullMethods.<@Nullable X, String>genericFirst(x, () -> "x").hashCode();
+                  }
+                }
+              }
+            }
+            """)
+        .doTest();
+  }
+
   private CompilationTestHelper makeHelper() {
     return makeTestHelperWithArgs(
         JSpecifyJavacConfig.withJSpecifyModeArgs(List.of("-XepOpt:NullAway:OnlyNullMarked=true")));
