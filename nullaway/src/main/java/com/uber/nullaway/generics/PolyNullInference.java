@@ -60,12 +60,10 @@ final class PolyNullInference {
   /**
    * Applies the resolved shared PolyNull variable to every modeled parameter and return location.
    *
-   * <p>Where {@code inferred} is {@code TYPE_VARIABLE_OR_NULLABLE} or {@code
-   * TYPE_VARIABLE_OR_NONNULL}, a location whose type {@link
-   * GenericsUtils#keepsInferredTypeAsWritten} accepts keeps that type as written, as {@link
-   * TypeSubstitutionUtils} keeps the type javac inferred for a method's own type variable. A type
-   * variable with a nullness annotation, such as an explicit type argument, takes the PolyNull
-   * annotation.
+   * <p>Each location takes the annotation that {@link GenericsUtils#inferredNullnessAnnotation}
+   * gives its type, as the type javac inferred for a method's own type variable does in {@link
+   * TypeSubstitutionUtils}. A type variable with a nullness annotation, such as an explicit type
+   * argument, takes the PolyNull annotation.
    */
   @SuppressWarnings({"ReferenceEquality", "TypeEquals"}) // deliberate reference equality checks
   static Type.MethodType applyToMethodType(
@@ -282,24 +280,16 @@ final class PolyNullInference {
       VisitorState state,
       Config config,
       Handler handler) {
-    Type annotationType =
-        inferred.isNullableWhereNotKeptAsWritten()
-            ? GenericsChecks.getSyntheticNullableAnnotType(state)
-            : GenericsChecks.getSyntheticNonNullAnnotType(state);
-    boolean keepTypeVariables =
-        inferred == ConstraintSolver.InferredNullability.TYPE_VARIABLE_OR_NULLABLE
-            || inferred == ConstraintSolver.InferredNullability.TYPE_VARIABLE_OR_NONNULL;
     Type updated = type;
     for (PolyNullLocation location : locations) {
       if (location.position().equals(position)) {
         updated =
-            keepTypeVariables
-                ? NestedTypePathUpdater.addAnnotationUnless(
-                    updated,
-                    location.typePath(),
-                    annotationType,
-                    leaf -> GenericsUtils.keepsInferredTypeAsWritten(leaf, config, handler, state))
-                : NestedTypePathUpdater.addAnnotation(updated, location.typePath(), annotationType);
+            NestedTypePathUpdater.addAnnotation(
+                updated,
+                location.typePath(),
+                leaf ->
+                    GenericsUtils.inferredNullnessAnnotation(
+                        leaf, inferred, config, handler, state));
       }
     }
     return updated;

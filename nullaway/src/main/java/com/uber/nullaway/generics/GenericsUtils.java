@@ -382,14 +382,43 @@ public class GenericsUtils {
   }
 
   /**
-   * Returns whether {@code type}, which javac inferred for a variable that inference resolved to
-   * {@code TYPE_VARIABLE_OR_NULLABLE} or {@code TYPE_VARIABLE_OR_NONNULL}, stays as written rather
-   * than taking the annotation those results give. It stays where it already holds the null of a
-   * type variable that flowed into the variable: an unannotated type variable whose bound admits
-   * null, or an intersection type, whose nullness comes from its elements. A captured type variable
-   * or a type variable with a nullness annotation takes the annotation.
+   * Returns the synthetic nullness annotation type that {@code inferred} adds to {@code
+   * inferredType}, the type javac inferred for the variable at one location, or {@code null} where
+   * that type takes no synthetic annotation.
+   *
+   * <p>{@code NULLABLE} and {@code NONNULL} annotate every type. {@code TYPE_VARIABLE_OR_NULLABLE}
+   * and {@code TYPE_VARIABLE_OR_NONNULL} add no annotation to a type that already holds the null of
+   * a type variable that flowed into the variable: an unannotated, uncaptured type variable whose
+   * bound admits null, or an intersection type, whose nullness comes from its elements. Any other
+   * type, including a wildcard, a captured type variable, and a type variable with a nullness
+   * annotation, takes {@code @Nullable} for {@code TYPE_VARIABLE_OR_NULLABLE} and {@code @NonNull}
+   * for {@code TYPE_VARIABLE_OR_NONNULL}.
    */
-  static boolean keepsInferredTypeAsWritten(
+  static @Nullable Type inferredNullnessAnnotation(
+      Type inferredType,
+      ConstraintSolver.InferredNullability inferred,
+      Config config,
+      Handler handler,
+      VisitorState state) {
+    return switch (inferred) {
+      case NULLABLE -> GenericsChecks.getSyntheticNullableAnnotType(state);
+      case NONNULL -> GenericsChecks.getSyntheticNonNullAnnotType(state);
+      case TYPE_VARIABLE_OR_NULLABLE ->
+          holdsTheNullOfAFlowedTypeVariable(inferredType, config, handler, state)
+              ? null
+              : GenericsChecks.getSyntheticNullableAnnotType(state);
+      case TYPE_VARIABLE_OR_NONNULL ->
+          holdsTheNullOfAFlowedTypeVariable(inferredType, config, handler, state)
+              ? null
+              : GenericsChecks.getSyntheticNonNullAnnotType(state);
+    };
+  }
+
+  /**
+   * Returns whether {@code type} is an intersection type or an unannotated, uncaptured type
+   * variable whose bound admits null.
+   */
+  private static boolean holdsTheNullOfAFlowedTypeVariable(
       Type type, Config config, Handler handler, VisitorState state) {
     if (type.isCompound()) {
       return true;

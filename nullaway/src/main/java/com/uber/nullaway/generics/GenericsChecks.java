@@ -1606,7 +1606,10 @@ public final class GenericsChecks {
     if (nullableBoundTypeArgument != null) {
       return String.format(
           "inference failure: type variable %s is constrained to be @Nullable, but its upper bound requires it to be @NonNull; the type argument %s passed for ? extends %s admits null, since %s has a @Nullable upper bound",
-          typeVariable, nullableBoundTypeArgument, typeVariable, e.getNullableBoundTypeVariable());
+          withDeclaringElement(typeVariable),
+          nullableBoundTypeArgument,
+          typeVariable,
+          withDeclaringElement(castToNonNull(e.getNullableBoundTypeVariable()).tsym));
     }
     if (e.isCausedByNonNullUpperBound()) {
       return String.format(
@@ -1616,6 +1619,21 @@ public final class GenericsChecks {
     return String.format(
         "inference failure: type variable %s constrained to be both @NonNull and @Nullable",
         typeVariable);
+  }
+
+  /**
+   * Returns the name of {@code typeVariable} followed by the class or method that declares it, such
+   * as {@code E of List.copyOf}, so that two type variables with one name can be told apart.
+   */
+  private static String withDeclaringElement(Element typeVariable) {
+    Symbol owner = ((Symbol) typeVariable).owner;
+    String ownerName =
+        owner instanceof Symbol.MethodSymbol method
+            ? method.isConstructor()
+                ? "the constructor of " + method.owner.getSimpleName()
+                : method.owner.getSimpleName() + "." + method.getSimpleName()
+            : owner.getSimpleName().toString();
+    return typeVariable.getSimpleName() + " of " + ownerName;
   }
 
   /** Returns the type parameters whose nullability is inferred for {@code callTree}. */
@@ -3114,16 +3132,18 @@ public final class GenericsChecks {
   }
 
   /**
-   * For a generic method reference, if it is being called in a context that requires type argument
-   * nullability inference, return the method type with inferred nullability for type parameters.
-   * Otherwise, return the original method type.
+   * Returns the type of the method that a generic method reference refers to, with the nullness
+   * inferred for its type parameters, where the reference is an argument of a method call or a
+   * diamond {@code new} whose inference succeeded.
    *
    * @param memberReferenceTree the generic method reference
-   * @param methodType the original method type
+   * @param methodType the declared type of the referenced method
    * @param state the visitor state (generic method reference should be leaf of {@code
    *     state.getPath()})
-   * @return the method type with inferred nullability for type parameters if inference was
-   *     performed, or the original method type otherwise
+   * @return the type javac inferred for the referenced method at the reference, with the inferred
+   *     nullness copied onto it; {@code methodType} with that nullness where javac's type has
+   *     another number of parameters; {@code methodType} unchanged where the enclosing call needs
+   *     no inference or its inference failed
    */
   private Type.MethodType getInferredMethodTypeForGenericMethodReference(
       MemberReferenceTree memberReferenceTree, Type.MethodType methodType, VisitorState state) {

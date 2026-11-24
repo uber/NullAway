@@ -66,7 +66,7 @@ public interface ConstraintSolver {
     /**
      * The type argument, as passed for a {@code ? extends} wildcard, whose {@code @Nullable}
      * constraint conflicts with the bound of {@link #typeVariable}, or {@code null} where another
-     * constraint caused the conflict.
+     * constraint caused the conflict. A captured argument is replaced by the wildcard it captures.
      */
     private final @Nullable Type nullableBoundTypeArgument;
 
@@ -154,10 +154,10 @@ public interface ConstraintSolver {
     /**
      * No constraint fixed the variable, a type variable {@code T} whose bound is explicitly
      * nullable flowed into it, and the variable's own bound is explicitly nullable. Where javac
-     * inferred a unannotated type variable whose bound admits null, the variable is that type
-     * variable as written; where javac inferred an intersection type, it carries no annotation;
-     * where javac inferred any other type, such as the least upper bound of {@code T} and {@code
-     * String}, or a type variable {@code R} whose bound excludes null for {@code T
+     * inferred an unannotated type variable whose bound admits null, the variable is that type
+     * variable with no synthetic annotation; where javac inferred an intersection type, it carries
+     * no annotation; where javac inferred any other type, such as the least upper bound of {@code
+     * T} and {@code String}, or a type variable {@code R} whose bound excludes null for {@code T
      * extends @Nullable R}, the variable is {@code @Nullable}, the least type that holds a null
      * {@code T}.
      */
@@ -167,20 +167,11 @@ public interface ConstraintSolver {
      * and whose bound admits null flowed into it, but {@link #TYPE_VARIABLE_OR_NULLABLE} does not
      * apply: no such type variable has an explicitly nullable bound, or the variable's own bound is
      * not explicitly nullable. Where javac inferred an unannotated type variable whose bound admits
-     * null, the variable is that type variable as written; where javac inferred an intersection
-     * type, it carries no annotation; where javac inferred any other type, the variable is
-     * {@code @NonNull}, as if no type variable had flowed into it.
+     * null, the variable is that type variable with no synthetic annotation; where javac inferred
+     * an intersection type, it carries no annotation; where javac inferred any other type, the
+     * variable is {@code @NonNull}, as if no type variable had flowed into it.
      */
     TYPE_VARIABLE_OR_NONNULL;
-
-    /**
-     * Returns whether the variable is {@code @Nullable} where javac inferred a type that {@link
-     * GenericsUtils#keepsInferredTypeAsWritten} does not keep as written, such as a class type, or
-     * where such a type stands at a location of a PolyNull model.
-     */
-    boolean isNullableWhereNotKeptAsWritten() {
-      return this == NULLABLE || this == TYPE_VARIABLE_OR_NULLABLE;
-    }
   }
 
   /**
