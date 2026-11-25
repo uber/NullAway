@@ -16,6 +16,190 @@ import org.junit.Test;
  */
 public class GenericInferenceErrorReportingTests extends NullAwayTestsBase {
 
+  @Test
+  public void inferenceUsesCompletedArgumentDataflowWithoutLibraryModels() {
+    makeHelper()
+        .addSourceLines(
+            "Test.java",
+            """
+            package com.uber;
+            import org.jspecify.annotations.NullMarked;
+            import org.jspecify.annotations.Nullable;
+            @NullMarked
+            class Test {
+              static <T> T id(T value) { return value; }
+              static <T> void sink(T first, T second) {}
+
+              void refinedSecondArgument(@Nullable String value) {
+                if (value == null) {
+                  return;
+                }
+                sink(id("first"), value);
+              }
+              void refinedFirstArgument(@Nullable String value) {
+                if (value == null) {
+                  return;
+                }
+                sink(value, id("second"));
+              }
+              void unrefinedSecondArgument(@Nullable String value) {
+                // BUG: Diagnostic contains: inference failure
+                sink(id("first"), value);
+              }
+            }
+            """)
+        .doTest();
+  }
+
+  @Test
+  public void nestedGenericInferenceFailureReportedOnce() {
+    JavaFileObject source =
+        FileObjects.forSourceLines(
+            "Test.java",
+            """
+            package com.uber;
+            import java.util.Objects;
+            import org.jspecify.annotations.NullMarked;
+            import org.jspecify.annotations.Nullable;
+            @NullMarked
+            class Test {
+              static <T> T id(T value) { return value; }
+              static <T> T first(T a, T b) { return a; }
+              static <T> void sink(T a, T b) {}
+              void nullableArgument(@Nullable String value) {
+                String s = first(id(value), "x");
+              }
+              void nullableArgumentToRequireNonNull(@Nullable String value) {
+                String s = Objects.requireNonNull(id(value));
+              }
+              void nullableArgumentToSink(@Nullable String value) {
+                sink(id(value), "x");
+              }
+              void nullLiteralArgument() {
+                sink(id(null), "x");
+              }
+              void nonNullArgument(String value) {
+                String s = first(id(value), "x");
+              }
+            }
+            """);
+
+    assertThat(
+            compileAndReportDiagnostics(List.of(source)).stream()
+                .filter(diagnostic -> diagnostic.contains("inference failure:"))
+                .toList())
+        .containsExactly(
+            "Test.java:11: [NullAway] inference failure: type variable T is constrained to be @Nullable, "
+                + "but its upper bound requires it to be @NonNull",
+            "Test.java:14: [NullAway] inference failure: type variable T is constrained to be @Nullable, "
+                + "but its upper bound requires it to be @NonNull",
+            "Test.java:17: [NullAway] inference failure: type variable T is constrained to be @Nullable, "
+                + "but its upper bound requires it to be @NonNull",
+            "Test.java:20: [NullAway] inference failure: type variable T is constrained to be @Nullable, "
+                + "but its upper bound requires it to be @NonNull");
+  }
+
+  /**
+   * Inference failure reporting must wait for dataflow to determine the nullness of later arguments
+   * such as {@code optional.orElse(fallback)}, whose result nullness depends on an argument.
+   */
+  @Test
+  public void inferenceFailuresRequireCompletedArgumentDataflow() {
+    makeHelper()
+        .addSourceLines(
+            "Test.java",
+            """
+            package com.uber;
+            import java.util.Optional;
+            import java.util.function.Function;
+            import org.jspecify.annotations.NullMarked;
+            import org.jspecify.annotations.Nullable;
+            @NullMarked
+            class Test {
+              static <T> T id(T value) { return value; }
+              static <T> void sink(T first, T second) {}
+              static <T> T first(T first, T second) { return first; }
+              @SafeVarargs static <T> void anyOf(T... values) {}
+              static <T extends @Nullable Object> T nullableId(T value) { return value; }
+              static <R> R apply(String value, Function<String, R> function) {
+                return function.apply(value);
+              }
+
+              String initialized = first(id("first"), Optional.<String>empty().orElse("fallback"));
+
+              void nonNullFallback(String first, String fallback, Optional<String> optional) {
+                sink(id(first), optional.orElse(fallback));
+              }
+              void nonNullFallbackFirst(String first, String fallback, Optional<String> optional) {
+                sink(optional.orElse(fallback), id(first));
+              }
+              void nonNullVarargsFallback(String first, String fallback, Optional<String> optional) {
+                anyOf(id(first), optional.orElse(fallback));
+              }
+              void nullableVarargsFallback(String first, @Nullable String fallback, Optional<String> optional) {
+                // BUG: Diagnostic contains: inference failure
+                anyOf(id(first), optional.orElse(fallback));
+              }
+              void nullableFallback(String first, @Nullable String fallback, Optional<String> optional) {
+                // BUG: Diagnostic contains: inference failure
+                sink(id(first), optional.orElse(fallback));
+              }
+              void nullableFallbackFirst(String first, @Nullable String fallback, Optional<String> optional) {
+                // BUG: Diagnostic contains: inference failure
+                sink(optional.orElse(fallback), id(first));
+              }
+              void nullFallback(String first, Optional<String> optional) {
+                // BUG: Diagnostic contains: inference failure
+                sink(id(first), optional.orElse(null));
+              }
+              void plainFirstArgument(String first, String fallback, Optional<String> optional) {
+                sink(first, optional.orElse(fallback));
+              }
+              void fallbackSupplier(String first, String fallback, Optional<String> optional) {
+                sink(id(first), optional.orElseGet(() -> fallback));
+              }
+              void localFallback(String first, String fallback, Optional<String> optional) {
+                String result = optional.orElse(fallback);
+                sink(id(first), result);
+              }
+              void mappedOptional(String first, String fallback, Optional<String> optional) {
+                sink(id(first), optional.map(value -> value).orElse(fallback));
+              }
+              void propertyFallback(String key, String fallback) {
+                sink(id(key), System.getProperty(key, fallback));
+              }
+              void propertyFallbackFirst(String key, String fallback) {
+                sink(System.getProperty(key, fallback), id(key));
+              }
+              void nullablePropertyFallback(String key, @Nullable String fallback) {
+                // BUG: Diagnostic contains: inference failure
+                sink(id(key), System.getProperty(key, fallback));
+              }
+              void nullableGenericResult(String first, @Nullable String second) {
+                // BUG: Diagnostic contains: inference failure
+                sink(id(first), nullableId(second));
+              }
+              String lambdaResult(String value, String fallback, Optional<String> optional) {
+                return apply(value, parameter -> first(id(parameter), optional.orElse(fallback)));
+              }
+              String nullableLambdaResult(String value, @Nullable String fallback, Optional<String> optional) {
+                // BUG: Diagnostic contains: inference failure
+                return apply(value, parameter -> first(id(parameter), optional.orElse(fallback)));
+              }
+
+              interface Visitor<R extends @Nullable Object> { R visit(Node node); }
+              interface Node { <R extends @Nullable Object> R accept(Visitor<R> visitor); }
+              static class NullableVoidVisitor implements Visitor<@Nullable Void> {
+                public Void visit(Node node) {
+                  // Void return inference uses a nullable target for compatibility.
+                  return node.accept(this);
+                }
+              }
+            }
+            """)
+        .doTest();
+  }
+
   /**
    * Tests that the error message we get at a call to Arrays.copyOf does not erroneously suggest we
    * are trying to infer the nullability of a type variable from the caller method
@@ -120,12 +304,11 @@ public class GenericInferenceErrorReportingTests extends NullAwayTestsBase {
   }
 
   /**
-   * For this failure, only dataflow raises the diagnostic; no other pass reports it, so a
-   * misattributed diagnostic would be the whole NullAway output of the build. See
+   * Generic return checking must report this failure in the file holding the call. See
    * https://github.com/uber/NullAway/issues/1733.
    */
   @Test
-  public void inferenceFailureFromDataflowReportedInFileWithCall() {
+  public void inferenceFailureFromStringReturnReportedInFileWithCall() {
     makeHelper()
         .addSourceLines("Unrelated.java", PADDED_FIRST_COMPILATION_UNIT)
         .addSourceLines(
@@ -142,10 +325,10 @@ public class GenericInferenceErrorReportingTests extends NullAwayTestsBase {
               interface Node {
                 <R extends @Nullable Object> R accept(Visitor<R> v);
               }
-              static class NullableVoidVisitor implements Visitor<@Nullable Void> {
-                // the override narrows the return type to @NonNull Void, so R cannot be inferred
+              static class NullableStringVisitor implements Visitor<@Nullable String> {
+                // the override narrows the return type to @NonNull String, so R cannot be inferred
                 @Override
-                public Void visit(Node n) {
+                public String visit(Node n) {
                   // BUG: Diagnostic contains: inference failure: type variable R constrained to be both @NonNull and @Nullable
                   return n.accept(this);
                 }
@@ -156,12 +339,11 @@ public class GenericInferenceErrorReportingTests extends NullAwayTestsBase {
   }
 
   /**
-   * Same as {@link #inferenceFailureFromDataflowReportedInFileWithCall()}, for the transfer
-   * function of the contract-checking analysis, which is a second instance carrying its own {@link
-   * com.google.errorprone.VisitorState} and needs the same update.
+   * Return checking must report the failure in the file holding the call when contract-checking
+   * dataflow also analyzes the method.
    */
   @Test
-  public void inferenceFailureFromContractDataflowReportedInFileWithCall() {
+  public void inferenceFailureFromStringReturnWithContractReportedInFileWithCall() {
     makeTestHelperWithArgs(
             JSpecifyJavacConfig.withJSpecifyModeArgs(
                 Arrays.asList(
@@ -183,16 +365,16 @@ public class GenericInferenceErrorReportingTests extends NullAwayTestsBase {
               interface Node {
                 <R extends @Nullable Object> R accept(Visitor<R> v);
               }
-              static class NullableVoidVisitor implements Visitor<@Nullable Void> {
+              static class NullableStringVisitor implements Visitor<@Nullable String> {
                 @Override
-                public Void visit(Node n) {
+                public String visit(Node n) {
                   // BUG: Diagnostic contains: inference failure: type variable R constrained to be both @NonNull and @Nullable
                   return n.accept(this);
                 }
               }
               // the contract makes NullAway run its contract-checking dataflow over this method
               @Contract("_, _ -> !null")
-              static Void pick(Node n, NullableVoidVisitor v) {
+              static String pick(Node n, NullableStringVisitor v) {
                 // BUG: Diagnostic contains: inference failure: type variable R constrained to be both @NonNull and @Nullable
                 return n.accept(v);
               }
