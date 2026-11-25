@@ -94,15 +94,15 @@ public interface ConstraintSolver {
    * must appear in the types as the fresh type variables returned by {@link
    * #registerInferenceVariables(Tree, List)}.
    *
+   * <p>Any contradiction detected while adding constraints is reported by {@link #solve()}.
+   *
    * @param subtype the subtype
    * @param supertype the supertype
    * @param localVariableType whether this constraint arises from assigning to a local variable. In
    *     such a case, the top-level types are not constrained to be subtypes (as local variable
    *     types are separately inferred), but the nested types are still constrained.
-   * @throws UnsatisfiableConstraintsException if the constraints are determined to be unsatisfiable
    */
-  void addSubtypeConstraint(Type subtype, Type supertype, boolean localVariableType)
-      throws UnsatisfiableConstraintsException;
+  void addSubtypeConstraint(Type subtype, Type supertype, boolean localVariableType);
 
   enum InferredNullability {
     NONNULL,

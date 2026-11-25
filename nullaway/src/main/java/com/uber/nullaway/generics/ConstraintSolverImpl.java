@@ -39,6 +39,7 @@ public final class ConstraintSolverImpl implements ConstraintSolver {
   private final Config config;
   private final Handler handler;
   private final VisitorState state;
+  private @Nullable UnsatisfiableConstraintsException deferredFailure;
 
   /**
    * Maps the symbol of each fresh type variable created by {@link #registerInferenceVariables(Tree,
@@ -132,9 +133,16 @@ public final class ConstraintSolverImpl implements ConstraintSolver {
   }
 
   @Override
-  public void addSubtypeConstraint(Type subtype, Type supertype, boolean localVariableType)
-      throws UnsatisfiableConstraintsException {
-    subtype.accept(new AddSubtypeConstraintsVisitor(localVariableType), supertype);
+  public void addSubtypeConstraint(Type subtype, Type supertype, boolean localVariableType) {
+    if (deferredFailure != null) {
+      return;
+    }
+    try {
+      subtype.accept(new AddSubtypeConstraintsVisitor(localVariableType), supertype);
+    } catch (UnsatisfiableConstraintsException e) {
+      // Let constraint generation finish registering sites that share this inference result.
+      deferredFailure = e;
+    }
   }
 
   class AddSubtypeConstraintsVisitor extends Types.DefaultTypeVisitor<@Nullable Void, Type> {
@@ -362,6 +370,9 @@ public final class ConstraintSolverImpl implements ConstraintSolver {
   @Override
   public Map<InferenceVariable, InferredNullability> solve()
       throws UnsatisfiableConstraintsException {
+    if (deferredFailure != null) {
+      throw deferredFailure;
+    }
     /* ---------- work-list propagation of nullability ---------- */
     Deque<InferenceVariable> work = new ArrayDeque<>();
     vars.forEach(

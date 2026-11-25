@@ -1678,7 +1678,6 @@ public final class GenericsChecks {
    *     is an output parameter mutated during constraint generation to add contexts for modeled
    *     calls.
    * @param calledFromDataflow whether this method is being called from dataflow analysis
-   * @throws UnsatisfiableConstraintsException if the constraints are determined to be unsatisfiable
    */
   private void generateConstraintsForCall(
       VisitorState state,
@@ -1690,8 +1689,7 @@ public final class GenericsChecks {
       Type.MethodType methodType,
       Set<Tree> allCalls,
       IdentityHashMap<MethodInvocationTree, PolyNullInferenceContext> polyNullContexts,
-      boolean calledFromDataflow)
-      throws UnsatisfiableConstraintsException {
+      boolean calledFromDataflow) {
     PolyNullInferenceContext polyNullContext = null;
     ImmutableSet<PolyNullLocation> polyNullLocations = ImmutableSet.of();
     if (callTree instanceof MethodInvocationTree invocationTree) {

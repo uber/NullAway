@@ -411,6 +411,79 @@ public class GenericMethodLambdaOrMethodRefArgTests extends NullAwayTestsBase {
   }
 
   @Test
+  public void failedJointInferenceSuppressesDependentReferenceDiagnosticsInEitherOrder() {
+    makeTestHelperWithArgs(
+            JSpecifyJavacConfig.withJSpecifyModeArgs(
+                List.of(
+                    "-XepOpt:NullAway:AnnotatedPackages=com.uber",
+                    "-XepOpt:NullAway:WarnOnGenericInferenceFailure=true")))
+        .addSourceLines(
+            "Test.java",
+            """
+            import java.util.function.Function;
+            import java.util.function.Supplier;
+            import org.jspecify.annotations.NullMarked;
+            import org.jspecify.annotations.Nullable;
+
+            @NullMarked
+            class Test {
+              static class Box<T extends @Nullable Object> {}
+              static <U extends @Nullable Object> Box<U> box(U value) { return new Box<>(); }
+              static Box<String> fixedBox(String value) { return new Box<>(); }
+              static @Nullable String nullableValue() { return null; }
+
+              static <T> void refFirst(Function<@Nullable String, Box<T>> f, Supplier<T> s) {}
+              static <T> void refLast(Supplier<T> s, Function<@Nullable String, Box<T>> f) {}
+              static <T> void independentRefLast(Supplier<T> s, Function<@Nullable String, Box<String>> f) {}
+              static <T, S> void boxLast(Supplier<T> s, Box<S> box) {}
+              static <S> Box<@Nullable String> makeBox(Function<@Nullable String, Box<S>> f) {
+                return new Box<>();
+              }
+
+              void genericReferenceFirst() {
+                // BUG: Diagnostic contains: inference failure
+                refFirst(Test::box,
+                    Test::nullableValue);
+              }
+
+              void genericReferenceLast() {
+                // BUG: Diagnostic contains: type variable T is constrained to be @Nullable, but its upper bound requires it to be @NonNull
+                refLast(Test::nullableValue,
+                    Test::box);
+              }
+
+              void dependentFixedReferenceFirst() {
+                // BUG: Diagnostic contains: inference failure
+                refFirst(Test::fixedBox,
+                    Test::nullableValue);
+              }
+
+              void dependentFixedReferenceLast() {
+                // BUG: Diagnostic contains: inference failure
+                refLast(Test::nullableValue,
+                    Test::fixedBox);
+              }
+
+              void independentFixedReferenceLast() {
+                // BUG: Diagnostic contains: inference failure
+                independentRefLast(Test::nullableValue,
+                    // BUG: Diagnostic contains: parameter value of referenced method is @NonNull
+                    Test::fixedBox);
+              }
+
+              void referenceInNestedCallLast() {
+                // BUG: Diagnostic contains: type variable T is constrained to be @Nullable, but its upper bound requires it to be @NonNull
+                boxLast(Test::nullableValue,
+                    // BUG: Diagnostic contains: incompatible types: Box<@Nullable String> cannot be converted to Box<String>
+                    makeBox(
+                        Test::box));
+              }
+            }
+            """)
+        .doTest();
+  }
+
+  @Test
   public void voidCompatibleLambdaDiscardsNullableGenericResult() {
     makeHelper()
         .addSourceLines(
