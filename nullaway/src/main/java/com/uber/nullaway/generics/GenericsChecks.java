@@ -2488,8 +2488,9 @@ public final class GenericsChecks {
 
   /**
    * Returns {@code returnType}, treating it as nullable when {@code method} declares {@code Void}
-   * for compatibility with the top-level return check. Type-variable returns instantiated as {@code
-   * Void} and nested type arguments retain their nullness.
+   * because {@code NullAway.checkReturnExpression} accepts {@code null} from those methods.
+   * Type-variable returns instantiated as {@code Void}, as in {@code Callable<Void>}, and nested
+   * type arguments retain their nullness.
    *
    * @param returnType the method's return type after any type argument substitution
    */
