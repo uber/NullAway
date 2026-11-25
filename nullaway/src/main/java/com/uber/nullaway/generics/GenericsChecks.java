@@ -1602,18 +1602,17 @@ public final class GenericsChecks {
     if (polyNullInvocation != null) {
       return PolyNullInference.inferenceFailureMessage(ASTHelpers.getSymbol(polyNullInvocation));
     }
-    Type nullableBoundTypeArgument = e.getNullableBoundTypeArgument();
-    if (nullableBoundTypeArgument != null) {
-      Element nullableBoundTypeVariable = castToNonNull(e.getNullableBoundTypeVariable()).tsym;
+    Type nullableBoundTypeVariable = e.getNullableBoundTypeVariable();
+    if (nullableBoundTypeVariable != null) {
       String constrained = withDeclaringElement(typeVariable, false);
-      String passed = withDeclaringElement(nullableBoundTypeVariable, false);
+      String passed = withDeclaringElement(nullableBoundTypeVariable.tsym, false);
       if (constrained.equals(passed)) {
         constrained = withDeclaringElement(typeVariable, true);
-        passed = withDeclaringElement(nullableBoundTypeVariable, true);
+        passed = withDeclaringElement(nullableBoundTypeVariable.tsym, true);
       }
       return String.format(
           "inference failure: type variable %s is constrained to be @Nullable, but its upper bound requires it to be @NonNull; the type argument %s passed for ? extends %s admits null, since %s has a @Nullable upper bound",
-          constrained, nullableBoundTypeArgument, typeVariable, passed);
+          constrained, nullableBoundTypeVariable, typeVariable, passed);
     }
     if (e.isCausedByNonNullUpperBound()) {
       return String.format(
