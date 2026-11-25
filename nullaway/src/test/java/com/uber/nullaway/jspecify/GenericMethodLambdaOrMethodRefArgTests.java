@@ -190,7 +190,10 @@ public class GenericMethodLambdaOrMethodRefArgTests extends NullAwayTestsBase {
             "Test.java:150: [NullAway] parameter fixed of referenced method is @NonNull, but parameter in functional interface method java.util.function.Function.apply(@Nullable String) is @Nullable",
             "Test.java:153: [NullAway] inference failure: type variable T is constrained to be @Nullable, but its upper bound requires it to be @NonNull",
             "Test.java:159: [NullAway] inference failure: type variable T is constrained to be @Nullable, but its upper bound requires it to be @NonNull",
-            "Test.java:164: [NullAway] inference failure: type variable T is constrained to be @Nullable, but its upper bound requires it to be @NonNull");
+            "Test.java:164: [NullAway] inference failure: type variable T is constrained to be @Nullable, but its upper bound requires it to be @NonNull",
+            "Test.java:176: [NullAway] inference failure: type variable T is constrained to be @Nullable, but its upper bound requires it to be @NonNull",
+            "Test.java:181: [NullAway] inference failure: type variable T is constrained to be @Nullable, but its upper bound requires it to be @NonNull",
+            "Test.java:183: [NullAway] parameter fixed of referenced method is @NonNull, but parameter in functional interface method java.util.function.Function.apply(@Nullable String) is @Nullable");
   }
 
   @Test
@@ -224,7 +227,10 @@ public class GenericMethodLambdaOrMethodRefArgTests extends NullAwayTestsBase {
             "Test.java:159: [NullAway] parameter fixed of referenced method is @NonNull, but parameter in functional interface method java.util.function.Function.apply(@Nullable String) is @Nullable",
             "Test.java:159: [NullAway] referenced method returns @Nullable, but functional interface method java.util.function.Supplier.get() returns @NonNull",
             "Test.java:164: [NullAway] referenced method returns Box<T>, but functional interface method returns Box<@Nullable String>, which has mismatched type parameter nullability",
-            "Test.java:164: [NullAway] parameter value of referenced method is @NonNull, but parameter in functional interface method java.util.function.Function.apply(@Nullable String) is @Nullable");
+            "Test.java:164: [NullAway] parameter value of referenced method is @NonNull, but parameter in functional interface method java.util.function.Function.apply(@Nullable String) is @Nullable",
+            "Test.java:178: [NullAway] referenced method returns @Nullable, but functional interface method java.util.function.Supplier.get() returns @NonNull",
+            "Test.java:183: [NullAway] parameter fixed of referenced method is @NonNull, but parameter in functional interface method java.util.function.Function.apply(@Nullable String) is @Nullable",
+            "Test.java:184: [NullAway] referenced method returns @Nullable, but functional interface method java.util.function.Supplier.get() returns @NonNull");
   }
 
   /** Compiles references against known targets with the requested inference-warning setting. */
@@ -397,6 +403,26 @@ public class GenericMethodLambdaOrMethodRefArgTests extends NullAwayTestsBase {
                 acceptsBoth(
                     Test::box,
                     Test::nonNullBox);
+              }
+              static <U extends @Nullable Object> Box<U> wrapSupplier(
+                  java.util.function.Supplier<U> supplier) {
+                return new Box<>();
+              }
+              static <U extends @Nullable Object> Box<U> wrapWithFunction(
+                  Function<@Nullable String, String> function, java.util.function.Supplier<U> supplier) {
+                return new Box<>();
+              }
+              static <T> void needsNonNullBox(Box<T> box) {}
+              void failedJointInferenceSuppressesReferenceDependingOnNestedCall() {
+                needsNonNullBox(
+                    wrapSupplier(
+                        Test::nullableValue));
+              }
+              void failedJointInferenceReportsIndependentReferenceInNestedCall() {
+                needsNonNullBox(
+                    wrapWithFunction(
+                        Test::nonNullString,
+                        Test::nullableValue));
               }
             }
             """);
