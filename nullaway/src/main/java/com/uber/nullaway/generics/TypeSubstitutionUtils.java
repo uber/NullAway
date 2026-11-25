@@ -143,8 +143,7 @@ public class TypeSubstitutionUtils {
    */
   public static Type restoreExplicitNullabilityAnnotations(
       Type origType, Type newType, Types types, Config config) {
-    return new RestoreNullnessAnnotationsVisitor(types, config, null, null, null)
-        .visit(newType, origType);
+    return new RestoreNullnessAnnotationsVisitor(types, config, null).visit(newType, origType);
   }
 
   /**
@@ -272,7 +271,9 @@ public class TypeSubstitutionUtils {
     // the only step that sees both the inferred nullness and the type javac inferred, so a
     // variable step 1 left unannotated is resolved here
     return new RestoreNullnessAnnotationsVisitor(
-            state.getTypes(), config, typeVarNullability, state, handler)
+            state.getTypes(),
+            config,
+            new InferredTypeVariableNullness(typeVarNullability, state, handler))
         .visit(typeToUpdate, origExplicitAnnotationsRestored);
   }
 
@@ -426,6 +427,16 @@ public class TypeSubstitutionUtils {
     }
     return subst(types, targetType, typeVarsToReplace, replacementTypes.toList(), config);
   }
+
+  /**
+   * The inferred nullness of the type variables of a call, with what {@link
+   * GenericsUtils#inferredNullnessAnnotation} needs to decide whether a type variable's bound
+   * admits null.
+   */
+  private record InferredTypeVariableNullness(
+      Map<Element, ConstraintSolver.InferredNullability> typeVarNullability,
+      VisitorState state,
+      Handler handler) {}
 
   /**
    * A visitor that restores explicit nullability annotations on types nested within another type to
@@ -614,26 +625,15 @@ public class TypeSubstitutionUtils {
      * ConstraintSolver.InferredNullability#TYPE_VARIABLE_OR_NONNULL} variables this visitor
      * resolves against the visited type, or {@code null} to resolve none. Set only when copying
      * inferred nullness onto the type javac inferred, the one step that can tell a type variable
-     * from any other type; {@link #state} is set with it.
+     * from any other type.
      */
-    private final @Nullable Map<Element, ConstraintSolver.InferredNullability> typeVarNullability;
-
-    private final @Nullable VisitorState state;
-
-    /** Decides whether a type variable's bound admits null; set with {@link #state}. */
-    private final @Nullable Handler handler;
+    private final @Nullable InferredTypeVariableNullness inferredNullness;
 
     RestoreNullnessAnnotationsVisitor(
-        Types types,
-        Config config,
-        @Nullable Map<Element, ConstraintSolver.InferredNullability> typeVarNullability,
-        @Nullable VisitorState state,
-        @Nullable Handler handler) {
+        Types types, Config config, @Nullable InferredTypeVariableNullness inferredNullness) {
       this.types = types;
       this.config = config;
-      this.typeVarNullability = typeVarNullability;
-      this.state = state;
-      this.handler = handler;
+      this.inferredNullness = inferredNullness;
     }
 
     @Override
@@ -964,19 +964,18 @@ public class TypeSubstitutionUtils {
           return typeWithAnnot(t, annot);
         }
       }
-      if (typeVarNullability == null
-          || state == null
-          || handler == null
-          || !(other instanceof Type.TypeVar)) {
+      if (inferredNullness == null || !(other instanceof Type.TypeVar)) {
         return t;
       }
-      ConstraintSolver.InferredNullability inferred = typeVarNullability.get(other.tsym);
+      ConstraintSolver.InferredNullability inferred =
+          inferredNullness.typeVarNullability().get(other.tsym);
       if (inferred != ConstraintSolver.InferredNullability.TYPE_VARIABLE_OR_NULLABLE
           && inferred != ConstraintSolver.InferredNullability.TYPE_VARIABLE_OR_NONNULL) {
         return t;
       }
       Type annotationType =
-          GenericsUtils.inferredNullnessAnnotation(t, inferred, config, handler, state);
+          GenericsUtils.inferredNullnessAnnotation(
+              t, inferred, config, inferredNullness.handler(), inferredNullness.state());
       return annotationType == null ? t : TypeSubstitutionUtils.typeWithAnnot(t, annotationType);
     }
 

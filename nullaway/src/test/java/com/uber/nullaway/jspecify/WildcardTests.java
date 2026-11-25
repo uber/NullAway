@@ -2222,6 +2222,7 @@ public class WildcardTests extends NullAwayTestsBase {
                 takeObjects(inferred);
               }
               void throughTheCall(T t) {
+                List<? super @Nullable Object> sink = of(t, "x");
                 // BUG: Diagnostic contains: dereferenced expression 'pick(t, "x")' is @Nullable
                 pick(t, "x").toString();
                 // BUG: Diagnostic contains: dereferenced expression 'of(t, "x").get(0)' is @Nullable
@@ -2509,6 +2510,29 @@ public class WildcardTests extends NullAwayTestsBase {
               void constructor(Box<T> input) {
                 var result = new Box<>(input, new Object());
               }
+              static class ListAndElement<E> {
+                <W extends @Nullable Object> ListAndElement(List<W> ws, W w, E e) {}
+              }
+              static class Mapped<E extends @Nullable Object> {
+                <W extends @Nullable Object> Mapped(W w, Function<W, E> f) {}
+              }
+              static <U extends @Nullable Object> U identity(U u) {
+                return u;
+              }
+              void constructorTakingAListOfNullableElements(List<@Nullable String> l) {
+                // a false positive: W of a generic constructor at a diamond is not inferred (#1825)
+                // BUG: Diagnostic contains: passing @Nullable parameter 'null' where @NonNull is required
+                var c = new ListAndElement<>(l, null, "x");
+              }
+              void constructorTakingAGenericMethodReference(@Nullable String s) {
+                // a false positive: W of a generic constructor at a diamond is not inferred (#1825)
+                // BUG: Diagnostic contains: passing @Nullable parameter 's' where @NonNull is required
+                var c = new Mapped<>(s, Test::identity);
+              }
+              void methodReferenceOutsideACall() {
+                Function<String, List<String>> f = Test::singleton;
+                f = (Test::singleton);
+              }
             }
             """)
         .doTest();
@@ -2620,6 +2644,157 @@ public class WildcardTests extends NullAwayTestsBase {
               }
               void f(T t) {
                 pick(t, new B()).run();
+              }
+            }
+            """)
+        .doTest();
+  }
+
+  /**
+   * Without wildcard handling, a capture flows into an inference variable as a type variable, so a
+   * capture whose bound admits null is as parametric as a type variable {@code T} whose bound
+   * admits null, and the call keeps it as javac inferred it.
+   */
+  @Test
+  public void aCaptureWhoseBoundAdmitsNullStaysAsInferredWithWildcardHandlingDisabled() {
+    makeTestHelperWithArgs(
+            List.of(
+                "-XepOpt:NullAway:OnlyNullMarked=true",
+                JSpecifyJavacConfig.JSPECIFY_MODE_FLAG,
+                JSpecifyJavacConfig.ADD_TYPE_ANNOTATIONS_FLAG))
+        .addSourceLines(
+            "Test.java",
+            """
+            import java.util.function.BiPredicate;
+            import org.jspecify.annotations.NullMarked;
+            import org.jspecify.annotations.Nullable;
+            @NullMarked
+            class Test<T extends @Nullable Object> {
+              interface Action<R extends @Nullable Object> {
+                R run() throws Exception;
+              }
+              static <R extends @Nullable Object> R call(Action<R> action) {
+                throw new UnsupportedOperationException();
+              }
+              interface Seq<E extends @Nullable Object> extends Iterable<E> {
+                Seq<E> seq();
+                default <U extends @Nullable Object> boolean corresponds(
+                    Iterable<U> that, BiPredicate<? super E, ? super U> predicate) {
+                  return true;
+                }
+              }
+              static <U extends @Nullable Object> U first(Iterable<U> elements) {
+                throw new UnsupportedOperationException();
+              }
+              Seq<?> anySeq() {
+                throw new UnsupportedOperationException();
+              }
+              Seq<? extends T> seqOfT() {
+                throw new UnsupportedOperationException();
+              }
+              Seq<@Nullable String> nullableStrings() {
+                throw new UnsupportedOperationException();
+              }
+              void castToAWildcardType() {
+                call((Action<?>) () -> {
+                  throw new Exception();
+                });
+              }
+              void receiverOfAWildcardType(Seq<String> self, Seq<?> that) {
+                self.seq().corresponds(that.seq(), (a, b) -> true);
+              }
+              void unboundedWildcard() {
+                first(anySeq()).hashCode();
+              }
+              void wildcardBoundedByATypeVariable() {
+                T t = first(seqOfT());
+              }
+              void nullableTypeArgument() {
+                // BUG: Diagnostic contains: dereferenced expression 'first(nullableStrings())' is @Nullable
+                first(nullableStrings()).hashCode();
+              }
+            }
+            """)
+        .doTest();
+  }
+
+  /**
+   * A value read through {@code ? extends T}, where the bound of {@code T} admits null, may be
+   * null. A generic call that javac infers to return the capture of that wildcard returns such a
+   * value too, as reading the element directly does.
+   */
+  @Test
+  public void aCallReturningACaptureOfAWildcardBoundedByATypeVariableMayReturnNull() {
+    makeHelper()
+        .addSourceLines(
+            "Test.java",
+            """
+            import java.util.List;
+            import org.jspecify.annotations.NullMarked;
+            import org.jspecify.annotations.Nullable;
+            @NullMarked
+            class Test<T extends @Nullable Object> {
+              static class NullableBox<E extends @Nullable Object> implements Iterable<E> {
+                public java.util.Iterator<E> iterator() {
+                  throw new UnsupportedOperationException();
+                }
+              }
+              static class NonNullBox<E> implements Iterable<E> {
+                public java.util.Iterator<E> iterator() {
+                  throw new UnsupportedOperationException();
+                }
+              }
+              static class Box<E extends @Nullable Object> {
+                E get() {
+                  throw new UnsupportedOperationException();
+                }
+              }
+              static <U extends @Nullable Object> U first(Iterable<U> it) {
+                throw new UnsupportedOperationException();
+              }
+              static <U extends @Nullable Object> U get(Box<U> b) {
+                throw new UnsupportedOperationException();
+              }
+              static <U extends @Nullable Object> U getThroughWildcard(Box<? extends U> b) {
+                throw new UnsupportedOperationException();
+              }
+              static <U> U firstNonNull(Iterable<U> it) {
+                throw new UnsupportedOperationException();
+              }
+              void readDirectly(Box<? extends T> b, List<? extends T> l) {
+                // BUG: Diagnostic contains: dereferenced expression 'b.get()' is @Nullable
+                b.get().toString();
+                // BUG: Diagnostic contains: dereferenced expression 'l.get(0)' is @Nullable
+                l.get(0).toString();
+              }
+              void throughAContainerWhoseParameterAdmitsNull(NullableBox<? extends T> b) {
+                // BUG: Diagnostic contains: dereferenced expression 'first(b)' is @Nullable
+                first(b).toString();
+              }
+              void throughAContainerWhoseParameterExcludesNull(NonNullBox<? extends T> b) {
+                // BUG: Diagnostic contains: dereferenced expression 'first(b)' is @Nullable
+                first(b).toString();
+              }
+              void throughTheSameContainer(Box<? extends T> b) {
+                // BUG: Diagnostic contains: dereferenced expression 'get(b)' is @Nullable
+                get(b).toString();
+              }
+              void throughAWildcardParameter(Box<? extends T> b) {
+                // BUG: Diagnostic contains: dereferenced expression 'getThroughWildcard(b)' is @Nullable
+                getThroughWildcard(b).toString();
+              }
+              void intoAVariableWhoseBoundExcludesNull(NullableBox<? extends T> b) {
+                // the call that passes b for U goes unchecked (#2189), and the value still reads
+                // through ? extends T
+                // BUG: Diagnostic contains: dereferenced expression 'firstNonNull(b)' is @Nullable
+                firstNonNull(b).toString();
+              }
+              void theTypeVariableItself(Box<T> b, NullableBox<T> n) {
+                get(b).toString();
+                first(n).toString();
+              }
+              void aWildcardWhoseBoundExcludesNull(Box<? extends String> b) {
+                get(b).toString();
               }
             }
             """)
@@ -2755,6 +2930,36 @@ public class WildcardTests extends NullAwayTestsBase {
               static <T> void nonNullBoundIntoNonNullVariable(Box<T> b) {
                 Object o = nonNullVariable(b);
               }
+              static <A extends @Nullable Object, B extends @Nullable Object> B apply(
+                  A a, java.util.function.Function<A, B> f) {
+                throw new UnsupportedOperationException();
+              }
+              static <T extends @Nullable Object> void intoJdkCopyOfThroughAMethodReference(
+                  List<T> in) {
+                // a false negative: T reaches copyOf through another generic call (#1947)
+                List<T> copy = apply(in, List::copyOf);
+              }
+              static <T extends @Nullable Object> void intoJdkCopyOfInsideALambda(List<T> in) {
+                // a false negative: T reaches copyOf through another generic call (#1947)
+                List<T> copy = apply(in, l -> List.copyOf(l));
+              }
+              static <T extends @Nullable Object> void bareTypeVariableIntoJdkListOf(T t) {
+                // a false negative: only a ? extends U formal constrains U against a T that admits null (#1932)
+                List<T> list = List.of(t);
+              }
+              static <U extends @Nullable Object> List<U> copy(Box<? extends U> b) {
+                throw new UnsupportedOperationException();
+              }
+              static <T extends @Nullable Object> void intoNullableVariableThatTheContextMakesNonNull(
+                  Box<T> b) {
+                // a false negative: the assignment, not the bound of U, makes U non-null (#1945)
+                List<Object> c = copy(b);
+              }
+              static <T extends @Nullable Object> void intoNonNullVariableByAnExplicitTypeArgument(
+                  Box<T> b) {
+                // a false negative: only a type argument annotated @Nullable is checked against the bound of U (#1946)
+                Object o = Test.<T>nonNullVariable(b);
+              }
               static <T extends @Nullable Object> void nonNullTypeVariableIntoNonNullVariable(
                   Box<@NonNull T> b) {
                 Object o = nonNullVariable(b);
@@ -2818,6 +3023,68 @@ public class WildcardTests extends NullAwayTestsBase {
               static <T extends @Nullable Object> void intoAGenericConstructor(Box<T> b) {
                 // BUG: Diagnostic contains: type variable W of the constructor of GenericConstructor is constrained to be @Nullable
                 GenericConstructor<String> c = new GenericConstructor<>(b);
+              }
+            }
+            """)
+        .doTest();
+  }
+
+  @Test
+  public void anInferenceFailureNamesTheTypeVariableWhoseBoundIsNullable() {
+    makeHelper()
+        .addSourceLines(
+            "Test.java",
+            """
+            import java.util.List;
+            import org.jspecify.annotations.NonNull;
+            import org.jspecify.annotations.NullMarked;
+            import org.jspecify.annotations.Nullable;
+            @NullMarked
+            class Test<T extends @Nullable Object> {
+              void classTypeVariable(List<T> in) {
+                // BUG: Diagnostic contains: the type argument T passed for ? extends E admits null, since T of Test has a @Nullable upper bound
+                List<T> copy = List.copyOf(in);
+              }
+              static <R extends @Nullable Object, S extends R> void boundedByATypeVariable(
+                  List<S> in) {
+                // BUG: Diagnostic contains: the type argument S passed for ? extends E admits null, since S of Test.boundedByATypeVariable extends R of Test.boundedByATypeVariable, which has a @Nullable upper bound
+                List<S> copy = List.copyOf(in);
+              }
+              static <Q extends @Nullable Object, R extends Q, S extends R>
+                  void boundedThroughTwoTypeVariables(List<S> in) {
+                // BUG: Diagnostic contains: since S of Test.boundedThroughTwoTypeVariables extends Q of Test.boundedThroughTwoTypeVariables, which has a @Nullable upper bound
+                List<S> copy = List.copyOf(in);
+              }
+              <S extends T> void boundedByTheClassTypeVariable(List<S> in) {
+                // BUG: Diagnostic contains: since S of Test.boundedByTheClassTypeVariable extends T of Test, which has a @Nullable upper bound
+                List<S> copy = List.copyOf(in);
+              }
+              static <R extends @Nullable Object, S extends @NonNull R> void boundedByANonNullUse(
+                  List<S> in) {
+                List<S> copy = List.copyOf(in);
+              }
+              static class Source {
+                static class Box {
+                  static <U> List<U> copy(List<? extends U> in) {
+                    throw new UnsupportedOperationException();
+                  }
+                }
+              }
+              static class Target {
+                static class Box {
+                  static <R extends @Nullable Object, U extends R> void copy(List<U> in) {
+                    // BUG: Diagnostic contains: type variable U of Test$Source$Box.copy is constrained to be @Nullable, but its upper bound requires it to be @NonNull; the type argument U passed for ? extends U admits null, since U of Test$Target$Box.copy extends R of Test$Target$Box.copy, which has a @Nullable upper bound
+                    List<U> copy = Source.Box.copy(in);
+                  }
+                }
+              }
+              static class Witness {
+                static class Box {
+                  static <U extends @Nullable Object, S extends U> void copy(List<S> in) {
+                    // BUG: Diagnostic contains: type variable U of Test$Source$Box.copy is constrained to be @Nullable, but its upper bound requires it to be @NonNull; the type argument S passed for ? extends U admits null, since S of Test$Witness$Box.copy extends U of Test$Witness$Box.copy, which has a @Nullable upper bound
+                    List<S> copy = Source.Box.copy(in);
+                  }
+                }
               }
             }
             """)

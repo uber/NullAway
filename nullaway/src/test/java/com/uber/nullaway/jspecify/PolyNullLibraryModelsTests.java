@@ -1498,6 +1498,33 @@ public class PolyNullLibraryModelsTests extends NullAwayTestsBase {
         .doTest();
   }
 
+  @Test
+  public void aCaptureWhoseBoundAdmitsNullKeepsItsTypeAtAPolyNullLocation() {
+    makeHelper()
+        .addSourceLines(
+            "Test.java",
+            """
+            import com.uber.lib.unannotated.PolyNullMethods;
+            import java.util.List;
+            import org.jspecify.annotations.NullMarked;
+            import org.jspecify.annotations.Nullable;
+            @NullMarked
+            class Test<T extends @Nullable Object> {
+              static <U extends @Nullable Object> U first(List<U> list) {
+                return list.get(0);
+              }
+              void typeVariableResult(List<? extends T> list) {
+                T first = PolyNullMethods.genericFirst(first(list), () -> "x");
+              }
+              void classTypeResult(List<? extends T> list) {
+                // BUG: Diagnostic contains: dereferenced expression 'PolyNullMethods.genericObject(first(list), () -> "x")' is @Nullable
+                PolyNullMethods.genericObject(first(list), () -> "x").hashCode();
+              }
+            }
+            """)
+        .doTest();
+  }
+
   private CompilationTestHelper makeHelper() {
     return makeTestHelperWithArgs(
         JSpecifyJavacConfig.withJSpecifyModeArgs(List.of("-XepOpt:NullAway:OnlyNullMarked=true")));
