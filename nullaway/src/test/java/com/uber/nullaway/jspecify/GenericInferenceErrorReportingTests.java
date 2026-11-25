@@ -99,7 +99,10 @@ public class GenericInferenceErrorReportingTests extends NullAwayTestsBase {
                 + "but its upper bound requires it to be @NonNull");
   }
 
-  /** Inference must wait for later arguments' conditional return nullness before reporting. */
+  /**
+   * Inference failure reporting must wait for dataflow to determine the nullness of later arguments
+   * such as {@code optional.orElse(fallback)}, whose result nullness depends on an argument.
+   */
   @Test
   public void inferenceFailuresRequireCompletedArgumentDataflow() {
     makeHelper()
