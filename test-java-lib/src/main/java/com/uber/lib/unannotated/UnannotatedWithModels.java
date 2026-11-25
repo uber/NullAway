@@ -28,6 +28,14 @@ public class UnannotatedWithModels {
     return null;
   }
 
+  public static List<String> returnsNullableList() {
+    return null;
+  }
+
+  public static List<Object> returnsPolyNullList(Object value) {
+    return null;
+  }
+
   public static boolean isNonNull(Object o) {
     return o != null;
   }

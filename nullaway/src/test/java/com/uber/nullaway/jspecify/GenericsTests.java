@@ -3275,6 +3275,7 @@ public class GenericsTests extends NullAwayTestsBase {
               }
               Try<String[]> describeNonNullArrayComponentTarget() {
                 return Try.<@Nullable String[]>of(() -> new String[] {null})
+                    // BUG: Diagnostic contains: incompatible types: Try<@Nullable String []> cannot be converted to Try<String []>
                     .recover(IllegalStateException.class, e -> new String[0]);
               }
               void assign() {
@@ -3326,11 +3327,13 @@ public class GenericsTests extends NullAwayTestsBase {
             "com/example/Box.java",
             """
             package com.example;
+            import java.util.List;
             import org.jspecify.annotations.NonNull;
             import org.jspecify.annotations.Nullable;
             public abstract class Box<T> {
               public abstract Box<@NonNull T> explicitNonNull();
               public abstract Box<@Nullable T> explicitNullable();
+              public abstract List<@Nullable String[]> explicitNullableComponents();
             }
             """)
         .addSourceLines(
@@ -3338,8 +3341,11 @@ public class GenericsTests extends NullAwayTestsBase {
             """
             package com.uber;
             import com.example.Box;
+            import java.util.List;
             import org.jspecify.annotations.Nullable;
             class Test {
+              void takeNullable(Box<@Nullable String> box) {}
+              void takeNonNull(Box<String> box) {}
               Box<@Nullable String> nullable(Box<String> box) {
                 // BUG: Diagnostic contains: incompatible types: Box<String> cannot be converted to Box<@Nullable String>
                 return box.explicitNonNull();
@@ -3347,6 +3353,29 @@ public class GenericsTests extends NullAwayTestsBase {
               Box<String> nonNull(Box<String> box) {
                 // BUG: Diagnostic contains: incompatible types: Box<@Nullable String> cannot be converted to Box<String>
                 return box.explicitNullable();
+              }
+              void assignNullable(Box<String> box) {
+                // BUG: Diagnostic contains: incompatible types: Box<String> cannot be converted to Box<@Nullable String>
+                Box<@Nullable String> value = box.explicitNonNull();
+              }
+              void assignNonNull(Box<String> box) {
+                // BUG: Diagnostic contains: incompatible types: Box<@Nullable String> cannot be converted to Box<String>
+                Box<String> value = box.explicitNullable();
+              }
+              void passNullable(Box<String> box) {
+                // BUG: Diagnostic contains: incompatible types: Box<String> cannot be converted to Box<@Nullable String>
+                takeNullable(box.explicitNonNull());
+              }
+              void passNonNull(Box<String> box) {
+                // BUG: Diagnostic contains: incompatible types: Box<@Nullable String> cannot be converted to Box<String>
+                takeNonNull(box.explicitNullable());
+              }
+              List<String[]> nonNullComponents(Box<String> box) {
+                // BUG: Diagnostic contains: incompatible types: List<@Nullable String []> cannot be converted to List<String []>
+                return box.explicitNullableComponents();
+              }
+              List<@Nullable String[]> nullableComponents(Box<String> box) {
+                return box.explicitNullableComponents();
               }
             }
             """)
@@ -3369,14 +3398,14 @@ public class GenericsTests extends NullAwayTestsBase {
             import org.jspecify.annotations.Nullable;
             class Test {
               List<String> nonNullElements() {
-                // BUG: Diagnostic contains: incompatible types
+                // BUG: Diagnostic contains: incompatible types: List<@Nullable String> cannot be converted to List<String>
                 return UnannotatedWithModels.returnsListWithNullableElements();
               }
               List<@Nullable String> nullableElements() {
                 return UnannotatedWithModels.returnsListWithNullableElements();
               }
               List<@Nullable String> nullableTargetForNonNullModel() {
-                // BUG: Diagnostic contains: incompatible types
+                // BUG: Diagnostic contains: incompatible types: List<String> cannot be converted to List<@Nullable String>
                 return UnannotatedWithModels.returnsListWithNonNullElements();
               }
               List<String> nonNullTargetForNonNullModel() {
@@ -3404,6 +3433,168 @@ public class GenericsTests extends NullAwayTestsBase {
             class Test {
               List<@Nullable String> nullableElements() {
                 return UnannotatedWithModels.returnsListWithModeledParameter("value");
+              }
+            }
+            """)
+        .doTest();
+  }
+
+  @Test
+  public void nullnessNestedInTypeArgumentOfUnmarkedMethodReturnIsChecked() {
+    makeHelper()
+        .addSourceLines(
+            "com/example/Box.java",
+            """
+            package com.example;
+            import java.util.List;
+            public class Box<T> {
+              public static <T> List<T> listOf() {
+                return null;
+              }
+              public static List<String[]> arrays() {
+                return null;
+              }
+            }
+            """)
+        .addSourceLines(
+            "com/example/Holder.java",
+            """
+            package com.example;
+            public class Holder<T> {
+              public Box<T> boxed() {
+                return null;
+              }
+              public T get() {
+                return null;
+              }
+            }
+            """)
+        .addSourceLines(
+            "com/uber/Test.java",
+            """
+            package com.uber;
+            import com.example.Box;
+            import com.example.Holder;
+            import java.util.List;
+            import org.jspecify.annotations.Nullable;
+            class Test {
+              List<String[]> nullableArrayComponent() {
+                // BUG: Diagnostic contains: incompatible types: List<@Nullable String []> cannot be converted to List<String []>
+                return Box.<@Nullable String[]>listOf();
+              }
+              List<List<String>> nullableTypeArgument() {
+                // BUG: Diagnostic contains: incompatible types: List<List<@Nullable String>> cannot be converted to List<List<String>>
+                return Box.<List<@Nullable String>>listOf();
+              }
+              Box<List<String>> nullableReceiverTypeArgument(Holder<List<@Nullable String>> h) {
+                // BUG: Diagnostic contains: incompatible types: Box<List<@Nullable String>> cannot be converted to Box<List<String>>
+                return h.boxed();
+              }
+              List<String> nullableTypeVariableReturn(Holder<List<@Nullable String>> h) {
+                // BUG: Diagnostic contains: incompatible types: List<@Nullable String> cannot be converted to List<String>
+                return h.get();
+              }
+              Box<String> nullableReceiverTypeArgumentIsUnspecified(Holder<@Nullable String> h) {
+                return h.boxed();
+              }
+              void assignNullableReceiverTypeArgumentIsUnspecified(Holder<@Nullable String> h) {
+                Box<String> box = h.boxed();
+              }
+              List<@Nullable String[]> declaredArrayComponentIsUnspecified() {
+                return Box.arrays();
+              }
+            }
+            """)
+        .doTest();
+  }
+
+  /**
+   * A wildcard in the target keeps the existing checks of the unmarked method return. The expected
+   * error is a false positive, kept until a general treatment of unspecified type arguments.
+   */
+  @Test
+  public void wildcardTargetOfUnmarkedMethodReturnIsNotAdjusted() {
+    makeHelper()
+        .addSourceLines(
+            "com/example/Holder.java",
+            """
+            package com.example;
+            import java.util.List;
+            public class Holder<T> {
+              public List<T> list() {
+                return null;
+              }
+            }
+            """)
+        .addSourceLines(
+            "com/uber/Test.java",
+            """
+            package com.uber;
+            import com.example.Holder;
+            import java.util.List;
+            import org.jspecify.annotations.Nullable;
+            class Test {
+              List<? extends String> wildcardTarget(Holder<@Nullable String> h) {
+                // BUG: Diagnostic contains: incompatible types: List<@Nullable String> cannot be converted to List<? extends String>
+                return h.list();
+              }
+            }
+            """)
+        .doTest();
+  }
+
+  @Test
+  public void polyNullLibraryModelOnUnmarkedMethodReturnIsChecked() {
+    makeTestHelperWithArgs(
+            JSpecifyJavacConfig.withJSpecifyModeArgs(
+                Arrays.asList(
+                    "-XepOpt:NullAway:AnnotatedPackages=com.uber",
+                    "-XepOpt:NullAway:UnannotatedSubPackages=com.uber.lib.unannotated",
+                    "-XepOpt:NullAway:WarnOnGenericInferenceFailure=false")))
+        .addSourceLines(
+            "com/uber/Test.java",
+            """
+            package com.uber;
+            import com.uber.lib.unannotated.UnannotatedWithModels;
+            import java.util.List;
+            import org.jspecify.annotations.Nullable;
+            class Test {
+              List<Object> nonNullArgument(Object value) {
+                return UnannotatedWithModels.returnsPolyNullList(value);
+              }
+              List<Object> nullableArgument(@Nullable Object value) {
+                // BUG: Diagnostic contains: incompatible types: List<@Nullable Object> cannot be converted to List<Object>
+                return UnannotatedWithModels.returnsPolyNullList(value);
+              }
+            }
+            """)
+        .doTest();
+  }
+
+  @Test
+  public void topLevelLibraryModelOnUnmarkedMethodReturnKeepsTypeArgumentsUnspecified() {
+    makeTestHelperWithArgs(
+            JSpecifyJavacConfig.withJSpecifyModeArgs(
+                Arrays.asList(
+                    "-XepOpt:NullAway:AnnotatedPackages=com.uber",
+                    "-XepOpt:NullAway:UnannotatedSubPackages=com.uber.lib.unannotated")))
+        .addSourceLines(
+            "com/uber/Test.java",
+            """
+            package com.uber;
+            import com.uber.lib.unannotated.UnannotatedWithModels;
+            import java.util.List;
+            import org.jspecify.annotations.Nullable;
+            class Test {
+              @Nullable List<@Nullable String> nullableElements() {
+                return UnannotatedWithModels.returnsNullableList();
+              }
+              @Nullable List<String> nonNullElements() {
+                return UnannotatedWithModels.returnsNullableList();
+              }
+              List<@Nullable String> nonNullList() {
+                // BUG: Diagnostic contains: returning @Nullable expression from method with @NonNull return type
+                return UnannotatedWithModels.returnsNullableList();
               }
             }
             """)

@@ -223,6 +223,7 @@ public class TestLibraryModels implements LibraryModels {
             methodRef("com.uber.lib.unannotated.UnannotatedWithModels", "returnsNullUnannotated()"),
             methodRef(
                 "com.uber.lib.unannotated.UnannotatedWithModels", "returnsNullUnannotated2()"),
+            methodRef("com.uber.lib.unannotated.UnannotatedWithModels", "returnsNullableList()"),
             methodRef("com.uber.lib.unannotated.Box", "orElse(T)"),
             methodRef(
                 "com.uber.lib.unannotated.ConditionalReturns",
@@ -504,6 +505,17 @@ public class TestLibraryModels implements LibraryModels {
             methodRef("com.uber.lib.unannotated.PolyNullMethods", "outputOnly()"),
             new PolyNullLocation(
                 new Parameter(0), ImmutableList.of(new TypePathEntry(TYPE_ARGUMENT, 0))))
+        .put(
+            methodRef(
+                "com.uber.lib.unannotated.UnannotatedWithModels",
+                "returnsPolyNullList(java.lang.Object)"),
+            new PolyNullLocation(new Parameter(0), ImmutableList.of()))
+        .put(
+            methodRef(
+                "com.uber.lib.unannotated.UnannotatedWithModels",
+                "returnsPolyNullList(java.lang.Object)"),
+            new PolyNullLocation(
+                new Return(), ImmutableList.of(new TypePathEntry(TYPE_ARGUMENT, 0))))
         .put(
             method,
             new PolyNullLocation(
