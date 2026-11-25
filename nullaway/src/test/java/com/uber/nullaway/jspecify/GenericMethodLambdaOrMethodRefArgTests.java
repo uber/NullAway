@@ -164,7 +164,7 @@ public class GenericMethodLambdaOrMethodRefArgTests extends NullAwayTestsBase {
   }
 
   @Test
-  public void genericMethodReferenceInferenceFailureReportsNoCompatibilityErrors() {
+  public void genericMethodReferenceInferenceFailureSuppressesOnlyDependentCompatibilityErrors() {
     assertThat(compileGenericMethodReferenceDiagnostics(true))
         .containsExactly(
             "Test.java:43: [NullAway] inference failure: type variable T constrained to be both @NonNull and @Nullable",
