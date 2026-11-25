@@ -70,31 +70,44 @@ public interface ConstraintSolver {
      */
     private final @Nullable Type nullableBoundTypeVariable;
 
+    /**
+     * The type variable whose declared bound makes the bound of {@link #nullableBoundTypeVariable}
+     * explicitly nullable: that type variable itself, or one its bound reaches through other type
+     * variables; {@code null} exactly where {@link #nullableBoundTypeVariable} is.
+     */
+    private final @Nullable Element typeVariableWithNullableBound;
+
     public UnsatisfiableConstraintsException(Element typeVariable) {
       this(typeVariable, false);
     }
 
     public UnsatisfiableConstraintsException(
         Element typeVariable, boolean causedByNonNullUpperBound) {
-      this(typeVariable, causedByNonNullUpperBound, null);
+      this(typeVariable, causedByNonNullUpperBound, null, null);
     }
 
     /**
      * Creates an exception for a {@code typeVariable} whose bound excludes null, where {@code
      * nullableBoundTypeVariable}, a type variable with an explicitly nullable bound, was passed for
-     * {@code ? extends typeVariable}.
+     * {@code ? extends typeVariable}, and the declared bound of {@code
+     * typeVariableWithNullableBound} makes that bound explicitly nullable.
      */
-    public UnsatisfiableConstraintsException(Element typeVariable, Type nullableBoundTypeVariable) {
-      this(typeVariable, true, nullableBoundTypeVariable);
+    public UnsatisfiableConstraintsException(
+        Element typeVariable,
+        Type nullableBoundTypeVariable,
+        Element typeVariableWithNullableBound) {
+      this(typeVariable, true, nullableBoundTypeVariable, typeVariableWithNullableBound);
     }
 
     private UnsatisfiableConstraintsException(
         Element typeVariable,
         boolean causedByNonNullUpperBound,
-        @Nullable Type nullableBoundTypeVariable) {
+        @Nullable Type nullableBoundTypeVariable,
+        @Nullable Element typeVariableWithNullableBound) {
       this.typeVariable = typeVariable;
       this.causedByNonNullUpperBound = causedByNonNullUpperBound;
       this.nullableBoundTypeVariable = nullableBoundTypeVariable;
+      this.typeVariableWithNullableBound = typeVariableWithNullableBound;
     }
 
     public Element getTypeVariable() {
@@ -107,6 +120,10 @@ public interface ConstraintSolver {
 
     public @Nullable Type getNullableBoundTypeVariable() {
       return nullableBoundTypeVariable;
+    }
+
+    public @Nullable Element getTypeVariableWithNullableBound() {
+      return typeVariableWithNullableBound;
     }
   }
 
@@ -138,11 +155,15 @@ public interface ConstraintSolver {
     NULLABLE,
     /**
      * No constraint fixed the variable, a type variable {@code T} whose bound is explicitly
-     * nullable flowed into it, and the variable's own bound is explicitly nullable. Where javac
-     * inferred an unannotated type variable whose bound admits null, the variable is that type
-     * variable with no synthetic annotation; where javac inferred an intersection type, it carries
-     * no annotation; where javac inferred any other type, such as the least upper bound of {@code
-     * T} and {@code String}, or a type variable {@code R} whose bound excludes null for {@code T
+     * nullable flowed into it, and the variable's own bound is explicitly nullable. A bound is
+     * explicitly nullable where it is annotated {@code @Nullable}, where a library model makes it
+     * nullable, or where it is another type variable, carrying no nullness annotation, whose bound
+     * is explicitly nullable; a bound that admits null only because unannotated code declares the
+     * type variable is not. Where javac inferred a type with parametric nullness ({@link
+     * GenericsUtils#hasParametricNullness}), a capture included, the variable is that type with no
+     * synthetic annotation; where javac inferred an intersection type, it carries no annotation;
+     * where javac inferred any other type, such as the least upper bound of {@code T} and {@code
+     * String}, or a type variable {@code R} whose bound excludes null for {@code T
      * extends @Nullable R}, the variable is {@code @Nullable}, the least type that holds a null
      * {@code T}.
      */
@@ -151,10 +172,11 @@ public interface ConstraintSolver {
      * No constraint fixed the variable and an unannotated type variable that is not under inference
      * and whose bound admits null flowed into it, but {@link #TYPE_VARIABLE_OR_NULLABLE} does not
      * apply: no such type variable has an explicitly nullable bound, or the variable's own bound is
-     * not explicitly nullable. Where javac inferred an unannotated type variable whose bound admits
-     * null, the variable is that type variable with no synthetic annotation; where javac inferred
-     * an intersection type, it carries no annotation; where javac inferred any other type, the
-     * variable is {@code @NonNull}, as if no type variable had flowed into it.
+     * not explicitly nullable. Where javac inferred a type with parametric nullness ({@link
+     * GenericsUtils#hasParametricNullness}), a capture included, the variable is that type with no
+     * synthetic annotation; where javac inferred an intersection type, it carries no annotation;
+     * where javac inferred any other type, the variable is {@code @NonNull}, as if no type variable
+     * had flowed into it.
      */
     TYPE_VARIABLE_OR_NONNULL;
   }

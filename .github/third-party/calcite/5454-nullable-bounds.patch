@@ -1,0 +1,50 @@
+diff --git a/core/src/main/java/org/apache/calcite/rex/RexBiVisitor.java b/core/src/main/java/org/apache/calcite/rex/RexBiVisitor.java
+index 2babccb7b337..af6ef1f96f78 100644
+--- a/core/src/main/java/org/apache/calcite/rex/RexBiVisitor.java
++++ b/core/src/main/java/org/apache/calcite/rex/RexBiVisitor.java
+@@ -73,6 +73,7 @@ default void visitList(Iterable<? extends RexNode> exprs, P arg,
+ 
+   /** Visits a list and returns a list of the results.
+    * The resulting list is immutable and does not contain nulls. */
++  @SuppressWarnings("NullAway")
+   default List<R> visitList(Iterable<? extends RexNode> exprs, P arg) {
+     final List<R> out = new ArrayList<>();
+     visitList(exprs, arg, out);
+diff --git a/core/src/main/java/org/apache/calcite/rex/RexVisitor.java b/core/src/main/java/org/apache/calcite/rex/RexVisitor.java
+index 041662884aa3..9f98b9efb736 100644
+--- a/core/src/main/java/org/apache/calcite/rex/RexVisitor.java
++++ b/core/src/main/java/org/apache/calcite/rex/RexVisitor.java
+@@ -74,6 +74,7 @@ default void visitList(Iterable<? extends RexNode> exprs, List<R> out) {
+ 
+   /** Visits a list and returns a list of the results.
+    * The resulting list is immutable and does not contain nulls. */
++  @SuppressWarnings("NullAway")
+   default List<R> visitList(Iterable<? extends RexNode> exprs) {
+     final List<R> out = new ArrayList<>();
+     visitList(exprs, out);
+diff --git a/linq4j/src/main/java/org/apache/calcite/linq4j/Linq4j.java b/linq4j/src/main/java/org/apache/calcite/linq4j/Linq4j.java
+index 93282abb7176..361b9577a9dc 100644
+--- a/linq4j/src/main/java/org/apache/calcite/linq4j/Linq4j.java
++++ b/linq4j/src/main/java/org/apache/calcite/linq4j/Linq4j.java
+@@ -109,7 +109,7 @@ public static <T> Iterator<T> enumeratorIterator(Enumerator<T> enumerator) {
+    *
+    * @return enumerator
+    */
+-  public static <T> Enumerator<T> iterableEnumerator(
++  public static <T extends @Nullable Object> Enumerator<T> iterableEnumerator(
+       final Iterable<? extends T> iterable) {
+     if (iterable instanceof Enumerable) {
+       @SuppressWarnings("unchecked") final Enumerable<T> enumerable =
+diff --git a/linq4j/src/main/java/org/apache/calcite/linq4j/tree/Expressions.java b/linq4j/src/main/java/org/apache/calcite/linq4j/tree/Expressions.java
+index bd4e455400a0..2da72aa4b707 100644
+--- a/linq4j/src/main/java/org/apache/calcite/linq4j/tree/Expressions.java
++++ b/linq4j/src/main/java/org/apache/calcite/linq4j/tree/Expressions.java
+@@ -3154,7 +3154,7 @@ private static Class deduceType(List<ParameterExpression> parameterList,
+   }
+ 
+   /** Converts an Iterable to a List. */
+-  private static <T> List<T> toList(Iterable<? extends T> iterable) {
++  private static <T extends @Nullable Object> List<T> toList(Iterable<? extends T> iterable) {
+     if (iterable instanceof List) {
+       return (List<T>) iterable;
+     }

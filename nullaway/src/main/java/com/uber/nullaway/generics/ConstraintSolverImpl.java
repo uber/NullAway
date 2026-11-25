@@ -75,10 +75,10 @@ public final class ConstraintSolverImpl implements ConstraintSolver {
     NullnessState nullness = NullnessState.UNKNOWN;
 
     /**
-     * Whether a type variable that is not under inference, carries no nullness annotation, and is
-     * bounded by a type that admits null flowed into this variable. Such a flow fixes no nullness,
-     * but where javac inferred a type variable whose bound admits null, the variable takes that
-     * type variable with no synthetic annotation rather than the non-null default.
+     * Whether a type with parametric nullness ({@link GenericsUtils#hasParametricNullness}) that is
+     * not under inference flowed into this variable. Such a flow fixes no nullness, but where javac
+     * inferred a type with parametric nullness, the variable takes that type with no synthetic
+     * annotation rather than the non-null default.
      */
     boolean parametric;
 
@@ -322,16 +322,19 @@ public final class ConstraintSolverImpl implements ConstraintSolver {
             InferenceVariable supertypeVar = inferenceVariableForUse(supertypeUpperBound);
             if (supertypeWildcard.kind == BoundKind.EXTENDS
                 && supertypeVar != null
-                && !getState(supertypeVar).nullableAllowed
-                && admitsNullThroughExplicitBound(subtypeTypeArg)) {
-              // Under JSpecify, an unannotated T whose bound is @Nullable is a subtype of U only
-              // where U is @Nullable, and the non-null bound of U forbids that. Where the bound of
-              // U allows null, U is left unconstrained: the solver infers one nullness per
-              // variable, so a @Nullable U would replace the T that javac inferred for U with
-              // @Nullable T, and List<T> c = copy(in), with <U extends @Nullable Object> List<U>
-              // copy(List<? extends U> in), would be reported.
-              throw new UnsatisfiableConstraintsException(
-                  supertypeVar.typeVariable(), subtypeTypeArg);
+                && !getState(supertypeVar).nullableAllowed) {
+              Element typeVariableWithNullableBound =
+                  typeVariableWithNullableBoundFor(subtypeTypeArg);
+              if (typeVariableWithNullableBound != null) {
+                // Under JSpecify, an unannotated T whose bound is @Nullable is a subtype of U only
+                // where U is @Nullable, and the non-null bound of U forbids that. Where the bound
+                // of U allows null, U is left unconstrained: the solver infers one nullness per
+                // variable, so a @Nullable U would replace the T that javac inferred for U with
+                // @Nullable T, and List<T> c = copy(in), with <U extends @Nullable Object>
+                // List<U> copy(List<? extends U> in), would be reported.
+                throw new UnsatisfiableConstraintsException(
+                    supertypeVar.typeVariable(), subtypeTypeArg, typeVariableWithNullableBound);
+              }
             }
             subtypeUpperBound.accept(this, supertypeUpperBound);
           }
@@ -504,12 +507,10 @@ public final class ConstraintSolverImpl implements ConstraintSolver {
     }
     if (tVar != null
         && sVar == null
-        && s instanceof TypeVar typeVar
-        && !isKnownNullable(s)
-        && !isKnownNonNull(s)) {
+        && GenericsUtils.hasParametricNullness(s, config, handler, state)) {
       VarState st = getState(tVar);
       st.parametric = true;
-      if (GenericsUtils.boundIsExplicitlyNullable(typeVar.asElement(), config, handler, state)) {
+      if (GenericsUtils.boundIsExplicitlyNullable(s.asElement(), config, handler, state)) {
         st.parametricNullable = true;
       }
     }
@@ -578,15 +579,18 @@ public final class ConstraintSolverImpl implements ConstraintSolver {
   }
 
   /**
-   * Returns whether {@code t} is a type variable not under inference, not a capture, carrying no
-   * nullness annotation at this use, whose bound is explicitly nullable.
+   * Where {@code t} is a type variable not under inference, not a capture, and carrying no nullness
+   * annotation at this use, returns the type variable whose declared bound makes the bound of
+   * {@code t} explicitly nullable, as {@link GenericsUtils#typeVariableWithNullableBound} finds it;
+   * returns {@code null} otherwise.
    */
-  private boolean admitsNullThroughExplicitBound(Type t) {
+  private @Nullable Element typeVariableWithNullableBoundFor(Type t) {
     return t instanceof TypeVar tv
-        && !(t instanceof CapturedType)
-        && !inferenceVariables.containsKey(tv.asElement())
-        && !GenericsUtils.hasNullnessAnnotation(t, config)
-        && GenericsUtils.boundIsExplicitlyNullable(tv.asElement(), config, handler, state);
+            && !(t instanceof CapturedType)
+            && !inferenceVariables.containsKey(tv.asElement())
+            && !GenericsUtils.hasNullnessAnnotation(t, config)
+        ? GenericsUtils.typeVariableWithNullableBound(tv.asElement(), config, handler, state)
+        : null;
   }
 
   /** Returns whether a type is explicitly nullable or is the null type. */

@@ -1603,16 +1603,24 @@ public final class GenericsChecks {
       return PolyNullInference.inferenceFailureMessage(ASTHelpers.getSymbol(polyNullInvocation));
     }
     Type nullableBoundTypeVariable = e.getNullableBoundTypeVariable();
-    if (nullableBoundTypeVariable != null) {
+    Element typeVariableWithNullableBound = e.getTypeVariableWithNullableBound();
+    if (nullableBoundTypeVariable != null && typeVariableWithNullableBound != null) {
+      Element passedElement = nullableBoundTypeVariable.tsym;
       String constrained = withDeclaringElement(typeVariable, false);
-      String passed = withDeclaringElement(nullableBoundTypeVariable.tsym, false);
-      if (constrained.equals(passed)) {
+      String passed = withDeclaringElement(passedElement, false);
+      String withNullableBound = withDeclaringElement(typeVariableWithNullableBound, false);
+      if (constrained.equals(passed) || constrained.equals(withNullableBound)) {
         constrained = withDeclaringElement(typeVariable, true);
-        passed = withDeclaringElement(nullableBoundTypeVariable.tsym, true);
+        passed = withDeclaringElement(passedElement, true);
+        withNullableBound = withDeclaringElement(typeVariableWithNullableBound, true);
       }
+      String reason =
+          typeVariableWithNullableBound.equals(passedElement)
+              ? passed + " has a @Nullable upper bound"
+              : passed + " extends " + withNullableBound + ", which has a @Nullable upper bound";
       return String.format(
-          "inference failure: type variable %s is constrained to be @Nullable, but its upper bound requires it to be @NonNull; the type argument %s passed for ? extends %s admits null, since %s has a @Nullable upper bound",
-          constrained, nullableBoundTypeVariable, typeVariable, passed);
+          "inference failure: type variable %s is constrained to be @Nullable, but its upper bound requires it to be @NonNull; the type argument %s passed for ? extends %s admits null, since %s",
+          constrained, nullableBoundTypeVariable, typeVariable, reason);
     }
     if (e.isCausedByNonNullUpperBound()) {
       return String.format(
@@ -3170,8 +3178,8 @@ public final class GenericsChecks {
       parentPath = parentPath.getParentPath();
     }
     Tree parentTree = parentPath != null ? parentPath.getLeaf() : null;
-    if ((parentTree instanceof MethodInvocationTree || parentTree instanceof NewClassTree)
-        && isCallNeedingInference((ExpressionTree) parentTree)) {
+    if (parentTree instanceof ExpressionTree parentExpression
+        && isCallNeedingInference(parentExpression)) {
       CallInferenceResult inferenceResult =
           inferredTypeVarNullabilityForGenericCalls.get(parentTree);
       if (inferenceResult instanceof InferenceSuccess successResult) {

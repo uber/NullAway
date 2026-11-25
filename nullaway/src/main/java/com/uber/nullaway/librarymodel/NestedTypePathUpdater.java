@@ -60,8 +60,8 @@ public final class NestedTypePathUpdater extends Types.MapVisitor<Integer> {
    * Adds the annotation type that {@code annotationFor} returns for the type at {@code typePath} to
    * that type, as {@link #addAnnotation(Type, ImmutableList, Type)} adds a fixed one; where {@code
    * annotationFor} returns {@code null}, the type stays unchanged. A wildcard or a captured type
-   * variable at {@code typePath} is passed to {@code annotationFor} itself, which must return an
-   * annotation type for it, and the annotation lands on its bound.
+   * variable at {@code typePath} is passed to {@code annotationFor} itself, and the annotation it
+   * returns lands on the bound.
    *
    * @return the updated type, or the original {@code type} instance if no change was made
    */
@@ -101,14 +101,6 @@ public final class NestedTypePathUpdater extends Types.MapVisitor<Integer> {
   /** Returns the annotation type to add to {@code type} at {@link #typePath}, or {@code null}. */
   private @Nullable Type annotationTypeFor(Type type) {
     return castToNonNull(annotationFor).apply(type);
-  }
-
-  /** Returns the annotation type to add to the bound of a wildcard or a capture at the path. */
-  private Type annotationTypeForWildcardOrCapture(Type wildcardOrCapture) {
-    return Verify.verifyNotNull(
-        annotationTypeFor(wildcardOrCapture),
-        "no annotation type for the wildcard or capture %s",
-        wildcardOrCapture);
   }
 
   @Override
@@ -164,7 +156,12 @@ public final class NestedTypePathUpdater extends Types.MapVisitor<Integer> {
       if (updateKind == UpdateKind.REPLACE_TYPE) {
         return updateLeaf(t);
       }
-      Type annotationType = annotationTypeForWildcardOrCapture(t);
+      Type annotationType = annotationTypeFor(t);
+      if (annotationType == null) {
+        // diff-coverage: ignore -- PolyNull inference returns no annotation only for a type
+        // variable or an intersection
+        return t;
+      }
       if (t.kind == BoundKind.EXTENDS) {
         return TYPE_METADATA_BUILDER.createWildcardType(
             t, TypeSubstitutionUtils.typeWithAnnot(t.type, annotationType));
@@ -231,7 +228,10 @@ public final class NestedTypePathUpdater extends Types.MapVisitor<Integer> {
       updatedWildcard = (Type.WildcardType) wildcard.accept(this, pathIndex);
     } else {
       Verify.verify(pathIndex == typePath.size(), "path index out of bounds");
-      Type annotationType = annotationTypeForWildcardOrCapture(t);
+      Type annotationType = annotationTypeFor(t);
+      if (annotationType == null) {
+        return t;
+      }
       Type updatedUpperBound =
           TypeSubstitutionUtils.typeWithAnnot(t.getUpperBound(), annotationType);
       if (wildcard.kind == BoundKind.EXTENDS) {
