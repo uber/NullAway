@@ -29,6 +29,7 @@ public class GenericVoidReturnTests extends NullAwayTestsBase {
         new ArrayList<>(
             List.of(
                 "-XepOpt:NullAway:OnlyNullMarked=true",
+                "-XepOpt:NullAway:CheckContracts=true",
                 "-XepOpt:NullAway:WarnOnGenericInferenceFailure=true",
                 JSpecifyJavacConfig.JSPECIFY_MODE_FLAG,
                 JSpecifyJavacConfig.ADD_TYPE_ANNOTATIONS_FLAG));
@@ -40,6 +41,7 @@ public class GenericVoidReturnTests extends NullAwayTestsBase {
             "Test.java",
             """
             import java.util.List;
+            import org.jetbrains.annotations.Contract;
             import org.jspecify.annotations.NullMarked;
             import org.jspecify.annotations.Nullable;
             @NullMarked
@@ -102,6 +104,11 @@ public class GenericVoidReturnTests extends NullAwayTestsBase {
               Void direct(@Nullable Void value) { return value; }
               @Nullable Void explicitlyNullable(@Nullable Void value) { return nid(value); }
               Void inferred(@Nullable Void value) { return nid(value); }
+              @Contract("-> !null")
+              Void violatesNonNullContract() {
+                // BUG: Diagnostic contains: Method violatesNonNullContract has @Contract(-> !null), but this appears to be violated
+                return nid(null);
+              }
               Void nested(@Nullable Void value) { return nid(nid(value)); }
               Void conditional(boolean condition, @Nullable Void value) {
                 return condition ? nid(value) : value;
