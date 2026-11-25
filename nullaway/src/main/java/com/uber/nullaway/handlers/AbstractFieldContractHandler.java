@@ -58,6 +58,16 @@ public abstract class AbstractFieldContractHandler implements Handler {
   }
 
   /**
+   * Returns an alternative annotation attribute name to check for the field list when no explicitly
+   * supplied {@code value} entry is found in the annotation's element values, or {@code null} to
+   * only check {@code value}. Subclasses override this to support annotations whose field list uses
+   * a different attribute name.
+   */
+  protected @Nullable String fallbackFieldListAttributeName() {
+    return null;
+  }
+
+  /**
    * Verifies that the method being processed adheres to the annotation specifications.
    *
    * @param tree Method tree under processing.
@@ -69,7 +79,8 @@ public abstract class AbstractFieldContractHandler implements Handler {
     Symbol.MethodSymbol methodSymbol = methodAnalysisContext.methodSymbol();
     VisitorState state = methodAnalysisContext.state();
     Set<String> annotationContent =
-        NullabilityUtil.getAnnotationValueArray(methodSymbol, annotName, false);
+        NullabilityUtil.getAnnotationValueArray(
+            methodSymbol, annotName, false, fallbackFieldListAttributeName());
     boolean isAnnotated = annotationContent != null;
     boolean isValid =
         isAnnotated
