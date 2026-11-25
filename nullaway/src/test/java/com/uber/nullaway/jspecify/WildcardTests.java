@@ -2660,6 +2660,7 @@ public class WildcardTests extends NullAwayTestsBase {
             """
             import java.util.ArrayList;
             import java.util.List;
+            import org.jspecify.annotations.NonNull;
             import org.jspecify.annotations.NullMarked;
             import org.jspecify.annotations.NullUnmarked;
             import org.jspecify.annotations.Nullable;
@@ -2685,7 +2686,7 @@ public class WildcardTests extends NullAwayTestsBase {
               }
               static <T extends @Nullable Object> void intoNonNullVariableThroughAWildcard(
                   Box<? extends T> b) {
-                // BUG: Diagnostic contains: the type argument ? extends T passed for ? extends U admits null, since T of Test.intoNonNullVariableThroughAWildcard has a @Nullable upper bound
+                // a false negative: a wildcard bounded by T is not checked against the bound of U (#2189)
                 Object o = nonNullVariable(b);
               }
               static class Holder<T extends @Nullable Object> {
@@ -2698,58 +2699,18 @@ public class WildcardTests extends NullAwayTestsBase {
               }
               static <T extends @Nullable Object> void intoNonNullVariableThroughACapture(
                   Holder<T> h) {
-                // BUG: Diagnostic contains: the type argument ? extends T passed for ? extends U admits null, since T of Test.intoNonNullVariableThroughACapture has a @Nullable upper bound
+                // a false negative: a capture bounded by T is not checked against the bound of U (#2189)
                 Object o = nonNullVariable(h.wildBox());
-              }
-              static class NonNullBox<E> {
-                NonNullBox<E> same() {
-                  return this;
-                }
-              }
-              static class BoundedByANonNullVariable<V, E extends V> {
-                BoundedByANonNullVariable<V, E> same() {
-                  return this;
-                }
               }
               static class BoundedByANullableVariable<T extends @Nullable Object, X extends T> {
                 Box<X> box() {
                   throw new UnsupportedOperationException();
                 }
               }
-              static <U> void intoNonNullBox(NonNullBox<? extends U> b) {}
-              static <U> void intoChainedBox(BoundedByANonNullVariable<Object, ? extends U> b) {}
-              static <T extends @Nullable Object> void wildcardOfANonNullTypeParameter(
-                  NonNullBox<? extends T> b) {
-                intoNonNullBox(b);
-                intoNonNullBox(b.same());
-              }
-              static <T extends @Nullable Object> void wildcardOfATypeParameterBoundedByANonNullVariable(
-                  BoundedByANonNullVariable<Object, ? extends T> b) {
-                intoChainedBox(b.same());
-              }
               static <T extends @Nullable Object> void captureOfATypeParameterBoundedByANullableVariable(
                   BoundedByANullableVariable<T, ?> h) {
-                // BUG: Diagnostic contains: the type argument ? passed for ? extends U admits null, since T of Test.captureOfATypeParameterBoundedByANullableVariable has a @Nullable upper bound
+                // a false negative: a capture whose bound reaches T is not checked against the bound of U (#2189)
                 Object o = nonNullVariable(h.box());
-              }
-              static class Pair<A extends @Nullable Object, B extends A> {
-                Pair<A, B> same() {
-                  return this;
-                }
-              }
-              static <U> void intoObjectPair(Pair<Object, ? extends U> p) {}
-              static <U> void intoNullablePair(Pair<@Nullable Object, ? extends U> p) {}
-              static <T extends @Nullable Object> void siblingTypeParameterPassedANonNullType(
-                  Pair<Object, ? extends T> p) {
-                intoObjectPair(p);
-                intoObjectPair(p.same());
-              }
-              static <T extends @Nullable Object> void siblingTypeParameterPassedANullableType(
-                  Pair<@Nullable Object, ? extends T> p) {
-                // BUG: Diagnostic contains: since T of Test.siblingTypeParameterPassedANullableType has a @Nullable upper bound
-                intoNullablePair(p);
-                // BUG: Diagnostic contains: since T of Test.siblingTypeParameterPassedANullableType has a @Nullable upper bound
-                intoNullablePair(p.same());
               }
               static class Set {
                 <E extends @Nullable Object> void copyOf(java.util.Collection<E> in) {
@@ -2758,8 +2719,31 @@ public class WildcardTests extends NullAwayTestsBase {
                 }
               }
               static <T extends @Nullable Object> void intoJdkCopyOfThroughACapture(Holder<T> h) {
-                // BUG: Diagnostic contains: type variable E of List.copyOf is constrained to be @Nullable, but its upper bound requires it to be @NonNull; the type argument ? extends T passed for ? extends E admits null, since T of Test.intoJdkCopyOfThroughACapture has a @Nullable upper bound
+                // a false negative: a capture bounded by T is not checked against the bound of E (#2189)
                 List<? extends T> copy = List.copyOf(h.wildList());
+              }
+              static class Base<E extends @Nullable Object> {}
+              static class Sub<X> extends Base<X> {}
+              static class NonNullList<X> extends ArrayList<X> {}
+              static <U> void intoBase(Base<? extends U> b) {}
+              static <T extends @Nullable Object> void wildcardOfASubclassWhoseTypeParameterExcludesNull(
+                  Sub<? extends T> s) {
+                intoBase(s);
+              }
+              static <T extends @Nullable Object> void wildcardOfANonNullListIntoJdkCopyOf(
+                  NonNullList<? extends T> nl) {
+                List<? extends T> copy = List.copyOf(nl);
+              }
+              static class Pair<A extends @Nullable Object, B extends A> {}
+              static <U> void intoSelfPair(Pair<U, ? extends U> p) {}
+              static <S, X extends @Nullable S> void wildcardOfAPairWhoseSiblingIsNonNull(
+                  Pair<S, ? extends X> p) {
+                intoSelfPair(p);
+              }
+              static <X extends @Nullable Object> void wildcardOfAPairWhoseSiblingAdmitsNull(
+                  Pair<X, ? extends X> p) {
+                // a false negative: a wildcard bounded by X is not checked against the bound of U (#2189)
+                intoSelfPair(p);
               }
               static <T extends @Nullable Object> void intoNullableVariable(Box<T> b) {
                 nullableVariable(b).toString();
@@ -2769,6 +2753,10 @@ public class WildcardTests extends NullAwayTestsBase {
                 Object o = intoAWildcardOfAFixedType(b, "x");
               }
               static <T> void nonNullBoundIntoNonNullVariable(Box<T> b) {
+                Object o = nonNullVariable(b);
+              }
+              static <T extends @Nullable Object> void nonNullTypeVariableIntoNonNullVariable(
+                  Box<@NonNull T> b) {
                 Object o = nonNullVariable(b);
               }
               static <T extends @Nullable Object> void failureDiscardsTheOtherVariablesOfTheCall(
