@@ -84,7 +84,8 @@ public class GenericInferencePerformanceTests {
       DataflowQueryScanner scanner = new DataflowQueryScanner(checks, state);
       scanner.scan(state.getPath(), null);
       assertThat(scanner.calls).isEqualTo(63);
-      // Allow implementation overhead while rejecting whole-tree inference for every nested call.
+      // Allow implementation overhead while rejecting joint inference of the outermost call for
+      // every nested call.
       assertThat(executableTypes.get()).isAtMost(32 * scanner.calls);
       assertThat(executableTypes.get()).isAtLeast(scanner.calls);
       return NO_MATCH;
