@@ -50,8 +50,8 @@ public interface ConstraintSolver {
 
   /**
    * Returns whether {@code type}, including its nested types and bounds, mentions a fresh type
-   * variable registered with this solver. Fresh variables from other inference runs are fixed types
-   * for this query.
+   * variable registered with this solver. Fresh variables from other inference problems are fixed
+   * types for this query.
    */
   boolean containsInferenceVariable(Type type);
 

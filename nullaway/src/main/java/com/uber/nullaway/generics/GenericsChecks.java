@@ -1492,7 +1492,7 @@ public final class GenericsChecks {
       boolean calledFromDataflow) {
     ConstraintSolver solver = makeSolver(state, analysis);
     // allCalls tracks the top-level call, nested calls requiring inference, and method
-    // references whose checks depend on variables solved by this run.
+    // references whose checks depend on this problem's inference variables.
     Set<Tree> allCalls = new LinkedHashSet<>();
     allCalls.add(callTree);
     IdentityHashMap<MethodInvocationTree, PolyNullInferenceContext> polyNullContexts =
@@ -1672,9 +1672,9 @@ public final class GenericsChecks {
    * @param methodType the executable type of {@code callTree}, as computed by {@link
    *     #getExecutableTypeForInference}
    * @param allCalls the top-level call, nested calls requiring inference, and method references
-   *     whose checks depend on variables solved by this run. This is an output parameter that gets
-   *     mutated while generating the constraints to add nested sites.
-   * @param polyNullContexts PolyNull inference contexts for calls in this inference session. This
+   *     whose checks depend on this problem's inference variables. This is an output parameter
+   *     mutated during constraint generation to add nested sites.
+   * @param polyNullContexts PolyNull inference contexts for calls in this inference problem. This
    *     is an output parameter mutated during constraint generation to add contexts for modeled
    *     calls.
    * @param calledFromDataflow whether this method is being called from dataflow analysis
@@ -1778,11 +1778,11 @@ public final class GenericsChecks {
    * @param state the visitor state
    * @param solver the constraint solver
    * @param allCalls the top-level call, nested calls requiring inference, and method references
-   *     whose checks depend on variables solved by this run. This is an output parameter that gets
-   *     mutated while generating the constraints to add nested sites.
+   *     whose checks depend on this problem's inference variables. This is an output parameter
+   *     mutated during constraint generation to add nested sites.
    * @param rhsExpr the right-hand side expression of the pseudo-assignment
    * @param lhsType the left-hand side type of the pseudo-assignment
-   * @param polyNullContexts PolyNull inference contexts for calls in this inference session. This
+   * @param polyNullContexts PolyNull inference contexts for calls in this inference problem. This
    *     is an output parameter mutated during constraint generation to add contexts for modeled
    *     calls.
    * @param calledFromDataflow whether this method is being called from dataflow analysis
@@ -1878,11 +1878,11 @@ public final class GenericsChecks {
    *     state.getPath()}
    * @param solver the constraint solver
    * @param allCalls the top-level call, nested calls requiring inference, and method references
-   *     whose checks depend on variables solved by this run. This is an output parameter that gets
-   *     mutated while generating the constraints to add nested sites.
+   *     whose checks depend on this problem's inference variables. This is an output parameter
+   *     mutated during constraint generation to add nested sites.
    * @param lhsType the type to which the lambda is being assigned
    * @param lambda The lambda argument
-   * @param polyNullContexts PolyNull inference contexts for calls in this inference session. This
+   * @param polyNullContexts PolyNull inference contexts for calls in this inference problem. This
    *     is an output parameter mutated during constraint generation to add contexts for modeled
    *     calls.
    * @param calledFromDataflow whether this method is being called from dataflow analysis
@@ -1986,8 +1986,8 @@ public final class GenericsChecks {
    * @param solver the constraint solver
    * @param lhsType the type to which the method reference is being assigned
    * @param memberReferenceTree the method reference argument
-   * @param allCalls output parameter for sites sharing this run's inference result, or {@code null}
-   *     for standalone method reference inference
+   * @param allCalls output parameter for sites sharing this inference problem's result, or {@code
+   *     null} for standalone method reference inference
    */
   private void handleMethodRefInGenericMethodInference(
       VisitorState state,
@@ -3122,15 +3122,16 @@ public final class GenericsChecks {
 
   /**
    * Returns whether inference for this reference failed with a reported diagnostic, possibly from
-   * an enclosing joint inference run.
+   * an enclosing inference problem.
    *
    * <p>Callers deliberately skip all parameter and return compatibility checks for such a
-   * reference, including positions unrelated to inferred type variables. A failed joint inference
-   * run applies this policy only to references with omitted generic method type arguments or a
-   * ground target type mentioning a variable solved by that run. Independent references keep their
-   * compatibility checks. The inference diagnostic takes precedence for dependent references,
-   * avoiding misleading errors from uninferred types without tracking dependencies for individual
-   * comparisons. When inference warnings are disabled, compatibility checks remain enabled.
+   * reference, including positions unrelated to inferred type variables. When joint inference
+   * fails, this policy applies only to references with omitted generic method type arguments or a
+   * ground target type mentioning one of the problem's inference variables. Independent references
+   * keep their compatibility checks. The inference diagnostic takes precedence for dependent
+   * references, avoiding misleading errors from uninferred types without tracking dependencies for
+   * individual comparisons. When inference warnings are disabled, compatibility checks remain
+   * enabled.
    */
   public boolean hasReportedInferenceFailure(MemberReferenceTree tree) {
     return config.warnOnGenericInferenceFailure()
