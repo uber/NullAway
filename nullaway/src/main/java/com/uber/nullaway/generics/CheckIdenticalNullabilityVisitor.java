@@ -41,12 +41,13 @@ public class CheckIdenticalNullabilityVisitor extends Types.DefaultTypeVisitor<B
    * check finishes. Save these results only if the outermost check succeeds; otherwise discard
    * them.
    */
-  private @Nullable Set<ContainmentKey> pendingWildcardComparisons;
+  private @Nullable Set<ContainmentKey> provisionalWildcardComparisons;
 
   /**
    * Stops recursive bounds from rechecking the same wildcard/RHS pair, using object identity. The
-   * cache's {@link ContainmentKey} can change when capture conversion recreates other type
-   * arguments, so it cannot replace this recursion guard.
+   * {@link ContainmentKey}s used by {@link #completedWildcardComparisons} and {@link
+   * #provisionalWildcardComparisons} can change when capture conversion recreates other type
+   * arguments, so those sets cannot replace this recursion guard.
    */
   private @Nullable IdentityHashMap<Type.WildcardType, Set<Type>> activeWildcardComparisons;
 
@@ -59,7 +60,7 @@ public class CheckIdenticalNullabilityVisitor extends Types.DefaultTypeVisitor<B
       Equivalence.Wrapper<Symbol.TypeSymbol> symbol,
       Equivalence.Wrapper<Type> enclosing,
       List<Equivalence.Wrapper<Type>> arguments) {
-    /** Keeps the original argument objects rather than freshly computed bounds. */
+
     ParameterizationKey(Type.ClassType type) {
       this(
           Equivalence.identity().wrap(type.tsym),
@@ -72,8 +73,10 @@ public class CheckIdenticalNullabilityVisitor extends Types.DefaultTypeVisitor<B
 
   /**
    * A cached containment check: the LHS wildcard, RHS argument, their position, and their
-   * containing parameterized types. The position matters when one wildcard object is used for two
-   * type parameters with different bounds.
+   * containing parameterized types. The position is required since after substitutions the same
+   * javac wildcard object may be used in multiple positions. The containing parameterized types
+   * matter since upper bounds relevant to wildcard containment checking may depend on other bounds
+   * in the type, e.g., if we have {@code Pair<T extends @Nullable Object, U extends T>}.
    */
   private record ContainmentKey(
       Equivalence.Wrapper<Type.WildcardType> lhsWildcard,
@@ -330,18 +333,18 @@ public class CheckIdenticalNullabilityVisitor extends Types.DefaultTypeVisitor<B
       return true;
     }
     boolean outermost = false;
-    if (pendingWildcardComparisons == null) {
-      pendingWildcardComparisons = new HashSet<>();
+    if (provisionalWildcardComparisons == null) {
+      provisionalWildcardComparisons = new HashSet<>();
       outermost = true;
     }
-    Set<ContainmentKey> pending = pendingWildcardComparisons;
+    Set<ContainmentKey> provisional = provisionalWildcardComparisons;
     if (activeWildcardComparisons == null) {
       activeWildcardComparisons = new IdentityHashMap<>();
     }
     IdentityHashMap<Type.WildcardType, Set<Type>> active = activeWildcardComparisons;
     Set<Type> activeRhsArguments = active.get(lhsWildcard);
     if ((activeRhsArguments != null && activeRhsArguments.contains(rhsTypeArgument))
-        || !pending.add(key)) {
+        || !provisional.add(key)) {
       // This check is in progress or has already passed. Any later failure still fails the outer
       // check.
       return true;
@@ -363,7 +366,7 @@ public class CheckIdenticalNullabilityVisitor extends Types.DefaultTypeVisitor<B
         if (completedWildcardComparisons == null) {
           completedWildcardComparisons = new HashSet<>();
         }
-        completedWildcardComparisons.addAll(pending);
+        completedWildcardComparisons.addAll(provisional);
       }
       return result;
     } finally {
@@ -372,7 +375,7 @@ public class CheckIdenticalNullabilityVisitor extends Types.DefaultTypeVisitor<B
         active.remove(lhsWildcard);
       }
       if (outermost) {
-        pendingWildcardComparisons = null;
+        provisionalWildcardComparisons = null;
       }
     }
   }
