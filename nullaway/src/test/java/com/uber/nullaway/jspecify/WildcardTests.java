@@ -2447,6 +2447,7 @@ public class WildcardTests extends NullAwayTestsBase {
             """
             import java.util.List;
             import java.util.function.Function;
+            import org.jspecify.annotations.NonNull;
             import org.jspecify.annotations.NullMarked;
             import org.jspecify.annotations.Nullable;
             @NullMarked
@@ -2540,9 +2541,45 @@ public class WildcardTests extends NullAwayTestsBase {
                 // BUG: Diagnostic contains: dereferenced expression 'throughNonNullBound(t, "x", x -> x)' is @Nullable
                 throughNonNullBound(t, "x", x -> x).hashCode();
               }
+              static <R extends @Nullable Object, U extends @NonNull R> R viaNonNullAnnotatedBound(U a) {
+                return a;
+              }
+              Object explicitNullThroughANonNullAnnotatedBound() {
+                // BUG: Diagnostic contains: passing @Nullable parameter 'null'
+                return viaNonNullAnnotatedBound(null);
+              }
+              static <R extends @Nullable Object, U extends List<? extends R>> R nestedBound(
+                  U u, R r) {
+                throw new UnsupportedOperationException();
+              }
+              static <R extends @Nullable Object> R nestedArgument(List<? extends R> l, R r) {
+                throw new UnsupportedOperationException();
+              }
+              void throughABoundThatNestsTheVariable(List<T> l) {
+                // BUG: Diagnostic contains: dereferenced expression 'nestedArgument(l, "x")' is @Nullable
+                nestedArgument(l, "x").hashCode();
+                // a false negative: inference takes no constraint from a bound that nests R (#NNNN)
+                nestedBound(l, "x").hashCode();
+              }
               Object throughAnUnmarkedBound() {
                 // U extends R relates nothing in unannotated code, where the bound of U admits null
                 return Legacy.choose("fallback", null);
+              }
+            }
+            """)
+        .addSourceLines(
+            "ModeledDeclaredBound.java",
+            """
+            package com.uber;
+            import org.jspecify.annotations.NullMarked;
+            @NullMarked
+            class ModeledDeclaredBound {
+              // The test library model makes the bound of U nullable, so U extends R relates nothing.
+              static <R, U extends R> R choose(R r, U u) {
+                return r;
+              }
+              Object throughAModeledBound() {
+                return choose("fallback", null);
               }
             }
             """)
