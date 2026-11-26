@@ -402,4 +402,139 @@ public class NullAwayGuavaParametricNullnessTests {
             """)
         .doTest();
   }
+
+  /**
+   * A library model makes {@code AsyncFunction.apply} take a non-null argument, as for Guava's
+   * {@code Function}. Guava marks the parameter {@code @ParametricNullness}, which NullAway reads
+   * as {@code @Nullable} outside JSpecify mode.
+   */
+  @Test
+  public void guavaAsyncFunctionTakesNonNullArgument() {
+    defaultCompilationHelper
+        .addSourceLines(
+            "Test.java",
+            """
+            package com.uber;
+            import com.google.common.util.concurrent.AsyncFunction;
+            import com.google.common.util.concurrent.Futures;
+            class Test {
+              static AsyncFunction<String, Integer> dereferencesParameter() {
+                return s -> Futures.immediateFuture(s.length());
+              }
+              static void passesNull(AsyncFunction<String, Integer> f) throws Exception {
+                // BUG: Diagnostic contains: passing @Nullable parameter
+                f.apply(null);
+              }
+            }
+            """)
+        .doTest();
+  }
+
+  /**
+   * A library model makes {@code Maps.EntryTransformer.transformEntry} take and return non-null, as
+   * for Guava's {@code Function}. Guava 32 and later mark both parameters and the return
+   * {@code @ParametricNullness}, which NullAway reads as {@code @Nullable} outside JSpecify mode.
+   */
+  @Test
+  public void guavaEntryTransformerTakesAndReturnsNonNull() {
+    defaultCompilationHelper
+        .addSourceLines(
+            "Test.java",
+            """
+            package com.uber;
+            import com.google.common.collect.Maps;
+            class Test {
+              static Maps.EntryTransformer<String, String, Integer> dereferencesParameters() {
+                return (k, v) -> k.length() + v.length();
+              }
+              static int dereferencesResult(Maps.EntryTransformer<String, String, Integer> t) {
+                return t.transformEntry("a", "b").intValue();
+              }
+              static void passesNullKey(Maps.EntryTransformer<String, String, Integer> t) {
+                // BUG: Diagnostic contains: passing @Nullable parameter
+                t.transformEntry(null, "b");
+              }
+              static void passesNullValue(Maps.EntryTransformer<String, String, Integer> t) {
+                // BUG: Diagnostic contains: passing @Nullable parameter
+                t.transformEntry("a", null);
+              }
+              static Maps.EntryTransformer<String, String, Integer> returnsNull() {
+                // BUG: Diagnostic contains: returning @Nullable expression
+                return (k, v) -> { return null; };
+              }
+            }
+            """)
+        .doTest();
+  }
+
+  /**
+   * In JSpecify mode, the type arguments of a Guava functional interface decide the nullness of its
+   * parameters and return, and the non-null models of the standard mode do not apply.
+   */
+  @Test
+  public void jspecifyGuavaFunctionalInterfacesFollowTypeArguments() {
+    jspecifyCompilationHelper
+        .addSourceLines(
+            "Test.java",
+            """
+            package com.uber;
+            import com.google.common.base.Function;
+            import com.google.common.base.Predicate;
+            import com.google.common.collect.Maps;
+            import com.google.common.util.concurrent.AsyncFunction;
+            import org.jspecify.annotations.*;
+            @NullMarked
+            class Test {
+              static void functionPassesNullToNullableArgument(Function<@Nullable String, String> f) {
+                f.apply(null);
+              }
+              static void functionPassesNullToNonNullArgument(Function<String, String> f) {
+                // BUG: Diagnostic contains: passing @Nullable parameter
+                f.apply(null);
+              }
+              static Function<@Nullable String, Integer> functionDereferencesNullableParameter() {
+                // BUG: Diagnostic contains: dereferenced expression 's' is @Nullable
+                return s -> s.length();
+              }
+              static Function<String, Integer> functionDereferencesNonNullParameter() {
+                return s -> s.length();
+              }
+              static int functionDereferencesNullableResult(Function<String, @Nullable Integer> f) {
+                // BUG: Diagnostic contains: dereferenced expression 'f.apply("a")' is @Nullable
+                return f.apply("a").intValue();
+              }
+              static boolean predicatePassesNullToNullableArgument(Predicate<@Nullable String> p) {
+                return p.apply(null);
+              }
+              static boolean predicatePassesNullToNonNullArgument(Predicate<String> p) {
+                // BUG: Diagnostic contains: passing @Nullable parameter
+                return p.apply(null);
+              }
+              static void asyncFunctionPassesNullToNullableArgument(
+                  AsyncFunction<@Nullable String, String> f) throws Exception {
+                f.apply(null);
+              }
+              static void asyncFunctionPassesNullToNonNullArgument(AsyncFunction<String, String> f)
+                  throws Exception {
+                // BUG: Diagnostic contains: passing @Nullable parameter
+                f.apply(null);
+              }
+              static void entryTransformerPassesNullToNullableArguments(
+                  Maps.EntryTransformer<@Nullable String, @Nullable String, String> t) {
+                t.transformEntry(null, null);
+              }
+              static void entryTransformerPassesNullToNonNullArgument(
+                  Maps.EntryTransformer<String, String, String> t) {
+                // BUG: Diagnostic contains: passing @Nullable parameter
+                t.transformEntry(null, "b");
+              }
+              static int entryTransformerDereferencesNullableResult(
+                  Maps.EntryTransformer<String, String, @Nullable Integer> t) {
+                // BUG: Diagnostic contains: dereferenced expression 't.transformEntry("a", "b")'
+                return t.transformEntry("a", "b").intValue();
+              }
+            }
+            """)
+        .doTest();
+  }
 }
