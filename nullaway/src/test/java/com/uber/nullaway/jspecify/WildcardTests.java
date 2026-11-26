@@ -3580,8 +3580,20 @@ public class WildcardTests extends NullAwayTestsBase {
               void typeVariableIntoADiamond(Box<T> b) {
                 var c = new GenericConstructor<>(b);
               }
+              static <R extends @Nullable Object, U extends R> R viaBound(U a, U b) {
+                return a;
+              }
+              static <R extends @Nullable Object, U extends R> R viaBoundOne(U a) {
+                return a;
+              }
               void typeVariableIntoAClassTypeResult(T t) {
                 pick(t, "x").toString();
+              }
+              void typeVariableThroughADeclaredBound(T t) {
+                viaBound(t, "x").toString();
+              }
+              void nullThroughADeclaredBound() {
+                viaBoundOne(null).toString();
               }
               void nullableTypeArgument(Box<@Nullable String> b) {
                 // BUG: Diagnostic contains: inference failure
