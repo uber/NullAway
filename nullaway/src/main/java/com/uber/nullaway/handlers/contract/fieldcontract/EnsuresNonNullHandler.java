@@ -22,11 +22,9 @@
 
 package com.uber.nullaway.handlers.contract.fieldcontract;
 
-import static com.uber.nullaway.NullabilityUtil.castToNonNull;
 import static com.uber.nullaway.NullabilityUtil.getAnnotationValueArray;
 
 import com.google.errorprone.VisitorState;
-import com.google.errorprone.util.ASTHelpers;
 import com.sun.source.tree.MethodTree;
 import com.sun.source.util.TreePath;
 import com.sun.tools.javac.code.Symbol;
@@ -43,8 +41,6 @@ import java.util.Collections;
 import java.util.HashSet;
 import java.util.Set;
 import java.util.stream.Collectors;
-import javax.lang.model.element.Modifier;
-import javax.lang.model.element.VariableElement;
 import org.checkerframework.nullaway.dataflow.cfg.node.MethodInvocationNode;
 
 /**
@@ -164,25 +160,8 @@ public class EnsuresNonNullHandler extends AbstractFieldContractHandler {
       return super.onDataflowVisitMethodInvocation(
           node, methodSymbol, state, apContext, inputs, thenUpdates, elseUpdates, bothUpdates);
     }
-    Set<String> fieldNames = getAnnotationValueArray(methodSymbol, annotName, false);
-    if (fieldNames != null) {
-      fieldNames = ContractUtils.trimReceivers(fieldNames);
-      for (String fieldName : fieldNames) {
-        VariableElement field =
-            getFieldOfClass(castToNonNull(ASTHelpers.enclosingClass(methodSymbol)), fieldName);
-        if (field == null) {
-          // Invalid annotation, will result in an error during validation. For now, skip field.
-          continue;
-        }
-        AccessPath accessPath =
-            field.getModifiers().contains(Modifier.STATIC)
-                ? AccessPath.fromStaticField(field)
-                : AccessPath.fromBaseAndElement(node.getTarget().getReceiver(), field, apContext);
-        if (accessPath == null) {
-          continue;
-        }
-        bothUpdates.set(accessPath, Nullness.NONNULL);
-      }
+    for (AccessPath accessPath : getFieldAccessPathsAtCall(node, methodSymbol, apContext)) {
+      bothUpdates.set(accessPath, Nullness.NONNULL);
     }
     return super.onDataflowVisitMethodInvocation(
         node, methodSymbol, state, apContext, inputs, thenUpdates, elseUpdates, bothUpdates);

@@ -24,8 +24,10 @@ package com.uber.nullaway.handlers;
 
 import static com.google.errorprone.util.ASTHelpers.getEnclosedElements;
 import static com.uber.nullaway.NullabilityUtil.castToNonNull;
+import static com.uber.nullaway.NullabilityUtil.getAnnotationValueArray;
 
 import com.google.common.base.Preconditions;
+import com.google.common.collect.ImmutableSet;
 import com.google.errorprone.VisitorState;
 import com.google.errorprone.util.ASTHelpers;
 import com.sun.source.tree.MethodTree;
@@ -33,12 +35,14 @@ import com.sun.tools.javac.code.Symbol;
 import com.uber.nullaway.ErrorMessage;
 import com.uber.nullaway.NullAway;
 import com.uber.nullaway.NullabilityUtil;
+import com.uber.nullaway.dataflow.AccessPath;
 import com.uber.nullaway.handlers.contract.ContractUtils;
 import java.util.Collections;
 import java.util.Set;
 import javax.lang.model.element.Element;
 import javax.lang.model.element.Modifier;
 import javax.lang.model.element.VariableElement;
+import org.checkerframework.nullaway.dataflow.cfg.node.MethodInvocationNode;
 import org.jspecify.annotations.Nullable;
 
 /**
@@ -232,6 +236,46 @@ public abstract class AbstractFieldContractHandler implements Handler {
       }
     }
     return true;
+  }
+
+  /**
+   * Returns the access paths of the fields named in this handler's annotation on {@code
+   * methodSymbol}, as seen from the call {@code node}. Instance fields are read from the receiver
+   * of the call, so that {@code other.m()} refers to {@code other.f}, not {@code this.f}. Static
+   * fields use their static access path. Fields that cannot be found are skipped, since validation
+   * reports them.
+   *
+   * @param node A call to a method annotated with this handler's annotation.
+   * @param methodSymbol The symbol of the called method.
+   * @param apContext The access path context of the dataflow analysis.
+   * @return The access paths of the annotated fields, or an empty set if the method has no such
+   *     annotation.
+   */
+  protected ImmutableSet<AccessPath> getFieldAccessPathsAtCall(
+      MethodInvocationNode node,
+      Symbol.MethodSymbol methodSymbol,
+      AccessPath.AccessPathContext apContext) {
+    Set<String> fieldNames = getAnnotationValueArray(methodSymbol, annotName, false);
+    if (fieldNames == null) {
+      return ImmutableSet.of();
+    }
+    ImmutableSet.Builder<AccessPath> accessPaths = ImmutableSet.builder();
+    for (String fieldName : ContractUtils.trimReceivers(fieldNames)) {
+      VariableElement field =
+          getFieldOfClass(castToNonNull(ASTHelpers.enclosingClass(methodSymbol)), fieldName);
+      if (field == null) {
+        // Invalid annotation, will result in an error during validation. For now, skip field.
+        continue;
+      }
+      AccessPath accessPath =
+          field.getModifiers().contains(Modifier.STATIC)
+              ? AccessPath.fromStaticField(field)
+              : AccessPath.fromBaseAndElement(node.getTarget().getReceiver(), field, apContext);
+      if (accessPath != null) {
+        accessPaths.add(accessPath);
+      }
+    }
+    return accessPaths.build();
   }
 
   /**
