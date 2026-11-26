@@ -33,7 +33,7 @@ public class CheckIdenticalNullabilityVisitor extends Types.DefaultTypeVisitor<B
   private final Handler handler;
 
   /** Successful containment checks, reusable for the lifetime of this visitor. */
-  private @Nullable Set<ContainmentKey> completedWildcardComparisons;
+  private @Nullable Set<ContainmentKey> successfulWildcardComparisons;
 
   /**
    * Checks in progress or passed during the current outermost wildcard comparison. Every nested
@@ -45,7 +45,7 @@ public class CheckIdenticalNullabilityVisitor extends Types.DefaultTypeVisitor<B
 
   /**
    * Stops recursive bounds from rechecking the same wildcard/RHS pair, using object identity. The
-   * {@link ContainmentKey}s used by {@link #completedWildcardComparisons} and {@link
+   * {@link ContainmentKey}s used by {@link #successfulWildcardComparisons} and {@link
    * #provisionalWildcardComparisons} can change when capture conversion recreates other type
    * arguments, so those sets cannot replace this recursion guard.
    */
@@ -320,7 +320,8 @@ public class CheckIdenticalNullabilityVisitor extends Types.DefaultTypeVisitor<B
    * @param lhsUpperBound the upper bound of {@code lhsWildcard}
    * @param rhsTypeArgument the actual type argument on the right whose containment is checked
    * @param rhsUpperBound the upper bound of {@code rhsTypeArgument}
-   * @param key the argument position and parameterized types before capture conversion
+   * @param key identifies this comparison: {@code lhsWildcard}, {@code rhsTypeArgument}, their
+   *     position, and the parameterized types that contain them, before their bounds are computed
    * @return whether {@code lhsWildcard} contains {@code rhsTypeArgument}
    */
   private boolean wildcardContains(
@@ -329,7 +330,7 @@ public class CheckIdenticalNullabilityVisitor extends Types.DefaultTypeVisitor<B
       Type rhsTypeArgument,
       Type rhsUpperBound,
       ContainmentKey key) {
-    if (completedWildcardComparisons != null && completedWildcardComparisons.contains(key)) {
+    if (successfulWildcardComparisons != null && successfulWildcardComparisons.contains(key)) {
       return true;
     }
     boolean outermost = false;
@@ -363,10 +364,10 @@ public class CheckIdenticalNullabilityVisitor extends Types.DefaultTypeVisitor<B
       // A nested success may rely on an unfinished check, so cache results only after the outer
       // check passes. A failure ends the traversal immediately; there is no failed result to reuse.
       if (outermost && result) {
-        if (completedWildcardComparisons == null) {
-          completedWildcardComparisons = new HashSet<>();
+        if (successfulWildcardComparisons == null) {
+          successfulWildcardComparisons = new HashSet<>();
         }
-        completedWildcardComparisons.addAll(provisional);
+        successfulWildcardComparisons.addAll(provisional);
       }
       return result;
     } finally {

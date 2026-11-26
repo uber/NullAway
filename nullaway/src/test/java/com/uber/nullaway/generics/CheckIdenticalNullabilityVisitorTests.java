@@ -1,6 +1,7 @@
 package com.uber.nullaway.generics;
 
 import static com.google.common.truth.Truth.assertThat;
+import static com.google.common.truth.Truth.assertWithMessage;
 import static com.google.errorprone.BugPattern.SeverityLevel.SUGGESTION;
 import static com.google.errorprone.matchers.Description.NO_MATCH;
 
@@ -25,9 +26,10 @@ import org.junit.Test;
 /**
  * Checks bounded containment work, cache reuse, and cleanup after failures or interruptions.
  *
- * <p>Detached fixtures keep bound wrappers separate between sides so javac cannot skip traversal
- * through object identity. Cyclic fixtures modify only these wrappers; the fresh-bound fixtures use
- * javac's real captured bounds.
+ * <p>Detached fixtures give each side separate copies of bound types so NullAway's {@code
+ * GenericsChecks.identicalTypeParameterNullability} cannot skip traversal via its {@code lhsType ==
+ * rhsType} shortcut. Cyclic fixtures modify only these copies; the fresh-bound fixtures use javac's
+ * real captured bounds.
  */
 public class CheckIdenticalNullabilityVisitorTests {
 
@@ -54,7 +56,25 @@ public class CheckIdenticalNullabilityVisitorTests {
   }
 
   @Test(timeout = 30_000)
-  public void siblingWildcardArgumentsReuseCompletedComparisonsInOneAccept() {
+  public void assertionFailuresBecomeDiagnosticsAndDoNotStopLaterFixtures() {
+    compile(
+        boundDeclarations(4)
+            + """
+        class Test {
+          void assertionFailureCase() {
+            // BUG: Diagnostic contains: assertionFailure: expected fixture assertion
+            Object assertionFailure;
+          }
+          void subsequentFixtureCase() {
+            // BUG: Diagnostic contains: depth4: first=34, repeat=1, fresh=34, afterInterrupt=34, accepted=true/true/true/true, interrupted=true
+            A4<?> depth4;
+          }
+        }
+        """);
+  }
+
+  @Test(timeout = 30_000)
+  public void siblingWildcardArgumentsReuseSuccessfulComparisonsInOneAccept() {
     compile(
         boundDeclarations(8)
             + """
@@ -198,7 +218,10 @@ public class CheckIdenticalNullabilityVisitorTests {
                     "NullAway:JSpecifyMode", "true",
                     "NullAway:HandleWildcardGenerics", "true")));
 
-    /** Reports budget exhaustion without hiding observations from the other fixtures. */
+    /**
+     * Reports budget exhaustion and assertion failures as diagnostics without hiding observations
+     * from the other fixtures. Assertion diagnostics include the fixture name and failure message.
+     */
     @Override
     public Description matchVariable(VariableTree tree, VisitorState state) {
       String name = tree.getName().toString();
@@ -213,7 +236,8 @@ public class CheckIdenticalNullabilityVisitorTests {
           && !name.equals("freshBoundsCycle")
           && !name.equals("argumentPositions")
           && !name.equals("recursiveLowerBound")
-          && !name.equals("recursiveLateMismatch")) {
+          && !name.equals("recursiveLateMismatch")
+          && !name.equals("assertionFailure")) {
         return NO_MATCH;
       }
       String message;
@@ -221,6 +245,7 @@ public class CheckIdenticalNullabilityVisitorTests {
         Type original = ASTHelpers.getType(tree);
         message =
             switch (name) {
+              case "assertionFailure" -> throw new AssertionError("expected fixture assertion");
               case "siblings" -> checkSiblings((Type.ClassType) original, state);
               case "cycleFailure", "distinctRhsCycle" -> checkCycle(original, state, name);
               case "differentRhsBounds" ->
@@ -236,6 +261,8 @@ public class CheckIdenticalNullabilityVisitorTests {
             };
       } catch (WorkBudgetExceeded exhausted) {
         message = name + ": budgetExhausted";
+      } catch (AssertionError failed) {
+        message = name + ": " + failed.getMessage();
       }
       return buildDescription(tree).setMessage(message).build();
     }
@@ -292,7 +319,9 @@ public class CheckIdenticalNullabilityVisitorTests {
           + interruptedAsExpected;
     }
 
-    /** Makes the second sibling revisit a completed deep comparison during the same root accept. */
+    /**
+     * Makes the second sibling revisit a successful deep comparison during the same root accept.
+     */
     private String checkSiblings(Type.ClassType original, VisitorState state) {
       Type bound = original.getTypeArguments().head;
       Type lhsBound = detach(bound, new IdentityHashMap<>());
@@ -347,7 +376,7 @@ public class CheckIdenticalNullabilityVisitorTests {
     /**
      * Lets B succeed through a cycle before A fails at its nullable String argument. Retrying B
      * alone must not reuse that earlier success. A second case checks one LHS wildcard against
-     * different RHS arguments. Only detached wrappers are linked into the cycle.
+     * different RHS arguments. Only detached copies are linked into the cycle.
      */
     private String checkCycle(Type original, VisitorState state, String name) {
       Type.ClassType originalBox = (Type.ClassType) original;
@@ -377,11 +406,11 @@ public class CheckIdenticalNullabilityVisitorTests {
       rhsBox.typarams_field = List.of(rhsRoot);
 
       CountingVisitor visitor = new CountingVisitor(state, nullAway, 64);
-      assertThat(lhsBox.accept(visitor, rhsBox)).isFalse();
+      assertWithMessage("rejectedRoot").that(lhsBox.accept(visitor, rhsBox)).isFalse();
       visitor.reset(64);
-      assertThat(lhsB.accept(visitor, rhsB)).isFalse();
+      assertWithMessage("rejectedDependent").that(lhsB.accept(visitor, rhsB)).isFalse();
       visitor.reset(64);
-      assertThat(lhsB.accept(visitor, rhsB)).isFalse();
+      assertWithMessage("rejectedAgain").that(lhsB.accept(visitor, rhsB)).isFalse();
       return name + ": rejectedRoot, rejectedDependent, rejectedAgain";
     }
 
@@ -440,13 +469,15 @@ public class CheckIdenticalNullabilityVisitorTests {
           new Type.ClassType(
               original.getEnclosingType(), List.of(nullableString, sharedWildcard), original.tsym);
       CountingVisitor visitor = new CountingVisitor(state, nullAway, 32);
-      assertThat(lhs.accept(visitor, nonNullRhs)).isTrue();
-      assertThat(lhs.accept(visitor, nullableRhs)).isFalse();
-      assertThat(lhs.accept(visitor, nonNullRhs)).isTrue();
+      assertWithMessage("acceptedNonNull").that(lhs.accept(visitor, nonNullRhs)).isTrue();
+      assertWithMessage("rejectedNullable").that(lhs.accept(visitor, nullableRhs)).isFalse();
+      assertWithMessage("acceptedAgain").that(lhs.accept(visitor, nonNullRhs)).isTrue();
       return "contextual: acceptedNonNull, rejectedNullable, acceptedAgain";
     }
 
-    /** Exercises a real cycle whose effective upper bounds have fresh intersection wrappers. */
+    /**
+     * Exercises a real cycle whose captured effective upper bounds are fresh intersection types.
+     */
     private String checkFreshBoundsCycle(Type.ClassType original, VisitorState state) {
       Type firstBound =
           GenericsUtils.effectiveUpperBoundsForTypeArguments(
@@ -460,7 +491,7 @@ public class CheckIdenticalNullabilityVisitorTests {
       assertThat(secondBound).isNotSameInstanceAs(firstBound);
 
       CountingVisitor visitor = new CountingVisitor(state, nullAway, 96);
-      assertThat(original.accept(visitor, original)).isTrue();
+      assertWithMessage("terminated").that(original.accept(visitor, original)).isTrue();
       assertThat(visitor.comparisons).isAtMost(96);
       return "freshBoundsCycle: terminated, freshBounds";
     }
@@ -488,8 +519,8 @@ public class CheckIdenticalNullabilityVisitorTests {
           new Type.ClassType(
               original.getEnclosingType(), List.of(rhsWildcard, lhsWildcard), original.tsym);
       CountingVisitor visitor = new CountingVisitor(state, nullAway, 32);
-      assertThat(lhs.accept(visitor, firstOnlyRhs)).isTrue();
-      assertThat(lhs.accept(visitor, rhs)).isFalse();
+      assertWithMessage("acceptedFirst").that(lhs.accept(visitor, firstOnlyRhs)).isTrue();
+      assertWithMessage("rejectedSecond").that(lhs.accept(visitor, rhs)).isFalse();
       return "argumentPositions: acceptedFirst, rejectedSecond";
     }
 
@@ -514,12 +545,14 @@ public class CheckIdenticalNullabilityVisitorTests {
       assertThat(firstSuper.type).isNotSameInstanceAs(secondSuper.type);
 
       CountingVisitor visitor = new CountingVisitor(state, nullAway, 96);
-      assertThat(original.accept(visitor, original)).isTrue();
+      assertWithMessage("terminated").that(original.accept(visitor, original)).isTrue();
       assertThat(visitor.comparisons).isGreaterThan(1);
       visitor.reset(96);
-      Type.ClassType freshWrapper = shell(original);
-      freshWrapper.typarams_field = original.getTypeArguments();
-      assertThat(freshWrapper.accept(visitor, original)).isTrue();
+      Type.ClassType freshCopy = shell(original);
+      freshCopy.typarams_field = original.getTypeArguments();
+      assertWithMessage("freshIndependentCapture")
+          .that(freshCopy.accept(visitor, original))
+          .isTrue();
       return "recursiveLowerBound: terminated, freshIndependentCapture";
     }
 
@@ -532,10 +565,10 @@ public class CheckIdenticalNullabilityVisitorTests {
       Type.ClassType rhs = shell(original);
       rhs.typarams_field = List.of(original.getTypeArguments().head, nullableString);
       CountingVisitor visitor = new CountingVisitor(state, nullAway, 96);
-      assertThat(original.accept(visitor, rhs)).isFalse();
+      assertWithMessage("rejectedAfterRecursion").that(original.accept(visitor, rhs)).isFalse();
       assertThat(visitor.comparisons).isGreaterThan(1);
       visitor.reset(96);
-      assertThat(original.accept(visitor, rhs)).isFalse();
+      assertWithMessage("rejectedAgain").that(original.accept(visitor, rhs)).isFalse();
       return "recursiveLateMismatch: rejectedAfterRecursion";
     }
 
@@ -566,7 +599,7 @@ public class CheckIdenticalNullabilityVisitorTests {
       this.budget = budget;
     }
 
-    /** Fails deterministically even when completed containment work is not cached. */
+    /** Fails deterministically even when successful containment work is not cached. */
     @Override
     public Boolean visitClassType(Type.ClassType lhs, Type rhs) {
       if (++comparisons > budget) {
