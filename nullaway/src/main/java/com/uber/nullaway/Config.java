@@ -335,12 +335,12 @@ public interface Config {
    * reference are checked against the types javac inferred for them.
    *
    * <p>Where it is true, inference also reads a declared bound {@code U extends R} between two type
-   * variables of one call as {@code U <: R}, unless the declaration of {@code U} makes its bound
-   * nullable, as a {@code @Nullable R} bound or unannotated code does: {@code @Nullable} and the
-   * flow of such a type variable pass from {@code U} to {@code R}, and {@code @NonNull} from {@code
-   * R} to {@code U}. So {@code viaBound(null).hashCode()} with {@code <R extends @Nullable Object,
-   * U extends R> R viaBound(U u)} is reported, though no type variable whose bound admits null is
-   * passed.
+   * variables of one call as {@code U <: R}: {@code @Nullable} and the flow of such a type variable
+   * pass from {@code U} to {@code R}, and {@code @NonNull} passes from {@code R} to {@code U}. So
+   * {@code viaBoundOne(null).hashCode()} with {@code <R extends @Nullable Object, U extends R> R
+   * viaBoundOne(U u)} is reported, though no type variable whose bound admits null is passed. A
+   * bound that the declaration of {@code U} makes nullable relates nothing: a {@code @Nullable R}
+   * bound, a library model, or unannotated code.
    */
   boolean isNullableBoundInferenceEnabled();
 

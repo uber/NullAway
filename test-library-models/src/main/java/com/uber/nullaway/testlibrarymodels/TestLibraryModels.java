@@ -367,6 +367,7 @@ public class TestLibraryModels implements LibraryModels {
             0)
         .put(methodRef("com.uber.lib.unannotated.ProviderNullMarkedViaModel", "<U>of(U)"), 0)
         .put(methodRef("com.uber.ModeledIntersectionBounds", "<T>identity(T)"), 0)
+        .put(methodRef("com.uber.ModeledDeclaredBound", "<R,U>choose(R,U)"), 1)
         .put(
             methodRef(
                 "com.uber.lib.unannotated.NestedAnnots", "<T>genericMethod(java.lang.Class<T>)"),

@@ -63,13 +63,13 @@ public final class ConstraintSolverImpl implements ConstraintSolver {
    * Whether the bound of each inference variable admits null, by {@link
    * GenericsUtils#upperBoundIsNullable}; see {@link #boundAdmitsNull}.
    */
-  private final Map<InferenceVariable, Boolean> boundAdmitsNull = new HashMap<>();
+  private final Map<InferenceVariable, Boolean> boundAdmitsNullCache = new HashMap<>();
 
   /**
    * Whether the bound of each inference variable is explicitly nullable, by {@link
    * GenericsUtils#boundIsExplicitlyNullable}; see {@link #boundIsExplicitlyNullable}.
    */
-  private final Map<InferenceVariable, Boolean> boundIsExplicitlyNullable = new HashMap<>();
+  private final Map<InferenceVariable, Boolean> boundIsExplicitlyNullableCache = new HashMap<>();
 
   public ConstraintSolverImpl(Config config, VisitorState state, NullAway analysis) {
     this.config = config;
@@ -609,7 +609,7 @@ public final class ConstraintSolverImpl implements ConstraintSolver {
    * answer of the variable its bound names, so each variable of a chain of bounds is computed once.
    */
   private boolean boundAdmitsNull(InferenceVariable inferenceVar) {
-    Boolean known = boundAdmitsNull.get(inferenceVar);
+    Boolean known = boundAdmitsNullCache.get(inferenceVar);
     if (known == null) {
       InferenceVariable boundVar = declaredBounds.get(inferenceVar);
       known =
@@ -617,7 +617,7 @@ public final class ConstraintSolverImpl implements ConstraintSolver {
               ? boundAdmitsNull(boundVar)
               : GenericsUtils.upperBoundIsNullable(
                   inferenceVar.typeVariable(), config, handler, state);
-      boundAdmitsNull.put(inferenceVar, known);
+      boundAdmitsNullCache.put(inferenceVar, known);
     }
     return known;
   }
@@ -628,7 +628,7 @@ public final class ConstraintSolverImpl implements ConstraintSolver {
    * edge in {@link #declaredBounds} has the answer of the variable its bound names.
    */
   private boolean boundIsExplicitlyNullable(InferenceVariable inferenceVar) {
-    Boolean known = boundIsExplicitlyNullable.get(inferenceVar);
+    Boolean known = boundIsExplicitlyNullableCache.get(inferenceVar);
     if (known == null) {
       InferenceVariable boundVar = declaredBounds.get(inferenceVar);
       known =
@@ -636,7 +636,7 @@ public final class ConstraintSolverImpl implements ConstraintSolver {
               ? boundIsExplicitlyNullable(boundVar)
               : GenericsUtils.boundIsExplicitlyNullable(
                   inferenceVar.typeVariable(), config, handler, state);
-      boundIsExplicitlyNullable.put(inferenceVar, known);
+      boundIsExplicitlyNullableCache.put(inferenceVar, known);
     }
     return known;
   }
