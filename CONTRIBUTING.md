@@ -21,7 +21,7 @@ Before filing, search [existing issues, including closed ones](https://github.co
 
 * `### Kind of problem`: false positive, false negative, crash, or other.
 * `### Minimal reproducer`: a Java sample with imports and nullness annotations, or a small repository with the command to run it. Compile the sample again after the last edit. If you cannot reduce it, include the surrounding method and say so.
-* `### Actual behavior`: diagnostics or a stack trace as text, not screenshots. For a missed error, write "no error reported"; for other problems, describe what happens.
+* `### Actual behavior`: diagnostics or a stack trace as text, not screenshots. For a false negative, write "no error reported"; for other problems, describe what happens.
 * `### Expected behavior`: which diagnostics should or should not appear, and on which expressions. Link relevant documentation or specifications when applicable.
 * `### NullAway configuration`: compiler options and relevant build configuration. Remove secrets and unrelated configuration; internal package names may be replaced.
 * `### NullAway version`: the version of `com.uber.nullaway:nullaway`, or the commit for an unreleased build.
