@@ -110,18 +110,21 @@ body:
     validations:
       required: false
 
-  - type: checkboxes
+  - type: dropdown
     id: latest_release
     attributes:
-      label: Latest release
-      description: If you cannot upgrade to the latest NullAway release, say why under "Additional context".
+      label: Reproduces with the latest NullAway release
       options:
-        - label: I reproduced this with the latest NullAway release
+        - "Yes"
+        - "No, not tried yet"
+        - "No, I cannot upgrade"
+    validations:
+      required: false
 
   - type: textarea
     id: additional
     attributes:
       label: Additional context
-      description: Include anything the reproducer does not show, related issues, relevant dependencies, annotation processors, workarounds, or the last working NullAway version if this is a regression. If you cannot upgrade to the latest NullAway release, say why.
+      description: Include anything the reproducer does not show, related issues, relevant dependencies, annotation processors, workarounds, or the last working NullAway version if this is a regression.
     validations:
       required: false

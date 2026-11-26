@@ -35,7 +35,7 @@ Put Java samples in fenced `java` blocks, and configuration and compiler output 
 Optional sections match the remaining form fields:
 
 * `### Build tool and plugin versions`: relevant plugin versions, such as the Gradle Error Prone or NullAway plugin, and whether this is an Android build.
-* `### Latest release`: whether you reproduced the problem with the latest NullAway release. If you cannot upgrade, say why under "Additional context".
+* `### Reproduces with the latest NullAway release`: "Yes", "No, not tried yet", or "No, I cannot upgrade".
 * `### Additional context`: anything the reproducer does not show, related issues, relevant dependencies, annotation processors, workarounds, or the last working NullAway version if this is a regression.
 
 If you have permission, explicitly apply the `bug` label, for example with `gh issue create --label bug`.
