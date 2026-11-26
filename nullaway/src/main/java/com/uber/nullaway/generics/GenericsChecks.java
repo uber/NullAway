@@ -3131,7 +3131,7 @@ public final class GenericsChecks {
       result = new InferenceSuccess(solver.solve(), new IdentityHashMap<>());
     } catch (UnsatisfiableConstraintsException e) {
       String message = inferenceFailureMessage(e, new IdentityHashMap<>());
-      reportInferenceFailure(tree, message, state);
+      reportInferenceFailure(tree, message, state, false);
       result = new InferenceFailure(message);
     }
     if (okToCacheInferenceResult(false)) { // diff-coverage: ignore -- No provisional types here.
