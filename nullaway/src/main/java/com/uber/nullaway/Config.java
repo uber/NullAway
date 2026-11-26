@@ -316,6 +316,38 @@ public interface Config {
   boolean isPolyNullLibraryModelsEnabled();
 
   /**
+   * Should generic inference account for the nullness of an unannotated type variable, a capture
+   * included, whose bound admits null, and read a declared bound {@code U extends R} between two
+   * type variables of a call as {@code U <: R}? True where both JSpecifyMode and
+   * JSpecifyExperimental are set. Where it is false, every inference variable that no constraint
+   * fixes is {@code @NonNull}, and the checks of a generic constructor at a diamond and of a
+   * generic method reference use the declared types.
+   *
+   * <p>Where it is true, an inference variable that no constraint fixes and that such a type
+   * variable flows into is {@link
+   * com.uber.nullaway.generics.ConstraintSolver.InferredNullability#TYPE_VARIABLE_OR_NULLABLE}
+   * where the bounds of both that type variable and the inference variable are explicitly nullable,
+   * and {@link
+   * com.uber.nullaway.generics.ConstraintSolver.InferredNullability#TYPE_VARIABLE_OR_NONNULL}
+   * otherwise. {@code GenericsUtils.typeVariableWithNullableBound} decides which bounds are
+   * explicitly nullable. With HandleWildcardGenerics also set, inference fails where an uncaptured
+   * type variable whose bound is explicitly nullable is passed for {@code ? extends U} and the
+   * bound of {@code U} excludes null. A generic constructor at a diamond and a generic method
+   * reference are checked against the types javac inferred for them.
+   *
+   * <p>Where it is true, inference also reads a declared bound {@code U extends R} between two type
+   * variables of one call, where the use of {@code R} carries no nullness annotation, as {@code U
+   * <: R}, and follows a chain of such bounds. {@code @Nullable} and the flow of an unannotated
+   * type variable whose bound admits null pass from {@code U} to {@code R}, and {@code @NonNull}
+   * passes from {@code R} to {@code U}. So {@code viaBoundOne(null).hashCode()} with {@code <R
+   * extends @Nullable Object, U extends R> R viaBoundOne(U u)} is reported, though no type variable
+   * whose bound admits null is passed. Inference reads no {@code U <: R} where the declaration of
+   * {@code U} makes its bound nullable: where a library model does so, or where {@code U} is
+   * declared in unannotated code.
+   */
+  boolean isNullableBoundInferenceEnabled();
+
+  /**
    * Should wildcard-aware generic nullability checks be enabled? These also compute {@link
    * Nullness#NO_CHANGE} for the values listed there, such as the result of {@code Box<? extends
    * T>.get()} or an enhanced-for element of type {@code T}; with the option off, such a value is

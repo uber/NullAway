@@ -377,8 +377,60 @@ public class GenericsUtils {
     return upperBound;
   }
 
-  private static boolean hasNullnessAnnotation(Type type, Config config) {
+  static boolean hasNullnessAnnotation(Type type, Config config) {
     return isAnnotatedAsNonNull(type, config) || isAnnotatedAsNullable(type, config);
+  }
+
+  /**
+   * Returns the synthetic nullness annotation type that {@code inferred} adds to {@code
+   * inferredType}, the type javac inferred for the variable at one location, or {@code null} where
+   * that type takes no synthetic annotation.
+   *
+   * <p>{@code NULLABLE} and {@code NONNULL} annotate every type. {@code TYPE_VARIABLE_OR_NULLABLE}
+   * and {@code TYPE_VARIABLE_OR_NONNULL} add no annotation to an {@code inferredType} that has
+   * parametric nullness, the test ({@link #hasParametricNullness}) the solver also applies to a
+   * type that flows into the variable, or to an intersection type, whose nullness comes from its
+   * elements and stays non-null where they exclude null. Any other type, including a wildcard and a
+   * type variable with a nullness annotation, takes {@code @Nullable} for {@code
+   * TYPE_VARIABLE_OR_NULLABLE} and {@code @NonNull} for {@code TYPE_VARIABLE_OR_NONNULL}.
+   */
+  static @Nullable Type inferredNullnessAnnotation(
+      Type inferredType,
+      ConstraintSolver.InferredNullability inferred,
+      Config config,
+      Handler handler,
+      VisitorState state) {
+    return switch (inferred) {
+      case NULLABLE -> GenericsChecks.getSyntheticNullableAnnotType(state);
+      case NONNULL -> GenericsChecks.getSyntheticNonNullAnnotType(state);
+      case TYPE_VARIABLE_OR_NULLABLE ->
+          inferredType.isCompound() || hasParametricNullness(inferredType, config, handler, state)
+              ? null
+              : GenericsChecks.getSyntheticNullableAnnotType(state);
+      case TYPE_VARIABLE_OR_NONNULL ->
+          inferredType.isCompound() || hasParametricNullness(inferredType, config, handler, state)
+              ? null
+              : GenericsChecks.getSyntheticNonNullAnnotType(state);
+    };
+  }
+
+  /**
+   * Returns whether {@code type} has parametric nullness as NullAway decides it: it is a type
+   * variable, a captured one included, that carries no nullness annotation at this use and whose
+   * bound admits null by {@link #upperBoundIsNullable}, which counts the default for a type
+   * variable declared in unannotated code. Such a use includes null exactly where the type argument
+   * substituted for it does. The closest JSpecify notion is the {@code NO_CHANGE} nullness
+   * operator, which also covers an unannotated type variable whose bound excludes null and does not
+   * cover one declared in null-unmarked code.
+   *
+   * @see <a href="https://jspecify.dev/docs/spec/#nullness-operator">JSpecify: nullness
+   *     operator</a>
+   */
+  static boolean hasParametricNullness(
+      Type type, Config config, Handler handler, VisitorState state) {
+    return type instanceof Type.TypeVar typeVariable
+        && !hasNullnessAnnotation(type, config)
+        && upperBoundIsNullable(typeVariable.asElement(), config, handler, state);
   }
 
   /**
@@ -417,8 +469,51 @@ public class GenericsUtils {
     if (fromUnannotatedMethodOrClass(typeVarElement, config, handler, state)) {
       return true;
     }
-    // Models use declaration indices, which fresh inference symbols do not have. Keep looking at
-    // the fresh bound below, but consult its original declaration for library-model overrides.
+    if (libraryModelMakesBoundNullable(typeVarElement, handler, state)) {
+      return true;
+    }
+    Type upperBound = (Type) ((TypeVariable) typeVarElement.asType()).getUpperBound();
+    return isAnnotatedAsNullable(upperBound, config);
+  }
+
+  /**
+   * Returns true if the upper bound of the given type variable is explicitly nullable, as {@link
+   * #typeVariableWithNullableBound} defines it.
+   */
+  static boolean boundIsExplicitlyNullable(
+      Element typeVarElement, Config config, Handler handler, VisitorState state) {
+    return typeVariableWithNullableBound(typeVarElement, config, handler, state) != null;
+  }
+
+  /**
+   * Returns the type variable whose declared bound makes the bound of {@code typeVarElement}
+   * explicitly nullable, or {@code null} where that bound is not explicitly nullable.
+   *
+   * <p>A declared bound is explicitly nullable where it is annotated {@code @Nullable} or a library
+   * model makes it nullable; that type variable is the result. A declared bound that is another
+   * type variable and carries no nullness annotation is explicitly nullable where the bound of that
+   * type variable is, so for {@code <S extends @Nullable Object, R extends S, T extends R>} the
+   * result for {@code T} is {@code S}. Unlike {@link #upperBoundIsNullable}, a type variable
+   * declared in unannotated code gets no nullable default, while a {@code @Nullable} written there
+   * still counts, as JSpecify gives annotations in null-unmarked code their meaning.
+   */
+  static @Nullable Element typeVariableWithNullableBound(
+      Element typeVarElement, Config config, Handler handler, VisitorState state) {
+    Type upperBound = (Type) ((TypeVariable) typeVarElement.asType()).getUpperBound();
+    if (isAnnotatedAsNullable(upperBound, config)
+        || libraryModelMakesBoundNullable(typeVarElement, handler, state)) {
+      return typeVarElement;
+    }
+    return !hasNullnessAnnotation(upperBound, config) && upperBound.getKind() == TypeKind.TYPEVAR
+        ? typeVariableWithNullableBound(upperBound.asElement(), config, handler, state)
+        : null;
+  }
+
+  /** Returns true if a library model overrides the upper bound of the given type variable. */
+  private static boolean libraryModelMakesBoundNullable(
+      Element typeVarElement, Handler handler, VisitorState state) {
+    // Models use declaration indices, which fresh inference symbols do not have, so consult the
+    // original declaration of a fresh symbol.
     Element modeledTypeVariable = typeVarElement;
     while (modeledTypeVariable instanceof FreshTypeVariableSymbol freshSymbol) {
       modeledTypeVariable = freshSymbol.declaredSymbol;
@@ -442,8 +537,7 @@ public class GenericsUtils {
         return true;
       }
     }
-    Type upperBound = (Type) ((TypeVariable) typeVarElement.asType()).getUpperBound();
-    return isAnnotatedAsNullable(upperBound, config);
+    return false;
   }
 
   private static boolean fromUnannotatedMethodOrClass(

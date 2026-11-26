@@ -14,8 +14,10 @@ import com.google.errorprone.matchers.Description;
 import com.google.errorprone.util.ASTHelpers;
 import com.sun.source.tree.MethodTree;
 import com.sun.tools.javac.code.Type;
+import com.uber.nullaway.DummyOptionsConfig;
 import com.uber.nullaway.LibraryModels.PolyNullLocation;
 import com.uber.nullaway.LibraryModels.PolyNullLocation.Return;
+import com.uber.nullaway.handlers.Handlers;
 import com.uber.nullaway.libmodel.NestedAnnotationInfo.TypePathEntry;
 import com.uber.nullaway.libmodel.NestedAnnotationInfo.TypePathEntry.Kind;
 import org.junit.Test;
@@ -62,7 +64,10 @@ public class PolyNullInferenceTests {
               ImmutableSet.of(
                   new PolyNullLocation(
                       new Return(), ImmutableList.of(new TypePathEntry(Kind.TYPE_ARGUMENT, 0)))),
-              annotation);
+              ConstraintSolver.InferredNullability.NONNULL,
+              state,
+              new DummyOptionsConfig(),
+              Handlers.buildEmpty());
       assertThat(updated.getReturnType().getTypeArguments().head.getAnnotationMirrors().head.type)
           .isSameInstanceAs(annotation);
       assertThat(updated.getParameterTypes().head)

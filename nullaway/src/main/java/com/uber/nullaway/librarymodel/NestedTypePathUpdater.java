@@ -1,5 +1,6 @@
 package com.uber.nullaway.librarymodel;
 
+import static com.uber.nullaway.NullabilityUtil.castToNonNull;
 import static com.uber.nullaway.generics.TypeMetadataBuilder.TYPE_METADATA_BUILDER;
 
 import com.google.common.base.Verify;
@@ -10,6 +11,8 @@ import com.sun.tools.javac.code.Types;
 import com.sun.tools.javac.util.ListBuffer;
 import com.uber.nullaway.generics.TypeSubstitutionUtils;
 import com.uber.nullaway.libmodel.NestedAnnotationInfo;
+import java.util.function.Function;
+import org.jspecify.annotations.Nullable;
 
 /** Updates a type at a nested location identified by a library-model type path. */
 @SuppressWarnings({"ReferenceEquality", "TypeEquals"}) // deliberate reference equality checks
@@ -21,16 +24,26 @@ public final class NestedTypePathUpdater extends Types.MapVisitor<Integer> {
   }
 
   private final ImmutableList<NestedAnnotationInfo.TypePathEntry> typePath;
-  private final Type annotationOrReplacementType;
   private final UpdateKind updateKind;
+
+  /** The type that replaces the type at {@link #typePath}, for {@link UpdateKind#REPLACE_TYPE}. */
+  private final @Nullable Type replacementType;
+
+  /**
+   * For {@link UpdateKind#ADD_ANNOTATION}, maps the type at {@link #typePath} to the annotation
+   * type added to it, or to {@code null} where that type stays unchanged.
+   */
+  private final @Nullable Function<Type, @Nullable Type> annotationFor;
 
   private NestedTypePathUpdater(
       ImmutableList<NestedAnnotationInfo.TypePathEntry> typePath,
-      Type annotationOrReplacementType,
-      UpdateKind updateKind) {
+      UpdateKind updateKind,
+      @Nullable Type replacementType,
+      @Nullable Function<Type, @Nullable Type> annotationFor) {
     this.typePath = typePath;
-    this.annotationOrReplacementType = annotationOrReplacementType;
     this.updateKind = updateKind;
+    this.replacementType = replacementType;
+    this.annotationFor = annotationFor;
   }
 
   /**
@@ -40,7 +53,24 @@ public final class NestedTypePathUpdater extends Types.MapVisitor<Integer> {
    */
   public static Type addAnnotation(
       Type type, ImmutableList<NestedAnnotationInfo.TypePathEntry> typePath, Type annotationType) {
-    return new NestedTypePathUpdater(typePath, annotationType, UpdateKind.ADD_ANNOTATION)
+    return addAnnotation(type, typePath, leaf -> annotationType);
+  }
+
+  /**
+   * Adds the annotation type that {@code annotationFor} returns for the type at {@code typePath} to
+   * that type, as {@link #addAnnotation(Type, ImmutableList, Type)} adds a fixed one; where {@code
+   * annotationFor} returns {@code null}, the type stays unchanged. A wildcard or a captured type
+   * variable at {@code typePath} is passed to {@code annotationFor} itself, and the annotation it
+   * returns is added to its upper bound: the bound of {@code ? extends}, the upper bound of the
+   * corresponding type parameter for another wildcard, or the upper bound of the capture.
+   *
+   * @return the updated type, or the original {@code type} instance if no change was made
+   */
+  public static Type addAnnotation(
+      Type type,
+      ImmutableList<NestedAnnotationInfo.TypePathEntry> typePath,
+      Function<Type, @Nullable Type> annotationFor) {
+    return new NestedTypePathUpdater(typePath, UpdateKind.ADD_ANNOTATION, null, annotationFor)
         .apply(type);
   }
 
@@ -51,7 +81,8 @@ public final class NestedTypePathUpdater extends Types.MapVisitor<Integer> {
    */
   public static Type replaceType(
       Type type, ImmutableList<NestedAnnotationInfo.TypePathEntry> typePath, Type replacement) {
-    return new NestedTypePathUpdater(typePath, replacement, UpdateKind.REPLACE_TYPE).apply(type);
+    return new NestedTypePathUpdater(typePath, UpdateKind.REPLACE_TYPE, replacement, null)
+        .apply(type);
   }
 
   private Type apply(Type type) {
@@ -59,9 +90,18 @@ public final class NestedTypePathUpdater extends Types.MapVisitor<Integer> {
   }
 
   private Type updateLeaf(Type type) {
-    return updateKind == UpdateKind.ADD_ANNOTATION
-        ? TypeSubstitutionUtils.typeWithAnnot(type, annotationOrReplacementType)
-        : annotationOrReplacementType;
+    if (updateKind == UpdateKind.REPLACE_TYPE) {
+      return castToNonNull(replacementType);
+    }
+    Type annotationType = annotationTypeFor(type);
+    return annotationType == null
+        ? type
+        : TypeSubstitutionUtils.typeWithAnnot(type, annotationType);
+  }
+
+  /** Returns the annotation type to add to {@code type} at {@link #typePath}, or {@code null}. */
+  private @Nullable Type annotationTypeFor(Type type) {
+    return castToNonNull(annotationFor).apply(type);
   }
 
   @Override
@@ -117,15 +157,20 @@ public final class NestedTypePathUpdater extends Types.MapVisitor<Integer> {
       if (updateKind == UpdateKind.REPLACE_TYPE) {
         return updateLeaf(t);
       }
+      Type annotationType = annotationTypeFor(t);
+      if (annotationType == null) {
+        // diff-coverage: ignore -- PolyNull inference returns no annotation only for a type
+        // variable or an intersection
+        return t;
+      }
       if (t.kind == BoundKind.EXTENDS) {
         return TYPE_METADATA_BUILDER.createWildcardType(
-            t, TypeSubstitutionUtils.typeWithAnnot(t.type, annotationOrReplacementType));
+            t, TypeSubstitutionUtils.typeWithAnnot(t.type, annotationType));
       }
       Type.TypeVar formalTypeVariable =
           Verify.verifyNotNull(t.bound, "wildcard has no corresponding formal type variable");
       Type updatedUpperBound =
-          TypeSubstitutionUtils.typeWithAnnot(
-              formalTypeVariable.getUpperBound(), annotationOrReplacementType);
+          TypeSubstitutionUtils.typeWithAnnot(formalTypeVariable.getUpperBound(), annotationType);
       return TypeSubstitutionUtils.replaceImplicitWildcardUpperBound(
           t, formalTypeVariable, updatedUpperBound);
     }
@@ -184,11 +229,14 @@ public final class NestedTypePathUpdater extends Types.MapVisitor<Integer> {
       updatedWildcard = (Type.WildcardType) wildcard.accept(this, pathIndex);
     } else {
       Verify.verify(pathIndex == typePath.size(), "path index out of bounds");
+      Type annotationType = annotationTypeFor(t);
+      if (annotationType == null) {
+        return t;
+      }
       Type updatedUpperBound =
-          TypeSubstitutionUtils.typeWithAnnot(t.getUpperBound(), annotationOrReplacementType);
+          TypeSubstitutionUtils.typeWithAnnot(t.getUpperBound(), annotationType);
       if (wildcard.kind == BoundKind.EXTENDS) {
-        Type updatedBound =
-            TypeSubstitutionUtils.typeWithAnnot(wildcard.type, annotationOrReplacementType);
+        Type updatedBound = TypeSubstitutionUtils.typeWithAnnot(wildcard.type, annotationType);
         updatedWildcard = TYPE_METADATA_BUILDER.createWildcardType(wildcard, updatedBound);
       } else {
         // The capture supplies the resolved upper bound, including receiver substitutions.

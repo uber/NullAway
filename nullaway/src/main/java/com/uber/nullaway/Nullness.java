@@ -67,8 +67,10 @@ public enum Nullness implements AbstractValue<Nullness> {
    *
    * <p>A dereference of the value is reported, since the value is not null-exclusive under every
    * parameterization. An assignment, an argument, a return, or an array store accepts the value
-   * where nullness subtyping holds: where the target's type is {@code T}, or a capture of {@code ?
-   * super T}, without {@code @NonNull}, as {@link
+   * where nullness subtyping holds: where the target's type carries no {@code @NonNull} and is the
+   * value's own type (for example the capture of {@code ? extends T} that javac infers for a
+   * generic parameter), a type variable that the value's type reaches through non-nullable bounds
+   * (for example {@code T}), or a capture of {@code ? super} either of those types, as {@link
    * com.uber.nullaway.generics.GenericsChecks#acceptsNoChangeValue} decides. At any other target
    * the value is {@link #NULLABLE}, and so is a variable of another type that dataflow assigns it
    * to. Generic method inference takes no nullness constraint from the value and infers {@code T}.
