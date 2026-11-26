@@ -1,23 +1,13 @@
 package com.uber.nullaway.jspecify;
 
 import static com.google.common.truth.Truth.assertThat;
-import static com.google.common.truth.Truth.assertWithMessage;
 
 import com.google.errorprone.CompilationTestHelper;
-import com.google.errorprone.ErrorProneJavaCompiler;
-import com.google.errorprone.FileManagers;
 import com.google.errorprone.FileObjects;
-import com.google.errorprone.scanner.ScannerSupplier;
-import com.uber.nullaway.NullAway;
 import com.uber.nullaway.NullAwayTestsBase;
 import com.uber.nullaway.generics.JSpecifyJavacConfig;
-import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
-import java.util.Locale;
-import java.util.stream.Collectors;
-import javax.tools.Diagnostic;
-import javax.tools.DiagnosticCollector;
 import javax.tools.JavaFileObject;
 import org.junit.Test;
 
@@ -25,6 +15,190 @@ import org.junit.Test;
  * Tests the diagnostics NullAway reports for generic inference: which ones, how many, and where.
  */
 public class GenericInferenceErrorReportingTests extends NullAwayTestsBase {
+
+  @Test
+  public void inferenceUsesCompletedArgumentDataflowWithoutLibraryModels() {
+    makeHelper()
+        .addSourceLines(
+            "Test.java",
+            """
+            package com.uber;
+            import org.jspecify.annotations.NullMarked;
+            import org.jspecify.annotations.Nullable;
+            @NullMarked
+            class Test {
+              static <T> T id(T value) { return value; }
+              static <T> void sink(T first, T second) {}
+
+              void refinedSecondArgument(@Nullable String value) {
+                if (value == null) {
+                  return;
+                }
+                sink(id("first"), value);
+              }
+              void refinedFirstArgument(@Nullable String value) {
+                if (value == null) {
+                  return;
+                }
+                sink(value, id("second"));
+              }
+              void unrefinedSecondArgument(@Nullable String value) {
+                // BUG: Diagnostic contains: inference failure
+                sink(id("first"), value);
+              }
+            }
+            """)
+        .doTest();
+  }
+
+  @Test
+  public void nestedGenericInferenceFailureReportedOnce() {
+    JavaFileObject source =
+        FileObjects.forSourceLines(
+            "Test.java",
+            """
+            package com.uber;
+            import java.util.Objects;
+            import org.jspecify.annotations.NullMarked;
+            import org.jspecify.annotations.Nullable;
+            @NullMarked
+            class Test {
+              static <T> T id(T value) { return value; }
+              static <T> T first(T a, T b) { return a; }
+              static <T> void sink(T a, T b) {}
+              void nullableArgument(@Nullable String value) {
+                String s = first(id(value), "x");
+              }
+              void nullableArgumentToRequireNonNull(@Nullable String value) {
+                String s = Objects.requireNonNull(id(value));
+              }
+              void nullableArgumentToSink(@Nullable String value) {
+                sink(id(value), "x");
+              }
+              void nullLiteralArgument() {
+                sink(id(null), "x");
+              }
+              void nonNullArgument(String value) {
+                String s = first(id(value), "x");
+              }
+            }
+            """);
+
+    assertThat(
+            compileAndReportDiagnostics(List.of(source)).stream()
+                .filter(diagnostic -> diagnostic.contains("inference failure:"))
+                .toList())
+        .containsExactly(
+            "Test.java:11: [NullAway] inference failure: type variable T is constrained to be @Nullable, "
+                + "but its upper bound requires it to be @NonNull",
+            "Test.java:14: [NullAway] inference failure: type variable T is constrained to be @Nullable, "
+                + "but its upper bound requires it to be @NonNull",
+            "Test.java:17: [NullAway] inference failure: type variable T is constrained to be @Nullable, "
+                + "but its upper bound requires it to be @NonNull",
+            "Test.java:20: [NullAway] inference failure: type variable T is constrained to be @Nullable, "
+                + "but its upper bound requires it to be @NonNull");
+  }
+
+  /**
+   * Inference failure reporting must wait for dataflow to determine the nullness of later arguments
+   * such as {@code optional.orElse(fallback)}, whose result nullness depends on an argument.
+   */
+  @Test
+  public void inferenceFailuresRequireCompletedArgumentDataflow() {
+    makeHelper()
+        .addSourceLines(
+            "Test.java",
+            """
+            package com.uber;
+            import java.util.Optional;
+            import java.util.function.Function;
+            import org.jspecify.annotations.NullMarked;
+            import org.jspecify.annotations.Nullable;
+            @NullMarked
+            class Test {
+              static <T> T id(T value) { return value; }
+              static <T> void sink(T first, T second) {}
+              static <T> T first(T first, T second) { return first; }
+              @SafeVarargs static <T> void anyOf(T... values) {}
+              static <T extends @Nullable Object> T nullableId(T value) { return value; }
+              static <R> R apply(String value, Function<String, R> function) {
+                return function.apply(value);
+              }
+
+              String initialized = first(id("first"), Optional.<String>empty().orElse("fallback"));
+
+              void nonNullFallback(String first, String fallback, Optional<String> optional) {
+                sink(id(first), optional.orElse(fallback));
+              }
+              void nonNullFallbackFirst(String first, String fallback, Optional<String> optional) {
+                sink(optional.orElse(fallback), id(first));
+              }
+              void nonNullVarargsFallback(String first, String fallback, Optional<String> optional) {
+                anyOf(id(first), optional.orElse(fallback));
+              }
+              void nullableVarargsFallback(String first, @Nullable String fallback, Optional<String> optional) {
+                // BUG: Diagnostic contains: inference failure
+                anyOf(id(first), optional.orElse(fallback));
+              }
+              void nullableFallback(String first, @Nullable String fallback, Optional<String> optional) {
+                // BUG: Diagnostic contains: inference failure
+                sink(id(first), optional.orElse(fallback));
+              }
+              void nullableFallbackFirst(String first, @Nullable String fallback, Optional<String> optional) {
+                // BUG: Diagnostic contains: inference failure
+                sink(optional.orElse(fallback), id(first));
+              }
+              void nullFallback(String first, Optional<String> optional) {
+                // BUG: Diagnostic contains: inference failure
+                sink(id(first), optional.orElse(null));
+              }
+              void plainFirstArgument(String first, String fallback, Optional<String> optional) {
+                sink(first, optional.orElse(fallback));
+              }
+              void fallbackSupplier(String first, String fallback, Optional<String> optional) {
+                sink(id(first), optional.orElseGet(() -> fallback));
+              }
+              void localFallback(String first, String fallback, Optional<String> optional) {
+                String result = optional.orElse(fallback);
+                sink(id(first), result);
+              }
+              void mappedOptional(String first, String fallback, Optional<String> optional) {
+                sink(id(first), optional.map(value -> value).orElse(fallback));
+              }
+              void propertyFallback(String key, String fallback) {
+                sink(id(key), System.getProperty(key, fallback));
+              }
+              void propertyFallbackFirst(String key, String fallback) {
+                sink(System.getProperty(key, fallback), id(key));
+              }
+              void nullablePropertyFallback(String key, @Nullable String fallback) {
+                // BUG: Diagnostic contains: inference failure
+                sink(id(key), System.getProperty(key, fallback));
+              }
+              void nullableGenericResult(String first, @Nullable String second) {
+                // BUG: Diagnostic contains: inference failure
+                sink(id(first), nullableId(second));
+              }
+              String lambdaResult(String value, String fallback, Optional<String> optional) {
+                return apply(value, parameter -> first(id(parameter), optional.orElse(fallback)));
+              }
+              String nullableLambdaResult(String value, @Nullable String fallback, Optional<String> optional) {
+                // BUG: Diagnostic contains: inference failure
+                return apply(value, parameter -> first(id(parameter), optional.orElse(fallback)));
+              }
+
+              interface Visitor<R extends @Nullable Object> { R visit(Node node); }
+              interface Node { <R extends @Nullable Object> R accept(Visitor<R> visitor); }
+              static class NullableVoidVisitor implements Visitor<@Nullable Void> {
+                public Void visit(Node node) {
+                  // Void return inference uses a nullable target for compatibility.
+                  return node.accept(this);
+                }
+              }
+            }
+            """)
+        .doTest();
+  }
 
   /**
    * Tests that the error message we get at a call to Arrays.copyOf does not erroneously suggest we
@@ -130,12 +304,11 @@ public class GenericInferenceErrorReportingTests extends NullAwayTestsBase {
   }
 
   /**
-   * For this failure, only dataflow raises the diagnostic; no other pass reports it, so a
-   * misattributed diagnostic would be the whole NullAway output of the build. See
+   * Generic return checking must report this failure in the file holding the call. See
    * https://github.com/uber/NullAway/issues/1733.
    */
   @Test
-  public void inferenceFailureFromDataflowReportedInFileWithCall() {
+  public void inferenceFailureFromStringReturnReportedInFileWithCall() {
     makeHelper()
         .addSourceLines("Unrelated.java", PADDED_FIRST_COMPILATION_UNIT)
         .addSourceLines(
@@ -152,10 +325,10 @@ public class GenericInferenceErrorReportingTests extends NullAwayTestsBase {
               interface Node {
                 <R extends @Nullable Object> R accept(Visitor<R> v);
               }
-              static class NullableVoidVisitor implements Visitor<@Nullable Void> {
-                // the override narrows the return type to @NonNull Void, so R cannot be inferred
+              static class NullableStringVisitor implements Visitor<@Nullable String> {
+                // the override narrows the return type to @NonNull String, so R cannot be inferred
                 @Override
-                public Void visit(Node n) {
+                public String visit(Node n) {
                   // BUG: Diagnostic contains: inference failure: type variable R constrained to be both @NonNull and @Nullable
                   return n.accept(this);
                 }
@@ -166,12 +339,11 @@ public class GenericInferenceErrorReportingTests extends NullAwayTestsBase {
   }
 
   /**
-   * Same as {@link #inferenceFailureFromDataflowReportedInFileWithCall()}, for the transfer
-   * function of the contract-checking analysis, which is a second instance carrying its own {@link
-   * com.google.errorprone.VisitorState} and needs the same update.
+   * Return checking must report the failure in the file holding the call when contract-checking
+   * dataflow also analyzes the method.
    */
   @Test
-  public void inferenceFailureFromContractDataflowReportedInFileWithCall() {
+  public void inferenceFailureFromStringReturnWithContractReportedInFileWithCall() {
     makeTestHelperWithArgs(
             JSpecifyJavacConfig.withJSpecifyModeArgs(
                 Arrays.asList(
@@ -193,16 +365,16 @@ public class GenericInferenceErrorReportingTests extends NullAwayTestsBase {
               interface Node {
                 <R extends @Nullable Object> R accept(Visitor<R> v);
               }
-              static class NullableVoidVisitor implements Visitor<@Nullable Void> {
+              static class NullableStringVisitor implements Visitor<@Nullable String> {
                 @Override
-                public Void visit(Node n) {
+                public String visit(Node n) {
                   // BUG: Diagnostic contains: inference failure: type variable R constrained to be both @NonNull and @Nullable
                   return n.accept(this);
                 }
               }
               // the contract makes NullAway run its contract-checking dataflow over this method
               @Contract("_, _ -> !null")
-              static Void pick(Node n, NullableVoidVisitor v) {
+              static String pick(Node n, NullableStringVisitor v) {
                 // BUG: Diagnostic contains: inference failure: type variable R constrained to be both @NonNull and @Nullable
                 return n.accept(v);
               }
@@ -337,71 +509,14 @@ public class GenericInferenceErrorReportingTests extends NullAwayTestsBase {
     assertThat(compileAndReportDiagnostics(List.of(uncheckedSource))).isEmpty();
   }
 
-  /**
-   * Compiles {@code sources} with NullAway in JSpecify mode and reports every diagnostic that names
-   * a position in them, as {@code <file>:<line>: <message>}. A caller asserts the returned list,
-   * whole or narrowed to the diagnostics its own name covers, so one that appears, disappears,
-   * moves to another line, or changes its wording fails the test. Severity is not part of the
-   * filter, since a check reported below warning level is still a diagnostic about the source.
-   *
-   * <p>A diagnostic is reported only when it names both a file and a line, which is what a reader
-   * of the source can locate. That leaves out javac's {@code [options]} warnings, which name no
-   * file, and its summary notes such as "uses unchecked or unsafe operations", which name a file at
-   * {@link Diagnostic#NOPOS}. Dropping those loses no error, because compilation has to succeed
-   * anyway: NullAway reports at warning severity here, so a compile error means the test source
-   * itself is broken.
-   *
-   * @param sources the compilation units to compile
-   * @return the rendered diagnostics, in the order javac emitted them
-   */
   private List<String> compileAndReportDiagnostics(List<JavaFileObject> sources) {
-    DiagnosticCollector<JavaFileObject> diagnosticCollector = new DiagnosticCollector<>();
-    List<String> args =
-        new ArrayList<>(
-            JSpecifyJavacConfig.withJSpecifyModeArgs(
-                Arrays.asList(
-                    "-d",
-                    temporaryFolder.getRoot().getAbsolutePath(),
-                    "-XepOpt:NullAway:AnnotatedPackages=com.uber")));
-    args.add("-proc:none");
-    ErrorProneJavaCompiler compiler =
-        new ErrorProneJavaCompiler(ScannerSupplier.fromBugCheckerClasses(NullAway.class));
-
-    boolean compilationSucceeded =
-        compiler
-            .getTask(null, FileManagers.testFileManager(), diagnosticCollector, args, null, sources)
-            .call();
-
-    assertWithMessage("compilation failed: %s", diagnosticCollector.getDiagnostics())
-        .that(compilationSucceeded)
-        .isTrue();
-    return diagnosticCollector.getDiagnostics().stream()
-        .filter(
-            diagnostic ->
-                diagnostic.getSource() != null && diagnostic.getLineNumber() != Diagnostic.NOPOS)
-        .map(GenericInferenceErrorReportingTests::render)
-        .toList();
-  }
-
-  /**
-   * Renders {@code diagnostic} as {@code <file>:<line>: <message>}, on one line. The directory the
-   * test file manager invented is dropped, as is the "see" line Error Prone appends to every
-   * NullAway diagnostic, so the result holds what a reader of the source would recognize. Both
-   * separators end a directory here: {@link javax.tools.FileObject#getName()} promises only a
-   * user-friendly name, and a file manager is free to hand back a platform path.
-   *
-   * @param diagnostic the diagnostic to render
-   * @return the rendered diagnostic
-   */
-  private static String render(Diagnostic<? extends JavaFileObject> diagnostic) {
-    String path = diagnostic.getSource().getName();
-    String fileName = path.substring(Math.max(path.lastIndexOf('/'), path.lastIndexOf('\\')) + 1);
-    String message =
-        Arrays.stream(diagnostic.getMessage(Locale.ROOT).split("\\R"))
-            .map(String::trim)
-            .filter(line -> !line.startsWith("(see "))
-            .collect(Collectors.joining(" "));
-    return fileName + ":" + diagnostic.getLineNumber() + ": " + message;
+    return compileAndReportDiagnostics(
+        sources,
+        JSpecifyJavacConfig.withJSpecifyModeArgs(
+            Arrays.asList(
+                "-d",
+                temporaryFolder.getRoot().getAbsolutePath(),
+                "-XepOpt:NullAway:AnnotatedPackages=com.uber")));
   }
 
   private CompilationTestHelper makeHelper() {

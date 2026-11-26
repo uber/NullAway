@@ -9,6 +9,47 @@ import org.junit.Test;
 public class StreamNullabilityPropagatorTests extends NullAwayTestsBase {
 
   @Test
+  public void filterRefinesIntersectionElementType() {
+    makeHelper()
+        .addSourceLines(
+            "Test.java",
+            """
+            import java.util.List;
+            import java.util.Objects;
+            import java.util.stream.Stream;
+            import org.jspecify.annotations.NullMarked;
+            import org.jspecify.annotations.Nullable;
+
+            @NullMarked
+            class Test {
+              interface I {}
+              interface J {}
+              static final class A implements I, J {}
+              static final class B implements I, J {}
+
+              static List<Integer> hashCodes(@Nullable A a, B b) {
+                return Stream.of(a, b).filter(Objects::nonNull).map(x -> x.hashCode()).toList();
+              }
+
+              static int hash(I i) {
+                return i.hashCode();
+              }
+
+              static List<Integer> hashCodesByReferenceMissingFilter(@Nullable A a, B b) {
+                // BUG: Diagnostic contains: parameter i of referenced method is @NonNull
+                return Stream.of(a, b).map(Test::hash).toList();
+              }
+
+              static List<Integer> hashCodesMissingFilter(@Nullable A a, B b) {
+                // BUG: Diagnostic contains: dereferenced expression 'x' is @Nullable
+                return Stream.of(a, b).map(x -> x.hashCode()).toList();
+              }
+            }
+            """)
+        .doTest();
+  }
+
+  @Test
   public void filterRefinesStreamElementType() {
     makeHelper()
         .addSourceLines(
@@ -262,6 +303,102 @@ public class StreamNullabilityPropagatorTests extends NullAwayTestsBase {
                     .filter(Objects::nonNull)
                     .map(Test::maybeNull)
                     // BUG: Diagnostic contains: incompatible types
+                    .toList();
+              }
+            }
+            """)
+        .doTest();
+  }
+
+  @Test
+  public void filterFactsComeOnlyFromTheFiltersOwnReturns() {
+    makeHelper()
+        .addSourceLines(
+            "Test.java",
+            """
+            import java.util.List;
+            import java.util.function.Supplier;
+            import org.jspecify.annotations.NullMarked;
+            import org.jspecify.annotations.Nullable;
+
+            @NullMarked
+            class Test {
+              @Nullable Object f;
+
+              static List<String> returnInNestedLambdaIsNotTheFilters(List<Test> l) {
+                return l.stream()
+                    .filter(
+                        p -> {
+                          Supplier<Object> s = () -> { return p.f != null ? p.f : ""; };
+                          return p.f != null && s.get() != null;
+                        })
+                    .map(q -> q.f.toString())
+                    .toList();
+              }
+
+              static List<String> returnInNestedClassIsNotTheFilters(List<Test> l) {
+                return l.stream()
+                    .filter(
+                        p -> {
+                          Supplier<Object> s =
+                              new Supplier<Object>() {
+                                @Override
+                                public Object get() {
+                                  return p.f != null ? p.f : "";
+                                }
+                              };
+                          return p.f != null && s.get() != null;
+                        })
+                    .map(q -> q.f.toString())
+                    .toList();
+              }
+
+              static List<String> everyReturnOfTheFilterCounts(List<Test> l) {
+                return l.stream()
+                    .filter(
+                        p -> {
+                          if (p.hashCode() == 0) {
+                            return true;
+                          }
+                          return p.f != null;
+                        })
+                    // BUG: Diagnostic contains: dereferenced expression 'q.f' is @Nullable
+                    .map(q -> q.f.toString())
+                    .toList();
+              }
+            }
+            """)
+        .doTest();
+  }
+
+  @Test
+  public void anonymousFilterWithNativeOverloadIsChecked() {
+    makeHelper()
+        .addSourceLines(
+            "Test.java",
+            """
+            import java.util.List;
+            import java.util.function.Predicate;
+            import org.jspecify.annotations.NullMarked;
+            import org.jspecify.annotations.Nullable;
+
+            @NullMarked
+            class Test {
+              @Nullable Object f;
+
+              static List<String> withNativeOverload(List<Test> l) {
+                return l.stream()
+                    .filter(
+                        new Predicate<Test>() {
+                          @Override
+                          public boolean test(Test p) {
+                            // BUG: Diagnostic contains: dereferenced expression 'p.f' is @Nullable
+                            return p.f.hashCode() != 0;
+                          }
+
+                          native boolean test(Test p, int unused);
+                        })
+                    .map(q -> q.toString())
                     .toList();
               }
             }

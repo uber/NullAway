@@ -239,6 +239,7 @@ public class TestLibraryModels implements LibraryModels {
   @Override
   public ImmutableSet<MethodRef> nonNullReturns() {
     return ImmutableSet.of(
+        methodRef("com.uber.lib.unannotated.NonNullReturnFunction", "apply(F)"),
         polyNullOverrideMethod("NonNullOverride", "top"),
         polyNullOverrideMethod("NonNullOverride", "generic"),
         polyNullOverrideMethod("NonNullOverride", "nested"),
@@ -265,9 +266,9 @@ public class TestLibraryModels implements LibraryModels {
 
   @Override
   public ImmutableList<StreamTypeRecord> customStreamNullabilitySpecs() {
-    // Identical to the default model for java.util.stream.Stream, but with the original type
-    // renamed
     return StreamModelBuilder.start()
+        // Identical to the default model for java.util.stream.Stream, but with the original type
+        // renamed
         .addStreamTypeFromName("com.uber.nullaway.testdata.unannotated.CustomStream")
         .withFilterMethodFromSignature("filter(java.util.function.Predicate<? super T>)")
         .withMapMethodFromSignature(
@@ -292,6 +293,11 @@ public class TestLibraryModels implements LibraryModels {
             "forEachOrdered(java.util.function.Consumer<? super T>)", "accept", ImmutableSet.of(0))
         .withMapMethodAllFromName("flatMap", "apply", ImmutableSet.of(0))
         .withPassthroughMethodFromSignature("distinct()")
+        // A filter that also starts from the facts of the filter before it
+        .addStreamTypeFromName("com.uber.nullaway.testdata.unannotated.FilterIsMapLikeStream")
+        .withFilterMethodFromSignature("filter(java.util.function.Predicate<? super T>)")
+        .withMapMethodFromSignature(
+            "filter(java.util.function.Predicate<? super T>)", "test", ImmutableSet.of(0))
         .end();
   }
 
@@ -360,6 +366,7 @@ public class TestLibraryModels implements LibraryModels {
                 "<T>withMapper(T,java.util.function.Function<java.lang.Object,java.lang.String>)"),
             0)
         .put(methodRef("com.uber.lib.unannotated.ProviderNullMarkedViaModel", "<U>of(U)"), 0)
+        .put(methodRef("com.uber.ModeledIntersectionBounds", "<T>identity(T)"), 0)
         .put(
             methodRef(
                 "com.uber.lib.unannotated.NestedAnnots", "<T>genericMethod(java.lang.Class<T>)"),

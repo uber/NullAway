@@ -39,6 +39,7 @@ import com.sun.tools.javac.processing.JavacProcessingEnvironment;
 import com.sun.tools.javac.util.Context;
 import com.uber.nullaway.NullabilityUtil;
 import com.uber.nullaway.dataflow.cfg.NullAwayCFGBuilder;
+import com.uber.nullaway.generics.GenericsChecks;
 import com.uber.nullaway.handlers.Handler;
 import java.util.HashMap;
 import javax.annotation.processing.ProcessingEnvironment;
@@ -73,9 +74,12 @@ public final class DataFlow {
 
   private final Handler handler;
 
-  DataFlow(boolean assertsEnabled, Handler handler) {
+  private final @Nullable GenericsChecks genericsChecks;
+
+  DataFlow(boolean assertsEnabled, Handler handler, @Nullable GenericsChecks genericsChecks) {
     this.assertsEnabled = assertsEnabled;
     this.handler = handler;
+    this.genericsChecks = genericsChecks;
   }
 
   private final LoadingCache<AnalysisParams, RunOnceForwardAnalysisImpl<?, ?, ?>> analysisCache =
@@ -127,7 +131,7 @@ public final class DataFlow {
                   }
 
                   return NullAwayCFGBuilder.build(
-                      bodyPath, ast, assertsEnabled, !assertsEnabled, env, handler);
+                      bodyPath, ast, assertsEnabled, !assertsEnabled, env, handler, genericsChecks);
                 }
               });
 
@@ -356,7 +360,8 @@ public final class DataFlow {
      * being computed.
      *
      * <p>This field defines the logical identity of {@code CfgParams}. Equality, hash code
-     * computation, and string representation are all based solely on this field.
+     * computation, and string representation are all based solely on this field. See {@link
+     * #equals(Object)} for how paths are compared.
      */
     private final TreePath codePath;
 
@@ -428,6 +433,18 @@ public final class DataFlow {
      * <p>Equality is based solely on {@link #codePath}. The {@link ProcessingEnvironment} is
      * intentionally excluded.
      *
+     * <p>{@link TreePath} does not override {@link Object#equals(Object)}. The field initialization
+     * checks create new {@link TreePath} instances for constructors and initializers, and the
+     * scanner later visits the same code with different instances. Comparing those paths by
+     * identity would cause the CFG and dataflow analysis for each constructor and initializer to be
+     * computed twice. So, for constructors and initializers, two instances are equal if their paths
+     * have the same leaf.
+     *
+     * <p>Other code (e.g., lambdas and methods of anonymous classes) is still compared by path
+     * identity, since its analysis results can depend on facts recorded by handlers while analyzing
+     * other code (e.g., a {@code filter()} predicate preceding a {@code map()} function in a stream
+     * chain), and so must not be reused across paths.
+     *
      * @param o the reference object with which to compare
      * @return {@code true} if this object is equal to the given object; {@code false} otherwise
      */
@@ -439,20 +456,31 @@ public final class DataFlow {
       if (!(o instanceof CfgParams that)) {
         return false;
       }
-      return java.util.Objects.equals(this.codePath, that.codePath);
+      Tree leaf = this.codePath.getLeaf();
+      if (isConstructorOrInitializer(leaf)) {
+        return leaf == that.codePath.getLeaf();
+      }
+      return this.codePath.equals(that.codePath);
     }
 
     /**
      * Returns a hash code value for this object.
      *
-     * <p>The hash code is computed solely from {@link #codePath} to remain consistent with {@link
-     * #equals(Object)}.
+     * <p>The hash code is computed solely from the leaf of {@link #codePath} to remain consistent
+     * with {@link #equals(Object)}.
      *
      * @return a hash code value for this object
      */
     @Override
     public int hashCode() {
-      return java.util.Objects.hashCode(codePath);
+      return System.identityHashCode(codePath.getLeaf());
+    }
+
+    private static boolean isConstructorOrInitializer(Tree tree) {
+      return (tree instanceof MethodTree methodTree
+              && ASTHelpers.getSymbol(methodTree).isConstructor())
+          || tree instanceof BlockTree
+          || tree instanceof VariableTree;
     }
 
     /**

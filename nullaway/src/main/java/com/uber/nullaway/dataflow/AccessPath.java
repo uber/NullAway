@@ -286,13 +286,57 @@ public final class AccessPath implements MapKey {
    * @param node a node
    * @return {@code node} with every enclosing value-preserving cast removed
    */
-  private static Node stripCasts(Node node) {
+  static Node stripCasts(Node node) {
     while (node instanceof TypeCastNode typeCastNode
         && (!typeCastNode.getType().getKind().isPrimitive()
             || typeCastNode.getType().getKind() == typeCastNode.getOperand().getType().getKind())) {
       node = typeCastNode.getOperand();
     }
     return node;
+  }
+
+  /**
+   * Returns whether every node with the access path of {@code node} has the static type of {@code
+   * node} without enclosing casts.
+   *
+   * <p>A path keeps no cast on a receiver and no type argument of a method call, so {@code
+   * ((Holder<T>) holder).field} and {@code holder.field} share one path, as do {@code g.<T>get()}
+   * and {@code g.<S>get()}, while their types differ.
+   *
+   * @param node a node that may have an access path
+   * @return {@code false} if a receiver on the path is cast or a method on it is generic
+   */
+  static boolean hasStableType(Node node) {
+    for (Node current = stripCasts(node); ; ) {
+      if (current instanceof MethodInvocationNode invocation
+          && !invocation.getTarget().getMethod().getTypeParameters().isEmpty()) {
+        return false;
+      }
+      Node receiver = receiverOf(current);
+      if (receiver == null) {
+        return true;
+      }
+      if (receiver instanceof TypeCastNode) {
+        return false;
+      }
+      current = receiver;
+    }
+  }
+
+  /**
+   * Returns the node whose access path {@code node} extends: the receiver of a field access or a
+   * method call, or the array of an array access. Returns {@code null} for any other node, which is
+   * the root of its path or has none.
+   */
+  private static @Nullable Node receiverOf(Node node) {
+    if (node instanceof FieldAccessNode fieldAccess) {
+      return fieldAccess.getReceiver();
+    } else if (node instanceof ArrayAccessNode arrayAccess) {
+      return arrayAccess.getArray();
+    } else if (node instanceof MethodInvocationNode invocation) {
+      return invocation.getTarget().getReceiver();
+    }
+    return null;
   }
 
   /**
@@ -533,10 +577,10 @@ public final class AccessPath implements MapKey {
         elements.push(new FieldOrMethodCallElement(fieldAccess.getElement()));
         result =
             buildAccessPathRecursive(
-                stripCasts(fieldAccess.getReceiver()), elements, apContext, mapKey);
+                stripCasts(castToNonNull(receiverOf(fieldAccess))), elements, apContext, mapKey);
       }
     } else if (node instanceof ArrayAccessNode arrayAccess) {
-      Node arrayNode = stripCasts(arrayAccess.getArray());
+      Node arrayNode = stripCasts(castToNonNull(receiverOf(arrayAccess)));
       Node indexNode = stripCasts(arrayAccess.getIndex());
       Element arrayElement = getElementFromArrayNode(arrayNode);
       Element indexElement = getElementFromArrayNode(indexNode);
@@ -639,7 +683,7 @@ public final class AccessPath implements MapKey {
       elements.push(accessPathElement);
       result =
           buildAccessPathRecursive(
-              stripCasts(accessNode.getReceiver()), elements, apContext, mapKey);
+              stripCasts(castToNonNull(receiverOf(invocation))), elements, apContext, mapKey);
     } else if (node instanceof LocalVariableNode localVariableNode) {
       result =
           new AccessPath(localVariableNode.getElement(), ImmutableList.copyOf(elements), mapKey);

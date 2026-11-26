@@ -271,6 +271,7 @@ public interface Config {
 
   /**
    * Gets the set of classes that should be treated as equivalent to a Guava fluent futures class.
+   * The option has no effect in JSpecify mode.
    *
    * @see com.uber.nullaway.handlers.temporary.FluentFutureHandler
    */
@@ -314,7 +315,12 @@ public interface Config {
   /** Should PolyNull library models be enabled? */
   boolean isPolyNullLibraryModelsEnabled();
 
-  /** Should wildcard-aware generic nullability checks be enabled? */
+  /**
+   * Should wildcard-aware generic nullability checks be enabled? These also compute {@link
+   * Nullness#NO_CHANGE} for the values listed there, such as the result of {@code Box<? extends
+   * T>.get()} or an enhanced-for element of type {@code T}; with the option off, such a value is
+   * {@link Nullness#NONNULL}.
+   */
   boolean handleWildcardGenerics();
 
   /**

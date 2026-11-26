@@ -36,12 +36,15 @@ import javax.lang.model.element.ElementKind;
 /**
  * This handler is used to serialize information regarding methods that initialize a class field.
  *
- * <p>It uses the following heuristic: if a method assigns a {@code @NonNull} value to a field, and
- * furthermore guarantees that said field is {@code @NonNull} on return from the method, then we
- * serialize information for this method as a potential initializer for that field. This information
- * can be used by an inference tool to detect initializer methods in classes.
+ * <p>It uses the following heuristic: if a method assigns to a {@code @NonNull} field a value the
+ * field accepts, and furthermore guarantees that said field is initialized on return from the
+ * method, then we serialize information for this method as a potential initializer for that field.
+ * A field is initialized when it holds a non-null value, or a value for which {@link
+ * com.uber.nullaway.Nullness#isNoChange()} holds and that the field's type and declaration accept.
+ * This information can be used by an inference tool to detect initializer methods in classes.
  *
- * <p>Note that the above two conditions are both needed to eliminate the cases below:
+ * <p>Note that both conditions of the heuristic, the assignment and the field initialized on
+ * return, are needed to eliminate the cases below:
  *
  * <ul>
  *   <li>Methods that initialize a field conditionally through only some of their execution paths
@@ -82,12 +85,12 @@ public class FieldInitializationSerializationHandler implements Handler {
       return;
     }
     String fieldName = field.getSimpleName().toString();
-    boolean leavesNonNullAtExitPoint =
-        analysis.getNonnullFieldsOfReceiverAtExit(pathToMethod, state.context).stream()
+    boolean leavesFieldInitializedAtExit =
+        analysis.getInitializedFieldsOfReceiverAtExit(pathToMethod, state.context).stream()
             .anyMatch(element -> element.getSimpleName().toString().equals(fieldName));
-    if (!leavesNonNullAtExitPoint) {
-      // Method does not keep the field @NonNull at exit point and fails the post condition to be an
-      // Initializer.
+    if (!leavesFieldInitializedAtExit) {
+      // Method does not leave the field initialized at exit point and fails the post condition to
+      // be an Initializer.
       return;
     }
     NullabilityUtil.castToNonNull(config.getSerializer())

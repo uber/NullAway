@@ -116,6 +116,7 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
+import java.util.function.Supplier;
 import java.util.stream.Collectors;
 import java.util.stream.StreamSupport;
 import javax.inject.Inject;
@@ -210,6 +211,8 @@ public class NullAway extends BugChecker
    * within the class; see {@link #matchClass(ClassTree, VisitorState)}
    */
   private enum NullMarking {
+    /** full class is explicitly excluded from checking, regardless of nested annotations */
+    EXCLUDED,
     /** full class is annotated for nullness checking */
     FULLY_MARKED,
     /** full class is unannotated */
@@ -289,7 +292,16 @@ public class NullAway extends BugChecker
       new LinkedHashMap<>();
 
   /**
-   * dynamically computer/overriden nullness facts for certain expressions, such as specific method
+   * Fields of the receiver that each safe-init method leaves initialized at its exit, keyed by the
+   * method. The set depends only on the method's body, so it is computed once however many
+   * constructors call the method and however many field reads are checked against it. Cleared in
+   * {@link #matchCompilationUnit(CompilationUnitTree, VisitorState)}.
+   */
+  private final Map<Element, ImmutableSet<Element>> safeInitMethodToInitializedFieldsAtExit =
+      new LinkedHashMap<>();
+
+  /**
+   * dynamically computer/overridden nullness facts for certain expressions, such as specific method
    * calls where we can infer a more precise set of facts than those given by the method's
    * annotations.
    */
@@ -362,7 +374,7 @@ public class NullAway extends BugChecker
   private boolean withinAnnotatedCode(VisitorState state) {
     return switch (nullMarkingForTopLevelClass) {
       case FULLY_MARKED -> true;
-      case FULLY_UNMARKED -> false;
+      case EXCLUDED, FULLY_UNMARKED -> false;
       case PARTIALLY_MARKED -> checkMarkingForPath(state);
     };
   }
@@ -435,7 +447,8 @@ public class NullAway extends BugChecker
       lambdaTree = (LambdaExpressionTree) leaf;
       methodSymbol = NullabilityUtil.getFunctionalInterfaceMethod(lambdaTree, state.getTypes());
     }
-    return checkReturnExpression(retExpr, methodSymbol, lambdaTree, tree, state);
+    checkReturnExpression(retExpr, methodSymbol, lambdaTree, tree, state);
+    return Description.NO_MATCH;
   }
 
   @Override
@@ -594,6 +607,7 @@ public class NullAway extends BugChecker
     Type lhsType = ASTHelpers.getType(tree.getVariable());
     if (lhsType != null && lhsType.isPrimitive()) {
       doUnboxingCheck(state, tree.getExpression());
+      return Description.NO_MATCH;
     }
     Symbol assigned = ASTHelpers.getSymbol(tree.getVariable());
     if (assigned instanceof Symbol.MethodSymbol) {
@@ -615,20 +629,28 @@ public class NullAway extends BugChecker
       // check for a write of a @Nullable value into @NonNull array contents
       ExpressionTree arrayExpr = arrayAccess.getExpression();
       ExpressionTree expression = tree.getExpression();
-      TreePath pathToArrayExpr =
-          pathWithLeaf(pathWithLeaf(state.getPath(), arrayAccess), arrayExpr);
-      Type arrayType = genericsChecks.getTreeType(arrayExpr, state.withPath(pathToArrayExpr));
+      Type arrayType =
+          genericsChecks.getAssignedVariableType(
+              arrayExpr,
+              pathWithLeaf(pathWithLeaf(state.getPath(), arrayAccess), arrayExpr),
+              state);
       boolean isElementNullable = isArrayElementNullable(arrayType, config);
-      if (!isElementNullable && mayBeNullExpr(state, expression)) {
-        String message = "Writing @Nullable expression into array with @NonNull contents.";
-        ErrorMessage errorMessage =
-            new ErrorMessage(MessageTypes.ASSIGN_NULLABLE_TO_NONNULL_ARRAY, message);
-        return errorBuilder.createErrorDescription(
-            errorMessage,
-            buildDescription(tree),
-            state,
-            ASTHelpers.getSymbol(arrayExpr),
-            expression);
+      if (!isTopLevelNullnessCompatible(
+          expression,
+          // javac's type of the element drops type-use annotations, such as a @NonNull component
+          () -> GenericsChecks.ValueTarget.arrayElement(arrayType),
+          isElementNullable ? Nullness.NULLABLE : Nullness.NONNULL,
+          state)) {
+        state.reportMatch(
+            errorBuilder.createErrorDescription(
+                new ErrorMessage(
+                    MessageTypes.ASSIGN_NULLABLE_TO_NONNULL_ARRAY,
+                    "Writing @Nullable expression into array with @NonNull contents."),
+                buildDescription(tree),
+                state,
+                ASTHelpers.getSymbol(arrayExpr),
+                expression));
+        return Description.NO_MATCH;
       }
     }
 
@@ -642,18 +664,29 @@ public class NullAway extends BugChecker
       // field already annotated
       return Description.NO_MATCH;
     }
-    ExpressionTree expression = tree.getExpression();
-    if (mayBeNullExpr(state, expression)) {
-      String message = "assigning @Nullable expression to @NonNull field";
-      return errorBuilder.createErrorDescriptionForNullAssignment(
-          new ErrorMessage(MessageTypes.ASSIGN_FIELD_NULLABLE, message),
-          expression,
-          buildDescription(tree),
-          state,
-          ASTHelpers.getSymbol(tree.getVariable()),
-          expression);
+    if (isTopLevelNullnessCompatible(
+        tree.getExpression(),
+        // javac's type of a field drops a @NonNull from the type argument of a supertype
+        () ->
+            GenericsChecks.ValueTarget.of(
+                genericsChecks.getAssignedVariableType(
+                    tree.getVariable(), pathWithLeaf(state.getPath(), tree.getVariable()), state),
+                assigned),
+        Nullness.NONNULL,
+        state)) {
+      handler.onNonNullFieldAssignment(assigned, getNullnessAnalysis(state), state);
+    } else {
+      state.reportMatch(
+          errorBuilder.createErrorDescriptionForNullAssignment(
+              new ErrorMessage(
+                  MessageTypes.ASSIGN_FIELD_NULLABLE,
+                  "assigning @Nullable expression to @NonNull field"),
+              tree.getExpression(),
+              buildDescription(tree),
+              state,
+              assigned,
+              tree.getExpression()));
     }
-    handler.onNonNullFieldAssignment(assigned, getNullnessAnalysis(state), state);
     return Description.NO_MATCH;
   }
 
@@ -724,6 +757,9 @@ public class NullAway extends BugChecker
     boolean markedMethodInUnmarkedContext = false;
     Symbol.MethodSymbol methodSymbol = ASTHelpers.getSymbol(tree);
     switch (nullMarkingForTopLevelClass) {
+      case EXCLUDED -> {
+        return;
+      }
       case FULLY_MARKED -> {
         if (hasDirectAnnotationWithSimpleName(
             methodSymbol, NullabilityUtil.NULLUNMARKED_SIMPLE_NAME)) {
@@ -971,10 +1007,7 @@ public class NullAway extends BugChecker
     if (memberReferenceTree != null || lambdaExpressionTree != null) {
       Tree polyExprTree =
           castToNonNull(memberReferenceTree != null ? memberReferenceTree : lambdaExpressionTree);
-      functionalInterfaceType = genericsChecks.getInferredPolyExpressionType(polyExprTree);
-      if (functionalInterfaceType == null) {
-        functionalInterfaceType = ASTHelpers.getType(polyExprTree);
-      }
+      functionalInterfaceType = genericsChecks.getPolyExpressionType(polyExprTree);
     }
 
     Type.MethodType jspecifyMemberReferenceMethodType = null;
@@ -1312,20 +1345,100 @@ public class NullAway extends BugChecker
   }
 
   /**
+   * Returns the target of a returned expression: the method's return type, or for a lambda return,
+   * the target {@link #lambdaReturnTarget} finds.
+   */
+  private GenericsChecks.ValueTarget returnTargetAtReturn(
+      Symbol.MethodSymbol methodSymbol,
+      @Nullable LambdaExpressionTree lambdaTree,
+      VisitorState state) {
+    if (lambdaTree == null) {
+      return GenericsChecks.ValueTarget.of(methodSymbol.getReturnType(), methodSymbol);
+    }
+    return lambdaReturnTarget(lambdaTree, methodSymbol, state);
+  }
+
+  /**
+   * Returns the target of a value that {@code lambdaTree} returns, typed by the functional
+   * interface type of the lambda where that type is known with the annotations of the declaration
+   * that sets it. For an argument of a call or of a constructor with no class body, {@link
+   * GenericsChecks#getLambdaArgumentReturnTarget} types it from the receiving parameter. For a
+   * lambda that initializes a variable, or that a return statement outside any lambda returns, it
+   * is javac's type of the lambda, which is the declared type unsubstituted. Elsewhere, such as in
+   * a conditional expression, a return inside a lambda body, or an assignment through a generic
+   * receiver, javac's substitution may have dropped a {@code @NonNull}, and the target excludes
+   * null.
+   *
+   * <p>The parameter's type takes the method type arguments javac infers, not those NullAway
+   * infers: NullAway infers {@code @NonNull T} for a type variable that an argument of type {@code
+   * T} also fixes, where the type variable may still be nullable.
+   *
+   * @param lambdaTree a lambda on the current path
+   * @param functionalInterfaceMethod the method of the lambda's functional interface
+   * @param state the visitor state
+   */
+  @SuppressWarnings("ReferenceEquality") // the argument is the lambda tree itself
+  private GenericsChecks.ValueTarget lambdaReturnTarget(
+      LambdaExpressionTree lambdaTree,
+      Symbol.MethodSymbol functionalInterfaceMethod,
+      VisitorState state) {
+    TreePath lambdaPath = state.getPath();
+    while (lambdaPath != null && lambdaPath.getLeaf() != lambdaTree) {
+      lambdaPath = lambdaPath.getParentPath();
+    }
+    TreePath parentPath = lambdaPath == null ? null : lambdaPath.getParentPath();
+    while (parentPath != null && parentPath.getLeaf() instanceof ParenthesizedTree) {
+      parentPath = parentPath.getParentPath();
+    }
+    Tree parent = parentPath == null ? null : parentPath.getLeaf();
+    if (parent instanceof VariableTree
+        || (parent instanceof ReturnTree
+            && ASTHelpers.findEnclosingNode(parentPath, LambdaExpressionTree.class) == null)) {
+      return genericsChecks.getLambdaReturnTarget(
+          ASTHelpers.getType(lambdaTree), functionalInterfaceMethod, state);
+    }
+    if (!(parent instanceof MethodInvocationTree
+            || (parent instanceof NewClassTree newClass && newClass.getClassBody() == null))
+        || !(ASTHelpers.getSymbol(parent) instanceof Symbol.MethodSymbol callee)) {
+      return GenericsChecks.ValueTarget.EXCLUDES_NULL;
+    }
+    Tree call = parent;
+    VisitorState callState = state.withPath(parentPath);
+    List<GenericsChecks.ValueTarget> targets = new ArrayList<>(1);
+    new InvocationArguments(call, invokedMethodTypeAtCall(call, callee))
+        .forEach(
+            (actual, argPos, formalParamType, varArgsPassedAsArray) -> {
+              if (ASTHelpers.stripParentheses(actual) == lambdaTree) {
+                int paramIndex = Math.min(argPos, callee.getParameters().size() - 1);
+                targets.add(
+                    genericsChecks.getLambdaArgumentReturnTarget(
+                        callee,
+                        call,
+                        formalParamType,
+                        paramIndex,
+                        isVarargsPosition(callee, paramIndex) && !varArgsPassedAsArray,
+                        functionalInterfaceMethod,
+                        callState));
+              }
+            });
+    // diff-coverage: ignore -- the lambda is one of the call's arguments
+    return targets.isEmpty() ? GenericsChecks.ValueTarget.EXCLUDES_NULL : targets.get(0);
+  }
+
+  /**
    * Checks that if a returned expression is {@code @Nullable}, the enclosing method does not have a
    * {@code @NonNull} return type. Also performs an unboxing check on the returned expression.
    * Finally, in JSpecify mode, also checks that the nullability of generic type arguments of the
-   * returned expression's type match the method return type.
+   * returned expression's type match the method return type, unless the method is unannotated.
+   * Diagnostics are reported directly through {@code state}.
    *
    * @param retExpr the expression being returned
    * @param methodSymbol symbol for the enclosing method
    * @param lambdaTree if return is inside a lambda, the tree for the lambda, otherwise {@code null}
    * @param errorTree tree on which to report an error if needed
    * @param state the visitor state
-   * @return {@link Description} of the returning {@code @Nullable} from {@code @NonNull} method
-   *     error if one is to be reported, otherwise {@link Description#NO_MATCH}
    */
-  private Description checkReturnExpression(
+  private void checkReturnExpression(
       ExpressionTree retExpr,
       Symbol.MethodSymbol methodSymbol,
       @Nullable LambdaExpressionTree lambdaTree,
@@ -1335,52 +1448,53 @@ public class NullAway extends BugChecker
     if (returnType.isPrimitive()) {
       // check for unboxing
       doUnboxingCheck(state, retExpr);
-      return Description.NO_MATCH;
+      return;
     }
     if (ASTHelpers.isSameType(returnType, Suppliers.JAVA_LANG_VOID_TYPE.get(state), state)) {
-      // Temporarily treat a Void return type as if it were @Nullable Void.  Change this once
-      // we are confident that all use cases can be type checked reasonably (may require generics
-      // support)
-      return Description.NO_MATCH;
+      // For compatibility, a Void return accepts null. Prefer an explicit @Nullable Void return
+      // type.
+      return;
     }
-
     // Check generic type arguments for returned expression here, since we need to check the type
-    // arguments regardless of the top-level nullability of the return type
-    genericsChecks.checkTypeParameterNullnessForFunctionReturnType(retExpr, methodSymbol, state);
+    // arguments regardless of the top-level nullability of the return type.  Type arguments of an
+    // unannotated method's return type are unspecified, so they are not compared, just as the
+    // arguments of a call to an unannotated method are not checked
+    if (!codeAnnotationInfo.isSymbolUnannotated(methodSymbol, config, handler)) {
+      genericsChecks.checkTypeParameterNullnessForFunctionReturnType(retExpr, methodSymbol, state);
+    }
 
     // Now, perform the check for returning @Nullable from @NonNull.  First, we check if the return
     // type is @Nullable, and if so, bail out.
     if (getMethodReturnNullness(methodSymbol, state, Nullness.NULLABLE).equals(Nullness.NULLABLE)) {
-      return Description.NO_MATCH;
+      return;
     } else if (config.isJSpecifyMode() && lambdaTree != null) {
-      Type lambdaType = ASTHelpers.getType(lambdaTree);
-      Type inferredType = genericsChecks.getInferredPolyExpressionType(lambdaTree);
-      if (inferredType != null) {
-        lambdaType = inferredType;
-      }
+      Type lambdaType = genericsChecks.getPolyExpressionType(lambdaTree);
       if (genericsChecks
               .getGenericMethodReturnTypeNullness(methodSymbol, lambdaType, state)
               .equals(Nullness.NULLABLE)
           || genericsChecks.passingLambdaOrMethodRefWithGenericReturnToUnmarkedCode(
               methodSymbol, lambdaTree, state, codeAnnotationInfo)) {
         // In JSpecify mode, the return type of a lambda may be @Nullable via a type argument
-        return Description.NO_MATCH;
+        return;
       }
     }
 
-    // Return type is @NonNull.  Check if the expression is @Nullable
-    if (mayBeNullExpr(state, retExpr)) {
-      return errorBuilder.createErrorDescriptionForNullAssignment(
-          new ErrorMessage(
-              MessageTypes.RETURN_NULLABLE,
-              "returning @Nullable expression from method with @NonNull return type"),
-          retExpr,
-          buildDescription(errorTree),
-          state,
-          methodSymbol,
-          retExpr);
+    if (!isTopLevelNullnessCompatible(
+        retExpr,
+        () -> returnTargetAtReturn(methodSymbol, lambdaTree, state),
+        Nullness.NONNULL,
+        state)) {
+      state.reportMatch(
+          errorBuilder.createErrorDescriptionForNullAssignment(
+              new ErrorMessage(
+                  MessageTypes.RETURN_NULLABLE,
+                  "returning @Nullable expression from method with @NonNull return type"),
+              retExpr,
+              buildDescription(errorTree),
+              state,
+              methodSymbol,
+              retExpr));
     }
-    return Description.NO_MATCH;
   }
 
   @Override
@@ -1416,15 +1530,14 @@ public class NullAway extends BugChecker
     if (!description.equals(Description.NO_MATCH)) {
       state.reportMatch(description);
     }
-    if (codeAnnotationInfo.isSymbolUnannotated(funcInterfaceMethod, config, handler)) {
-      return Description.NO_MATCH;
-    }
     // if the body has a return statement, that gets checked in matchReturn().  We need this code
-    // for lambdas with expression bodies
+    // for lambdas with expression bodies.  As in matchReturn(), the check runs even when the
+    // functional interface method is unannotated, since a library model or a handler may make its
+    // return @NonNull
     if (tree.getBodyKind() == LambdaExpressionTree.BodyKind.EXPRESSION
         && funcInterfaceMethod.getReturnType().getKind() != TypeKind.VOID) {
       ExpressionTree resExpr = (ExpressionTree) tree.getBody();
-      return checkReturnExpression(resExpr, funcInterfaceMethod, tree, tree, state);
+      checkReturnExpression(resExpr, funcInterfaceMethod, tree, tree, state);
     }
     return Description.NO_MATCH;
   }
@@ -1477,11 +1590,7 @@ public class NullAway extends BugChecker
       VisitorState state) {
     ResolvedMethodReference resolvedReference = null;
     if (memberReferenceTree != null) {
-      Type functionalInterfaceType =
-          genericsChecks.getInferredPolyExpressionType(memberReferenceTree);
-      if (functionalInterfaceType == null) {
-        functionalInterfaceType = ASTHelpers.getType(memberReferenceTree);
-      }
+      Type functionalInterfaceType = genericsChecks.getPolyExpressionType(memberReferenceTree);
       if (functionalInterfaceType != null) { // diff-coverage: ignore -- Unattributed javac tree.
         resolvedReference =
             genericsChecks.resolveMemberReference(
@@ -1508,11 +1617,7 @@ public class NullAway extends BugChecker
             || getComputedNullness(memberReferenceTree).equals(Nullness.NULLABLE))) {
       String message;
       if (memberReferenceTree != null) {
-        Type functionalInterfaceType =
-            genericsChecks.getInferredPolyExpressionType(memberReferenceTree);
-        if (functionalInterfaceType == null) {
-          functionalInterfaceType = ASTHelpers.getType(memberReferenceTree);
-        }
+        Type functionalInterfaceType = genericsChecks.getPolyExpressionType(memberReferenceTree);
         message =
             "referenced method returns @Nullable, but functional interface method "
                 + ASTHelpers.enclosingClass(overriddenMethod)
@@ -1602,11 +1707,7 @@ public class NullAway extends BugChecker
       if (memberReferenceTree != null) {
         // For a method reference, we get generic type arguments from javac's inferred type for the
         // tree, which properly preserves type-use annotations
-        Type functionalInterfaceType =
-            genericsChecks.getInferredPolyExpressionType(memberReferenceTree);
-        if (functionalInterfaceType == null) {
-          functionalInterfaceType = ASTHelpers.getType(memberReferenceTree);
-        }
+        Type functionalInterfaceType = genericsChecks.getPolyExpressionType(memberReferenceTree);
         return genericsChecks
                 .getGenericMethodReturnTypeNullness(
                     overriddenMethod, functionalInterfaceType, state)
@@ -1770,16 +1871,16 @@ public class NullAway extends BugChecker
   private boolean fieldAlwaysInitializedBeforeRead(
       Symbol symbol, TreePath pathToRead, VisitorState state, TreePath enclosingBlockPath) {
     AccessPathNullnessAnalysis nullnessAnalysis = getNullnessAnalysis(state);
-    Set<Element> nonnullFields;
+    Set<Element> initializedFields;
     if (isStatic(symbol)) {
-      nonnullFields = nullnessAnalysis.getNonnullStaticFieldsBefore(pathToRead, state.context);
+      initializedFields = nullnessAnalysis.getNonnullStaticFieldsBefore(pathToRead, state.context);
     } else {
-      nonnullFields = new LinkedHashSet<>();
-      nonnullFields.addAll(
-          nullnessAnalysis.getNonnullFieldsOfReceiverBefore(pathToRead, state.context));
-      nonnullFields.addAll(safeInitByCalleeBefore(pathToRead, state, enclosingBlockPath));
+      initializedFields = new LinkedHashSet<>();
+      initializedFields.addAll(
+          nullnessAnalysis.getInitializedFieldsOfReceiverBefore(pathToRead, state.context));
+      initializedFields.addAll(safeInitByCalleeBefore(pathToRead, state, enclosingBlockPath));
     }
-    return nonnullFields.contains(symbol);
+    return initializedFields.contains(symbol);
   }
 
   /**
@@ -1898,7 +1999,7 @@ public class NullAway extends BugChecker
               nullnessAnalysis.getNonnullStaticFieldsAtExit(memberPath, state.context));
         } else {
           initThusFar.addAll(
-              nullnessAnalysis.getNonnullFieldsOfReceiverAtExit(memberPath, state.context));
+              nullnessAnalysis.getInitializedFieldsOfReceiverAtExit(memberPath, state.context));
         }
       }
       if (memberTree instanceof MethodTree methodTree && isConstructor(methodTree)) {
@@ -1990,15 +2091,25 @@ public class NullAway extends BugChecker
     }
     ExpressionTree initializer = tree.getInitializer();
     if (initializer != null) {
-      if (getFieldInitializationSkipResult(state, symbol, null) != Handler.FieldSkipResult.YES) {
-        if (mayBeNullExpr(state, initializer)) {
-          ErrorMessage errorMessage =
-              new ErrorMessage(
-                  MessageTypes.ASSIGN_FIELD_NULLABLE,
-                  "assigning @Nullable expression to @NonNull field");
-          return errorBuilder.createErrorDescriptionForNullAssignment(
-              errorMessage, initializer, buildDescription(tree), state, symbol, initializer);
-        }
+      Nullness targetNullness =
+          getFieldInitializationSkipResult(state, symbol, null) == Handler.FieldSkipResult.YES
+              ? Nullness.NULLABLE
+              : Nullness.NONNULL;
+      if (!isTopLevelNullnessCompatible(
+          initializer,
+          () -> GenericsChecks.ValueTarget.of(symbol.type, symbol),
+          targetNullness,
+          state)) {
+        state.reportMatch(
+            errorBuilder.createErrorDescriptionForNullAssignment(
+                new ErrorMessage(
+                    MessageTypes.ASSIGN_FIELD_NULLABLE,
+                    "assigning @Nullable expression to @NonNull field"),
+                initializer,
+                buildDescription(tree),
+                state,
+                symbol,
+                initializer));
       }
     }
     return Description.NO_MATCH;
@@ -2139,6 +2250,7 @@ public class NullAway extends BugChecker
     initTree2PrevFieldInit.clear();
     class2Entities.clear();
     class2ConstructorUninit.clear();
+    safeInitMethodToInitializedFieldsAtExit.clear();
     computedNullnessMap.clear();
     genericsChecks.clearCache();
     EnclosingEnvironmentNullness.instance(stateForNewCompilationUnit.context).clear();
@@ -2165,12 +2277,19 @@ public class NullAway extends BugChecker
     Symbol.ClassSymbol classSymbol = ASTHelpers.getSymbol(tree);
     NestingKind nestingKind = classSymbol.getNestingKind();
     if (!nestingKind.isNested()) {
-      // Here we optimistically set the marking to either FULLY_UNMARKED or FULLY_MARKED.  If a
-      // nested entity has a contradicting annotation, at that point we update the marking level to
-      // PARTIALLY_MARKED, which will increase checking overhead for the remainder of the top-level
-      // class
-      nullMarkingForTopLevelClass =
-          isExcludedClass(classSymbol) ? NullMarking.FULLY_UNMARKED : NullMarking.FULLY_MARKED;
+      if (isExplicitlyExcludedClass(classSymbol)) {
+        // Nested @NullMarked annotations must not re-enable checking of an excluded class.
+        nullMarkingForTopLevelClass = NullMarking.EXCLUDED;
+      } else {
+        // Here we optimistically set the marking to either FULLY_UNMARKED or FULLY_MARKED.  If a
+        // nested entity has a contradicting annotation, at that point we update the marking level
+        // to PARTIALLY_MARKED, which will increase checking overhead for the remainder of the
+        // top-level class
+        nullMarkingForTopLevelClass =
+            codeAnnotationInfo.isClassNullAnnotated(classSymbol, config, handler)
+                ? NullMarking.FULLY_MARKED
+                : NullMarking.FULLY_UNMARKED;
+      }
     } else if (classAnnotationIntroducesPartialMarking(classSymbol)) {
       // Handle the case where the top-class is unannotated, but there is a @NullMarked annotation
       // on a nested class, or, conversely the top-level is annotated but there is a @NullUnmarked
@@ -2331,16 +2450,15 @@ public class NullAway extends BugChecker
     Type expressionType = ASTHelpers.getType(expr);
     boolean elementNullable;
     if (expressionType != null && expressionType.getKind() == TypeKind.ARRAY) {
-      Symbol arraySymbol = ASTHelpers.getSymbol(expr);
-      elementNullable = arraySymbol != null && isArrayElementNullable(arraySymbol, config);
+      elementNullable = NullabilityUtil.isArrayExpressionElementNullable(expr, config);
     } else {
       elementNullable =
-          genericsChecks
+          !genericsChecks
               .getEnhancedForLoopElementNullness(
                   expr,
                   state.withPath(new TreePath(state.getPath(), expr)),
                   /* calledFromDataflow= */ false)
-              .equals(Nullness.NULLABLE);
+              .equals(Nullness.NONNULL);
     }
     if (elementNullable) {
       // A nullable element is being unboxed to a primitive. This is unsafe.
@@ -2422,14 +2540,8 @@ public class NullAway extends BugChecker
       List<? extends ExpressionTree> actualParams) {
     List<VarSymbol> formalParams = methodSymbol.getParameters();
 
-    InvocationArguments invArgs = new InvocationArguments(tree, methodSymbol.type.asMethodType());
-    // always do unboxing checks, whether or not the invoked method is annotated
-    invArgs.forEach(
-        (actual, argPos, formalParamType, varArgsPassedAsArray) -> {
-          if (formalParamType.isPrimitive()) {
-            doUnboxingCheck(state, actual);
-          }
-        });
+    InvocationArguments invArgs =
+        new InvocationArguments(tree, invokedMethodTypeAtCall(tree, methodSymbol));
     boolean isMethodAnnotated =
         !codeAnnotationInfo.isSymbolUnannotated(methodSymbol, config, handler);
     MethodParameterNullness argumentNullness = MethodParameterNullness.create(methodSymbol);
@@ -2452,15 +2564,15 @@ public class NullAway extends BugChecker
         } else {
           // we need to call paramHasNullableAnnotation here since the invoked method may be defined
           // in a class file
-          argumentNullness.setParameterNullness(
-              i,
+          Nullness paramNullness =
               Nullness.paramHasNullableAnnotation(methodSymbol, i, config)
                   ? Nullness.NULLABLE
                   : ((config.isJSpecifyMode()
                           && (tree instanceof MethodInvocationTree || tree instanceof NewClassTree))
                       ? genericsChecks.getGenericParameterNullnessAtInvocation(
                           i, methodSymbol, tree, state)
-                      : Nullness.NONNULL));
+                      : Nullness.NONNULL);
+          argumentNullness.setParameterNullness(i, paramNullness);
         }
       }
       if (methodSymbol.isVarArgs()) {
@@ -2480,7 +2592,9 @@ public class NullAway extends BugChecker
       }
     }
 
-    // Allow handlers to override the list of non-null argument positions.
+    // Allow handlers to override the list of non-null argument positions. A position a handler sets
+    // to NONNULL requires a non-null argument whatever the parameter's type.
+    argumentNullness.clearSetPositions();
     MethodParameterNullness finalArgumentNullness =
         handler.onOverrideMethodInvocationParametersNullability(
             state.context, methodSymbol, isMethodAnnotated, argumentNullness);
@@ -2490,32 +2604,47 @@ public class NullAway extends BugChecker
     // is handled by matchMemberSelect()
     invArgs.forEach(
         (actual, argPos, formalParamType, varArgsPassedAsArray) -> {
+          // always do unboxing checks, whether or not the invoked method is annotated
+          if (formalParamType.isPrimitive()) {
+            doUnboxingCheck(state, actual);
+            return;
+          }
           if (argPos >= formalParams.size()) {
             // extra varargs argument; nullness info stored in the varargs parameter slot
             argPos = formalParams.size() - 1;
           }
-          boolean argIsNonNull =
-              Objects.equals(Nullness.NONNULL, finalArgumentNullness.getParameterNullness(argPos));
-          if (varArgsPassedAsArray) {
-            // This is the case where an array is explicitly passed in the position of the
-            // varargs parameter
-            argIsNonNull =
-                Objects.equals(Nullness.NONNULL, finalArgumentNullness.getVarargsArrayNullness());
-          }
-          if (!argIsNonNull) {
-            // argument can be @Nullable, so nothing to check
+          // An array passed explicitly in the position of the varargs parameter has the nullness
+          // of the varargs array
+          Nullness paramNullness =
+              varArgsPassedAsArray
+                  ? finalArgumentNullness.getVarargsArrayNullness()
+                  : finalArgumentNullness.getParameterNullness(argPos);
+          if (paramNullness != Nullness.NONNULL) {
+            // Preserve the fast path for nullable and unannotated parameters.
             return;
           }
-          boolean mayActualBeNull = mayBeNullExpr(state, actual);
-          if (mayActualBeNull) {
-            String message =
-                "passing @Nullable parameter '"
-                    + state.getSourceForNode(actual)
-                    + "' where @NonNull is required";
-            ErrorMessage errorMessage = new ErrorMessage(MessageTypes.PASS_NULLABLE, message);
+          int paramIndex = argPos;
+          if (!isTopLevelNullnessCompatible(
+              actual,
+              () ->
+                  varArgsPassedAsArray || finalArgumentNullness.wasSet(paramIndex)
+                      ? GenericsChecks.ValueTarget.EXCLUDES_NULL
+                      : genericsChecks.getParameterTarget(
+                          methodSymbol,
+                          tree,
+                          formalParamType,
+                          paramIndex,
+                          isVarargsPosition(methodSymbol, paramIndex),
+                          state),
+              Nullness.NONNULL,
+              state)) {
             state.reportMatch(
                 errorBuilder.createErrorDescriptionForNullAssignment(
-                    errorMessage,
+                    new ErrorMessage(
+                        MessageTypes.PASS_NULLABLE,
+                        "passing @Nullable parameter '"
+                            + state.getSourceForNode(actual)
+                            + "' where @NonNull is required"),
                     actual,
                     buildDescription(actual),
                     state,
@@ -2731,9 +2860,9 @@ public class NullAway extends BugChecker
       BlockTree block,
       TreePath path) {
     AccessPathNullnessAnalysis nullnessAnalysis = getNullnessAnalysis(state);
-    Set<Element> nonnullAtExit =
-        nullnessAnalysis.getNonnullFieldsOfReceiverAtExit(path, state.context);
-    initInSomeInitializerBuilder.addAll(nonnullAtExit);
+    Set<Element> initializedAtExit =
+        nullnessAnalysis.getInitializedFieldsOfReceiverAtExit(path, state.context);
+    initInSomeInitializerBuilder.addAll(initializedAtExit);
     Set<Element> safeInitMethods = getSafeInitMethods(block, classSymbol, state);
     addGuaranteedNonNullFromInvokes(
         state, trees, safeInitMethods, nullnessAnalysis, initInSomeInitializerBuilder);
@@ -2819,7 +2948,7 @@ public class NullAway extends BugChecker
     AccessPathNullnessAnalysis nullnessAnalysis = getNullnessAnalysis(state);
     ImmutableSet.Builder<Element> guaranteedNonNullBuilder = ImmutableSet.builder();
     guaranteedNonNullBuilder.addAll(
-        nullnessAnalysis.getNonnullFieldsOfReceiverAtExit(
+        nullnessAnalysis.getInitializedFieldsOfReceiverAtExit(
             new TreePath(state.getPath(), constructor), state.context));
     addGuaranteedNonNullFromInvokes(
         state, trees, safeInitMethods, nullnessAnalysis, guaranteedNonNullBuilder);
@@ -2842,16 +2971,16 @@ public class NullAway extends BugChecker
     Set<Element> initializedInStaticInitializers = new LinkedHashSet<>();
     AccessPathNullnessAnalysis nullnessAnalysis = getNullnessAnalysis(state);
     for (BlockTree initializer : entities.staticInitializerBlocks()) {
-      Set<Element> nonnullAtExit =
+      Set<Element> initializedAtExit =
           nullnessAnalysis.getNonnullStaticFieldsAtExit(
               new TreePath(state.getPath(), initializer), state.context);
-      initializedInStaticInitializers.addAll(nonnullAtExit);
+      initializedInStaticInitializers.addAll(initializedAtExit);
     }
     for (MethodTree initializerMethod : entities.staticInitializerMethods()) {
-      Set<Element> nonnullAtExit =
+      Set<Element> initializedAtExit =
           nullnessAnalysis.getNonnullStaticFieldsAtExit(
               new TreePath(state.getPath(), initializerMethod), state.context);
-      initializedInStaticInitializers.addAll(nonnullAtExit);
+      initializedInStaticInitializers.addAll(initializedAtExit);
     }
     Set<Symbol> notInitializedStaticFields = new LinkedHashSet<>();
     for (Symbol field : nonNullStaticFields) {
@@ -2869,10 +2998,17 @@ public class NullAway extends BugChecker
       AccessPathNullnessAnalysis nullnessAnalysis,
       ImmutableSet.Builder<Element> guaranteedNonNullBuilder) {
     for (Element invoked : safeInitMethods) {
-      Tree invokedTree = trees.getTree(invoked);
-      guaranteedNonNullBuilder.addAll(
-          nullnessAnalysis.getNonnullFieldsOfReceiverAtExit(
-              new TreePath(state.getPath(), invokedTree), state.context));
+      ImmutableSet<Element> initializedAtExit =
+          safeInitMethodToInitializedFieldsAtExit.get(invoked);
+      if (initializedAtExit == null) {
+        Tree invokedTree = trees.getTree(invoked);
+        initializedAtExit =
+            ImmutableSet.copyOf(
+                nullnessAnalysis.getInitializedFieldsOfReceiverAtExit(
+                    new TreePath(state.getPath(), invokedTree), state.context));
+        safeInitMethodToInitializedFieldsAtExit.put(invoked, initializedAtExit);
+      }
+      guaranteedNonNullBuilder.addAll(initializedAtExit);
     }
   }
 
@@ -3086,13 +3222,13 @@ public class NullAway extends BugChecker
         .anyMatch(config::isExcludedFieldAnnotation);
   }
 
-  // classSymbol must be a top-level class
-  private boolean isExcludedClass(Symbol.ClassSymbol classSymbol) {
+  /**
+   * Returns whether a top-level class is explicitly excluded by name or annotation, independently
+   * of whether it is nullness-annotated.
+   */
+  private boolean isExplicitlyExcludedClass(Symbol.ClassSymbol classSymbol) {
     String className = classSymbol.getQualifiedName().toString();
     if (config.isExcludedClass(className)) {
-      return true;
-    }
-    if (!codeAnnotationInfo.isClassNullAnnotated(classSymbol, config, handler)) {
       return true;
     }
     // check annotations
@@ -3102,18 +3238,93 @@ public class NullAway extends BugChecker
         .anyMatch(excludedClassAnnotations::contains);
   }
 
+  /**
+   * Returns the method or constructor type with javac's call-site substitutions. For an anonymous
+   * class, uses the superclass constructor's declared type, since the anonymous constructor type
+   * may include an implicit outer-instance parameter that is absent from the source arguments.
+   */
+  private static Type.MethodType invokedMethodTypeAtCall(
+      Tree tree, Symbol.MethodSymbol methodSymbol) {
+    if (tree instanceof NewClassTree newClassTree && newClassTree.getClassBody() != null) {
+      return methodSymbol.type.asMethodType();
+    }
+    return (Type.MethodType)
+        (tree instanceof MethodInvocationTree invocationTree
+            ? castToNonNull(ASTHelpers.getType(invocationTree.getMethodSelect()))
+            : ((JCTree.JCNewClass) tree).constructorType);
+  }
+
+  /**
+   * Checks top-level compatibility with a resolved destination contract. Context-specific generic
+   * inference, nested type checks, and diagnostic reporting are performed independently by the
+   * caller. Locals and reassigned parameter variables have inferred top-level nullness and do not
+   * require this check.
+   *
+   * <p>Returns whether the assignment is compatible, even if its diagnostic is suppressed. This
+   * distinction matters for handlers that are notified only of successful nonnull field writes.
+   *
+   * @param expression expression being assigned, passed, or returned
+   * @param target supplies the assigned location after call-site substitutions; for array writes
+   *     and individually passed varargs, this is the component. It is called only for a value for
+   *     which {@link Nullness#isNoChange()} holds, and {@link GenericsChecks#acceptsNoChangeValue}
+   *     then decides whether that location accepts the value
+   * @param targetNullness destination's nullness after applying context-specific rules and handlers
+   * @param state visitor state at the pseudo-assignment
+   * @return whether the top-level nullness is compatible
+   */
+  private boolean isTopLevelNullnessCompatible(
+      ExpressionTree expression,
+      Supplier<GenericsChecks.ValueTarget> target,
+      Nullness targetNullness,
+      VisitorState state) {
+    if (targetNullness != Nullness.NONNULL) {
+      return true;
+    }
+    Nullness expressionNullness = getExpressionNullness(state, expression);
+    if (expressionNullness == null) { // diff-coverage: ignore -- missing-dataflow fallback
+      return true; // diff-coverage: ignore -- Preserve missing-dataflow fallback.
+    }
+    if (expressionNullness.isNoChange()) {
+      // getExpressionNullness strips casts too, so the type describes the same expression
+      Type expressionType =
+          castToNonNull(ASTHelpers.getType(NullabilityUtil.stripParensAndCasts(expression)));
+      return genericsChecks.acceptsNoChangeValue(expressionType, target.get(), state);
+    }
+    return !NullabilityUtil.nullnessToBool(expressionNullness);
+  }
+
+  /** Returns whether the effective nullness of an expression permits null. */
   private boolean mayBeNullExpr(VisitorState state, ExpressionTree expr) {
+    Nullness nullness = getExpressionNullness(state, expr);
+    return nullness != null && NullabilityUtil.nullnessToBool(nullness);
+  }
+
+  /**
+   * Returns the expression nullness used by the checker, retaining the dataflow value rather than
+   * reducing it to a boolean. Fast paths and handler overrides preserve the checker's permissive
+   * treatment of unannotated code, so {@code NONNULL} here is not necessarily a dataflow proof.
+   *
+   * <p>Returns {@code null} when dataflow has no value for an expression that requires analysis.
+   * Callers retain the existing permissive behavior for such expressions. Dataflow is queried only
+   * when the syntactic, declaration, and handler checks cannot rule out null.
+   */
+  private @Nullable Nullness getExpressionNullness(VisitorState state, ExpressionTree expr) {
     expr = NullabilityUtil.stripParensAndCasts(expr);
+    Type exprType = ASTHelpers.getType(expr);
+    if (exprType != null && exprType.isPrimitive()) {
+      // A value of a primitive type is never null, whatever annotation its declaration carries
+      return Nullness.NONNULL;
+    }
     if (ASTHelpers.constValue(expr) != null) {
       // This should include literals such as "true" or a string
       // obviously not null
-      return false;
+      return Nullness.NONNULL;
     }
     // return early for expressions that no handler overrides and will not need dataflow analysis
     switch (expr.getKind()) {
       case NULL_LITERAL -> {
         // obviously null
-        return true;
+        return Nullness.NULL;
       }
       case NEW_CLASS,
           NEW_ARRAY,
@@ -3167,7 +3378,7 @@ public class NullAway extends BugChecker
           RIGHT_SHIFT,
           UNSIGNED_RIGHT_SHIFT -> {
         // clearly not null
-        return false;
+        return Nullness.NONNULL;
       }
       default -> {}
     }
@@ -3181,11 +3392,8 @@ public class NullAway extends BugChecker
         if (config.isJSpecifyMode()) {
           // In JSpecify mode, we check if the array element type is nullable
           ArrayAccessTree arrayAccess = (ArrayAccessTree) expr;
-          ExpressionTree arrayExpr = arrayAccess.getExpression();
-          Symbol arraySymbol = ASTHelpers.getSymbol(arrayExpr);
-          if (arraySymbol != null) {
-            exprMayBeNull = NullabilityUtil.isArrayElementNullable(arraySymbol, config);
-          }
+          exprMayBeNull =
+              NullabilityUtil.isArrayExpressionElementNullable(arrayAccess.getExpression(), config);
         }
       }
       case MEMBER_SELECT -> {
@@ -3226,7 +3434,7 @@ public class NullAway extends BugChecker
               "whoops, better handle " + expr.getKind() + " " + state.getSourceForNode(expr));
     }
     exprMayBeNull = handler.onOverrideMayBeNullExpr(this, expr, exprSymbol, state, exprMayBeNull);
-    return exprMayBeNull && nullnessFromDataflow(state, expr);
+    return exprMayBeNull ? getExpressionNullnessFromDataflow(state, expr) : Nullness.NONNULL;
   }
 
   private boolean mayBeNullMethodCall(
@@ -3250,14 +3458,22 @@ public class NullAway extends BugChecker
           "%s not found as a descendant of %s",
           invocationTree,
           path.getLeaf());
-      return genericsChecks
+      return !genericsChecks
           .getGenericReturnNullnessAtInvocation(
               exprSymbol, invocationTree, invocationPath, state, false)
-          .equals(Nullness.NULLABLE);
+          .equals(Nullness.NONNULL);
     }
     return false;
   }
 
+  /** Returns the expression's dataflow nullness, or {@code null} if no value is available. */
+  private @Nullable Nullness getExpressionNullnessFromDataflow(
+      VisitorState state, ExpressionTree expr) {
+    return getNullnessAnalysis(state)
+        .getNullness(new TreePath(state.getPath(), expr), state.context);
+  }
+
+  /** Returns whether an expression's dataflow nullness permits null. */
   public boolean nullnessFromDataflow(VisitorState state, ExpressionTree expr) {
     Nullness nullness =
         getNullnessAnalysis(state).getNullness(new TreePath(state.getPath(), expr), state.context);

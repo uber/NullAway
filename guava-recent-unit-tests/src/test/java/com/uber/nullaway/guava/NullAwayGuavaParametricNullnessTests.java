@@ -189,6 +189,139 @@ public class NullAwayGuavaParametricNullnessTests {
   }
 
   @Test
+  public void jspecifyFuturesLambdaReturningNull() {
+    jspecifyCompilationHelper
+        .addSourceLines(
+            "Test.java",
+            """
+            import com.google.common.util.concurrent.FluentFuture;
+            import com.google.common.util.concurrent.Futures;
+            import com.google.common.util.concurrent.ListenableFuture;
+            import java.util.concurrent.Executor;
+            import org.jspecify.annotations.*;
+            @NullMarked
+            class Test {
+              ListenableFuture<@Nullable String> transformIntoNullableResult(ListenableFuture<String> in, Executor e) {
+                return Futures.transform(in, x -> {
+                  return null;
+                }, e);
+              }
+              ListenableFuture<String> transformIntoNonNullResult(ListenableFuture<String> in, Executor e) {
+                // BUG: Diagnostic contains: type variable O constrained to be both @NonNull and @Nullable
+                return Futures.transform(in, x -> {
+                  // BUG: Diagnostic contains: returning @Nullable expression
+                  return null;
+                }, e);
+              }
+              FluentFuture<@Nullable String> fluentTransformIntoNullableResult(FluentFuture<String> in, Executor e) {
+                return in.transform(x -> {
+                  return null;
+                }, e);
+              }
+              FluentFuture<String> fluentTransformIntoNonNullResult(FluentFuture<String> in, Executor e) {
+                // BUG: Diagnostic contains: type variable T constrained to be both @NonNull and @Nullable
+                return in.transform(x -> {
+                  // BUG: Diagnostic contains: returning @Nullable expression
+                  return null;
+                }, e);
+              }
+              ListenableFuture<@Nullable String> catchingIntoNullableResult(ListenableFuture<@Nullable String> in, Executor e) {
+                return Futures.catching(in, Exception.class, t -> {
+                  return null;
+                }, e);
+              }
+              ListenableFuture<String> catchingIntoNonNullResult(ListenableFuture<String> in, Executor e) {
+                // BUG: Diagnostic contains: type variable V constrained to be both @NonNull and @Nullable
+                return Futures.catching(in, Exception.class, t -> {
+                  // BUG: Diagnostic contains: returning @Nullable expression
+                  return null;
+                }, e);
+              }
+              ListenableFuture<@Nullable String> transformAsyncReturningNullFuture(ListenableFuture<String> in, Executor e) {
+                return Futures.transformAsync(in, x -> {
+                  // BUG: Diagnostic contains: returning @Nullable expression
+                  return null;
+                }, e);
+              }
+              ListenableFuture<@Nullable String> catchingAsyncReturningNullFuture(ListenableFuture<@Nullable String> in, Executor e) {
+                return Futures.catchingAsync(in, Exception.class, t -> {
+                  // BUG: Diagnostic contains: returning @Nullable expression
+                  return null;
+                }, e);
+              }
+            }
+            """)
+        .doTest();
+  }
+
+  @Test
+  public void jspecifyExtraFuturesClassLambdaReturningNull() {
+    CompilationTestHelper.newInstance(NullAway.class, getClass())
+        .setArgs(
+            JSpecifyJavacConfig.withJSpecifyModeArgs(
+                List.of(
+                    "-d",
+                    temporaryFolder.getRoot().getAbsolutePath(),
+                    "-XepOpt:NullAway:OnlyNullMarked=true",
+                    "-XepOpt:NullAway:ExtraFuturesClasses=NullableFutures,NonNullFutures")))
+        .addSourceLines(
+            "NullableFutures.java",
+            """
+            import com.google.common.base.Function;
+            import com.google.common.util.concurrent.Futures;
+            import com.google.common.util.concurrent.ListenableFuture;
+            import java.util.concurrent.Executor;
+            import org.jspecify.annotations.*;
+            @NullMarked
+            public class NullableFutures {
+              public static <V extends @Nullable Object> ListenableFuture<V> transform(
+                  ListenableFuture<V> future, Function<V, V> function, Executor executor) {
+                return Futures.transform(future, function, executor);
+              }
+            }
+            """)
+        .addSourceLines(
+            "NonNullFutures.java",
+            """
+            import com.google.common.base.Function;
+            import com.google.common.util.concurrent.Futures;
+            import com.google.common.util.concurrent.ListenableFuture;
+            import java.util.concurrent.Executor;
+            import org.jspecify.annotations.*;
+            @NullMarked
+            public class NonNullFutures {
+              public static <V> ListenableFuture<V> transform(
+                  ListenableFuture<V> future, Function<V, V> function, Executor executor) {
+                return Futures.transform(future, function, executor);
+              }
+            }
+            """)
+        .addSourceLines(
+            "Test.java",
+            """
+            import com.google.common.util.concurrent.ListenableFuture;
+            import java.util.concurrent.Executor;
+            import org.jspecify.annotations.*;
+            @NullMarked
+            class Test {
+              ListenableFuture<@Nullable String> nullableTypeVariable(ListenableFuture<@Nullable String> in, Executor e) {
+                return NullableFutures.transform(in, x -> {
+                  return null;
+                }, e);
+              }
+              ListenableFuture<String> nonNullTypeVariable(ListenableFuture<String> in, Executor e) {
+                // BUG: Diagnostic contains: its upper bound requires it to be @NonNull
+                return NonNullFutures.transform(in, x -> {
+                  // BUG: Diagnostic contains: returning @Nullable expression
+                  return null;
+                }, e);
+              }
+            }
+            """)
+        .doTest();
+  }
+
+  @Test
   public void testCloserParametricNullness() {
     defaultCompilationHelper
         .addSourceLines(

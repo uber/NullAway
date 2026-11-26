@@ -41,6 +41,51 @@ public class GenericsUtils {
   private GenericsUtils() {}
 
   /**
+   * Returns whether {@code type} is annotated as nullable. For an intersection, every explicit
+   * component must be annotated as nullable.
+   */
+  public static boolean isAnnotatedAsNullable(Type type, Config config) {
+    if (type instanceof Type.IntersectionClassType intersection) {
+      for (Type component : intersection.getExplicitComponents()) {
+        if (!isAnnotatedAsNullable(component, config)) {
+          return false;
+        }
+      }
+      return true;
+    }
+    return Nullness.hasNullableAnnotation(type.getAnnotationMirrors().stream(), config);
+  }
+
+  /**
+   * Returns whether {@code type} is explicitly annotated as non-null. For an intersection, one
+   * explicitly non-null component suffices.
+   */
+  static boolean isAnnotatedAsNonNull(Type type, Config config) {
+    if (type instanceof Type.IntersectionClassType intersection) {
+      for (Type component : intersection.getExplicitComponents()) {
+        if (isAnnotatedAsNonNull(component, config)) {
+          return true;
+        }
+      }
+      return false;
+    }
+    return Nullness.hasNonNullAnnotation(type.getAnnotationMirrors().stream(), config);
+  }
+
+  /**
+   * Returns the explicit components whose annotation-derived nullability matches the
+   * intersection's. An unannotated component matches a non-nullable intersection without supplying
+   * an explicit non-null annotation.
+   */
+  static List<Type> nullabilityMatchingComponents(
+      Type.IntersectionClassType intersection, Config config) {
+    boolean nullable = isAnnotatedAsNullable(intersection, config);
+    return intersection.getExplicitComponents().stream()
+        .filter(component -> isAnnotatedAsNullable(component, config) == nullable)
+        .toList();
+  }
+
+  /**
    * Gets the value type of a receiver viewed as a {@code java.util.Map}, preserving type-use
    * nullness through inherited type arguments. Returns {@code null} for unavailable or raw types.
    */
@@ -220,7 +265,7 @@ public class GenericsUtils {
         // formal stored in WildcardType.bound is mutable.
         upperBound =
             TypeSubstitutionUtils.restoreExplicitNullabilityAnnotations(
-                capturedType.wildcard.getExtendsBound(), upperBound, config);
+                capturedType.wildcard.getExtendsBound(), upperBound, state.getTypes(), config);
       } else {
         // An explicit annotation on the capture is a use-site projection and takes precedence over
         // both the capture's structural bound and declaration-level fallback information.
@@ -228,7 +273,7 @@ public class GenericsUtils {
         if (captureHasDirectNullnessAnnotation) {
           upperBound =
               TypeSubstitutionUtils.restoreExplicitNullabilityAnnotations(
-                  capturedType, upperBound, config);
+                  capturedType, upperBound, state.getTypes(), config);
         }
         if (formalTypeVariable == null && capturedType.wildcard != null) {
           // Without a containing-type formal, the backing formal is the only available source of
@@ -317,11 +362,11 @@ public class GenericsUtils {
     // An explicit @NonNull declaration bound narrows the computed bound. A nullable declaration
     // bound only permits nullable instantiations, so it is fallback information and must not widen
     // an already-qualified computed bound.
-    if (Nullness.hasNonNullAnnotation(declarationUpperBound.getAnnotationMirrors().stream(), config)
+    if (isAnnotatedAsNonNull(declarationUpperBound, config)
         || !upperBoundHasExplicitNullnessAnnotation) {
       upperBound =
           TypeSubstitutionUtils.restoreExplicitNullabilityAnnotations(
-              declarationUpperBound, upperBound, config);
+              declarationUpperBound, upperBound, state.getTypes(), config);
       upperBoundHasExplicitNullnessAnnotation = hasNullnessAnnotation(upperBound, config);
     }
     if (upperBoundIsNullable(formalTypeVar.asElement(), config, handler, state)
@@ -333,8 +378,7 @@ public class GenericsUtils {
   }
 
   private static boolean hasNullnessAnnotation(Type type, Config config) {
-    return Nullness.hasNonNullAnnotation(type.getAnnotationMirrors().stream(), config)
-        || Nullness.hasNullableAnnotation(type.getAnnotationMirrors().stream(), config);
+    return isAnnotatedAsNonNull(type, config) || isAnnotatedAsNullable(type, config);
   }
 
   /**
@@ -347,6 +391,28 @@ public class GenericsUtils {
    * upper bound.
    */
   static boolean upperBoundIsNullable(
+      Element typeVarElement, Config config, Handler handler, VisitorState state) {
+    if (declaredUpperBoundIsNullable(typeVarElement, config, handler, state)) {
+      return true;
+    }
+    Type upperBound = (Type) ((TypeVariable) typeVarElement.asType()).getUpperBound();
+    if (isAnnotatedAsNonNull(upperBound, config)) {
+      return false;
+    }
+    if (upperBound.getKind() == TypeKind.TYPEVAR) {
+      return upperBoundIsNullable(upperBound.asElement(), config, handler, state);
+    }
+    return false;
+  }
+
+  /**
+   * Returns true if the upper bound of the given type variable is nullable by its own declaration:
+   * the enclosing method or class comes from unannotated code, a library model overrides the bound
+   * nullability for the type variable, or the declared upper bound has an explicit
+   * {@code @Nullable} annotation. Unlike {@link #upperBoundIsNullable}, this does not follow a
+   * bound that is itself a type variable to that type variable's own bound.
+   */
+  static boolean declaredUpperBoundIsNullable(
       Element typeVarElement, Config config, Handler handler, VisitorState state) {
     if (fromUnannotatedMethodOrClass(typeVarElement, config, handler, state)) {
       return true;
@@ -377,16 +443,7 @@ public class GenericsUtils {
       }
     }
     Type upperBound = (Type) ((TypeVariable) typeVarElement.asType()).getUpperBound();
-    if (Nullness.hasNullableAnnotation(upperBound.getAnnotationMirrors().stream(), config)) {
-      return true;
-    }
-    if (Nullness.hasNonNullAnnotation(upperBound.getAnnotationMirrors().stream(), config)) {
-      return false;
-    }
-    if (upperBound.getKind() == TypeKind.TYPEVAR) {
-      return upperBoundIsNullable(upperBound.asElement(), config, handler, state);
-    }
-    return false;
+    return isAnnotatedAsNullable(upperBound, config);
   }
 
   private static boolean fromUnannotatedMethodOrClass(

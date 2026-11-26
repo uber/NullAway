@@ -1,9 +1,20 @@
 package com.uber.nullaway;
 
+import static com.google.common.truth.Truth.assertWithMessage;
+
 import com.google.common.collect.ImmutableList;
 import com.google.errorprone.CompilationTestHelper;
+import com.google.errorprone.ErrorProneJavaCompiler;
+import com.google.errorprone.FileManagers;
 import com.google.errorprone.scanner.ScannerSupplier;
+import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
+import java.util.Locale;
+import java.util.stream.Collectors;
+import javax.tools.Diagnostic;
+import javax.tools.DiagnosticCollector;
+import javax.tools.JavaFileObject;
 import org.junit.Before;
 import org.junit.Rule;
 import org.junit.rules.TemporaryFolder;
@@ -88,5 +99,68 @@ public abstract class NullAwayTestsBase {
                 .addAll(args)
                 .add("-Xep:JSpecifyUnrecognizedAnnotationLocation:WARN")
                 .build());
+  }
+
+  /**
+   * Compiles {@code sources} with NullAway and reports every diagnostic that names a position in
+   * them, as {@code <file>:<line>: <message>}. A caller asserts the returned list, whole or
+   * narrowed to the diagnostics its own name covers, so one that appears, disappears, moves to
+   * another line, or changes its wording fails the test. Severity is not part of the filter, since
+   * a check reported below warning level is still a diagnostic about the source.
+   *
+   * <p>A diagnostic is reported only when it names both a file and a line, which is what a reader
+   * of the source can locate. That leaves out javac's {@code [options]} warnings, which name no
+   * file, and its summary notes such as "uses unchecked or unsafe operations", which name a file at
+   * {@link Diagnostic#NOPOS}. Dropping those loses no error, because compilation has to succeed
+   * anyway: NullAway reports at warning severity here, so a compile error means the test source
+   * itself is broken.
+   *
+   * @param sources the compilation units to compile
+   * @param args the javac arguments
+   * @return the rendered diagnostics, in the order javac emitted them
+   */
+  protected List<String> compileAndReportDiagnostics(
+      List<JavaFileObject> sources, List<String> args) {
+    DiagnosticCollector<JavaFileObject> diagnosticCollector = new DiagnosticCollector<>();
+    args = new ArrayList<>(args);
+    args.add("-proc:none");
+    ErrorProneJavaCompiler compiler =
+        new ErrorProneJavaCompiler(ScannerSupplier.fromBugCheckerClasses(NullAway.class));
+
+    boolean compilationSucceeded =
+        compiler
+            .getTask(null, FileManagers.testFileManager(), diagnosticCollector, args, null, sources)
+            .call();
+
+    assertWithMessage("compilation failed: %s", diagnosticCollector.getDiagnostics())
+        .that(compilationSucceeded)
+        .isTrue();
+    return diagnosticCollector.getDiagnostics().stream()
+        .filter(
+            diagnostic ->
+                diagnostic.getSource() != null && diagnostic.getLineNumber() != Diagnostic.NOPOS)
+        .map(NullAwayTestsBase::render)
+        .toList();
+  }
+
+  /**
+   * Renders {@code diagnostic} as {@code <file>:<line>: <message>}, on one line. The directory the
+   * test file manager invented is dropped, as is the "see" line Error Prone appends to every
+   * NullAway diagnostic, so the result holds what a reader of the source would recognize. Both
+   * separators end a directory here: {@link javax.tools.FileObject#getName()} promises only a
+   * user-friendly name, and a file manager is free to hand back a platform path.
+   *
+   * @param diagnostic the diagnostic to render
+   * @return the rendered diagnostic
+   */
+  private static String render(Diagnostic<? extends JavaFileObject> diagnostic) {
+    String path = diagnostic.getSource().getName();
+    String fileName = path.substring(Math.max(path.lastIndexOf('/'), path.lastIndexOf('\\')) + 1);
+    String message =
+        Arrays.stream(diagnostic.getMessage(Locale.ROOT).split("\\R"))
+            .map(String::trim)
+            .filter(line -> !line.startsWith("(see "))
+            .collect(Collectors.joining(" "));
+    return fileName + ":" + diagnostic.getLineNumber() + ": " + message;
   }
 }

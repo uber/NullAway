@@ -112,6 +112,67 @@ public class FunctionalInterfaceNullabilityTests extends NullAwayTestsBase {
                 return Futures
                     .transform(Futures.immediateFuture("hi"), s -> { return null; }, executor);
               }
+              private static ListenableFuture<@Nullable String> fluentFutureCatchingExpressionBody(Executor executor) {
+                return FluentFuture
+                    .from(Futures.immediateFuture("hi"))
+                    .catching(Throwable.class, e -> null, executor);
+              }
+              private static ListenableFuture<@Nullable String> fluentFutureTransformExpressionBody(Executor executor) {
+                return FluentFuture
+                    .from(Futures.immediateFuture("hi"))
+                    .transform(s -> null, executor);
+              }
+              private static ListenableFuture<@Nullable String> futuresTransformExpressionBody(Executor executor) {
+                return Futures
+                    .transform(Futures.immediateFuture("hi"), s -> null, executor);
+              }
+            }
+            """)
+        .doTest();
+  }
+
+  /**
+   * With an unannotated Guava {@code Function}, as in Guava releases before 33.4.8, the {@code
+   * nonNullReturns} model of {@code apply} applies to expression-body lambdas too, and {@code
+   * FluentFutureHandler} still lets one passed to a Futures or FluentFuture method return null.
+   */
+  @Test
+  public void futuresFunctionExpressionLambdasWithUnannotatedGuavaFunction() {
+    makeTestHelperWithArgs(
+            Arrays.asList(
+                "-d",
+                temporaryFolder.getRoot().getAbsolutePath(),
+                "-XepOpt:NullAway:AnnotatedPackages=com.uber",
+                "-XepOpt:NullAway:UnannotatedClasses=com.google.common.base.Function"))
+        .addSourceLines(
+            "TestGuava.java",
+            """
+            package com.uber;
+            import org.jspecify.annotations.Nullable;
+            import com.google.common.base.Function;
+            import com.google.common.util.concurrent.FluentFuture;
+            import com.google.common.util.concurrent.Futures;
+            import com.google.common.util.concurrent.ListenableFuture;
+            import java.util.concurrent.Executor;
+            class TestGuava {
+              private static void takeFn(Function<String, String> f) { }
+              private static void passExpressionBodyToFunction() {
+                // BUG: Diagnostic contains: returning @Nullable expression from method
+                takeFn(s -> null);
+              }
+              private static void passBlockBodyToFunction() {
+                // BUG: Diagnostic contains: returning @Nullable expression from method
+                takeFn(s -> { return null; });
+              }
+              private static ListenableFuture<@Nullable String> fluentFutureTransformExpressionBody(Executor executor) {
+                return FluentFuture
+                    .from(Futures.immediateFuture("hi"))
+                    .transform(s -> null, executor);
+              }
+              private static ListenableFuture<@Nullable String> futuresTransformExpressionBody(Executor executor) {
+                return Futures
+                    .transform(Futures.immediateFuture("hi"), s -> null, executor);
+              }
             }
             """)
         .doTest();
@@ -206,6 +267,34 @@ public class FunctionalInterfaceNullabilityTests extends NullAwayTestsBase {
               private static void passToExtraFuturesClass(ListenableFuture<String> f, Executor e) {
                 // here we do not expect an error since MyFutures is in the extra futures classes
                 com.uber.extra.MyFutures.transform(f, u -> { return null; }, e);
+              }
+            }
+            """)
+        .doTest();
+  }
+
+  @Test
+  public void lambdaReturnToUnannotatedPrimitiveInterfaceIsCheckedForUnboxing() {
+    defaultCompilationHelper
+        .addSourceLines(
+            "Test.java",
+            """
+            package com.uber;
+            import java.util.function.IntSupplier;
+            import javax.annotation.Nullable;
+            class Test {
+              @Nullable Integer nullableBoxed;
+              Integer nonNullBoxed = 1;
+              void expressionBodyNullable() {
+                // BUG: Diagnostic contains: unboxing of a @Nullable expression 'nullableBoxed'
+                IntSupplier s = () -> nullableBoxed;
+              }
+              void blockBodyNullable() {
+                // BUG: Diagnostic contains: unboxing of a @Nullable expression 'nullableBoxed'
+                IntSupplier s = () -> { return nullableBoxed; };
+              }
+              void expressionBodyNonNull() {
+                IntSupplier s = () -> nonNullBoxed;
               }
             }
             """)

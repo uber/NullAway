@@ -212,10 +212,7 @@ public class ContractHandler implements Handler {
       // The parameter type may be a type variable instantiated with a @Nullable type argument at
       // this use site, e.g. Function<@Nullable String, String>; ask GenericsChecks about it.
       GenericsChecks genericsChecks = analysis.getGenericsChecks();
-      Type functionalInterfaceType = genericsChecks.getInferredPolyExpressionType(tree);
-      if (functionalInterfaceType == null) {
-        functionalInterfaceType = ASTHelpers.getType(tree);
-      }
+      Type functionalInterfaceType = genericsChecks.getPolyExpressionType(tree);
       return genericsChecks
           .getGenericMethodParameterNullness(
               paramIndex, funcInterfaceMethod, functionalInterfaceType, state)
@@ -392,7 +389,11 @@ public class ContractHandler implements Handler {
                   // !isNullTarget.isPresent()  -> notNullTarget.present() must be true
                   (booleanConstraintValue ? Nullness.NONNULL : Nullness.NULL);
           Nullness targetNullness = inputs.valueOfSubNode(nullTestTarget);
-          if (antecedentNullness.equals(targetNullness)) {
+          boolean satisfied =
+              antecedentNullness == Nullness.NULL
+                  ? targetNullness.isNull()
+                  : targetNullness == Nullness.NONNULL;
+          if (satisfied) {
             // We already know this argument is satisfied so we can treat it as part of the
             // clause for the purpose of deciding the nullness of the other arguments.
             continue;
@@ -528,10 +529,10 @@ public class ContractHandler implements Handler {
       Node rhs = comparison.getRightOperand();
       Nullness lhsNullness = inputs.valueOfSubNode(lhs);
       Nullness rhsNullness = inputs.valueOfSubNode(rhs);
-      if (Nullness.NULL.equals(lhsNullness)) {
+      if (lhsNullness.isNull()) {
         return Optional.of(rhs);
       }
-      if (Nullness.NULL.equals(rhsNullness)) {
+      if (rhsNullness.isNull()) {
         return Optional.of(lhs);
       }
       return Optional.empty();

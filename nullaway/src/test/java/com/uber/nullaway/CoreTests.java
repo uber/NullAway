@@ -23,6 +23,7 @@
 package com.uber.nullaway;
 
 import static com.uber.nullaway.NullAwayTestDataConstants.UTIL_SOURCE;
+import static com.uber.nullaway.generics.JSpecifyJavacConfig.withJSpecifyModeArgs;
 
 import java.util.Arrays;
 import org.junit.Test;
@@ -409,13 +410,9 @@ public class CoreTests extends NullAwayTestsBase {
                 long l = b ? null : 0;
                 // BUG: Diagnostic contains: unboxing
                 g("", b ? null : 0);
-                // SHOULDBUSG: Diagnostic contains: unboxing
-                // BUG: Diagnostic contains: passing @Nullable parameter 'b ? null : 0' where @NonNull is
-                // required
+                // BUG: Diagnostic contains: unboxing
                 h("", 1, b ? null : 0);
-                // SHOULDBUSG: Diagnostic contains: unboxing
-                // BUG: Diagnostic contains: passing @Nullable parameter 'b ? null : 0' where @NonNull is
-                // required
+                // BUG: Diagnostic contains: unboxing
                 h("", 1, b ? null : 0, 3);
                 // BUG: Diagnostic contains: unboxing
                 int z = 0 + (b ? null : 1);
@@ -1812,6 +1809,125 @@ public class CoreTests extends NullAwayTestsBase {
         .doTest();
   }
 
+  /**
+   * A {@code @Nullable} annotation on a primitive-typed method, field, or parameter does not make
+   * its value nullable, since a primitive value cannot be null; the same uses of a {@code @Nullable
+   * Integer} or {@code @Nullable int[]} are still reported. Passing, returning, or assigning the
+   * value of such a method or field used to be reported as a {@code @Nullable} expression (issue
+   * #662).
+   */
+  @Test
+  public void nullableAnnotationOnPrimitiveDoesNotMakeValueNullable() {
+    defaultCompilationHelper
+        .addSourceLines(
+            "Test.java",
+            """
+            package com.uber;
+            import javax.annotation.Nullable;
+            class Test {
+              @Nullable int primitiveMethod() { return 0; }
+              @Nullable Integer boxedMethod() { return null; }
+              @Nullable int primitiveField;
+              @Nullable Integer boxedField;
+              @Nullable int[] arrayMethod() { return null; }
+              Object objectField = new Object();
+              void takeInt(int i) {}
+              void takeObject(Object o) {}
+              void arguments() {
+                takeInt(primitiveMethod());
+                takeInt(primitiveField);
+                takeObject(primitiveMethod());
+                takeObject(primitiveField);
+                // BUG: Diagnostic contains: passing @Nullable parameter 'boxedMethod()'
+                takeObject(boxedMethod());
+                // BUG: Diagnostic contains: passing @Nullable parameter 'boxedField'
+                takeObject(boxedField);
+                // BUG: Diagnostic contains: passing @Nullable parameter 'arrayMethod()'
+                takeObject(arrayMethod());
+              }
+              void primitiveParameter(@Nullable int p) {
+                takeObject(p);
+              }
+              void boxedParameter(@Nullable Integer p) {
+                // BUG: Diagnostic contains: passing @Nullable parameter 'p'
+                takeObject(p);
+              }
+              Object returnPrimitive() {
+                return primitiveMethod();
+              }
+              Object returnBoxed() {
+                // BUG: Diagnostic contains: returning @Nullable expression
+                return boxedMethod();
+              }
+              void assignPrimitive() {
+                objectField = primitiveField;
+              }
+              void assignBoxed() {
+                // BUG: Diagnostic contains: assigning @Nullable expression
+                objectField = boxedField;
+              }
+            }
+            """)
+        .doTest();
+  }
+
+  @Test
+  public void jspecifyNullableOnPrimitiveDoesNotMakeValueNullableInJSpecifyMode() {
+    makeTestHelperWithArgs(
+            withJSpecifyModeArgs(
+                Arrays.asList(
+                    "-d",
+                    temporaryFolder.getRoot().getAbsolutePath(),
+                    "-XepOpt:NullAway:AnnotatedPackages=com.uber")))
+        .addSourceLines(
+            "Test.java",
+            """
+            package com.uber;
+            import org.jspecify.annotations.Nullable;
+            @SuppressWarnings("JSpecifyUnrecognizedAnnotationLocation")
+            class Test {
+              @Nullable int primitiveMethod() { return 0; }
+              @Nullable Integer boxedMethod() { return null; }
+              @Nullable int primitiveField;
+              void takeInt(int i) {}
+              void takeObject(Object o) {}
+              void arguments() {
+                takeInt(primitiveMethod());
+                takeInt(primitiveField);
+                takeObject(primitiveMethod());
+                // BUG: Diagnostic contains: passing @Nullable parameter 'boxedMethod()'
+                takeObject(boxedMethod());
+              }
+            }
+            """)
+        .doTest();
+  }
+
+  @Test
+  public void castToNonNullOfNullableAnnotatedPrimitiveIsReported() {
+    defaultCompilationHelper
+        .addSourceLines("Util.java", UTIL_SOURCE)
+        .addSourceLines(
+            "Test.java",
+            """
+            package com.uber;
+            import javax.annotation.Nullable;
+            import static com.uber.nullaway.testdata.Util.castToNonNull;
+            class Test {
+              @Nullable int primitiveMethod() { return 0; }
+              @Nullable Integer boxedMethod() { return null; }
+              Object castPrimitive() {
+                // BUG: Diagnostic contains: passing known @NonNull parameter 'primitiveMethod()'
+                return castToNonNull(primitiveMethod());
+              }
+              Object castBoxed() {
+                return castToNonNull(boxedMethod());
+              }
+            }
+            """)
+        .doTest();
+  }
+
   @Test
   public void arrayAccessDataflowTest() {
     defaultCompilationHelper
@@ -2292,7 +2408,13 @@ public class CoreTests extends NullAwayTestsBase {
                 temporaryFolder.getRoot().getAbsolutePath(),
                 "-XepOpt:NullAway:AnnotatedPackages=com.uber",
                 "-XepOpt:NullAway:CustomNullableAnnotations=qual.Null"))
-        .addSourceLines("qual/Null.java", "package qual;", "public @interface Null {", "}")
+        .addSourceLines(
+            "qual/Null.java",
+            """
+            package qual;
+            public @interface Null {
+            }
+            """)
         .addSourceLines(
             "Test.java",
             """
@@ -2323,7 +2445,13 @@ public class CoreTests extends NullAwayTestsBase {
                 "-XepOpt:NullAway:UnannotatedClasses=com.uber.Other",
                 "-XepOpt:NullAway:CustomNonnullAnnotations=qual.NoNull",
                 "-XepOpt:NullAway:AcknowledgeRestrictiveAnnotations=true"))
-        .addSourceLines("qual/NoNull.java", "package qual;", "public @interface NoNull {", "}")
+        .addSourceLines(
+            "qual/NoNull.java",
+            """
+            package qual;
+            public @interface NoNull {
+            }
+            """)
         .addSourceLines(
             "Other.java",
             """
@@ -3437,7 +3565,11 @@ public class CoreTests extends NullAwayTestsBase {
             }
             """)
         .addSourceLines(
-            "Subclass.java", "package com.uber;", "class Subclass extends Superclass {}")
+            "Subclass.java",
+            """
+            package com.uber;
+            class Subclass extends Superclass {}
+            """)
         .addSourceLines(
             "Test.java",
             """
@@ -3509,6 +3641,48 @@ public class CoreTests extends NullAwayTestsBase {
                         synchronized (lock) {}
                     };
                 }
+            }
+            """)
+        .doTest();
+  }
+
+  @Test
+  public void anonymousInnerClassArgumentsFollowSuperclassParameterTypes() {
+    defaultCompilationHelper
+        .addSourceLines(
+            "Outer.java",
+            """
+            package com.uber;
+            import org.jspecify.annotations.Nullable;
+            class Outer {
+              class Inner {
+                Inner(int number, @Nullable Object value) {}
+              }
+              static void nullableReferenceArgument(Outer outer, int number, @Nullable Integer boxed) {
+                outer.new Inner(number, boxed) {};
+              }
+              static void nullablePrimitiveArgument(Outer outer, @Nullable Integer boxed) {
+                // BUG: Diagnostic contains: unboxing of a @Nullable expression 'boxed'
+                outer.new Inner(boxed, null) {};
+              }
+              static void nonNullPrimitiveArgument(Outer outer, Integer boxed) {
+                outer.new Inner(boxed, null) {};
+              }
+              void implicitOuterNullableReferenceArgument(int number, @Nullable Integer boxed) {
+                new Inner(number, boxed) {};
+              }
+              void implicitOuterNullablePrimitiveArgument(@Nullable Integer boxed) {
+                // BUG: Diagnostic contains: unboxing of a @Nullable expression 'boxed'
+                new Inner(boxed, null) {};
+              }
+              static void regularInnerNullableReferenceArgument(
+                  Outer outer, int number, @Nullable Integer boxed) {
+                outer.new Inner(number, boxed);
+              }
+              static void regularInnerNullablePrimitiveArgument(Outer outer, @Nullable Integer boxed) {
+                // BUG: Diagnostic contains: unboxing of a @Nullable expression 'boxed'
+                outer.new Inner(boxed, null);
+              }
             }
             """)
         .doTest();

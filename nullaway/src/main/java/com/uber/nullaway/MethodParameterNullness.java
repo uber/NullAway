@@ -1,6 +1,7 @@
 package com.uber.nullaway;
 
 import com.sun.tools.javac.code.Symbol;
+import java.util.BitSet;
 import org.jspecify.annotations.Nullable;
 
 /**
@@ -13,6 +14,9 @@ public final class MethodParameterNullness {
   private final @Nullable Nullness[] parameterNullness;
   private final boolean hasVarargsArrayNullness;
   private @Nullable Nullness varargsArrayNullness;
+
+  /** Positions whose nullness was set since the last {@link #clearSetPositions()}. */
+  private final BitSet setPositions = new BitSet();
 
   private MethodParameterNullness(int parameterCount, boolean hasVarargsArrayNullness) {
     this.parameterNullness = new Nullness[parameterCount];
@@ -30,6 +34,22 @@ public final class MethodParameterNullness {
 
   public void setParameterNullness(int index, @Nullable Nullness nullness) {
     parameterNullness[index] = nullness;
+    setPositions.set(index);
+  }
+
+  /**
+   * Returns whether the nullness of the parameter at {@code index} was set since the last {@link
+   * #clearSetPositions()}, or since creation if that was never called. NullAway clears the record
+   * once the base analysis has filled in the parameters, so a set position is one where a handler
+   * decided the nullness.
+   */
+  boolean wasSet(int index) {
+    return setPositions.get(index);
+  }
+
+  /** Forgets which parameter positions have been set, for {@link #wasSet(int)}. */
+  void clearSetPositions() {
+    setPositions.clear();
   }
 
   public @Nullable Nullness getVarargsArrayNullness() {

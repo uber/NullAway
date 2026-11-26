@@ -1,6 +1,69 @@
 Changelog
 =========
 
+Version 0.14.4
+--------------
+
+Mostly a bug fix release.  Some changes may lead to new errors being reported
+in code that previously passed NullAway.
+
+* Resolve the implicit receiver of a call inside an anonymous class (#1954)
+* Constrain enclosing type arguments in generic method inference (#2022)
+* Keep individually passed varargs out of a top-level PolyNull varargs location (#2035)
+* Report unboxing of nullable Iterable elements in enhanced-for loops (#2047)
+* Model getProperty return nullness from its default value (#2062)
+* Recognize @MonotonicNonNullDecl as a @MonotonicNonNull annotation (#2054)
+* Treat a primitive-typed expression as non-null even when its declaration is @Nullable (#2056)
+* Skip FluentFutureHandler in JSpecify mode (#2066)
+* Don't generate assignment context constraints for result-discarding expression lambda (#2060)
+* Skip type-argument nullness checks of method references against unmarked functional interfaces (#2074)
+* Check expression-body lambda returns against unannotated interface methods (#2052)
+* Skip type-argument nullness checks of overrides and explicit lambda parameters against null-unmarked methods (#2072)
+* Avoid recomputing dataflow for constructors and initializers by @agrieve (#2079)
+* Honor explicit type-use `@Nullable` annotations on lambda parameters (#2071)
+* Pin flow-sensitive nullness after parameter assignments (#2077)
+* Preserve nullable upper bound when passing arguments through a raw receiver by @samuelcney (#2083)
+* Preserve nullability of intersection bounds (#1972)
+* Store and reuse `TreePath`s to `var`-declared variables (#2094)
+* Fix NPE for captured wildcard of non-static inner class by @adityaanikam (#2097)
+* Restore wildcard bound annotations through matching supertypes (#2104)
+* Skip redundant/misleading checks after unboxing by @jeffrey-easyesi (#2123)
+* Read array element nullness from the type when the array has no symbol (#2130)
+* Read nested array nullness of locals for array writes before JDK 27 (#2131)
+* Apply the qualifier's type arguments to qualified inner class creation (#2136)
+* Preserve explicit class exclusions across nested null marking (#2151)
+* Report malformed contracts without crashing analysis by @codingkiddo (#2149)
+* Accept `? extends T` reads and enhanced-for elements of type `T` where `T` is expected (#2069)
+* Stop rerunning dataflow on safe-init helpers, @EnsuresNonNull methods, and stream filters (#2139)
+* Maintenance
+  - Update Gradle to 9.8.2 (#2110)
+  - Update build plugins (#2111, #2167)
+  - Update library and test dependencies (#2024, #2106, #2107, #2108, #2109, #2114, #2115, #2116, #2117, #2118, #2120, #2121, #2122, #2168)
+  - Update GitHub Actions (#2112, #2119, #2169, #2170, #2171)
+  - Update third-party projects built in CI (#2076, #2105, #2147)
+  - Add regression tests for enum super calls, restrictive varargs, and JDK models (#2028)
+  - Test that a nullable assignment to a final field is reported only at the assignment (#2031)
+  - Test castToNonNull library models with extra arguments in initializers (#2032)
+  - Test requireNonNullElse inference with and without the JSpecify JDK models (#2033)
+  - Test wildcard return types in JarInfer astubx signatures (#2036)
+  - Enable the test for a call on a new expression with a @Nullable type argument (#2037)
+  - Assert the @Nullable type argument inferred for a var diamond local (#2041)
+  - Add regression tests for cast map reads and nullable Supplier type arguments (#2046)
+  - Update configuration for building Caffeine integration test (#2049)
+  - Build reactor-core and spring-batch with the NullAway snapshot in CI (#2067)
+  - Compile third-party projects with compileAllJava instead of assemble (#2068)
+  - Test @EnsuresNonNull on a guard that throws instead of assigning the field (#2055)
+  - Cleanup: centralize lambda and method-reference type lookup (#2070)
+  - Extract common functions for checking top-level nullness compatibility at pseudo-assignments (#2089)
+  - Show Gradle errors when pre-commit hook fails by @GabrielPdoCarmo (#2092)
+  - Fix typo 'overriden' to 'overridden' in NullAway.java by @siddiqueirshad (#2135)
+  - Cut CodeRabbit review output down to the findings (#2148)
+  - Stop CodeRabbit from adding a summary to PR descriptions (#2152)
+  - Add AGENTS.md rules against repeated analysis work and recursion cycles (#2138)
+  - Add Vavr to the third-party CI regression builds (#2154)
+  - Measure diff coverage and diff mutation testing with the cribro plugin (#2157)
+  - Highlight Java test sources in IntelliJ with a language injection (#2163)
+
 Version 0.14.3
 --------------
 

@@ -9,6 +9,8 @@ pluginManagement {
 plugins {
     // to automatically pull in relevant JDK toolchains when not present on the local machine
     id("org.gradle.toolchains.foojay-resolver-convention") version "1.0.0"
+    // diff coverage after `test` and the pitestDiff task in every Java project; see AGENTS.md
+    id("io.github.cribro-dev.cribro") version "1.1.1"
 }
 
 include ':annotations'

@@ -4,7 +4,6 @@ import static com.uber.nullaway.NullabilityUtil.castToNonNull;
 import static com.uber.nullaway.Nullness.NONNULL;
 import static com.uber.nullaway.Nullness.NULLABLE;
 
-import com.google.errorprone.util.ASTHelpers;
 import com.sun.source.tree.ClassTree;
 import com.sun.source.tree.LambdaExpressionTree;
 import com.sun.source.tree.VariableTree;
@@ -19,6 +18,7 @@ import com.uber.nullaway.MethodParameterNullness;
 import com.uber.nullaway.NullabilityUtil;
 import com.uber.nullaway.Nullness;
 import com.uber.nullaway.generics.GenericsChecks;
+import com.uber.nullaway.generics.GenericsUtils;
 import com.uber.nullaway.generics.TypeSubstitutionUtils;
 import com.uber.nullaway.handlers.Handler;
 import java.util.List;
@@ -122,11 +122,7 @@ class CoreNullnessStoreInitializer extends NullnessStoreInitializer {
      * analysis. By the time this method is called during the setup for the lambda's analysis, the
      * inferred type for the lambda argument will have already been computed and stored.
      */
-    Type lambdaType = castToNonNull(ASTHelpers.getType(code));
-    Type inferredType = genericsChecks.getInferredPolyExpressionType(code);
-    if (inferredType != null) {
-      lambdaType = inferredType;
-    }
+    Type lambdaType = castToNonNull(genericsChecks.getPolyExpressionType(code));
 
     // This obtains the types of the functional interface method parameters with preserved
     // annotations in case of generic type arguments.  Only used in JSpecify mode.
@@ -142,8 +138,7 @@ class CoreNullnessStoreInitializer extends NullnessStoreInitializer {
           // Get the Nullness if the Annotation is directly written with the parameter
           fiArgumentNullness.setParameterNullness(i, NULLABLE);
         } else if (config.isJSpecifyMode()
-            && Nullness.hasNullableAnnotation(
-                overridenMethodParamTypeList.get(i).getAnnotationMirrors().stream(), config)) {
+            && GenericsUtils.isAnnotatedAsNullable(overridenMethodParamTypeList.get(i), config)) {
           // Get the Nullness if the Annotation is indirectly applied through a generic type if we
           // are in JSpecify mode
           fiArgumentNullness.setParameterNullness(i, NULLABLE);
@@ -164,12 +159,12 @@ class CoreNullnessStoreInitializer extends NullnessStoreInitializer {
       // we treat lambda parameters differently; they "inherit" the nullability of the
       // corresponding functional interface parameter, unless they are explicitly annotated.
       //
-      // We look for explicit @Nullable annotations on the symbol.  In JDK 27+, sometimes
-      // javac will add a @Nullable annotation to the Type of element based on its own generic
-      // inference.  We don't want to consider that here (it is handled in the type stored in
-      // fiArgumentNullness), so we only look at the annotations directly on element
+      // Read declaration and root type-use annotations written on the parameter, skipping
+      // element.asType(). In JDK 27+, javac can add an inferred @Nullable to that type; inherited
+      // nullness is already handled by fiArgumentNullness.
       if (Nullness.hasNullableAnnotation(
-          ((Symbol) element).getAnnotationMirrors().stream(), config)) {
+          NullabilityUtil.getExplicitLambdaParameterAnnotations((Symbol.VarSymbol) element),
+          config)) {
         assumed = NULLABLE;
       } else if (!NullabilityUtil.lambdaParamIsImplicitlyTyped(variableTree)) {
         // the parameter has a declared type with no @Nullable annotation

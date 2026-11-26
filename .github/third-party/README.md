@@ -1,7 +1,8 @@
 # Patches for third-party projects built in CI
 
 The `compile-other-projects` job in [continuous-integration.yml](../workflows/continuous-integration.yml) builds
-caffeine, spring-framework, junit-framework, spring-boot, reactor-core, and spring-batch with the NullAway snapshot.
+caffeine, spring-framework, junit-framework, spring-boot, reactor-core, spring-batch, vavr, and calcite with the NullAway
+snapshot.
 Each project builds at the commit in the `sha` field of its matrix entry, with the patches in
 `.github/third-party/<project>/` applied in file name order, by running the command in the `build` field.
 
@@ -53,6 +54,9 @@ NullAway runs inside `javac`, so compiling the main and test sources is enough. 
 `compileAllJava` for Gradle, `test-compile` for Maven, with plugins that run before compilation, such as a formatter
 check, skipped by their own property.
 
+Vavr uses `compile` because its test sources include intentional nullness violations, such as passing `null` to
+non-null parameters. Its main sources are checked with the `nullaway` profile in JSpecify mode.
+
 ## Adding a project
 
 A project fits when it already runs NullAway in its build, preferably with `NullAway:JSpecifyMode=true`, and when its
@@ -74,11 +78,18 @@ build passes with the snapshot at the commit you pin.
 3. Set `NULLAWAY_VERSION` to `VERSION_NAME` from `gradle.properties`, and run the `build` command of the matrix entry in
    the checkout.
 
-The job installs JDK 26 and JDK 25 and builds with JDK 25 by default. Caffeine's command sets `JAVA_VERSION=26` to match
+The job installs JDK 21, JDK 26, and JDK 25 and builds with JDK 25 by default. Vavr's command sets `JAVA_HOME` to
+`JAVA_HOME_21_X64` to build with JDK 21 and enables its `nullaway` profile. Caffeine's command sets `JAVA_VERSION=26` to match
 its ErrorProne CI configuration. Caffeine's default Java 11 target selects JUnit 5; the Java 26 target selects JUnit 6
 and enables NullAway checking of JUnit's annotated API, exposing additional generic-inference diagnostics. reactor-core
 also needs JDK 8, 11, 17, and 21 toolchains to configure its build; Gradle downloads them through the foojay toolchain
 resolver its settings apply.
+
+Calcite runs Gradle 8.14, which does not start on JDK 25, so its command runs Gradle with `JAVA_HOME_21_X64`. Its
+`javac` tasks request a JDK 25 toolchain, which Gradle finds among the JDKs the job installed. `-PenableErrorprone` adds
+Error Prone and NullAway to the build.
+Calcite runs NullAway only on its main and JMH sources, so the command compiles `classes` and `jmhClasses` and skips the
+test sources.
 
 ## What CI does with each patch
 
