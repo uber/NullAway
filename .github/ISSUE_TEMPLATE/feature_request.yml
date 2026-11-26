@@ -23,7 +23,7 @@ body:
     id: example
     attributes:
       label: Example and expected behavior
-      description: A small Java example with nullness annotations, what NullAway reports for it today, and what it should report instead. Put Java code in a 
+      description: A small Java example with nullness annotations, what NullAway reports for it today, and what it should report instead. Put Java code in a fenced `java` block, and name the NullAway version and whether JSpecifyMode is on. For build integrations, include example configuration instead.
     validations:
       required: true
 
