@@ -157,17 +157,14 @@ public interface ConstraintSolver {
     NULLABLE,
     /**
      * No constraint fixed the variable, a type variable {@code T} whose bound is explicitly
-     * nullable flowed into it, and the variable's own bound is explicitly nullable. A bound is
-     * explicitly nullable where it is annotated {@code @Nullable}, where a library model makes it
-     * nullable, or where it is another type variable, carrying no nullness annotation, whose bound
-     * is explicitly nullable; a bound that admits null only because unannotated code declares the
-     * type variable is not. Where javac inferred a type with parametric nullness ({@link
-     * GenericsUtils#hasParametricNullness}), a capture included, the variable is that type with no
-     * synthetic annotation; where javac inferred an intersection type, it carries no annotation;
-     * where javac inferred any other type, such as the least upper bound of {@code T} and {@code
-     * String}, or a type variable {@code R} whose bound excludes null for {@code T
-     * extends @Nullable R}, the variable is {@code @Nullable}, the least type that holds a null
-     * {@code T}.
+     * nullable flowed into it, and the variable's own bound is explicitly nullable, as {@link
+     * GenericsUtils#typeVariableWithNullableBound} decides it. Where javac inferred a type with
+     * parametric nullness ({@link GenericsUtils#hasParametricNullness}), a capture included, the
+     * variable is that type with no synthetic annotation; where javac inferred an intersection
+     * type, it carries no annotation; where javac inferred any other type, such as the least upper
+     * bound of {@code T} and {@code String}, or a type variable {@code R} whose bound excludes null
+     * for {@code T extends @Nullable R}, the variable is {@code @Nullable}, the least type that
+     * holds a null {@code T}.
      */
     TYPE_VARIABLE_OR_NULLABLE,
     /**

@@ -626,9 +626,10 @@ public class TypeSubstitutionUtils {
      * resolves against the visited type, or {@code null} to resolve none. Set only in the step that
      * copies inferred nullness onto the destination type, which is the type javac inferred wherever
      * one is available; that step alone can tell whether javac inferred a type variable or a class
-     * type. The destination is a declared type where {@link Config#isNullableBoundInferenceEnabled}
-     * is false, and then the solver produces none of these variables, and where javac's type for a
-     * referenced method has another number of parameters.
+     * type. A generic method reference keeps its declared type as the destination where {@link
+     * Config#isNullableBoundInferenceEnabled} is false or javac's type for the referenced method
+     * has another number of parameters. Where that predicate is false, the solver produces none of
+     * these variables.
      */
     private final @Nullable InferredTypeVariableNullness inferredNullness;
 

@@ -1484,6 +1484,10 @@ public class PolyNullLibraryModelsTests extends NullAwayTestsBase {
                 // BUG: Diagnostic contains: dereferenced expression 'optional.orElseGet(() -> fallback)' is @Nullable
                 optional.orElseGet(() -> fallback).hashCode();
               }
+              void explicitlyNullableTypeArgumentForAnExplicitlyNullableBound(T t) {
+                // BUG: Diagnostic contains: dereferenced expression 'PolyNullMethods.<@Nullable T, String>genericFirst(t, () -> "x")' is @Nullable
+                PolyNullMethods.<@Nullable T, String>genericFirst(t, () -> "x").hashCode();
+              }
               @NullUnmarked
               static class Unmarked<X> {
                 @NullMarked
@@ -1513,8 +1517,12 @@ public class PolyNullLibraryModelsTests extends NullAwayTestsBase {
               static <U extends @Nullable Object> U first(List<U> list) {
                 return list.get(0);
               }
-              void typeVariableResult(List<? extends T> list) {
-                T first = PolyNullMethods.genericFirst(first(list), () -> "x");
+              T typeVariableResult(List<? extends T> list) {
+                return PolyNullMethods.genericFirst(first(list), () -> "x");
+              }
+              static <X extends @Nullable Object> void accept(X x) {}
+              void typeVariableResultPassedToAGenericMethod(List<? extends T> list) {
+                accept(PolyNullMethods.genericFirst(first(list), () -> "x"));
               }
               void classTypeResult(List<? extends T> list) {
                 // BUG: Diagnostic contains: dereferenced expression 'PolyNullMethods.genericObject(first(list), () -> "x")' is @Nullable

@@ -4968,12 +4968,12 @@ public final class GenericsChecks {
    * Returns whether {@code target} accepts a value of type {@code valueType} for which {@link
    * Nullness#isNoChange()} holds. Such a value is null only when the corresponding type variable
    * {@code T} is instantiated with a nullable type argument. A location accepts it when its type is
-   * a type variable {@code T}, or a capture of {@code ? super T}, such that neither the type nor
-   * the location's declaration is annotated {@code @NonNull}, and {@code valueType} is {@code T} or
-   * a subtype of {@code T} that reaches {@code T} through upper bounds none of which is nullable.
-   * Then the assigned location admits null whenever the value may be null. In {@code <U
-   * extends @Nullable T>}, the bound of {@code U} breaks the chain, since {@code U} may be nullable
-   * while {@code T} is not.
+   * a type variable {@code T}, a capture included, or a capture of {@code ? super T}, such that
+   * neither {@code T} nor the location's declaration is annotated {@code @NonNull}, and {@code
+   * valueType} is {@code T} or a subtype of {@code T} that reaches {@code T} through upper bounds
+   * none of which is nullable. Then the assigned location admits null whenever the value may be
+   * null. In {@code <U extends @Nullable T>}, the bound of {@code U} breaks the chain, since {@code
+   * U} may be nullable while {@code T} is not.
    *
    * <p>This test should be applied to the {@link ValueTarget} of the assigned location at every
    * pseudo-assignment, so that a {@code NO_CHANGE} fact always holds relative to the static type of
@@ -4986,18 +4986,26 @@ public final class GenericsChecks {
   public boolean acceptsNoChangeValue(Type valueType, ValueTarget target, VisitorState state) {
     Type targetType = target.type();
     Symbol declaration = target.declaration();
-    // A capture of ? super T accepts every value of type T
-    Type typeVariable =
-        targetType instanceof Type.CapturedType capturedType
-            ? capturedType.getLowerBound()
-            : targetType;
     if (target.excludesNull()
-        || !(typeVariable instanceof Type.TypeVar)
-        || GenericsUtils.isAnnotatedAsNonNull(typeVariable, config)
         || (declaration != null && Nullness.hasNonNullAnnotation(declaration, config))) {
       return false;
     }
-    return reachesThroughNonNullableBounds(valueType, typeVariable, state);
+    // A capture of ? super T accepts every value of type T
+    return acceptsNoChangeValueOf(valueType, targetType, state)
+        || (targetType instanceof Type.CapturedType capturedType
+            && acceptsNoChangeValueOf(valueType, capturedType.getLowerBound(), state));
+  }
+
+  /**
+   * Returns whether {@code typeVariable} is a type variable, a capture included, that is not
+   * annotated {@code @NonNull} and that {@code valueType} reaches by {@link
+   * #reachesThroughNonNullableBounds}.
+   */
+  private boolean acceptsNoChangeValueOf(
+      Type valueType, @Nullable Type typeVariable, VisitorState state) {
+    return typeVariable instanceof Type.TypeVar
+        && !GenericsUtils.isAnnotatedAsNonNull(typeVariable, config)
+        && reachesThroughNonNullableBounds(valueType, typeVariable, state);
   }
 
   /**
