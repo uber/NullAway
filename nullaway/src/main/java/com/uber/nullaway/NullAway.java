@@ -292,6 +292,15 @@ public class NullAway extends BugChecker
       new LinkedHashMap<>();
 
   /**
+   * Fields of the receiver that each safe-init method leaves initialized at its exit, keyed by the
+   * method. The set depends only on the method's body, so it is computed once however many
+   * constructors call the method and however many field reads are checked against it. Cleared in
+   * {@link #matchCompilationUnit(CompilationUnitTree, VisitorState)}.
+   */
+  private final Map<Element, ImmutableSet<Element>> safeInitMethodToInitializedFieldsAtExit =
+      new LinkedHashMap<>();
+
+  /**
    * dynamically computer/overridden nullness facts for certain expressions, such as specific method
    * calls where we can infer a more precise set of facts than those given by the method's
    * annotations.
@@ -1442,12 +1451,10 @@ public class NullAway extends BugChecker
       return;
     }
     if (ASTHelpers.isSameType(returnType, Suppliers.JAVA_LANG_VOID_TYPE.get(state), state)) {
-      // Temporarily treat a Void return type as if it were @Nullable Void.  Change this once
-      // we are confident that all use cases can be type checked reasonably (may require generics
-      // support)
+      // For compatibility, a Void return accepts null. Prefer an explicit @Nullable Void return
+      // type.
       return;
     }
-
     // Check generic type arguments for returned expression here, since we need to check the type
     // arguments regardless of the top-level nullability of the return type.  Type arguments of an
     // unannotated method's return type are unspecified, so they are not compared, just as the
@@ -2243,6 +2250,7 @@ public class NullAway extends BugChecker
     initTree2PrevFieldInit.clear();
     class2Entities.clear();
     class2ConstructorUninit.clear();
+    safeInitMethodToInitializedFieldsAtExit.clear();
     computedNullnessMap.clear();
     genericsChecks.clearCache();
     EnclosingEnvironmentNullness.instance(stateForNewCompilationUnit.context).clear();
@@ -2852,9 +2860,9 @@ public class NullAway extends BugChecker
       BlockTree block,
       TreePath path) {
     AccessPathNullnessAnalysis nullnessAnalysis = getNullnessAnalysis(state);
-    Set<Element> nonnullAtExit =
+    Set<Element> initializedAtExit =
         nullnessAnalysis.getInitializedFieldsOfReceiverAtExit(path, state.context);
-    initInSomeInitializerBuilder.addAll(nonnullAtExit);
+    initInSomeInitializerBuilder.addAll(initializedAtExit);
     Set<Element> safeInitMethods = getSafeInitMethods(block, classSymbol, state);
     addGuaranteedNonNullFromInvokes(
         state, trees, safeInitMethods, nullnessAnalysis, initInSomeInitializerBuilder);
@@ -2963,16 +2971,16 @@ public class NullAway extends BugChecker
     Set<Element> initializedInStaticInitializers = new LinkedHashSet<>();
     AccessPathNullnessAnalysis nullnessAnalysis = getNullnessAnalysis(state);
     for (BlockTree initializer : entities.staticInitializerBlocks()) {
-      Set<Element> nonnullAtExit =
+      Set<Element> initializedAtExit =
           nullnessAnalysis.getNonnullStaticFieldsAtExit(
               new TreePath(state.getPath(), initializer), state.context);
-      initializedInStaticInitializers.addAll(nonnullAtExit);
+      initializedInStaticInitializers.addAll(initializedAtExit);
     }
     for (MethodTree initializerMethod : entities.staticInitializerMethods()) {
-      Set<Element> nonnullAtExit =
+      Set<Element> initializedAtExit =
           nullnessAnalysis.getNonnullStaticFieldsAtExit(
               new TreePath(state.getPath(), initializerMethod), state.context);
-      initializedInStaticInitializers.addAll(nonnullAtExit);
+      initializedInStaticInitializers.addAll(initializedAtExit);
     }
     Set<Symbol> notInitializedStaticFields = new LinkedHashSet<>();
     for (Symbol field : nonNullStaticFields) {
@@ -2990,10 +2998,17 @@ public class NullAway extends BugChecker
       AccessPathNullnessAnalysis nullnessAnalysis,
       ImmutableSet.Builder<Element> guaranteedNonNullBuilder) {
     for (Element invoked : safeInitMethods) {
-      Tree invokedTree = trees.getTree(invoked);
-      guaranteedNonNullBuilder.addAll(
-          nullnessAnalysis.getInitializedFieldsOfReceiverAtExit(
-              new TreePath(state.getPath(), invokedTree), state.context));
+      ImmutableSet<Element> initializedAtExit =
+          safeInitMethodToInitializedFieldsAtExit.get(invoked);
+      if (initializedAtExit == null) {
+        Tree invokedTree = trees.getTree(invoked);
+        initializedAtExit =
+            ImmutableSet.copyOf(
+                nullnessAnalysis.getInitializedFieldsOfReceiverAtExit(
+                    new TreePath(state.getPath(), invokedTree), state.context));
+        safeInitMethodToInitializedFieldsAtExit.put(invoked, initializedAtExit);
+      }
+      guaranteedNonNullBuilder.addAll(initializedAtExit);
     }
   }
 

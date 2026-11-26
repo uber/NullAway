@@ -73,7 +73,8 @@ hs_err_pid*
 *.iml
 *.ipr
 *.iws
-.idea/
+**/.idea/*
+!/.idea/IntelliLang.xml
 
 
 ###Eclipse###

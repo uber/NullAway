@@ -9,7 +9,12 @@ public class ThriftTests extends NullAwayTestsBase {
   @Test
   public void testThriftIsSet() {
     defaultCompilationHelper
-        .addSourceLines("TBase.java", "package org.apache.thrift;", "public interface TBase {}")
+        .addSourceLines(
+            "TBase.java",
+            """
+            package org.apache.thrift;
+            public interface TBase {}
+            """)
         .addSourceLines(
             "Generated.java",
             """
@@ -62,7 +67,11 @@ public class ThriftTests extends NullAwayTestsBase {
   public void testThriftIsSetWithGenerics() {
     defaultCompilationHelper
         .addSourceLines(
-            "TBase.java", "package org.apache.thrift;", "public interface TBase<T, F> {}")
+            "TBase.java",
+            """
+            package org.apache.thrift;
+            public interface TBase<T, F> {}
+            """)
         .addSourceLines(
             "Generated.java",
             """
@@ -124,7 +133,11 @@ public class ThriftTests extends NullAwayTestsBase {
   public void testThriftUnion() {
     defaultCompilationHelper
         .addSourceLines(
-            "TBase.java", "package org.apache.thrift;", "public interface TBase<T, F> {}")
+            "TBase.java",
+            """
+            package org.apache.thrift;
+            public interface TBase<T, F> {}
+            """)
         .addSourceLines(
             "TUnion.java",
             """
@@ -177,7 +190,12 @@ public class ThriftTests extends NullAwayTestsBase {
                 "-XepOpt:NullAway:TreatGeneratedAsUnannotated=true",
                 "-XepOpt:NullAway:AcknowledgeRestrictiveAnnotations=true"))
         .addSourceLines("Util.java", UTIL_SOURCE)
-        .addSourceLines("TBase.java", "package org.apache.thrift;", "public interface TBase {}")
+        .addSourceLines(
+            "TBase.java",
+            """
+            package org.apache.thrift;
+            public interface TBase {}
+            """)
         .addSourceLines(
             "GeneratedClass.java",
             """

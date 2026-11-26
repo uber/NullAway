@@ -2408,7 +2408,13 @@ public class CoreTests extends NullAwayTestsBase {
                 temporaryFolder.getRoot().getAbsolutePath(),
                 "-XepOpt:NullAway:AnnotatedPackages=com.uber",
                 "-XepOpt:NullAway:CustomNullableAnnotations=qual.Null"))
-        .addSourceLines("qual/Null.java", "package qual;", "public @interface Null {", "}")
+        .addSourceLines(
+            "qual/Null.java",
+            """
+            package qual;
+            public @interface Null {
+            }
+            """)
         .addSourceLines(
             "Test.java",
             """
@@ -2439,7 +2445,13 @@ public class CoreTests extends NullAwayTestsBase {
                 "-XepOpt:NullAway:UnannotatedClasses=com.uber.Other",
                 "-XepOpt:NullAway:CustomNonnullAnnotations=qual.NoNull",
                 "-XepOpt:NullAway:AcknowledgeRestrictiveAnnotations=true"))
-        .addSourceLines("qual/NoNull.java", "package qual;", "public @interface NoNull {", "}")
+        .addSourceLines(
+            "qual/NoNull.java",
+            """
+            package qual;
+            public @interface NoNull {
+            }
+            """)
         .addSourceLines(
             "Other.java",
             """
@@ -3553,7 +3565,11 @@ public class CoreTests extends NullAwayTestsBase {
             }
             """)
         .addSourceLines(
-            "Subclass.java", "package com.uber;", "class Subclass extends Superclass {}")
+            "Subclass.java",
+            """
+            package com.uber;
+            class Subclass extends Superclass {}
+            """)
         .addSourceLines(
             "Test.java",
             """
