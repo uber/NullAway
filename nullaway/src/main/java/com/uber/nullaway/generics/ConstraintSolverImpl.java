@@ -54,7 +54,9 @@ public final class ConstraintSolverImpl implements ConstraintSolver {
    * variable of the same site, such as {@code U} in {@code <R, U extends R>}, to that variable,
    * where the declaration of {@code U} does not make its bound nullable by {@link
    * GenericsUtils#declaredUpperBoundIsNullable}. {@link #solve()} makes each such bound a supertype
-   * edge. Recorded only where {@link Config#isNullableBoundInferenceEnabled} holds.
+   * edge {@code U <: R} for every {@code U} that appears in a constraint or that an earlier edge
+   * reaches, so it follows a chain such as {@code <Q, R extends Q, U extends R>} from {@code U} to
+   * {@code Q}. Recorded only where {@link Config#isNullableBoundInferenceEnabled} holds.
    */
   private final Map<InferenceVariable, InferenceVariable> declaredBounds = new LinkedHashMap<>();
 
@@ -415,7 +417,7 @@ public final class ConstraintSolverImpl implements ConstraintSolver {
   @Override
   public Map<InferenceVariable, InferredNullability> solve()
       throws UnsatisfiableConstraintsException {
-    /* U extends R  ⇒  U <: R, for every U that a constraint reaches and along the chain of bounds */
+    /* U extends R  ⇒  U <: R, for every U that appears in a constraint or that an edge reaches */
     if (!declaredBounds.isEmpty()) {
       List<InferenceVariable> boundedVars = new ArrayList<>(vars.keySet());
       for (int i = 0; i < boundedVars.size(); i++) {
