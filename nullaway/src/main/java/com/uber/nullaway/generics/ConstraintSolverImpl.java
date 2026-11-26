@@ -21,7 +21,6 @@ import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Deque;
-import java.util.HashMap;
 import java.util.IdentityHashMap;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
@@ -58,18 +57,6 @@ public final class ConstraintSolverImpl implements ConstraintSolver {
    * edge. Recorded only where {@link Config#isNullableBoundInferenceEnabled} holds.
    */
   private final Map<InferenceVariable, InferenceVariable> declaredBounds = new LinkedHashMap<>();
-
-  /**
-   * Whether the bound of each inference variable admits null, by {@link
-   * GenericsUtils#upperBoundIsNullable}; see {@link #boundAdmitsNull}.
-   */
-  private final Map<InferenceVariable, Boolean> boundAdmitsNullCache = new HashMap<>();
-
-  /**
-   * Whether the bound of each inference variable is explicitly nullable, by {@link
-   * GenericsUtils#boundIsExplicitlyNullable}; see {@link #boundIsExplicitlyNullable}.
-   */
-  private final Map<InferenceVariable, Boolean> boundIsExplicitlyNullableCache = new HashMap<>();
 
   public ConstraintSolverImpl(Config config, VisitorState state, NullAway analysis) {
     this.config = config;
@@ -516,7 +503,9 @@ public final class ConstraintSolverImpl implements ConstraintSolver {
                   if (!st.parametric) {
                     yield InferredNullability.NONNULL;
                   }
-                  yield st.parametricNullable && boundIsExplicitlyNullable(inferenceVar)
+                  yield st.parametricNullable
+                          && GenericsUtils.boundIsExplicitlyNullable(
+                              inferenceVar.typeVariable(), config, handler, state)
                       ? InferredNullability.TYPE_VARIABLE_OR_NULLABLE
                       : InferredNullability.TYPE_VARIABLE_OR_NONNULL;
                 }
@@ -595,50 +584,11 @@ public final class ConstraintSolverImpl implements ConstraintSolver {
   /* ───────────────────── helpers & stubs ───────────────────── */
 
   private VarState getState(InferenceVariable inferenceVar) {
-    VarState st = vars.get(inferenceVar);
-    if (st == null) {
-      st = new VarState(boundAdmitsNull(inferenceVar));
-      vars.put(inferenceVar, st);
-    }
-    return st;
-  }
-
-  /**
-   * Returns whether the bound of {@code inferenceVar} admits null, by {@link
-   * GenericsUtils#upperBoundIsNullable}. A variable with an edge in {@link #declaredBounds} has the
-   * answer of the variable its bound names, so each variable of a chain of bounds is computed once.
-   */
-  private boolean boundAdmitsNull(InferenceVariable inferenceVar) {
-    Boolean known = boundAdmitsNullCache.get(inferenceVar);
-    if (known == null) {
-      InferenceVariable boundVar = declaredBounds.get(inferenceVar);
-      known =
-          boundVar != null
-              ? boundAdmitsNull(boundVar)
-              : GenericsUtils.upperBoundIsNullable(
-                  inferenceVar.typeVariable(), config, handler, state);
-      boundAdmitsNullCache.put(inferenceVar, known);
-    }
-    return known;
-  }
-
-  /**
-   * Returns whether the bound of {@code inferenceVar} is explicitly nullable, by {@link
-   * GenericsUtils#boundIsExplicitlyNullable}. As in {@link #boundAdmitsNull}, a variable with an
-   * edge in {@link #declaredBounds} has the answer of the variable its bound names.
-   */
-  private boolean boundIsExplicitlyNullable(InferenceVariable inferenceVar) {
-    Boolean known = boundIsExplicitlyNullableCache.get(inferenceVar);
-    if (known == null) {
-      InferenceVariable boundVar = declaredBounds.get(inferenceVar);
-      known =
-          boundVar != null
-              ? boundIsExplicitlyNullable(boundVar)
-              : GenericsUtils.boundIsExplicitlyNullable(
-                  inferenceVar.typeVariable(), config, handler, state);
-      boundIsExplicitlyNullableCache.put(inferenceVar, known);
-    }
-    return known;
+    return vars.computeIfAbsent(
+        inferenceVar,
+        v ->
+            new VarState(
+                GenericsUtils.upperBoundIsNullable(v.typeVariable(), config, handler, state)));
   }
 
   /**
