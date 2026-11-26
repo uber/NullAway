@@ -230,6 +230,11 @@ public class DummyOptionsConfig implements Config {
   }
 
   @Override
+  public boolean isNullableBoundInferenceEnabled() {
+    throw new IllegalStateException(ERROR_MESSAGE);
+  }
+
+  @Override
   public boolean handleWildcardGenerics() {
     throw new IllegalStateException(ERROR_MESSAGE);
   }
