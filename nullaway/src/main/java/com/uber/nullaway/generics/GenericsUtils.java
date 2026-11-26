@@ -499,14 +499,27 @@ public class GenericsUtils {
    */
   static @Nullable Element typeVariableWithNullableBound(
       Element typeVarElement, Config config, Handler handler, VisitorState state) {
-    Type upperBound = (Type) ((TypeVariable) typeVarElement.asType()).getUpperBound();
-    if (isAnnotatedAsNullable(upperBound, config)
-        || libraryModelMakesBoundNullable(typeVarElement, handler, state)) {
+    if (declaredBoundIsExplicitlyNullable(typeVarElement, config, handler, state)) {
       return typeVarElement;
     }
+    Type upperBound = (Type) ((TypeVariable) typeVarElement.asType()).getUpperBound();
     return !hasNullnessAnnotation(upperBound, config) && upperBound.getKind() == TypeKind.TYPEVAR
         ? typeVariableWithNullableBound(upperBound.asElement(), config, handler, state)
         : null;
+  }
+
+  /**
+   * Returns true if the declared upper bound of the given type variable is annotated
+   * {@code @Nullable}, in every element for an intersection, or a library model makes it nullable.
+   * Unlike {@link #typeVariableWithNullableBound}, this does not follow a bound that is itself a
+   * type variable, and unlike {@link #declaredUpperBoundIsNullable}, a type variable declared in
+   * unannotated code gets no nullable default.
+   */
+  static boolean declaredBoundIsExplicitlyNullable(
+      Element typeVarElement, Config config, Handler handler, VisitorState state) {
+    Type upperBound = (Type) ((TypeVariable) typeVarElement.asType()).getUpperBound();
+    return isAnnotatedAsNullable(upperBound, config)
+        || libraryModelMakesBoundNullable(typeVarElement, handler, state);
   }
 
   /** Returns true if a library model overrides the upper bound of the given type variable. */

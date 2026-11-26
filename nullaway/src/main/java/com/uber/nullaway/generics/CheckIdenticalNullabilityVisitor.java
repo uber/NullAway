@@ -3,12 +3,14 @@ package com.uber.nullaway.generics;
 import static com.uber.nullaway.NullabilityUtil.castToNonNull;
 
 import com.google.common.base.Equivalence;
+import com.google.common.collect.ImmutableSet;
 import com.google.errorprone.VisitorState;
 import com.sun.tools.javac.code.BoundKind;
 import com.sun.tools.javac.code.Symbol;
 import com.sun.tools.javac.code.Type;
 import com.sun.tools.javac.code.Types;
 import com.uber.nullaway.Config;
+import com.uber.nullaway.Nullness;
 import com.uber.nullaway.handlers.Handler;
 import java.util.Collections;
 import java.util.HashSet;
@@ -31,6 +33,24 @@ public class CheckIdenticalNullabilityVisitor extends Types.DefaultTypeVisitor<B
   private final GenericsChecks genericsChecks;
   private final Config config;
   private final Handler handler;
+  private final ComparisonContext context;
+
+  /**
+   * What the caller of a comparison knows about the types it compares that the types do not show.
+   *
+   * @param uninferredTypeVariables type variables of the constructor or method whose call or method
+   *     reference is being checked, where NullAway does not instantiate them; a bare one is
+   *     compared by its annotation rather than by its bounds
+   * @param actualFromCallInference whether the actual type is the type of a generic method call or
+   *     a diamond constructor call that needs inference, directly or through a {@code var} local it
+   *     initializes; that type is built from javac's types, whose captured wildcards carry no
+   *     type-use annotation on their bounds, written or not
+   */
+  record ComparisonContext(
+      ImmutableSet<Symbol.TypeSymbol> uninferredTypeVariables, boolean actualFromCallInference) {
+    /** A context with no uninferred type variables and an actual type taken from the code. */
+    static final ComparisonContext NONE = new ComparisonContext(ImmutableSet.of(), false);
+  }
 
   /** Successful containment checks, reusable for the lifetime of this visitor. */
   private @Nullable Set<ContainmentKey> successfulWildcardComparisons;
@@ -101,11 +121,16 @@ public class CheckIdenticalNullabilityVisitor extends Types.DefaultTypeVisitor<B
   }
 
   CheckIdenticalNullabilityVisitor(
-      VisitorState state, GenericsChecks genericsChecks, Config config, Handler handler) {
+      VisitorState state,
+      GenericsChecks genericsChecks,
+      Config config,
+      Handler handler,
+      ComparisonContext context) {
     this.state = state;
     this.genericsChecks = genericsChecks;
     this.config = config;
     this.handler = handler;
+    this.context = context;
   }
 
   /**
@@ -177,6 +202,7 @@ public class CheckIdenticalNullabilityVisitor extends Types.DefaultTypeVisitor<B
           GenericsUtils.effectiveUpperBoundsForTypeArguments(
               (Type.ClassType) rhsTypeAsSuper, state, config, handler);
     }
+    List<Type> formalTypeVariables = lhsType.tsym.type.getTypeArguments();
     for (int i = 0; i < lhsTypeArguments.size(); i++) {
       Type lhsTypeArgument = lhsTypeArguments.get(i);
       Type lhsUpperBound = lhsUpperBounds.get(i);
@@ -189,7 +215,8 @@ public class CheckIdenticalNullabilityVisitor extends Types.DefaultTypeVisitor<B
           rhsUpperBound,
           i,
           lhsParameterization,
-          rhsParameterization)) {
+          rhsParameterization,
+          (Type.TypeVar) formalTypeVariables.get(i))) {
         return false;
       }
     }
@@ -245,6 +272,8 @@ public class CheckIdenticalNullabilityVisitor extends Types.DefaultTypeVisitor<B
    *     type, and type arguments; {@code null} if wildcard handling is off
    * @param rhsParameterization the RHS parameterized type, identified by its declaration, enclosing
    *     type, and type arguments; {@code null} if wildcard handling is off
+   * @param formalTypeVariable the type parameter of the generic class that both type arguments
+   *     instantiate
    * @return whether {@code rhsTypeArgument} is contained by {@code lhsTypeArgument}
    */
   private boolean typeArgumentContainedBy(
@@ -254,7 +283,8 @@ public class CheckIdenticalNullabilityVisitor extends Types.DefaultTypeVisitor<B
       Type rhsUpperBound,
       int argumentIndex,
       @Nullable ParameterizationKey lhsParameterization,
-      @Nullable ParameterizationKey rhsParameterization) {
+      @Nullable ParameterizationKey rhsParameterization,
+      Type.TypeVar formalTypeVariable) {
     if (!config.handleWildcardGenerics()) {
       if (lhsTypeArgument.getKind().equals(TypeKind.WILDCARD)
           || rhsTypeArgument.getKind().equals(TypeKind.WILDCARD)) {
@@ -280,7 +310,8 @@ public class CheckIdenticalNullabilityVisitor extends Types.DefaultTypeVisitor<B
                 rhsTypeArgument,
                 argumentIndex,
                 castToNonNull(lhsParameterization),
-                castToNonNull(rhsParameterization)));
+                castToNonNull(rhsParameterization)),
+            formalTypeVariable);
       }
       if (rhsWildcard != null) {
         // This case should only arise when generic method invocation inference / capture conversion
@@ -314,7 +345,8 @@ public class CheckIdenticalNullabilityVisitor extends Types.DefaultTypeVisitor<B
    * ? extends S} contains actual arguments whose upper bound is a subtype of {@code S}; a formal
    * {@code ? super S} contains concrete actuals {@code T} and wildcard actuals {@code ? super T}
    * when {@code S <: T}; and a formal {@code ?} is treated as {@code ? extends B}, where {@code B}
-   * is the corresponding type variable's upper bound.
+   * is the corresponding type variable's upper bound. The top-level nullness of each subtype check
+   * is {@link #isNullnessSubtype}, which judges a type variable by its declared bounds.
    *
    * @param lhsWildcard the formal wildcard type argument on the left
    * @param lhsUpperBound the upper bound of {@code lhsWildcard}
@@ -322,6 +354,7 @@ public class CheckIdenticalNullabilityVisitor extends Types.DefaultTypeVisitor<B
    * @param rhsUpperBound the upper bound of {@code rhsTypeArgument}
    * @param key identifies this comparison: {@code lhsWildcard}, {@code rhsTypeArgument}, their
    *     position, and the parameterized types that contain them, before their bounds are computed
+   * @param formalTypeVariable the type parameter that {@code lhsWildcard} instantiates
    * @return whether {@code lhsWildcard} contains {@code rhsTypeArgument}
    */
   private boolean wildcardContains(
@@ -329,7 +362,8 @@ public class CheckIdenticalNullabilityVisitor extends Types.DefaultTypeVisitor<B
       Type lhsUpperBound,
       Type rhsTypeArgument,
       Type rhsUpperBound,
-      ContainmentKey key) {
+      ContainmentKey key,
+      Type.TypeVar formalTypeVariable) {
     if (successfulWildcardComparisons != null && successfulWildcardComparisons.contains(key)) {
       return true;
     }
@@ -358,7 +392,11 @@ public class CheckIdenticalNullabilityVisitor extends Types.DefaultTypeVisitor<B
     try {
       boolean result =
           switch (lhsWildcard.kind) {
-            case UNBOUND, EXTENDS -> typeArgumentSubtype(lhsUpperBound, rhsUpperBound);
+            case UNBOUND, EXTENDS ->
+                typeArgumentSubtype(
+                    lhsUpperBound,
+                    rhsUpperBound,
+                    actualOperator(formalTypeVariable, rhsTypeArgument, rhsUpperBound));
             case SUPER -> superWildcardContains(lhsWildcard, rhsTypeArgument);
           };
       // A nested success may rely on an unfinished check, so cache results only after the outer
@@ -382,6 +420,179 @@ public class CheckIdenticalNullabilityVisitor extends Types.DefaultTypeVisitor<B
   }
 
   /**
+   * The <a href="https://jspecify.dev/docs/spec/#nullness-operator">JSpecify nullness operator</a>
+   * of a type usage: what the usage says about null beyond what its base type says.
+   */
+  enum NullnessOperator {
+    /** The usage is annotated {@code @Nullable}, in the code or by NullAway. */
+    UNION_NULL,
+    /** The usage is annotated {@code @NonNull}, in the code or by NullAway. */
+    MINUS_NULL,
+    /** The usage carries no nullness annotation and takes the nullness of its base type. */
+    NO_CHANGE,
+    /**
+     * The check does not decide the usage's nullness: inference removed its annotations, or another
+     * check owns the question. {@link #actualOperator} assigns it to an actual type argument, and
+     * {@link #isNullExclusive} reads it as excluding null, which is the specification's "some
+     * world" rule.
+     */
+    UNSPECIFIED
+  }
+
+  private NullnessOperator operatorOf(Type type) {
+    if (genericsChecks.isNullableAnnotated(type)) {
+      return NullnessOperator.UNION_NULL;
+    }
+    if (Nullness.hasNonNullAnnotation(type.getAnnotationMirrors().stream(), config)) {
+      return NullnessOperator.MINUS_NULL;
+    }
+    return NullnessOperator.NO_CHANGE;
+  }
+
+  /**
+   * Returns the operator of an actual type argument's effective upper bound against a formal {@code
+   * ?} or {@code ? extends}: the operator written on that bound, which for a capture is the one
+   * written on the wildcard it captures. The operator is {@link NullnessOperator#UNSPECIFIED} where
+   * the bound carries none and either of these holds:
+   *
+   * <ul>
+   *   <li>The actual is a capture in the type of a generic call that needs inference, as {@link
+   *       ComparisonContext#actualFromCallInference} says, so its bound may have lost a written
+   *       {@code @NonNull}. A bound written bare is accepted too: a false negative until NullAway
+   *       infers the full types of a call (#1585, #2195).
+   *   <li>The bound is a type variable and the bound of {@code formalTypeVariable} is not nullable,
+   *       as {@link GenericsUtils#upperBoundIsNullable} decides. Whether such an actual fits is
+   *       whether it is a well-formed instantiation of {@code formalTypeVariable}, a check of its
+   *       own (#1946), and the answer is the same for {@code ?} and for any {@code ? extends} on
+   *       that type variable.
+   * </ul>
+   */
+  private NullnessOperator actualOperator(
+      Type.TypeVar formalTypeVariable, Type rhsTypeArgument, Type rhsUpperBound) {
+    NullnessOperator operator = operatorOf(rhsUpperBound);
+    if (operator == NullnessOperator.NO_CHANGE
+        && rhsTypeArgument instanceof Type.CapturedType
+        && context.actualFromCallInference()) {
+      return NullnessOperator.UNSPECIFIED;
+    }
+    if (operator == NullnessOperator.NO_CHANGE
+        && rhsUpperBound instanceof Type.TypeVar
+        && !GenericsUtils.upperBoundIsNullable(
+            formalTypeVariable.asElement(), config, handler, state)) {
+      return NullnessOperator.UNSPECIFIED;
+    }
+    return operator;
+  }
+
+  /**
+   * Returns whether the check treats a value of the type as null-exclusive: never null under any
+   * instantiation of the type variables in scope, or {@link NullnessOperator#UNSPECIFIED}, which
+   * the check reads leniently. That holds for {@link NullnessOperator#MINUS_NULL} and {@link
+   * NullnessOperator#UNSPECIFIED}, never for {@link NullnessOperator#UNION_NULL}, and for {@link
+   * NullnessOperator#NO_CHANGE} where the type is one of these:
+   *
+   * <ul>
+   *   <li>a type variable whose bound is not explicitly nullable, as {@link
+   *       GenericsUtils#boundIsExplicitlyNullable} decides;
+   *   <li>an intersection with a null-exclusive explicit element, as the bound of a capture or the
+   *       least upper bound of the branches of a conditional expression can be;
+   *   <li>any other type: a class or an array.
+   * </ul>
+   */
+  private boolean isNullExclusive(Type type, NullnessOperator operator) {
+    return switch (operator) {
+      case UNION_NULL -> false;
+      case MINUS_NULL, UNSPECIFIED -> true;
+      case NO_CHANGE -> {
+        if (type instanceof Type.TypeVar typeVar) {
+          yield !GenericsUtils.boundIsExplicitlyNullable(
+              typeVar.asElement(), config, handler, state);
+        }
+        if (type instanceof Type.IntersectionClassType intersection) {
+          yield intersection.getExplicitComponents().stream()
+              .anyMatch(component -> isNullExclusive(component, operatorOf(component)));
+        }
+        yield true;
+      }
+    };
+  }
+
+  /**
+   * Returns whether the type reaches the type variable {@code target} through declared upper bounds
+   * none of which is explicitly nullable: the specification's nullness-subtype-establishing path,
+   * which makes {@code S} a subtype of {@code T} for {@code <S extends T>} and {@code <S
+   * extends @NonNull T>} but not for {@code <S extends @Nullable T>}. The path may pass through any
+   * element of an intersection, so a capture bounded by {@code T & @Nullable Runnable} reaches
+   * {@code T}. Returns {@code false} where no chain of bounds reaches {@code target}, as for a
+   * {@code target} declared by another method.
+   */
+  private boolean hasSubtypeEstablishingPath(
+      Type type, NullnessOperator operator, Type.TypeVar target) {
+    if (operator == NullnessOperator.UNION_NULL) {
+      return false;
+    }
+    if (type instanceof Type.IntersectionClassType intersection) {
+      return intersection.getExplicitComponents().stream()
+          .anyMatch(
+              component -> hasSubtypeEstablishingPath(component, operatorOf(component), target));
+    }
+    if (!(type instanceof Type.TypeVar typeVar)) {
+      return false;
+    }
+    if (typeVar.tsym.equals(target.tsym)) {
+      return true;
+    }
+    if (GenericsUtils.declaredBoundIsExplicitlyNullable(
+        typeVar.asElement(), config, handler, state)) {
+      return false;
+    }
+    return hasSubtypeEstablishingPath(typeVar.getUpperBound(), NullnessOperator.NO_CHANGE, target);
+  }
+
+  /**
+   * Returns whether {@code subtype} is a <a
+   * href="https://jspecify.dev/docs/spec/#nullness-subtyping">JSpecify nullness subtype</a> of
+   * {@code supertype}, judged at the top level only: a value of {@code subtype} that may be null
+   * fits {@code supertype} only where {@code supertype} admits null. That holds where {@code
+   * supertype} is null-inclusive, where {@code subtype} is null-exclusive, or where {@code
+   * supertype} is a type variable, not written {@code @NonNull}, that {@code subtype} reaches
+   * through bounds none of which is explicitly nullable. Nested type arguments are compared by the
+   * caller.
+   *
+   * <p>Where either side is a bare type variable that NullAway does not infer at the call or method
+   * reference being checked (see {@link ComparisonContext#uninferredTypeVariables}), its bounds are
+   * not read, and only a {@code subtype} annotated {@code @Nullable} fails.
+   */
+  private boolean isNullnessSubtype(
+      Type subtype,
+      NullnessOperator subtypeOperator,
+      Type supertype,
+      NullnessOperator supertypeOperator) {
+    if (isUninferredTypeVariable(subtype, subtypeOperator)
+        || isUninferredTypeVariable(supertype, supertypeOperator)) {
+      return subtypeOperator != NullnessOperator.UNION_NULL;
+    }
+    if (supertypeOperator == NullnessOperator.UNION_NULL
+        || isNullExclusive(subtype, subtypeOperator)) {
+      return true;
+    }
+    return supertype instanceof Type.TypeVar target
+        && supertypeOperator != NullnessOperator.MINUS_NULL
+        && hasSubtypeEstablishingPath(subtype, subtypeOperator, target);
+  }
+
+  /**
+   * Returns whether {@code type} is a type variable, written without a nullness annotation, that
+   * NullAway does not infer at the call or method reference being checked.
+   */
+  private boolean isUninferredTypeVariable(Type type, NullnessOperator operator) {
+    return operator == NullnessOperator.NO_CHANGE
+        && type instanceof Type.TypeVar
+        && !(type instanceof Type.CapturedType)
+        && context.uninferredTypeVariables().contains(type.tsym);
+  }
+
+  /**
    * Returns whether a formal {@code ? super S} contains the actual type argument on the right. For
    * concrete actuals {@code T} and wildcard actuals {@code ? super T}, containment holds when
    * {@code S <: T}, interpreted with NullAway's nullability-aware subtype relation.
@@ -399,22 +610,26 @@ public class CheckIdenticalNullabilityVisitor extends Types.DefaultTypeVisitor<B
         return true;
       }
       Type rhsBound = castToNonNull(rhsWildcard.getSuperBound());
-      return typeArgumentSubtype(rhsBound, lhsBound);
+      return typeArgumentSubtype(rhsBound, lhsBound, operatorOf(lhsBound));
     }
-    return typeArgumentSubtype(rhsTypeArgument, lhsBound);
+    return typeArgumentSubtype(rhsTypeArgument, lhsBound, operatorOf(lhsBound));
   }
 
   /**
-   * Returns whether the actual type argument on the right is a nullability-aware subtype of the
-   * formal type argument on the left. This check first rejects flows from nullable to non-null at
-   * the top level of the type argument, then delegates to {@link
-   * GenericsChecks#subtypeParameterNullability(Type, Type, VisitorState)} for recursive nested
-   * checks.
+   * Returns whether {@code rhsType} is a nullability-aware subtype of {@code lhsType}. For a formal
+   * {@code ? extends}, {@code rhsType} is the actual's upper bound; for a formal {@code ? super S},
+   * {@code rhsType} is {@code S} and {@code lhsType} is the actual. The top level is {@link
+   * #isNullnessSubtype}; nested type arguments are delegated to {@link
+   * GenericsChecks#subtypeParameterNullability(Type, Type, VisitorState,
+   * CheckIdenticalNullabilityVisitor)}.
+   *
+   * @param lhsType the supertype
+   * @param rhsType the subtype
+   * @param rhsOperator the nullness operator of {@code rhsType}, which the caller may have relaxed
+   *     to {@link NullnessOperator#UNSPECIFIED}
    */
-  private boolean typeArgumentSubtype(Type lhsType, Type rhsType) {
-    boolean isLHSNullableAnnotated = genericsChecks.isNullableAnnotated(lhsType);
-    boolean isRHSNullableAnnotated = genericsChecks.isNullableAnnotated(rhsType);
-    if (isRHSNullableAnnotated && !isLHSNullableAnnotated) {
+  private boolean typeArgumentSubtype(Type lhsType, Type rhsType, NullnessOperator rhsOperator) {
+    if (!isNullnessSubtype(rhsType, rhsOperator, lhsType, operatorOf(lhsType))) {
       return false;
     }
     return genericsChecks.subtypeParameterNullability(lhsType, rhsType, state, this);

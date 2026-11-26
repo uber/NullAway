@@ -59,6 +59,7 @@ import com.uber.nullaway.ResolvedMethodReference;
 import com.uber.nullaway.dataflow.AccessPathNullnessAnalysis;
 import com.uber.nullaway.dataflow.EnclosingEnvironmentNullness;
 import com.uber.nullaway.dataflow.NullnessStore;
+import com.uber.nullaway.generics.CheckIdenticalNullabilityVisitor.ComparisonContext;
 import com.uber.nullaway.generics.ConstraintSolver.UnsatisfiableConstraintsException;
 import com.uber.nullaway.generics.GenericsUtils.MethodRefTypeRelationKind;
 import com.uber.nullaway.generics.PolyNullInference.PolyNullInferenceContext;
@@ -980,7 +981,9 @@ public final class GenericsChecks {
       if (varLocalDeclaration) {
         lhsType = rhsType;
       }
-      boolean isAssignmentValid = subtypeParameterNullability(lhsType, rhsType, state);
+      boolean isAssignmentValid =
+          subtypeParameterNullability(
+              lhsType, rhsType, state, comparisonContextFor(ImmutableSet.of(), rhsTree));
       if (!isAssignmentValid) {
         reportInvalidAssignmentInstantiationError(tree, lhsType, rhsType, state);
       }
@@ -2451,7 +2454,11 @@ public final class GenericsChecks {
         return;
       }
       boolean isReturnTypeValid =
-          subtypeParameterNullability(formalReturnType, returnExpressionType, state);
+          subtypeParameterNullability(
+              formalReturnType,
+              returnExpressionType,
+              state,
+              comparisonContextFor(ImmutableSet.of(), retExpr));
       if (!isReturnTypeValid) {
         reportInvalidReturnTypeError(retExpr, formalReturnType, returnExpressionType, state);
       }
@@ -2487,11 +2494,54 @@ public final class GenericsChecks {
    * @param state the visitor state
    */
   boolean subtypeParameterNullability(Type lhsType, Type rhsType, VisitorState state) {
+    return subtypeParameterNullability(lhsType, rhsType, state, ComparisonContext.NONE);
+  }
+
+  /**
+   * Like {@link #subtypeParameterNullability(Type, Type, VisitorState)}, with what the caller knows
+   * about the compared types that the types do not show.
+   *
+   * @param lhsType type for the lhs of the assignment
+   * @param rhsType type for the rhs of the assignment
+   * @param state the visitor state
+   * @param context the uninferred type variables and the origin of {@code rhsType}
+   */
+  boolean subtypeParameterNullability(
+      Type lhsType, Type rhsType, VisitorState state, ComparisonContext context) {
     return subtypeParameterNullability(
         lhsType,
         rhsType,
         state,
-        new CheckIdenticalNullabilityVisitor(state, this, config, handler));
+        new CheckIdenticalNullabilityVisitor(state, this, config, handler, context));
+  }
+
+  /**
+   * Returns the comparison context for the type NullAway computes for {@code actual}, where the
+   * type variables in {@code uninferredTypeVariables} are not instantiated.
+   */
+  private ComparisonContext comparisonContextFor(
+      ImmutableSet<Symbol.TypeSymbol> uninferredTypeVariables, ExpressionTree actual) {
+    return new ComparisonContext(uninferredTypeVariables, hasTypeOfCallInference(actual));
+  }
+
+  /**
+   * Returns whether the type NullAway computes for {@code expression} is the type of a generic
+   * method or diamond constructor call that needs inference: the expression is such a call, or a
+   * {@code var} local, whose type is that of its initializer, initialized with one.
+   */
+  private boolean hasTypeOfCallInference(ExpressionTree expression) {
+    ExpressionTree stripped = ASTHelpers.stripParentheses(expression);
+    if (isCallNeedingInference(stripped)) {
+      return true;
+    }
+    if (stripped instanceof IdentifierTree) {
+      TreePath declarationPath = varLocalDeclarations.get(ASTHelpers.getSymbol(stripped));
+      if (declarationPath != null) {
+        ExpressionTree initializer = ((VariableTree) declarationPath.getLeaf()).getInitializer();
+        return initializer != null && hasTypeOfCallInference(initializer);
+      }
+    }
+    return false;
   }
 
   /**
@@ -2660,12 +2710,20 @@ public final class GenericsChecks {
     // the nullability annotations, we check that the true and false parts are assignable to the
     // type of the whole expression
     if (truePartType != null) {
-      if (!subtypeParameterNullability(condExprType, truePartType, state)) {
+      if (!subtypeParameterNullability(
+          condExprType,
+          truePartType,
+          state,
+          comparisonContextFor(ImmutableSet.of(), tree.getTrueExpression()))) {
         reportMismatchedTypeForTernaryOperator(truePartTree, condExprType, truePartType, state);
       }
     }
     if (falsePartType != null) {
-      if (!subtypeParameterNullability(condExprType, falsePartType, state)) {
+      if (!subtypeParameterNullability(
+          condExprType,
+          falsePartType,
+          state,
+          comparisonContextFor(ImmutableSet.of(), tree.getFalseExpression()))) {
         reportMismatchedTypeForTernaryOperator(falsePartTree, condExprType, falsePartType, state);
       }
     }
@@ -2899,6 +2957,29 @@ public final class GenericsChecks {
     }
     Type.MethodType finalMethodType =
         getInvokedMethodTypeAtCall(methodSymbol, tree, null, state, false);
+    ImmutableSet<Symbol.TypeSymbol> uninferred =
+        tree instanceof NewClassTree
+            ? ImmutableSet.copyOf(methodSymbol.getTypeParameters())
+            : ImmutableSet.of();
+    compareArgumentsAtCall(tree, finalMethodType, uninferred, state);
+  }
+
+  /**
+   * Compares the type parameter nullability of each argument at a call with that of its formal
+   * parameter, as {@link #compareGenericTypeParameterNullabilityForCall} describes.
+   *
+   * @param tree the tree representing the call
+   * @param finalMethodType the type of the invoked method at the call
+   * @param uninferredTypeVariables type variables of the invoked constructor that NullAway does not
+   *     instantiate at the call; empty for a method call
+   * @param state the visitor state
+   */
+  @SuppressWarnings("ReferenceEquality") // deliberate reference equality checks
+  private void compareArgumentsAtCall(
+      Tree tree,
+      Type.MethodType finalMethodType,
+      ImmutableSet<Symbol.TypeSymbol> uninferredTypeVariables,
+      VisitorState state) {
     new InvocationArguments(tree, finalMethodType)
         .forEach(
             (currentActualParam, argPos, formalParameter, unused) -> {
@@ -2927,13 +3008,24 @@ public final class GenericsChecks {
                         handler)) {
                   Type groundFormalParameter =
                       GenericsUtils.groundTargetType(formalParameter, state, config, handler);
+                  Symbol.MethodSymbol referencedMethod = ASTHelpers.getSymbol(memberReferenceTree);
+                  ComparisonContext referenceContext =
+                      new ComparisonContext(
+                          referencedMethod != null
+                              ? ImmutableSet.<Symbol.TypeSymbol>builder()
+                                  .addAll(uninferredTypeVariables)
+                                  .addAll(referencedMethod.getTypeParameters())
+                                  .build()
+                              : uninferredTypeVariables,
+                          false);
                   GenericsUtils.processMethodRefTypeRelations(
                       this,
                       groundFormalParameter,
                       memberReferenceTree,
                       actualParameterAndState.state(),
                       (subtype, supertype, relationKind) -> {
-                        if (!subtypeParameterNullability(supertype, subtype, state)) {
+                        if (!subtypeParameterNullability(
+                            supertype, subtype, state, referenceContext)) {
                           if (relationKind == MethodRefTypeRelationKind.RETURN) {
                             reportInvalidMethodReferenceReturnTypeError(
                                 memberReferenceTree, supertype, subtype, state);
@@ -2986,7 +3078,11 @@ public final class GenericsChecks {
                 if (actualParameterType == null) {
                   return;
                 }
-                if (!subtypeParameterNullability(formalParameter, actualParameterType, state)) {
+                if (!subtypeParameterNullability(
+                    formalParameter,
+                    actualParameterType,
+                    state,
+                    comparisonContextFor(uninferredTypeVariables, currentActualParam))) {
                   reportInvalidParametersNullabilityError(
                       formalParameter, actualParameterType, currentActualParam, state);
                 }
@@ -3079,10 +3175,13 @@ public final class GenericsChecks {
             .isSymbolUnannotated(overriddenMethod, config, handler)) {
       return;
     }
-    checkTypeParameterNullnessForOverridingMethodReturnType(tree, overriddenMethodType, state);
-    checkTypeParameterNullnessForOverridingMethodParameterType(tree, overriddenMethodType, state);
-    checkMethodTypeVariableUpperBoundNullnessForOverriding(
-        tree, overridingMethod, overriddenMethod, overriddenMethodType, state);
+    // JLS 8.4.4 compares the signatures of methods with the same type parameters only; where the
+    // nullness of a bound differs, the bound mismatch is the error to report
+    if (checkMethodTypeVariableUpperBoundNullnessForOverriding(
+        tree, overridingMethod, overriddenMethod, overriddenMethodType, state)) {
+      checkTypeParameterNullnessForOverridingMethodReturnType(tree, overriddenMethodType, state);
+      checkTypeParameterNullnessForOverridingMethodParameterType(tree, overriddenMethodType, state);
+    }
   }
 
   /**
@@ -3185,8 +3284,10 @@ public final class GenericsChecks {
    * @param overriddenMethodType type of the overridden method after member-type substitution in the
    *     overriding class context
    * @param state the visitor state
+   * @return whether every corresponding pair of upper bounds agrees in nullability, so that nothing
+   *     was reported
    */
-  private void checkMethodTypeVariableUpperBoundNullnessForOverriding(
+  private boolean checkMethodTypeVariableUpperBoundNullnessForOverriding(
       MethodTree tree,
       Symbol.MethodSymbol overridingMethod,
       Symbol.MethodSymbol overriddenMethod,
@@ -3194,15 +3295,16 @@ public final class GenericsChecks {
       VisitorState state) {
     // Generic methods are Type.ForAll; non-generic overridden methods have no method type vars.
     if (!(overriddenMethodType instanceof Type.ForAll forAll)) {
-      return;
+      return true;
     }
     com.sun.tools.javac.util.List<Type> overriddenTypeVars = forAll.tvars;
     List<Symbol.TypeVariableSymbol> overridingTypeParams = overridingMethod.getTypeParameters();
     // If counts differ, javac would not treat this as a valid override; leave that to the
     // compiler.
     if (overridingTypeParams.size() != overriddenTypeVars.size()) {
-      return;
+      return true;
     }
+    boolean boundsAgree = true;
     List<? extends Tree> typeParameterTrees = tree.getTypeParameters();
     for (int i = 0; i < overridingTypeParams.size(); i++) {
       Symbol.TypeVariableSymbol overridingTv = overridingTypeParams.get(i);
@@ -3214,6 +3316,7 @@ public final class GenericsChecks {
           substitutedMethodTypeVarUpperBoundIsNullable(
               overriddenTypeVar, overriddenMethod, i, state);
       if (overridingNullable != overriddenNullable) {
+        boundsAgree = false;
         reportMismatchedMethodTypeVariableBoundError(
             typeParameterTrees.get(i),
             overridingTv,
@@ -3223,6 +3326,7 @@ public final class GenericsChecks {
             state);
       }
     }
+    return boundsAgree;
   }
 
   /**
@@ -4496,7 +4600,13 @@ public final class GenericsChecks {
       if (overridingMethodParameterType != null) {
         // allow contravariant subtyping
         if (!subtypeParameterNullability(
-            overridingMethodParameterType, overriddenMethodParameterType, state)) {
+            adaptToOverriddenTypeParameters(
+                overridingMethodParameterType,
+                ASTHelpers.getSymbol(tree).type,
+                overriddenMethodType,
+                state),
+            overriddenMethodParameterType,
+            state)) {
           reportInvalidOverridingMethodParamTypeError(
               methodParameters.get(i),
               overriddenMethodParameterType,
@@ -4505,6 +4615,23 @@ public final class GenericsChecks {
         }
       }
     }
+  }
+
+  /**
+   * Adapts {@code type} to the type parameters of the overridden method, as JLS 8.4.4 defines for
+   * methods with the same type parameters: each type variable of the overriding method is replaced
+   * by the corresponding one of the overridden method, so that a bound written against one can be
+   * compared with a use of the other. The result is for the comparison only; a diagnostic prints
+   * the type as declared.
+   */
+  private Type adaptToOverriddenTypeParameters(
+      Type type, Type overridingMethodType, Type overriddenMethodType, VisitorState state) {
+    if (overridingMethodType instanceof Type.ForAll overriding
+        && overriddenMethodType instanceof Type.ForAll overridden) {
+      return TypeSubstitutionUtils.subst(
+          state.getTypes(), type, overriding.tvars, overridden.tvars, config);
+    }
+    return type;
   }
 
   /**
@@ -4527,7 +4654,13 @@ public final class GenericsChecks {
     }
     // allow covariant subtyping
     if (!subtypeParameterNullability(
-        overriddenMethodReturnType, overridingMethodReturnType, state)) {
+        overriddenMethodReturnType,
+        adaptToOverriddenTypeParameters(
+            overridingMethodReturnType,
+            ASTHelpers.getSymbol(tree).type,
+            overriddenMethodType,
+            state),
+        state)) {
       reportInvalidOverridingMethodReturnTypeError(
           tree, overriddenMethodReturnType, overridingMethodReturnType, state);
     }
