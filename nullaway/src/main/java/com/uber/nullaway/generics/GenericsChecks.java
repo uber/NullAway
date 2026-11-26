@@ -2918,13 +2918,12 @@ public final class GenericsChecks {
         && !isQualifierOf(parentConstructorCall, expressionTree)) {
       Type parentClassType = getTreeType(parentConstructorCall, parentState, calledFromDataflow);
       if (parentClassType != null) {
-        Symbol parentCtorSymbol = ASTHelpers.getSymbol(parentConstructorCall);
-        Type parentCtorType =
-            TypeSubstitutionUtils.memberType(
-                state.getTypes(), parentClassType, parentCtorSymbol, config);
         return new TargetTypeAndAssignmentKind(
             getFormalParameterTypeForArgument(
-                parentConstructorCall, parentCtorType.asMethodType(), expressionTree),
+                parentConstructorCall,
+                constructorTypeAtCall(
+                    parentConstructorCall, parentClassType, parentState, calledFromDataflow),
+                expressionTree),
             false);
       }
     }
@@ -3614,11 +3613,14 @@ public final class GenericsChecks {
   }
 
   /**
-   * Substitutes the type arguments from a generic method invocation into the method's type.
+   * Substitutes the type arguments of a call to a generic method or constructor into its type: the
+   * explicit type arguments where the call has them, and otherwise, for a method call, the inferred
+   * ones. A constructor call without explicit type arguments keeps the constructor's type
+   * variables.
    *
-   * @param tree the method invocation tree
-   * @param forAllType the generic method type
-   * @param path the path to the invocation tree, or null if not available
+   * @param tree the method invocation or constructor call tree
+   * @param forAllType the generic method or constructor type
+   * @param path the path to the call tree, or null if not available
    * @param state the visitor state
    * @param calledFromDataflow whether this method is being called from dataflow analysis
    * @return the substituted method type with library models applied
@@ -3926,14 +3928,16 @@ public final class GenericsChecks {
               getTreeType(parentConstructorCall, state.withPath(parentPath), calledFromDataflow);
         }
         if (parentClassType != null) {
-          Symbol.MethodSymbol parentCtorSymbol = ASTHelpers.getSymbol(parentConstructorCall);
-          Type parentCtorType =
-              TypeSubstitutionUtils.memberType(
-                  state.getTypes(), parentClassType, parentCtorSymbol, config);
           return new CallAndContext(
               call,
               getFormalParameterTypeForArgument(
-                  parentConstructorCall, parentCtorType.asMethodType(), call),
+                  parentConstructorCall,
+                  constructorTypeAtCall(
+                      parentConstructorCall,
+                      parentClassType,
+                      state.withPath(parentPath),
+                      calledFromDataflow),
+                  call),
               false);
         }
       }
@@ -3943,10 +3947,39 @@ public final class GenericsChecks {
   }
 
   /**
-   * Returns the resolved method type at a call site after receiver and inferred type-argument
-   * substitutions and handler-provided models have been applied. Unlike {@link
-   * #getExecutableTypeForInference}, this method substitutes the method type variables with
-   * inferred type arguments.
+   * Returns the type of the constructor that a constructor call invokes, as a member of the class
+   * type it instantiates, with the call's explicit type arguments substituted. A call without
+   * explicit type arguments keeps the constructor's type variables.
+   *
+   * @param constructorCall the constructor call
+   * @param classType the class type the call instantiates
+   * @param state the visitor state, with the path to the constructor call
+   * @param calledFromDataflow whether this method is being called from dataflow analysis
+   * @return the constructor type at the call
+   */
+  private Type.MethodType constructorTypeAtCall(
+      NewClassTree constructorCall,
+      Type classType,
+      VisitorState state,
+      boolean calledFromDataflow) {
+    Symbol.MethodSymbol constructorSymbol = ASTHelpers.getSymbol(constructorCall);
+    Type constructorType =
+        TypeSubstitutionUtils.memberType(state.getTypes(), classType, constructorSymbol, config);
+    if (!constructorCall.getTypeArguments().isEmpty()
+        && constructorType instanceof Type.ForAll forAllType) {
+      return substituteTypeArgsInGenericMethodType(
+          constructorCall, forAllType, state.getPath(), state, calledFromDataflow);
+    }
+    return constructorType.asMethodType();
+  }
+
+  /**
+   * Returns the resolved method type at a call site after receiver and type-argument substitutions
+   * and handler-provided models have been applied. The type arguments are those of a method call,
+   * explicit or inferred, and the explicit ones of a constructor call; a constructor call without
+   * explicit type arguments keeps the constructor's type variables. Unlike {@link
+   * #getExecutableTypeForInference}, this method substitutes the method type variables with the
+   * call's type arguments.
    */
   private Type.MethodType getInvokedMethodTypeAtCall(
       Symbol.MethodSymbol methodSymbol,
@@ -3961,7 +3994,9 @@ public final class GenericsChecks {
       invokedMethodType =
           TypeSubstitutionUtils.memberType(state.getTypes(), enclosingType, methodSymbol, config);
     }
-    if (tree instanceof MethodInvocationTree
+    if ((tree instanceof MethodInvocationTree
+            || (tree instanceof NewClassTree newClassTree
+                && !newClassTree.getTypeArguments().isEmpty()))
         && invokedMethodType instanceof Type.ForAll forAllType) {
       return substituteTypeArgsInGenericMethodType(
           tree, forAllType, path, state, calledFromDataflow);

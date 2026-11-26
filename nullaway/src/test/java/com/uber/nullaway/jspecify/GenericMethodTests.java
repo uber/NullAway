@@ -1247,6 +1247,58 @@ public class GenericMethodTests extends NullAwayTestsBase {
   }
 
   @Test
+  public void explicitTypeArgumentsInstantiateAGenericConstructorAsTheyDoAGenericMethod() {
+    makeHelper()
+        .addSourceLines(
+            "Test.java",
+            """
+            package com.uber;
+            import org.jspecify.annotations.NullMarked;
+            import org.jspecify.annotations.Nullable;
+            @NullMarked
+            class Test {
+              static class Box<E extends @Nullable Object> {}
+              static class Consumer {
+                <U extends @Nullable Object> Consumer(Box<U> input) {}
+              }
+              static <U extends @Nullable Object> void consume(Box<U> input) {}
+              void nullableTypeArgumentToConstructor(Box<@Nullable String> nullable) {
+                new <@Nullable String>Consumer(nullable);
+              }
+              void nullableTypeArgumentToMethod(Box<@Nullable String> nullable) {
+                Test.<@Nullable String>consume(nullable);
+              }
+              void nonNullTypeArgumentToConstructor(Box<@Nullable String> nullable) {
+                // BUG: Diagnostic contains: incompatible types: Box<@Nullable String> cannot be converted to Box<String>
+                new <String>Consumer(nullable);
+              }
+              void nonNullTypeArgumentToMethod(Box<@Nullable String> nullable) {
+                // BUG: Diagnostic contains: incompatible types: Box<@Nullable String> cannot be converted to Box<String>
+                Test.<String>consume(nullable);
+              }
+              void nullableTypeArgumentToConstructorWithANonNullBox(Box<String> nonNull) {
+                // BUG: Diagnostic contains: incompatible types: Box<String> cannot be converted to Box<@Nullable String>
+                new <@Nullable String>Consumer(nonNull);
+              }
+              void inferredTypeArgumentToConstructor(Box<@Nullable String> nullable) {
+                // BUG: Diagnostic contains: incompatible types: Box<@Nullable String> cannot be converted to Box<U>
+                new Consumer(nullable);
+              }
+              static <T extends @Nullable Object> Box<T> make() {
+                return new Box<>();
+              }
+              void nullableTypeArgumentToConstructorWithAGenericCall() {
+                new <@Nullable String>Consumer(make());
+              }
+              void nullableTypeArgumentToMethodWithAGenericCall() {
+                Test.<@Nullable String>consume(make());
+              }
+            }
+            """)
+        .doTest();
+  }
+
+  @Test
   public void inferGenericConstructorTypeVariable() {
     makeHelper()
         .addSourceLines(
