@@ -52,7 +52,7 @@ Our `CHANGELOG.md` file should be formatted as follows:
 
 NullAway must not repeat work on the same input once per lookup, nesting level, or link of a chain when its cost grows
 with the code it checks or the types that code uses, such as a method's dataflow, an inference over a call chain, or a
-walk of a bound graph (#1327, #1896, #2093 still open); compute it once and pass it down, or cache it.
+walk of a bound graph (#1327, #1896 still open); compute it once and pass it down, or cache it.
 `DataFlow.CfgParams` keys a dataflow run on the path to the code being analyzed: by leaf for constructors, initializer
 blocks, and field initializers (#2079), and by `TreePath` identity for other methods, lambdas, and anonymous-class
 methods (on purpose for lambdas, see its Javadoc). So a new `TreePath` whose leaf is such a method or lambda reruns it,

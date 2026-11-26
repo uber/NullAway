@@ -10,6 +10,7 @@ import com.google.common.base.Preconditions;
 import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableSet;
 import com.google.errorprone.VisitorState;
+import com.google.errorprone.suppliers.Suppliers;
 import com.google.errorprone.util.ASTHelpers;
 import com.sun.source.tree.AnnotatedTypeTree;
 import com.sun.source.tree.AnnotationTree;
@@ -1565,7 +1566,7 @@ public final class GenericsChecks {
       return successResult;
     } catch (UnsatisfiableConstraintsException e) {
       String inferenceFailureMessage = inferenceFailureMessage(e, polyNullContexts);
-      reportInferenceFailure(callTree, inferenceFailureMessage, state);
+      reportInferenceFailure(callTree, inferenceFailureMessage, state, calledFromDataflow);
       InferenceFailure failureResult = new InferenceFailure(inferenceFailureMessage);
       if (okToCacheInferenceResult(calledFromDataflow)) {
         for (Tree inferredCall : allCalls) {
@@ -1905,7 +1906,8 @@ public final class GenericsChecks {
     Type.MethodType fiMethodTypeAsMember =
         TypeSubstitutionUtils.memberType(state.getTypes(), groundTargetType, fiMethod, config)
             .asMethodType();
-    Type fiReturnType = fiMethodTypeAsMember.getReturnType();
+    Type fiReturnType =
+        getReturnTypeForInference(fiMethod, fiMethodTypeAsMember.getReturnType(), state);
     // save the previous lambdaParameterTypesForInference map so we can restore it after handling
     // the lambda body
     Map<Symbol, Type> previousParameterTypes = lambdaParameterTypesForInference;
@@ -2496,6 +2498,22 @@ public final class GenericsChecks {
   }
 
   /**
+   * Returns {@code returnType}, treating it as nullable when {@code method} declares {@code Void}
+   * because {@code NullAway.checkReturnExpression} accepts {@code null} from those methods.
+   * Type-variable returns instantiated as {@code Void}, as in {@code Callable<Void>}, and nested
+   * type arguments retain their nullness.
+   *
+   * @param returnType the method's return type after any type argument substitution
+   */
+  private Type getReturnTypeForInference(
+      Symbol.MethodSymbol method, Type returnType, VisitorState state) {
+    return ASTHelpers.isSameType(
+            method.getReturnType(), Suppliers.JAVA_LANG_VOID_TYPE.get(state), state)
+        ? updateTypeWithNullness(state, returnType, Nullness.NULLABLE)
+        : returnType;
+  }
+
+  /**
    * Checks that the nullability of type parameters for a returned expression matches that of the
    * type parameters of the enclosing method's return type.
    *
@@ -2885,7 +2903,8 @@ public final class GenericsChecks {
           && enclosingMethodOrLambda.getLeaf() instanceof MethodTree enclosingMethod) {
         Symbol.MethodSymbol methodSymbol = ASTHelpers.getSymbol(enclosingMethod);
         if (methodSymbol != null) {
-          return new TargetTypeAndAssignmentKind(methodSymbol.getReturnType(), false);
+          return new TargetTypeAndAssignmentKind(
+              getReturnTypeForInference(methodSymbol, methodSymbol.getReturnType(), state), false);
         }
       }
     }
@@ -3689,7 +3708,7 @@ public final class GenericsChecks {
         // have not yet attempted inference for this call
         CallAndContext invocationAndType =
             path == null
-                ? new CallAndContext(invocationTree, null, false)
+                ? CallAndContext.withoutContext(invocationTree)
                 : getCallAndContextForInference(path, state, calledFromDataflow);
         result =
             runInferenceForCall(
@@ -3802,18 +3821,28 @@ public final class GenericsChecks {
    * purposes of inference.
    */
   private record CallAndContext(
-      ExpressionTree call, @Nullable Type typeFromAssignmentContext, boolean assignedToLocal) {}
+      ExpressionTree call, @Nullable Type typeFromAssignmentContext, boolean assignedToLocal) {
+
+    /** Selects a call for inference without a target type from its surrounding context. */
+    static CallAndContext withoutContext(ExpressionTree call) {
+      return new CallAndContext(call, null, false);
+    }
+  }
 
   /**
    * Given a {@link TreePath} to an invocation of a generic method, collect information about the
    * appropriate invocation on which to perform type inference, and the relevant information from
    * the assignment context for that invocation.
    *
-   * <p>Note that in the case of nested invocations, we want to find the outermost invocation that
-   * requires inference, since that is the one whose assignment context is relevant. For example, if
-   * we have {@code <T extends @Nullable Object> T id(T t);} and the call {@code id(id(x))}, given a
-   * {@link TreePath} to the inner call, we want to return the outer call, since its assignment
-   * context is required for inference.
+   * <p>Outside dataflow, find the outermost invocation that requires inference, since its
+   * assignment context is relevant to nested invocations. For example, given {@code <T
+   * extends @Nullable Object> T id(T t);} and a {@link TreePath} to the inner call in {@code
+   * id(id(x))}, return the outer call to use its assignment context for joint inference.
+   *
+   * <p>During dataflow, a call nested in another generic call is returned as is, without an
+   * assignment context, so that the enclosing call is not inferred again each time dataflow asks
+   * for the type of a nested call. A call that is not nested gets its direct assignment or return
+   * context from {@link #getDirectCallContextForInference} in both cases.
    *
    * @param path the path to the invocation
    * @param state the visitor state
@@ -3835,6 +3864,11 @@ public final class GenericsChecks {
             || (parentCall instanceof NewClassTree parentConstructorCall
                 && !isQualifierOf(parentConstructorCall, path.getLeaf())))
         && isCallNeedingInference(parentCall)) {
+      if (calledFromDataflow) {
+        // Avoid inferring the enclosing call again each time dataflow asks for the type of a
+        // nested call.
+        return CallAndContext.withoutContext((ExpressionTree) path.getLeaf());
+      }
       // This is a nested generic call, such as id(id(x)) or id(new Box<>(x)). Find the
       // outermost call requiring inference because its assignment context is the relevant one.
       return getCallAndContextForInference(
@@ -3871,7 +3905,10 @@ public final class GenericsChecks {
           && enclosingMethodOrLambda.getLeaf() instanceof MethodTree enclosingMethod) {
         Symbol.MethodSymbol methodSymbol = ASTHelpers.getSymbol(enclosingMethod);
         if (methodSymbol != null) {
-          return new CallAndContext(call, methodSymbol.getReturnType(), false);
+          return new CallAndContext(
+              call,
+              getReturnTypeForInference(methodSymbol, methodSymbol.getReturnType(), state),
+              false);
         }
       }
     } else if (parent instanceof ExpressionTree exprParent) {
@@ -3959,7 +3996,7 @@ public final class GenericsChecks {
       }
     }
     // an unhandled case; for now, give up and return no assignment context
-    return new CallAndContext(call, null, false);
+    return CallAndContext.withoutContext(call);
   }
 
   /**
@@ -4047,9 +4084,9 @@ public final class GenericsChecks {
    * {@code @Nullable}.
    *
    * @return the inferred shared nullness, or {@code null} if no modeled parameter location applies.
-   *     Unsatisfiable constraints are reported and return {@code null} when {@code
-   *     WarnOnGenericInferenceFailure} is enabled; otherwise they return {@code Nullness.NULLABLE}
-   *     to preserve ordinary nullness errors.
+   *     Unsatisfiable constraints return {@code null} when {@code WarnOnGenericInferenceFailure} is
+   *     enabled; otherwise they return {@code Nullness.NULLABLE} to preserve ordinary nullness
+   *     errors. They are reported only outside dataflow.
    */
   private @Nullable Nullness inferPolyNullnessSeparately(
       Symbol.MethodSymbol methodSymbol,
@@ -4106,7 +4143,8 @@ public final class GenericsChecks {
       reportInferenceFailure(
           invocationTree,
           PolyNullInference.inferenceFailureMessage(ASTHelpers.getSymbol(invocationTree)),
-          state);
+          state,
+          calledFromDataflow);
       return config.warnOnGenericInferenceFailure() ? null : Nullness.NULLABLE;
     }
   }
@@ -4181,9 +4219,17 @@ public final class GenericsChecks {
             });
   }
 
-  /** Reports an inference failure once per call when inference warnings are enabled. */
-  private void reportInferenceFailure(Tree callTree, String message, VisitorState state) {
-    if (!config.warnOnGenericInferenceFailure()
+  /**
+   * Reports an inference failure once per call outside dataflow when inference warnings are
+   * enabled.
+   *
+   * <p>Inference during dataflow may run before every argument has its dataflow value, so failures
+   * are reported only when inference runs again outside dataflow (#2126).
+   */
+  private void reportInferenceFailure(
+      Tree callTree, String message, VisitorState state, boolean calledFromDataflow) {
+    if (calledFromDataflow
+        || !config.warnOnGenericInferenceFailure()
         || !callsWithReportedInferenceFailures.add(callTree)) {
       return;
     }

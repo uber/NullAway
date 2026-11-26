@@ -612,6 +612,11 @@ public class TypeSubstitutionUtils {
 
     @Override
     public Type visitClassType(Type.ClassType t, Type other) {
+      // When the target is the source object itself, it already carries every source annotation,
+      // including those on implicit wildcard bounds.
+      if (t == other) {
+        return t;
+      }
       if (other instanceof Type.WildcardType wt) {
         // When the other type is a wildcard, restore nullability annotations from the bound that
         // determines the functional interface type.

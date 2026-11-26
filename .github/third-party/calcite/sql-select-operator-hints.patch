@@ -1,0 +1,13 @@
+diff --git a/core/src/main/java/org/apache/calcite/sql/SqlSelectOperator.java b/core/src/main/java/org/apache/calcite/sql/SqlSelectOperator.java
+index f27c3f4f6..5657dcee8 100644
+--- a/core/src/main/java/org/apache/calcite/sql/SqlSelectOperator.java
++++ b/core/src/main/java/org/apache/calcite/sql/SqlSelectOperator.java
+@@ -143,7 +143,7 @@ public SqlSelect createCall(
+ 
+     if (select.hasHints()) {
+       writer.sep("/*+");
+-      castNonNull(select.hints).unparse(writer, 0, 0);
++      select.hints.unparse(writer, 0, 0);
+       writer.print("*/");
+       writer.newlineAndIndent();
+     }

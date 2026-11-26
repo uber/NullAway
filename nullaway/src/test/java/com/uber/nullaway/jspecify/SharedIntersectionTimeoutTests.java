@@ -6,8 +6,8 @@ import java.util.Collections;
 import org.junit.Test;
 
 /**
- * Source-compilation regressions for shared wildcard-bound graphs, with and without a cyclic leaf.
- * The generous timeouts guard catastrophic regressions, not throughput.
+ * Source-compilation regressions for shared wildcard-bound graphs, including leaf and back-edge
+ * cycles. The generous timeouts guard catastrophic regressions, not throughput.
  */
 public class SharedIntersectionTimeoutTests extends NullAwayTestsBase {
 
@@ -19,6 +19,157 @@ public class SharedIntersectionTimeoutTests extends NullAwayTestsBase {
   @Test(timeout = 30_000)
   public void sharedBoundsWithCyclicLeafCompileWithinTimeout() {
     compileSharedBounds(true);
+  }
+
+  @Test(timeout = 30_000)
+  public void assignmentWithBackEdgeInIntersectionBounds() {
+    makeTestHelperWithArgs(
+            JSpecifyJavacConfig.withJSpecifyModeArgs(
+                Collections.singletonList("-XepOpt:NullAway:OnlyNullMarked=true")))
+        .addSourceLines(
+            "Test.java",
+            """
+            interface A0<T extends A5<?> & B5<?>> {}
+            interface B0<T extends B5<?>> {}
+            interface A1<T extends A0<?> & B0<?>> {}
+            interface B1<T extends A0<?> & B0<?>> {}
+            interface A2<T extends A1<?> & B1<?>> {}
+            interface B2<T extends A1<?> & B1<?>> {}
+            interface A3<T extends A2<?> & B2<?>> {}
+            interface B3<T extends A2<?> & B2<?>> {}
+            interface A4<T extends A3<?> & B3<?>> {}
+            interface B4<T extends A3<?> & B3<?>> {}
+            interface A5<T extends A4<?> & B4<?>> {}
+            interface B5<T extends A4<?> & B4<?>> {}
+            @org.jspecify.annotations.NullMarked
+            abstract class Test {
+              abstract A5<?> get();
+              void trigger(Test receiver) {
+                A5<?> value = receiver.get();
+              }
+            }
+            """)
+        .doTest();
+  }
+
+  @Test(timeout = 30_000)
+  public void assignmentWithDeepBackEdgeInIntersectionBounds() {
+    StringBuilder source =
+        new StringBuilder(
+            """
+            interface A0<T extends A24<?> & B24<?>> {}
+            interface B0<T extends B24<?>> {}
+            """);
+    for (int level = 1; level <= 24; level++) {
+      for (String name : new String[] {"A", "B"}) {
+        source
+            .append("interface ")
+            .append(name)
+            .append(level)
+            .append("<T extends A")
+            .append(level - 1)
+            .append("<?> & B")
+            .append(level - 1)
+            .append("<?>> {}\n");
+      }
+    }
+    source.append(
+        """
+        @org.jspecify.annotations.NullMarked
+        abstract class Test {
+          abstract A24<?> get();
+          void trigger(Test receiver) {
+            A24<?> value = receiver.get();
+          }
+        }
+        """);
+    makeTestHelperWithArgs(
+            JSpecifyJavacConfig.withJSpecifyModeArgs(
+                Collections.singletonList("-XepOpt:NullAway:OnlyNullMarked=true")))
+        .addSourceLines("Test.java", source.toString())
+        .doTest();
+  }
+
+  @Test(timeout = 30_000)
+  public void assignmentWithRecursiveLowerBound() {
+    makeTestHelperWithArgs(
+            JSpecifyJavacConfig.withJSpecifyModeArgs(
+                Collections.singletonList("-XepOpt:NullAway:OnlyNullMarked=true")))
+        .addSourceLines(
+            "Test.java",
+            """
+            interface C<X extends C<?, ? super X>, Y> {}
+            @org.jspecify.annotations.NullMarked
+            abstract class Test {
+              abstract C<?, ?> get();
+              void assignment() {
+                C<?, ?> x = get();
+              }
+            }
+            """)
+        .doTest();
+  }
+
+  @Test(timeout = 30_000)
+  public void recursiveLowerBoundsWithFreshSiblingCaptures() {
+    makeTestHelperWithArgs(
+            JSpecifyJavacConfig.withJSpecifyModeArgs(
+                Collections.singletonList("-XepOpt:NullAway:OnlyNullMarked=true")))
+        .addSourceLines(
+            "Test.java",
+            """
+            import java.util.List;
+            import org.jspecify.annotations.NullMarked;
+            import org.jspecify.annotations.Nullable;
+            interface ComparableSibling<X extends ComparableSibling<?, ? super X>, Y extends Comparable<?>> {}
+            interface NumberSibling<X extends NumberSibling<?, ? super X>, Y extends Number> {}
+            interface NullableSibling<X extends NullableSibling<?, ? super X>, Y extends @Nullable Object> {}
+            interface NullableComparableSibling<
+                X extends NullableComparableSibling<?, ? super X>, Y extends @Nullable Comparable<?>> {}
+            interface ReferencedSibling<X extends ReferencedSibling<?, ? super X, ?>, Y, Z extends Y> {}
+            interface DirectCapture<X extends DirectCapture<?, X>, Y> {}
+            class Outer<T> { class Inner<X extends Outer<? super X>.Inner<?>> {} }
+            @NullMarked
+            abstract class Test {
+              abstract ComparableSibling<?, ?> comparableSibling();
+              abstract NumberSibling<?, ?> numberSibling();
+              abstract NullableSibling<?, @Nullable String> nullableSibling();
+              abstract NullableComparableSibling<?, ?> nullableComparableSibling();
+              abstract ReferencedSibling<?, ?, ?> referencedSibling();
+              abstract DirectCapture<?, ?> directCapture();
+              abstract Outer<?>.Inner<?> freshEnclosingType();
+              abstract List<ComparableSibling<?, ?>> nestedComparableSibling();
+              abstract void accept(ComparableSibling<?, ?> value);
+              void siblingWithNonObjectBound() {
+                ComparableSibling<?, ?> c = comparableSibling();
+                NumberSibling<?, ?> n = numberSibling();
+                List<ComparableSibling<?, ?>> l = nestedComparableSibling();
+              }
+              void argumentWithNonObjectBound() {
+                accept(comparableSibling());
+              }
+              ComparableSibling<?, ?> returnWithNonObjectBound() {
+                return comparableSibling();
+              }
+              void siblingWithNullableBoundAndMismatch() {
+                // BUG: Diagnostic contains: incompatible types
+                NullableSibling<?, String> x = nullableSibling();
+              }
+              void siblingWithNullableNonObjectBound() {
+                NullableComparableSibling<?, ?> x = nullableComparableSibling();
+              }
+              void siblingReferencedFromAnotherBound() {
+                ReferencedSibling<?, ?, ?> x = referencedSibling();
+              }
+              void captureInsideTheRecursiveBound() {
+                DirectCapture<?, ?> x = directCapture();
+              }
+              void recreatedEnclosingType() {
+                Outer<?>.Inner<?> x = freshEnclosingType();
+              }
+            }
+            """)
+        .doTest();
   }
 
   /**

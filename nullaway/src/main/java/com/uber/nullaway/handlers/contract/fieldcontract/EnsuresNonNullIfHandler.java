@@ -22,9 +22,9 @@
 
 package com.uber.nullaway.handlers.contract.fieldcontract;
 
-import static com.uber.nullaway.NullabilityUtil.castToNonNull;
 import static com.uber.nullaway.NullabilityUtil.getAnnotationValueArray;
 
+import com.google.common.collect.ImmutableSet;
 import com.google.errorprone.VisitorState;
 import com.google.errorprone.util.ASTHelpers;
 import com.sun.source.tree.MethodTree;
@@ -42,7 +42,6 @@ import com.uber.nullaway.dataflow.AccessPathNullnessPropagation;
 import com.uber.nullaway.dataflow.NullnessStore;
 import com.uber.nullaway.handlers.AbstractFieldContractHandler;
 import com.uber.nullaway.handlers.MethodAnalysisContext;
-import com.uber.nullaway.handlers.contract.ContractUtils;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Set;
@@ -50,8 +49,6 @@ import java.util.stream.Collectors;
 import javax.lang.model.element.AnnotationMirror;
 import javax.lang.model.element.AnnotationValue;
 import javax.lang.model.element.ExecutableElement;
-import javax.lang.model.element.Modifier;
-import javax.lang.model.element.VariableElement;
 import org.checkerframework.nullaway.dataflow.cfg.node.MethodInvocationNode;
 import org.jspecify.annotations.Nullable;
 
@@ -293,31 +290,14 @@ public class EnsuresNonNullIfHandler extends AbstractFieldContractHandler {
           node, methodSymbol, state, apContext, inputs, thenUpdates, elseUpdates, bothUpdates);
     }
 
-    Set<String> fieldNames = getAnnotationValueArray(methodSymbol, annotName, false);
-    if (fieldNames != null) {
-      fieldNames = ContractUtils.trimReceivers(fieldNames);
+    ImmutableSet<AccessPath> accessPaths = getFieldAccessPathsAtCall(node, methodSymbol, apContext);
+    if (!accessPaths.isEmpty()) {
       boolean trueIfNonNull = getResultValueFromAnnotation(methodSymbol);
       // chosenUpdates is set to the thenUpdates or elseUpdates appropriately given the annotation's
       // result value
       AccessPathNullnessPropagation.Updates chosenUpdates =
           trueIfNonNull ? thenUpdates : elseUpdates;
-      for (String fieldName : fieldNames) {
-        VariableElement field =
-            getFieldOfClass(castToNonNull(ASTHelpers.enclosingClass(methodSymbol)), fieldName);
-        if (field == null) {
-          // Invalid annotation, will result in an error during validation.
-          continue;
-        }
-        AccessPath accessPath =
-            field.getModifiers().contains(Modifier.STATIC)
-                ? AccessPath.fromStaticField(field)
-                : AccessPath.fromFieldElement(field);
-
-        if (accessPath == null) {
-          // Also likely to be an invalid annotation, will result in an error during validation.
-          continue;
-        }
-
+      for (AccessPath accessPath : accessPaths) {
         // The call to the EnsuresNonNullIf method ensures that the field is not null in the chosen
         // updates.
         // In here, we assume that the annotated method is already validated.
