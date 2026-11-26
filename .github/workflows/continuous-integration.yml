@@ -179,7 +179,7 @@ jobs:
           - project: calcite
             url: https://github.com/apache/calcite.git
             branch: main
-            sha: 713faf069e246f3430ae23ead1f90430c672cc15
+            sha: dde58eb5a30f245f975d55f88ce2e861a1e82668
             build: JAVA_HOME="$JAVA_HOME_21_X64" ./gradlew --init-script use-snapshot.gradle.kts -PenableErrorprone classes jmhClasses
     permissions:
       contents: read
