@@ -21,6 +21,7 @@ import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Deque;
+import java.util.HashMap;
 import java.util.IdentityHashMap;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
@@ -51,11 +52,24 @@ public final class ConstraintSolverImpl implements ConstraintSolver {
 
   /**
    * Maps an inference variable whose declared bound is an unannotated use of another inference
-   * variable of the same site, such as {@code U} in {@code <R, U extends R>}, to that variable.
-   * {@link #solve()} makes each such bound a supertype edge. Recorded only where {@link
-   * Config#isNullableBoundInferenceEnabled} holds.
+   * variable of the same site, such as {@code U} in {@code <R, U extends R>}, to that variable,
+   * where the declaration of {@code U} does not make its bound nullable by {@link
+   * GenericsUtils#declaredUpperBoundIsNullable}. {@link #solve()} makes each such bound a supertype
+   * edge. Recorded only where {@link Config#isNullableBoundInferenceEnabled} holds.
    */
   private final Map<InferenceVariable, InferenceVariable> declaredBounds = new LinkedHashMap<>();
+
+  /**
+   * Whether the bound of each inference variable admits null, by {@link
+   * GenericsUtils#upperBoundIsNullable}; see {@link #boundAdmitsNull}.
+   */
+  private final Map<InferenceVariable, Boolean> boundAdmitsNull = new HashMap<>();
+
+  /**
+   * Whether the bound of each inference variable is explicitly nullable, by {@link
+   * GenericsUtils#boundIsExplicitlyNullable}; see {@link #boundIsExplicitlyNullable}.
+   */
+  private final Map<InferenceVariable, Boolean> boundIsExplicitlyNullable = new HashMap<>();
 
   public ConstraintSolverImpl(Config config, VisitorState state, NullAway analysis) {
     this.config = config;
@@ -145,9 +159,12 @@ public final class ConstraintSolverImpl implements ConstraintSolver {
     }
     if (config.isNullableBoundInferenceEnabled()) {
       for (Type.TypeVar typeVar : fresh.values()) {
+        InferenceVariable inferenceVar = castToNonNull(inferenceVariables.get(typeVar.tsym));
         InferenceVariable boundVar = inferenceVariableForUse(typeVar.getUpperBound());
-        if (boundVar != null) {
-          declaredBounds.put(castToNonNull(inferenceVariables.get(typeVar.tsym)), boundVar);
+        if (boundVar != null
+            && !GenericsUtils.declaredUpperBoundIsNullable(
+                inferenceVar.typeVariable(), config, handler, state)) {
+          declaredBounds.put(inferenceVar, boundVar);
         }
       }
     }
@@ -412,16 +429,18 @@ public final class ConstraintSolverImpl implements ConstraintSolver {
   public Map<InferenceVariable, InferredNullability> solve()
       throws UnsatisfiableConstraintsException {
     /* U extends R  ⇒  U <: R, for every U that a constraint reaches and along the chain of bounds */
-    List<InferenceVariable> boundedVars = new ArrayList<>(vars.keySet());
-    for (int i = 0; i < boundedVars.size(); i++) {
-      InferenceVariable sub = boundedVars.get(i);
-      InferenceVariable sup = declaredBounds.get(sub);
-      if (sup != null) {
-        if (!vars.containsKey(sup)) {
-          boundedVars.add(sup);
+    if (!declaredBounds.isEmpty()) {
+      List<InferenceVariable> boundedVars = new ArrayList<>(vars.keySet());
+      for (int i = 0; i < boundedVars.size(); i++) {
+        InferenceVariable sub = boundedVars.get(i);
+        InferenceVariable sup = declaredBounds.get(sub);
+        if (sup != null) {
+          if (!vars.containsKey(sup)) {
+            boundedVars.add(sup);
+          }
+          getState(sub).supertypes.add(sup);
+          getState(sup).subtypes.add(sub);
         }
-        getState(sub).supertypes.add(sup);
-        getState(sup).subtypes.add(sub);
       }
     }
 
@@ -497,9 +516,7 @@ public final class ConstraintSolverImpl implements ConstraintSolver {
                   if (!st.parametric) {
                     yield InferredNullability.NONNULL;
                   }
-                  yield st.parametricNullable
-                          && GenericsUtils.boundIsExplicitlyNullable(
-                              inferenceVar.typeVariable(), config, handler, state)
+                  yield st.parametricNullable && boundIsExplicitlyNullable(inferenceVar)
                       ? InferredNullability.TYPE_VARIABLE_OR_NULLABLE
                       : InferredNullability.TYPE_VARIABLE_OR_NONNULL;
                 }
@@ -578,11 +595,50 @@ public final class ConstraintSolverImpl implements ConstraintSolver {
   /* ───────────────────── helpers & stubs ───────────────────── */
 
   private VarState getState(InferenceVariable inferenceVar) {
-    return vars.computeIfAbsent(
-        inferenceVar,
-        v ->
-            new VarState(
-                GenericsUtils.upperBoundIsNullable(v.typeVariable(), config, handler, state)));
+    VarState st = vars.get(inferenceVar);
+    if (st == null) {
+      st = new VarState(boundAdmitsNull(inferenceVar));
+      vars.put(inferenceVar, st);
+    }
+    return st;
+  }
+
+  /**
+   * Returns whether the bound of {@code inferenceVar} admits null, by {@link
+   * GenericsUtils#upperBoundIsNullable}. A variable with an edge in {@link #declaredBounds} has the
+   * answer of the variable its bound names, so each variable of a chain of bounds is computed once.
+   */
+  private boolean boundAdmitsNull(InferenceVariable inferenceVar) {
+    Boolean known = boundAdmitsNull.get(inferenceVar);
+    if (known == null) {
+      InferenceVariable boundVar = declaredBounds.get(inferenceVar);
+      known =
+          boundVar != null
+              ? boundAdmitsNull(boundVar)
+              : GenericsUtils.upperBoundIsNullable(
+                  inferenceVar.typeVariable(), config, handler, state);
+      boundAdmitsNull.put(inferenceVar, known);
+    }
+    return known;
+  }
+
+  /**
+   * Returns whether the bound of {@code inferenceVar} is explicitly nullable, by {@link
+   * GenericsUtils#boundIsExplicitlyNullable}. As in {@link #boundAdmitsNull}, a variable with an
+   * edge in {@link #declaredBounds} has the answer of the variable its bound names.
+   */
+  private boolean boundIsExplicitlyNullable(InferenceVariable inferenceVar) {
+    Boolean known = boundIsExplicitlyNullable.get(inferenceVar);
+    if (known == null) {
+      InferenceVariable boundVar = declaredBounds.get(inferenceVar);
+      known =
+          boundVar != null
+              ? boundIsExplicitlyNullable(boundVar)
+              : GenericsUtils.boundIsExplicitlyNullable(
+                  inferenceVar.typeVariable(), config, handler, state);
+      boundIsExplicitlyNullable.put(inferenceVar, known);
+    }
+    return known;
   }
 
   /**

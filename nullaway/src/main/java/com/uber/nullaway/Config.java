@@ -333,6 +333,14 @@ public interface Config {
    * type variable whose bound is explicitly nullable is passed for {@code ? extends U} and the
    * bound of {@code U} excludes null. A generic constructor at a diamond and a generic method
    * reference are checked against the types javac inferred for them.
+   *
+   * <p>Where it is true, inference also reads a declared bound {@code U extends R} between two type
+   * variables of one call as {@code U <: R}, unless the declaration of {@code U} makes its bound
+   * nullable, as a {@code @Nullable R} bound or unannotated code does: {@code @Nullable} and the
+   * flow of such a type variable pass from {@code U} to {@code R}, and {@code @NonNull} from {@code
+   * R} to {@code U}. So {@code viaBound(null).hashCode()} with {@code <R extends @Nullable Object,
+   * U extends R> R viaBound(U u)} is reported, though no type variable whose bound admits null is
+   * passed.
    */
   boolean isNullableBoundInferenceEnabled();
 

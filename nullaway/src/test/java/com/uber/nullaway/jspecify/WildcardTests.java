@@ -2445,6 +2445,8 @@ public class WildcardTests extends NullAwayTestsBase {
         .addSourceLines(
             "Test.java",
             """
+            import java.util.List;
+            import java.util.function.Function;
             import org.jspecify.annotations.NullMarked;
             import org.jspecify.annotations.Nullable;
             @NullMarked
@@ -2507,6 +2509,51 @@ public class WildcardTests extends NullAwayTestsBase {
               }
               void notUpward(T t) {
                 viaBoundReturningU("x", t).hashCode();
+              }
+              static <R extends @Nullable Object, U extends R> R fromNonNull(U u, List<U> v) {
+                return u;
+              }
+              void throughABoundFromAVariableFixedNonNull(T t, List<Object> v) {
+                // a null t still reaches R: passing t where U is @NonNull Object is not reported (#1727)
+                // BUG: Diagnostic contains: dereferenced expression 'fromNonNull(t, v)' is @Nullable
+                fromNonNull(t, v).hashCode();
+              }
+              static <U extends @Nullable Object, R extends @Nullable Object> R map(
+                  U u, List<U> v, Function<U, R> f) {
+                return f.apply(u);
+              }
+              void throughALambdaFromAVariableFixedNonNull(T t, List<Object> v) {
+                // BUG: Diagnostic contains: dereferenced expression 'map(t, v, x -> x)' is @Nullable
+                map(t, v, x -> x).hashCode();
+              }
+              static <R, U extends R, V extends @Nullable Object> V throughNonNullBound(
+                  U a, U b, Function<R, V> f) {
+                return f.apply(a);
+              }
+              static <R, V extends @Nullable Object> V directNonNullBound(
+                  R a, R b, Function<R, V> f) {
+                return f.apply(a);
+              }
+              void throughAVariableWhoseBoundExcludesNull(T t) {
+                // BUG: Diagnostic contains: dereferenced expression 'directNonNullBound(t, "x", x -> x)' is @Nullable
+                directNonNullBound(t, "x", x -> x).hashCode();
+                // BUG: Diagnostic contains: dereferenced expression 'throughNonNullBound(t, "x", x -> x)' is @Nullable
+                throughNonNullBound(t, "x", x -> x).hashCode();
+              }
+              Object throughAnUnmarkedBound() {
+                // U extends R relates nothing in unannotated code, where the bound of U admits null
+                return Legacy.choose("fallback", null);
+              }
+            }
+            """)
+        .addSourceLines(
+            "Legacy.java",
+            """
+            import org.jspecify.annotations.NullUnmarked;
+            @NullUnmarked
+            class Legacy {
+              static <R, U extends R> R choose(R r, U unused) {
+                return r;
               }
             }
             """)
