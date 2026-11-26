@@ -18,6 +18,7 @@ import com.uber.nullaway.NullAway;
 import com.uber.nullaway.Nullness;
 import com.uber.nullaway.handlers.Handler;
 import java.util.ArrayDeque;
+import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Deque;
 import java.util.IdentityHashMap;
@@ -47,6 +48,14 @@ public final class ConstraintSolverImpl implements ConstraintSolver {
    */
   private final IdentityHashMap<Element, InferenceVariable> inferenceVariables =
       new IdentityHashMap<>();
+
+  /**
+   * Maps an inference variable whose declared bound is an unannotated use of another inference
+   * variable of the same site, such as {@code U} in {@code <R, U extends R>}, to that variable.
+   * {@link #solve()} makes each such bound a supertype edge. Recorded only where {@link
+   * Config#isNullableBoundInferenceEnabled} holds.
+   */
+  private final Map<InferenceVariable, InferenceVariable> declaredBounds = new LinkedHashMap<>();
 
   public ConstraintSolverImpl(Config config, VisitorState state, NullAway analysis) {
     this.config = config;
@@ -133,6 +142,14 @@ public final class ConstraintSolverImpl implements ConstraintSolver {
     }
     for (Map.Entry<Element, Type.TypeVar> entry : fresh.entrySet()) {
       inferenceVariables.put(entry.getValue().tsym, new InferenceVariable(entry.getKey(), site));
+    }
+    if (config.isNullableBoundInferenceEnabled()) {
+      for (Type.TypeVar typeVar : fresh.values()) {
+        InferenceVariable boundVar = inferenceVariableForUse(typeVar.getUpperBound());
+        if (boundVar != null) {
+          declaredBounds.put(castToNonNull(inferenceVariables.get(typeVar.tsym)), boundVar);
+        }
+      }
     }
 
     return fresh;
@@ -394,6 +411,20 @@ public final class ConstraintSolverImpl implements ConstraintSolver {
   @Override
   public Map<InferenceVariable, InferredNullability> solve()
       throws UnsatisfiableConstraintsException {
+    /* U extends R  ⇒  U <: R, for every U that a constraint reaches and along the chain of bounds */
+    List<InferenceVariable> boundedVars = new ArrayList<>(vars.keySet());
+    for (int i = 0; i < boundedVars.size(); i++) {
+      InferenceVariable sub = boundedVars.get(i);
+      InferenceVariable sup = declaredBounds.get(sub);
+      if (sup != null) {
+        if (!vars.containsKey(sup)) {
+          boundedVars.add(sup);
+        }
+        getState(sub).supertypes.add(sup);
+        getState(sup).subtypes.add(sub);
+      }
+    }
+
     /* ---------- work-list propagation of nullability ---------- */
     Deque<InferenceVariable> work = new ArrayDeque<>();
     vars.forEach(

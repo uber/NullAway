@@ -2439,6 +2439,80 @@ public class WildcardTests extends NullAwayTestsBase {
         .doTest();
   }
 
+  @Test
+  public void aNullableTypeVariableFlowsThroughADeclaredBoundToAnotherInferenceVariable() {
+    makeHelper()
+        .addSourceLines(
+            "Test.java",
+            """
+            import org.jspecify.annotations.NullMarked;
+            import org.jspecify.annotations.Nullable;
+            @NullMarked
+            class Test<T extends @Nullable Object> {
+              static <R extends @Nullable Object> R direct(R a, R b) {
+                return a;
+              }
+              static <R extends @Nullable Object, U extends R> R viaBound(U a, U b) {
+                return a;
+              }
+              static <R extends @Nullable Object, U extends R> R viaBoundOne(U a) {
+                return a;
+              }
+              static <Q extends @Nullable Object, R extends Q, U extends R> Q deep(U a, U b) {
+                return a;
+              }
+              static <R extends @Nullable Object, U extends @Nullable R> R viaNullableBound(U a) {
+                throw new UnsupportedOperationException();
+              }
+              static <R, U extends R> R viaNonNullBound(U a) {
+                return a;
+              }
+              static <R extends @Nullable Object, U extends R> U viaBoundReturningU(U a, R r) {
+                return a;
+              }
+              void sameVariable(T t) {
+                // BUG: Diagnostic contains: dereferenced expression 'direct(t, "x")' is @Nullable
+                direct(t, "x").hashCode();
+              }
+              void throughABound(T t) {
+                // BUG: Diagnostic contains: dereferenced expression 'viaBound(t, "x")' is @Nullable
+                viaBound(t, "x").hashCode();
+              }
+              static <R extends @Nullable Object> R directOne(R a) {
+                return a;
+              }
+              void inferredAsTheTypeVariable(T t) {
+                // false negatives: javac infers T for R, and dataflow reads T as non-null (#1727)
+                directOne(t).hashCode();
+                viaBoundOne(t).hashCode();
+              }
+              void throughAChainOfBounds(T t) {
+                // BUG: Diagnostic contains: dereferenced expression 'deep(t, "x")' is @Nullable
+                deep(t, "x").hashCode();
+              }
+              void explicitNullThroughABound() {
+                // BUG: Diagnostic contains: dereferenced expression 'viaBoundOne(null)' is @Nullable
+                viaBoundOne(null).hashCode();
+              }
+              void explicitNullThroughANullableBound() {
+                viaNullableBound(null).hashCode();
+              }
+              void explicitNullThroughANonNullBound() {
+                // BUG: Diagnostic contains: passing @Nullable parameter
+                viaNonNullBound(null).hashCode();
+              }
+              Object throughABoundIntoANonNullTarget() {
+                // BUG: Diagnostic contains: inference failure: type variable U constrained to be both @NonNull and @Nullable
+                return viaBoundOne(null);
+              }
+              void notUpward(T t) {
+                viaBoundReturningU("x", t).hashCode();
+              }
+            }
+            """)
+        .doTest();
+  }
+
   /**
    * A generic method reference and a generic constructor are judged against the types javac
    * inferred for them, as a generic method call is, so the {@code @Nullable} inferred for {@code U}
@@ -3267,8 +3341,20 @@ public class WildcardTests extends NullAwayTestsBase {
                 return u;
               }
               static <A extends @Nullable Object> void apply(A a, Function<A, A> f) {}
+              static <R extends @Nullable Object, U extends R> R viaBound(U a, U b) {
+                return a;
+              }
+              static <R extends @Nullable Object, U extends R> R viaBoundOne(U a) {
+                return a;
+              }
               void typeVariable(T t) {
                 pick(t, "x").toString();
+              }
+              void typeVariableThroughADeclaredBound(T t) {
+                viaBound(t, "x").toString();
+              }
+              void nullThroughADeclaredBound() {
+                viaBoundOne(null).toString();
               }
               void typeVariableAfterRequireNonNull(T t) {
                 T checked = Objects.requireNonNull(t);
