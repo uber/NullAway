@@ -26,6 +26,9 @@ guava = "31.1-jre"
 guava-latest = "33.7.2-jre"
 javax-validation = "2.0.1.Final"
 jspecify = "1.0.1"
+# The release of github.com/vlsi/jspecify-jdk-stubs whose jar holds the JSpecify JDK models.
+# Renovate updates it through the github-releases custom manager in renovate.json.
+jspecifyJdkStubs = "2026.11.13"
 jackson = "3.2.4"
 commons-io = "2.22.0"
 junit4 = "4.13.2"

@@ -2033,8 +2033,11 @@ public class LibraryModelsHandler implements Handler {
   /** astubx file name used in our Android SDK JarInfer models. */
   private static final String ANDROID_ASTUBX_LOCATION = "jarinfer.astubx";
 
-  /** astubx file name used for the JSpecify JDK models. */
-  private static final String JSPECIFY_JDK_ASTUBX_FILENAME = "jspecify-jdk.astubx";
+  /**
+   * Resource holding the jspecify-jdk-stubs jar the JSpecify JDK models are read from; the build
+   * copies it into the NullAway jar.
+   */
+  private static final String JSPECIFY_JDK_STUBS_RESOURCE = "jspecify-jdk-stubs.jar";
 
   /** Class we expect to be present in a jar containing Android SDK JarInfer models. */
   private static final String ANDROID_MODEL_CLASS =
@@ -2097,7 +2100,8 @@ public class LibraryModelsHandler implements Handler {
   }
 
   /**
-   * Loads stubx resources and converts all parsed state to deeply immutable value data.
+   * Loads stubx resources and the JSpecify JDK stubs jar, and converts all parsed state to deeply
+   * immutable value data.
    *
    * <p>JarInfer resources are intentionally loaded for each checker instance because they come from
    * dynamic service providers. The bundled JSpecify resource is loaded only by {@link
@@ -2130,14 +2134,14 @@ public class LibraryModelsHandler implements Handler {
       try (InputStream in =
           openResourceWithoutCaching(
               castToNonNull(LibraryModelsHandler.class.getClassLoader())
-                  .getResource(JSPECIFY_JDK_ASTUBX_FILENAME))) {
+                  .getResource(JSPECIFY_JDK_STUBS_RESOURCE))) {
         if (in == null) {
           throw new IllegalStateException(
-              "JDK astubx model not found on classpath: %s"
-                  .formatted(JSPECIFY_JDK_ASTUBX_FILENAME));
+              "JSpecify JDK models not found on the classpath: resource %s is missing from the NullAway jar"
+                  .formatted(JSPECIFY_JDK_STUBS_RESOURCE));
         }
-        cacheUtil.parseStubStream(in, JSPECIFY_JDK_ASTUBX_FILENAME);
-        astubxLoadLog("Loaded JDK astubx model.");
+        JSpecifyJdkStubsReader.read(in, JSPECIFY_JDK_STUBS_RESOURCE, cacheUtil);
+        astubxLoadLog("Loaded JSpecify JDK models.");
       } catch (IOException e) {
         throw new UncheckedIOException(e);
       }

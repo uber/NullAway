@@ -271,7 +271,7 @@ public class StubxCacheUtil {
     }
   }
 
-  private void cacheAnnotation(String methodSig, Integer argNum, String annotation) {
+  void cacheAnnotation(String methodSig, Integer argNum, String annotation) {
     // TODO: handle inner classes properly
     String className = methodSig.split(":")[0].replace('$', '.');
     Map<String, Map<Integer, Set<String>>> cacheForClass =
@@ -283,7 +283,36 @@ public class StubxCacheUtil {
     cacheForArgument.add(annotation);
   }
 
-  private void cacheUpperBounds(String className, Integer paramIndex) {
+  void cacheUpperBounds(String className, Integer paramIndex) {
     upperBoundCache.put(className, paramIndex);
+  }
+
+  void cacheMethodTypeParamNullableUpperBound(String methodSig, int paramIndex) {
+    methodTypeParamNullableUpperBoundCache.put(methodSig, paramIndex);
+  }
+
+  /**
+   * Caches an annotation below the top level of a parameter or return type.
+   *
+   * @param index parameter index, or {@code -1} for the return type
+   */
+  void cacheNestedAnnotation(String methodSig, int index, NestedAnnotationInfo info) {
+    nestedAnnotationInfoCache
+        .computeIfAbsent(methodSig, k -> HashMultimap.create())
+        .put(index, info);
+  }
+
+  void cacheNullMarkedClass(String className) {
+    nullMarkedClassesCache.add(className);
+  }
+
+  /**
+   * Caches a field with a top-level {@code @Nullable} annotation.
+   *
+   * @param flatClassName the enclosing class as {@code ClassSymbol.flatName()} spells it, with
+   *     {@code $} before a nested class name
+   */
+  void cacheNullableField(String flatClassName, String fieldName) {
+    nullableFieldsCache.put(flatClassName, fieldName);
   }
 }

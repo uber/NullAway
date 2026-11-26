@@ -11,20 +11,7 @@ in the JDK.
 `com.uber.nullaway.jdkannotations.AstubxGeneratorCLI`) that turns the `.json`
 files into an `.astubx` file.  
 
-To regenerate the file and run the main NullAway tests and self-check, run:
-
-```bash
-./jdk-javac-plugin/regenerate-jspecify-jdk.sh 
-```
-
-The script fetches a shallow checkout of the JSpecify JDK at the pinned
-`JDK_REVISION` in the script. To reuse an existing clean checkout at that
-revision, add `--jdk-dir /path/to/jdk`. You can pass `--boot-jdk /path/to/boot-jdk`
-to give a path to the boot JDK to use to bootstrap the build;
-without it, JDK configure searches for a compatible installed JDK.
-Configuration, build output, and JSON files go into a fresh temporary directory.
-Failed runs retain that directory and their logs; use `--keep-temp` to retain it
-after successful runs as well. Use `--verbose` to stream command output while
-also saving it to the logs.  If all succeeds, the
-`nullaway/src/main/resources/jspecify-jdk.astubx` file will be overwritten with
-the new version.
+NullAway does not bundle an astubx file generated this way: it reads the
+JSpecify JDK models from the class files of a
+[jspecify-jdk-stubs](https://github.com/vlsi/jspecify-jdk-stubs) jar, whose
+release is set by `jspecifyJdkStubs` in `gradle/libs.versions.toml`.
