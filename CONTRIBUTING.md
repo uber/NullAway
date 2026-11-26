@@ -17,7 +17,7 @@ Small pull requests for things like typos, bug fixes, etc are always welcome.
 Reporting bugs
 --------------
 
-Before filing, search [existing issues, including closed ones](https://github.com/uber/NullAway/issues?q=is%3Aissue). The web UI provides a [bug report form](.github/ISSUE_TEMPLATE/bug_report.yml). Issues created through `gh` or an API do not automatically inherit the form's required fields or labels, so include these sections in the issue body:
+Before filing, search [existing issues, including closed ones](https://github.com/uber/NullAway/issues?q=is%3Aissue). The web UI provides a [bug report form](https://github.com/uber/NullAway/issues/new?template=bug_report.yml). Issues created through `gh` or an API do not automatically inherit the form's required fields or labels, so include these sections in the issue body:
 
 * `### Kind of problem`: false positive, false negative, crash, or other.
 * `### Minimal reproducer`: a Java sample with imports and nullness annotations, or a small repository with the command to run it. Compile the sample again after the last edit. If you cannot reduce it, include the surrounding method and say so.
