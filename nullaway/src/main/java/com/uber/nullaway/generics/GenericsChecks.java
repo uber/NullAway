@@ -4990,8 +4990,8 @@ public final class GenericsChecks {
         || (declaration != null && Nullness.hasNonNullAnnotation(declaration, config))) {
       return false;
     }
-    // A capture of ? super T accepts every value of type T
     return acceptsNoChangeValueOf(valueType, targetType, state)
+        // A capture of ? super T accepts every value of type T
         || (targetType instanceof Type.CapturedType capturedType
             && acceptsNoChangeValueOf(valueType, capturedType.getLowerBound(), state));
   }
