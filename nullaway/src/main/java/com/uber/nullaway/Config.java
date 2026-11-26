@@ -320,18 +320,19 @@ public interface Config {
    * included, whose bound admits null? True where both JSpecifyMode and JSpecifyExperimental are
    * set. Where it is false, every inference variable that no constraint fixes is {@code @NonNull},
    * and the checks of a generic constructor at a diamond and of a generic method reference use the
-   * declared types, as before.
+   * declared types.
    *
-   * <p>Where it is true, if no constraint fixes an inference variable and such a type variable
-   * flows into it, the variable adds no annotation where javac inferred a type variable with
-   * parametric nullness or an intersection type. Elsewhere it is {@code @Nullable} where the bounds
-   * of both the passed type variable and the inference variable's own type parameter are explicitly
-   * nullable, and {@code @NonNull} otherwise. A bound is explicitly nullable where it is annotated
-   * {@code @Nullable}, where a library model makes it nullable, or where it is another type
-   * variable whose bound is explicitly nullable. With HandleWildcardGenerics also set, inference
-   * fails where an uncaptured type variable whose bound is explicitly nullable is passed for {@code
-   * ? extends U} and the bound of {@code U} excludes null. A generic constructor at a diamond and a
-   * generic method reference are checked against the types javac inferred for them.
+   * <p>Where it is true, an inference variable that no constraint fixes and that such a type
+   * variable flows into is {@link
+   * com.uber.nullaway.generics.ConstraintSolver.InferredNullability#TYPE_VARIABLE_OR_NULLABLE}
+   * where the bounds of both that type variable and the inference variable are explicitly nullable,
+   * and {@link
+   * com.uber.nullaway.generics.ConstraintSolver.InferredNullability#TYPE_VARIABLE_OR_NONNULL}
+   * otherwise. {@code GenericsUtils.typeVariableWithNullableBound} decides which bounds are
+   * explicitly nullable. With HandleWildcardGenerics also set, inference fails where an uncaptured
+   * type variable whose bound is explicitly nullable is passed for {@code ? extends U} and the
+   * bound of {@code U} excludes null. A generic constructor at a diamond and a generic method
+   * reference are checked against the types javac inferred for them.
    */
   boolean isNullableBoundInferenceEnabled();
 

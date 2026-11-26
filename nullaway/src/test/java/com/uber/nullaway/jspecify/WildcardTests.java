@@ -2836,6 +2836,106 @@ public class WildcardTests extends NullAwayTestsBase {
         .doTest();
   }
 
+  @Test
+  public void
+      aCallResultTypedAsACaptureOfAWildcardBoundedByATypeVariablePassesWhereThatCaptureIsExpected() {
+    makeHelper()
+        .addSourceLines(
+            "Test.java",
+            """
+            import java.util.List;
+            import java.util.function.Function;
+            import org.jspecify.annotations.NullMarked;
+            import org.jspecify.annotations.Nullable;
+            @NullMarked
+            class Test<T extends @Nullable Object> {
+              static class Box<E extends @Nullable Object> {
+                E get() {
+                  throw new UnsupportedOperationException();
+                }
+              }
+              static class Holder<W extends @Nullable Object> {
+                Holder(W w) {}
+              }
+              static class Sink {
+                <X extends @Nullable Object> void take(X x) {}
+              }
+              static <U extends @Nullable Object> U first(List<U> list) {
+                throw new UnsupportedOperationException();
+              }
+              static <U extends @Nullable Object> U get(Box<U> b) {
+                throw new UnsupportedOperationException();
+              }
+              static <U extends @Nullable Object> U getThroughWildcard(Box<? extends U> b) {
+                throw new UnsupportedOperationException();
+              }
+              static <X extends @Nullable Object> void accept(X x) {}
+              static <X extends @Nullable Object> X ret(X x) {
+                return x;
+              }
+              @SafeVarargs
+              static <X extends @Nullable Object> void acceptAll(X... xs) {}
+              static <X extends @Nullable Object> void acceptTwo(X a, X b) {}
+              static <A extends @Nullable Object, B extends @Nullable Object> B apply(
+                  A a, Function<A, B> f) {
+                return f.apply(a);
+              }
+              static <X> void acceptNonNull(X x) {}
+              static <V extends @Nullable Object> V identity(V v) {
+                return v;
+              }
+              void fromAList(List<? extends T> list) {
+                accept(first(list));
+              }
+              void fromTheSameContainer(Box<? extends T> b) {
+                accept(get(b));
+              }
+              void fromAWildcardParameter(Box<? extends T> b) {
+                accept(getThroughWildcard(b));
+              }
+              void intoAGenericMethodWhoseResultIsUnused(List<? extends T> list) {
+                ret(first(list));
+              }
+              void throughTwoNestedCalls(List<? extends T> list) {
+                accept(ret(ret(first(list))));
+              }
+              void intoAnInstanceMethod(Sink sink, List<? extends T> list) {
+                sink.take(first(list));
+              }
+              void intoVarargs(List<? extends T> list) {
+                acceptAll(first(list));
+              }
+              void twoCapturesOfOneWildcardType(List<? extends T> a, List<? extends T> b) {
+                acceptTwo(first(a), first(b));
+              }
+              void intoADiamondConstructor(List<? extends T> list) {
+                new Holder<>(first(list));
+              }
+              void besideAMethodReference(List<? extends T> list) {
+                apply(first(list), Test::identity);
+              }
+              void returnedAsTheTypeVariable(List<? extends T> list) {
+                accept(returnFirst(list));
+              }
+              T returnFirst(List<? extends T> list) {
+                return first(list);
+              }
+              void readByAMemberCall(Box<? extends T> b) {
+                accept(b.get());
+              }
+              void intoAVariableWhoseBoundExcludesNull(List<? extends T> list) {
+                // BUG: Diagnostic contains: passing @Nullable parameter 'first(list)'
+                acceptNonNull(first(list));
+              }
+              void dereferenced(List<? extends T> list) {
+                // BUG: Diagnostic contains: dereferenced expression 'ret(first(list))' is @Nullable
+                ret(first(list)).toString();
+              }
+            }
+            """)
+        .doTest();
+  }
+
   /**
    * The JSpecify JDK models decide the bound of the inference variable: {@code Arrays.asList}
    * admits null and {@code List.of} does not.
@@ -3218,6 +3318,60 @@ public class WildcardTests extends NullAwayTestsBase {
                         // a false positive that JSpecifyExperimental removes
                         // BUG: Diagnostic contains: parameter u of referenced method is @NonNull
                         Test::nullableIdentity);
+              }
+            }
+            """)
+        .doTest();
+  }
+
+  @Test
+  public void
+      aCaptureOfAWildcardBoundedByATypeVariableChangesNoReportWithoutJSpecifyExperimental() {
+    makeTestHelperWithArgs(
+            List.of(
+                "-XepOpt:NullAway:OnlyNullMarked=true",
+                JSpecifyJavacConfig.JSPECIFY_MODE_FLAG,
+                JSpecifyJavacConfig.ADD_TYPE_ANNOTATIONS_FLAG,
+                "-XepOpt:NullAway:HandleWildcardGenerics=true"))
+        .addSourceLines(
+            "Test.java",
+            """
+            import java.util.List;
+            import org.jspecify.annotations.NullMarked;
+            import org.jspecify.annotations.Nullable;
+            @NullMarked
+            class Test<T extends @Nullable Object> {
+              static class Box<E extends @Nullable Object> {
+                E get() {
+                  throw new UnsupportedOperationException();
+                }
+              }
+              static <U extends @Nullable Object> U first(List<U> list) {
+                throw new UnsupportedOperationException();
+              }
+              static <X extends @Nullable Object> X ret(X x) {
+                return x;
+              }
+              static <X extends @Nullable Object> void accept(X x) {}
+              static void nonNullParameter(Object o) {}
+              void callResultThroughAGenericCallDereferenced(List<? extends T> list) {
+                ret(first(list)).toString();
+              }
+              void callResultIntoAGenericParameter(List<? extends T> list) {
+                accept(first(list));
+              }
+              void memberCallResultIntoAGenericParameter(Box<? extends T> b) {
+                accept(b.get());
+              }
+              Object memberCallResultReturnedThroughAGenericCall(Box<? extends T> b) {
+                return ret(b.get());
+              }
+              T memberCallResultReturnedAsTheTypeVariable(Box<? extends T> b) {
+                return ret(b.get());
+              }
+              void memberCallResultIntoANonNullParameter(Box<? extends T> b) {
+                // BUG: Diagnostic contains: passing @Nullable parameter 'b.get()'
+                nonNullParameter(b.get());
               }
             }
             """)

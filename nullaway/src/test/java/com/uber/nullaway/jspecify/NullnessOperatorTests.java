@@ -12,12 +12,13 @@ import org.junit.Test;
  * captured against one.
  *
  * <p>Such a value carries the JSpecify {@code NO_CHANGE} nullness operator. Wherever the same type
- * variable {@code T}, or a capture of {@code ? super T}, is expected, it is accepted: as an
- * argument, a return, a field or array store, and a field initializer. An argument is not accepted
- * where a library model requires a non-null one. A type variable that the value's type reaches only
- * through a {@code @Nullable} bound does not accept it. It stays unsafe to dereference while that
- * type variable has a nullable upper bound. An explicit {@code @Nullable}, declared on the member
- * or supplied by a library model, overrides that and is reported at every sink.
+ * variable {@code T}, a capture included, or a capture of {@code ? super T} is expected, it is
+ * accepted: as an argument, a return, a field or array store, and a field initializer. An argument
+ * is not accepted where a library model requires a non-null one. A type variable that the value's
+ * type reaches only through a {@code @Nullable} bound does not accept it. It stays unsafe to
+ * dereference while that type variable has a nullable upper bound. An explicit {@code @Nullable},
+ * declared on the member or supplied by a library model, overrides that and is reported at every
+ * sink.
  *
  * <p>The tests that expect a diagnostic pin where the value stays nullable: a dereference,
  * unboxing, a target of a concrete type such as {@code Object}, a {@code @NonNull T} target or
