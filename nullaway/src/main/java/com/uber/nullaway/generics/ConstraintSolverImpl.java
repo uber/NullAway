@@ -78,7 +78,8 @@ public final class ConstraintSolverImpl implements ConstraintSolver {
      * Whether a type with parametric nullness ({@link GenericsUtils#hasParametricNullness}) that is
      * not under inference flowed into this variable. Such a flow fixes no nullness, but where javac
      * inferred a type with parametric nullness, the variable takes that type with no synthetic
-     * annotation rather than the non-null default.
+     * annotation rather than the non-null default. Recorded only where {@link
+     * Config#isNullableBoundInferenceEnabled} holds.
      */
     boolean parametric;
 
@@ -293,7 +294,8 @@ public final class ConstraintSolverImpl implements ConstraintSolver {
      * bound to be a subtype of {@code S}. For {@code ? extends U}, where {@code U} is an inference
      * variable whose bound excludes null, an actual that is an unannotated, uncaptured type
      * variable {@code T} with an explicitly nullable bound also constrains {@code U} to be
-     * {@code @Nullable}, which no solution satisfies. An actual wildcard or capture bounded by such
+     * {@code @Nullable}, which no solution satisfies; this check runs only where {@link
+     * Config#isNullableBoundInferenceEnabled} holds. An actual wildcard or capture bounded by such
      * a {@code T}, as in {@code Box<? extends T>}, adds no such constraint (#2189). For {@code ?
      * super S}, concrete actual arguments require {@code S <: subtypeTypeArg}; {@code ? super T}
      * actual arguments require {@code S <: T}. Other actual wildcard forms place no useful
@@ -320,7 +322,8 @@ public final class ConstraintSolverImpl implements ConstraintSolver {
             Type supertypeUpperBound =
                 GenericsUtils.wildcardUpperBound(supertypeWildcard, state, config, handler);
             InferenceVariable supertypeVar = inferenceVariableForUse(supertypeUpperBound);
-            if (supertypeWildcard.kind == BoundKind.EXTENDS
+            if (config.isNullableBoundInferenceEnabled()
+                && supertypeWildcard.kind == BoundKind.EXTENDS
                 && supertypeVar != null
                 && !getState(supertypeVar).nullableAllowed) {
               Element typeVariableWithNullableBound =
@@ -505,7 +508,8 @@ public final class ConstraintSolverImpl implements ConstraintSolver {
     if (isKnownNullable(s) && tVar != null) {
       updateNullness(tVar, NullnessState.NULLABLE);
     }
-    if (tVar != null
+    if (config.isNullableBoundInferenceEnabled()
+        && tVar != null
         && sVar == null
         && GenericsUtils.hasParametricNullness(s, config, handler, state)) {
       VarState st = getState(tVar);

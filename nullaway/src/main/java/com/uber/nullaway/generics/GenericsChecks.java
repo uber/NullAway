@@ -3159,7 +3159,9 @@ public final class GenericsChecks {
   /**
    * Returns the type of the method that a generic method reference refers to, with the nullness
    * inferred for its type parameters, where the reference is an argument of a method call or a
-   * diamond {@code new} whose inference succeeded.
+   * diamond {@code new} whose inference succeeded. Where {@link
+   * Config#isNullableBoundInferenceEnabled} is false, only a method call parent is considered and
+   * the nullness is copied onto {@code methodType} rather than onto the type javac inferred.
    *
    * @param memberReferenceTree the generic method reference
    * @param methodType the member type of the referenced method, with the receiver's type arguments
@@ -3168,8 +3170,9 @@ public final class GenericsChecks {
    *     state.getPath()})
    * @return the type javac inferred for the referenced method at the reference, with the inferred
    *     nullness copied onto it; {@code methodType} with that nullness where javac's type has
-   *     another number of parameters; {@code methodType} unchanged where the enclosing call needs
-   *     no inference or its inference failed
+   *     another number of parameters or {@link Config#isNullableBoundInferenceEnabled} is false;
+   *     {@code methodType} unchanged where the enclosing call needs no inference, or is not a
+   *     method call while that predicate is false, or its inference failed
    */
   private Type.MethodType getInferredMethodTypeForGenericMethodReference(
       MemberReferenceTree memberReferenceTree, Type.MethodType methodType, VisitorState state) {
@@ -3178,7 +3181,9 @@ public final class GenericsChecks {
       parentPath = parentPath.getParentPath();
     }
     Tree parentTree = parentPath != null ? parentPath.getLeaf() : null;
+    boolean useInferredReferentType = config.isNullableBoundInferenceEnabled();
     if (parentTree instanceof ExpressionTree parentExpression
+        && (useInferredReferentType || parentTree instanceof MethodInvocationTree)
         && isCallNeedingInference(parentExpression)) {
       CallInferenceResult inferenceResult =
           inferredTypeVarNullabilityForGenericCalls.get(parentTree);
@@ -3191,7 +3196,8 @@ public final class GenericsChecks {
         // arity falls back to the declared type; no call shape is known to produce one, a
         // varargs method referenced with two arguments included
         Type.MethodType typeToUpdate =
-            referentType instanceof Type.MethodType referentMethodType
+            useInferredReferentType
+                    && referentType instanceof Type.MethodType referentMethodType
                     // diff-coverage: ignore -- defensive guard, no known call shape reaches it
                     && referentMethodType.getParameterTypes().size()
                         == methodType.getParameterTypes().size()
@@ -4049,7 +4055,8 @@ public final class GenericsChecks {
         && invokedMethodType instanceof Type.ForAll forAllType) {
       return substituteTypeArgsInGenericMethodType(
           tree, forAllType, path, state, calledFromDataflow);
-    } else if (tree instanceof NewClassTree newClassTree
+    } else if (config.isNullableBoundInferenceEnabled()
+        && tree instanceof NewClassTree newClassTree
         && invokedMethodType instanceof Type.ForAll forAllType) {
       invokedMethodType = substituteInferredConstructorTypeArgs(newClassTree, forAllType, state);
     }
@@ -4109,9 +4116,16 @@ public final class GenericsChecks {
    * Infers the nullness shared by all PolyNull occurrences when no jointly inferred value is
    * available. This includes non-generic calls and generic calls with explicit type arguments.
    *
-   * <p>All modeled locations share one synthetic type variable. Ordinary assignment-compatibility
-   * constraints select {@code @NonNull} unless an argument or the result target requires
-   * {@code @Nullable}.
+   * <p>All modeled locations share one synthetic type variable, which ordinary
+   * assignment-compatibility constraints fix as {@code @Nullable} or {@code @NonNull} where an
+   * argument or the result target requires it. Where no constraint fixes it and an argument passes
+   * a type variable with parametric nullness, each location takes the annotation {@link
+   * GenericsUtils#inferredNullnessAnnotation} gives it: a location where javac inferred a type
+   * variable with parametric nullness or an intersection type stays unannotated, and any other
+   * location is {@code @Nullable} where the bound of the passed type variable is explicitly
+   * nullable, and {@code @NonNull} otherwise. So with a {@code Supplier<T>} argument, {@code T
+   * extends @Nullable Object}, and no non-null result target, a location inferred as {@code T}
+   * stays {@code T} and a class-type location becomes {@code @Nullable}.
    *
    * @return the inferred shared nullness, or {@code null} if no modeled parameter location applies.
    *     Unsatisfiable constraints return {@code null} when {@code WarnOnGenericInferenceFailure} is
@@ -4278,9 +4292,9 @@ public final class GenericsChecks {
   /**
    * Returns the type of a generic constructor at a diamond call, with the nullness inferred for the
    * constructor's own type variables. Returns {@code forAllType} unchanged where the call has
-   * explicit type arguments or no inference result, and where the constructor javac resolved has
-   * more parameters than the declared one, as the constructor of an anonymous subclass of an inner
-   * class has: it takes the enclosing instance first.
+   * explicit type arguments, where its inference did not run or failed, and where the constructor
+   * javac resolved has more parameters than the declared one, as the constructor of an anonymous
+   * subclass of an inner class has: it takes the enclosing instance first.
    *
    * @param tree the constructor call
    * @param forAllType the constructor's type, with the class type variables already substituted

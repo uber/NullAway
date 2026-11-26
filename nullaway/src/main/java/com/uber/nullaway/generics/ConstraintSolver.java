@@ -148,7 +148,9 @@ public interface ConstraintSolver {
     /**
      * A constraint fixed the variable to be non-null, or no constraint fixed it and no unannotated
      * type variable that is not under inference and whose bound admits null flowed into it, so
-     * non-null is the least solution.
+     * non-null is the least solution. The solver tracks such a flow only where {@link
+     * com.uber.nullaway.Config#isNullableBoundInferenceEnabled} holds; otherwise every variable
+     * that no constraint fixed is {@code NONNULL}.
      */
     NONNULL,
     /** A constraint fixed the variable to be nullable. */

@@ -2520,18 +2520,42 @@ public class WildcardTests extends NullAwayTestsBase {
                 return u;
               }
               void constructorTakingAListOfNullableElements(List<@Nullable String> l) {
-                // a false positive: W of a generic constructor at a diamond is not inferred (#1825)
-                // BUG: Diagnostic contains: passing @Nullable parameter 'null' where @NonNull is required
-                var c = new ListAndElement<>(l, null, "x");
+                var c =
+                    new ListAndElement<>(
+                        l,
+                        // a false positive: W of a generic constructor at a diamond is not inferred
+                        // (#1825)
+                        // BUG: Diagnostic contains: passing @Nullable parameter 'null' where @NonNull is required
+                        null,
+                        "x");
               }
               void constructorTakingAGenericMethodReference(@Nullable String s) {
-                // a false positive: W of a generic constructor at a diamond is not inferred (#1825)
-                // BUG: Diagnostic contains: passing @Nullable parameter 's' where @NonNull is required
-                var c = new Mapped<>(s, Test::identity);
+                var c =
+                    new Mapped<>(
+                        // a false positive: W of a generic constructor at a diamond is not inferred
+                        // (#1825)
+                        // BUG: Diagnostic contains: passing @Nullable parameter 's' where @NonNull is required
+                        s,
+                        Test::identity);
               }
               void methodReferenceOutsideACall() {
                 Function<String, List<String>> f = Test::singleton;
                 f = (Test::singleton);
+              }
+              static class TwoLists<E> {
+                <U> TwoLists(U a, U b) {}
+              }
+              static <V> V nonNullIdentity(V v) {
+                return v;
+              }
+              <X> void takeFn(X x, Function<List<T>, List<@Nullable T>> f) {}
+              void genericConstructorAtADiamondTakingTwoLists(List<T> a, List<@Nullable T> b) {
+                // BUG: Diagnostic contains: incompatible types: List<@Nullable T> cannot be converted to List<T>
+                var c = new TwoLists<>(a, b);
+              }
+              void genericMethodReferenceUnderAGenericCall() {
+                // BUG: Diagnostic contains: referenced method returns List<T>, but functional interface method returns List<@Nullable T>
+                takeFn("x", Test::nonNullIdentity);
               }
             }
             """)
@@ -2642,8 +2666,12 @@ public class WildcardTests extends NullAwayTestsBase {
               static <E extends @Nullable Object> E pick(E a, E b) {
                 return a;
               }
-              void f(T t) {
+              void intersection(T t) {
                 pick(t, new B()).run();
+              }
+              void classType(T t) {
+                // BUG: Diagnostic contains: dereferenced expression 'pick(t, new A())' is @Nullable
+                pick(t, new A()).run();
               }
             }
             """)
@@ -2658,10 +2686,10 @@ public class WildcardTests extends NullAwayTestsBase {
   @Test
   public void aCaptureWhoseBoundAdmitsNullStaysAsInferredWithWildcardHandlingDisabled() {
     makeTestHelperWithArgs(
-            List.of(
-                "-XepOpt:NullAway:OnlyNullMarked=true",
-                JSpecifyJavacConfig.JSPECIFY_MODE_FLAG,
-                JSpecifyJavacConfig.ADD_TYPE_ANNOTATIONS_FLAG))
+            JSpecifyJavacConfig.withJSpecifyModeArgs(
+                Arrays.asList(
+                    "-XepOpt:NullAway:OnlyNullMarked=true",
+                    "-XepOpt:NullAway:HandleWildcardGenerics=false")))
         .addSourceLines(
             "Test.java",
             """
@@ -2686,6 +2714,9 @@ public class WildcardTests extends NullAwayTestsBase {
               static <U extends @Nullable Object> U first(Iterable<U> elements) {
                 throw new UnsupportedOperationException();
               }
+              static <U extends @Nullable Object> U pick(U a, U b) {
+                return a;
+              }
               Seq<?> anySeq() {
                 throw new UnsupportedOperationException();
               }
@@ -2708,6 +2739,10 @@ public class WildcardTests extends NullAwayTestsBase {
               }
               void wildcardBoundedByATypeVariable() {
                 T t = first(seqOfT());
+              }
+              void wildcardBoundedByATypeVariableIntoAClassTypeResult() {
+                // BUG: Diagnostic contains: dereferenced expression 'pick(first(seqOfT()), "x")' is @Nullable
+                pick(first(seqOfT()), "x").toString();
               }
               void nullableTypeArgument() {
                 // BUG: Diagnostic contains: dereferenced expression 'first(nullableStrings())' is @Nullable
@@ -3085,6 +3120,148 @@ public class WildcardTests extends NullAwayTestsBase {
                     List<S> copy = Source.Box.copy(in);
                   }
                 }
+              }
+            }
+            """)
+        .doTest();
+  }
+
+  @Test
+  public void aTypeVariableWithANullableBoundChangesNoReportWithJSpecifyModeAlone() {
+    makeTestHelperWithArgs(
+            List.of(
+                "-XepOpt:NullAway:OnlyNullMarked=true",
+                JSpecifyJavacConfig.JSPECIFY_MODE_FLAG,
+                JSpecifyJavacConfig.ADD_TYPE_ANNOTATIONS_FLAG))
+        .addSourceLines(
+            "Test.java",
+            """
+            import java.util.List;
+            import java.util.Objects;
+            import java.util.function.Function;
+            import org.jspecify.annotations.NullMarked;
+            import org.jspecify.annotations.Nullable;
+            @NullMarked
+            class Test<T extends @Nullable Object> {
+              static <U extends @Nullable Object> U pick(U a, U b) {
+                return a;
+              }
+              static <E extends @Nullable Object> List<E> of(E a, E b) {
+                throw new UnsupportedOperationException();
+              }
+              static class C<E> {
+                <U> C(U a, U b) {}
+              }
+              static <U> void m(U a, U b) {}
+              static <V> V identity(V v) {
+                return v;
+              }
+              <X> void takeFn(X x, Function<List<T>, List<@Nullable T>> f) {}
+              static class Mapped<E extends @Nullable Object> {
+                <W extends @Nullable Object> Mapped(W w, Function<W, E> f) {}
+              }
+              static class ListAndElement<E> {
+                <W extends @Nullable Object> ListAndElement(List<W> ws, W w, E e) {}
+              }
+              static <U extends @Nullable Object> U nullableIdentity(U u) {
+                return u;
+              }
+              static <A extends @Nullable Object> void apply(A a, Function<A, A> f) {}
+              void typeVariable(T t) {
+                pick(t, "x").toString();
+              }
+              void typeVariableAfterRequireNonNull(T t) {
+                T checked = Objects.requireNonNull(t);
+                pick(checked, "x").toString();
+              }
+              void typeVariableInAnEnhancedFor(T t) {
+                for (Object o : of(t, "x")) {
+                  o.toString();
+                }
+              }
+              void nullableArgument(@Nullable String s) {
+                // BUG: Diagnostic contains: dereferenced expression 'pick(s, "x")' is @Nullable
+                pick(s, "x").toString();
+              }
+              void genericConstructorAtADiamond(List<T> a, List<@Nullable T> b) {
+                var c = new C<>(a, b);
+              }
+              void genericMethod(List<T> a, List<@Nullable T> b) {
+                // BUG: Diagnostic contains: incompatible types: List<@Nullable T> cannot be converted to List<T>
+                m(a, b);
+              }
+              void genericMethodReferenceUnderAGenericCall() {
+                takeFn("x", Test::identity);
+              }
+              void genericMethodReferenceTakingANullableArgument(@Nullable String s) {
+                apply(s, Test::nullableIdentity);
+              }
+              void genericConstructorTakingAListOfNullableElements(List<@Nullable String> l) {
+                var c =
+                    new ListAndElement<>(
+                        // a false positive that JSpecifyExperimental removes
+                        // BUG: Diagnostic contains: incompatible types: List<@Nullable String> cannot be converted to List<W>
+                        l,
+                        // a false positive: W of a generic constructor at a diamond is not inferred
+                        // (#1825)
+                        // BUG: Diagnostic contains: passing @Nullable parameter 'null' where @NonNull is required
+                        null,
+                        "x");
+              }
+              void genericMethodReferenceUnderADiamond(@Nullable String s) {
+                var mapped =
+                    new Mapped<>(
+                        // a false positive: W of a generic constructor at a diamond is not inferred
+                        // (#1825)
+                        // BUG: Diagnostic contains: passing @Nullable parameter 's' where @NonNull is required
+                        s,
+                        // a false positive that JSpecifyExperimental removes
+                        // BUG: Diagnostic contains: parameter u of referenced method is @NonNull
+                        Test::nullableIdentity);
+              }
+            }
+            """)
+        .doTest();
+  }
+
+  @Test
+  public void aTypeVariableWithANullableBoundFailsNoInferenceWithoutJSpecifyExperimental() {
+    makeTestHelperWithArgs(
+            List.of(
+                "-XepOpt:NullAway:OnlyNullMarked=true",
+                JSpecifyJavacConfig.JSPECIFY_MODE_FLAG,
+                JSpecifyJavacConfig.ADD_TYPE_ANNOTATIONS_FLAG,
+                "-XepOpt:NullAway:HandleWildcardGenerics=true",
+                "-XepOpt:NullAway:WarnOnGenericInferenceFailure=true"))
+        .addSourceLines(
+            "Test.java",
+            """
+            import org.jspecify.annotations.NullMarked;
+            import org.jspecify.annotations.Nullable;
+            @NullMarked
+            class Test<T extends @Nullable Object> {
+              static class Box<E extends @Nullable Object> {}
+              static <U> U nonNullVariable(Box<? extends U> b) {
+                throw new UnsupportedOperationException();
+              }
+              static <U extends @Nullable Object> U pick(U a, U b) {
+                return a;
+              }
+              static class GenericConstructor<E> {
+                <W> GenericConstructor(Box<? extends W> b) {}
+              }
+              void typeVariable(Box<T> b) {
+                Object o = nonNullVariable(b);
+              }
+              void typeVariableIntoADiamond(Box<T> b) {
+                var c = new GenericConstructor<>(b);
+              }
+              void typeVariableIntoAClassTypeResult(T t) {
+                pick(t, "x").toString();
+              }
+              void nullableTypeArgument(Box<@Nullable String> b) {
+                // BUG: Diagnostic contains: inference failure
+                Object o = nonNullVariable(b);
               }
             }
             """)
