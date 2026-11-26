@@ -63,7 +63,8 @@ final class PolyNullInference {
    * <p>Each location takes the annotation that {@link GenericsUtils#inferredNullnessAnnotation}
    * gives its type, as the type javac inferred for a method's own type variable does in {@link
    * TypeSubstitutionUtils}. A type variable with a nullness annotation, such as an explicit type
-   * argument, takes the PolyNull annotation.
+   * argument, takes {@code @Nullable} for {@code NULLABLE} and {@code TYPE_VARIABLE_OR_NULLABLE},
+   * and {@code @NonNull} otherwise.
    */
   @SuppressWarnings({"ReferenceEquality", "TypeEquals"}) // deliberate reference equality checks
   static Type.MethodType applyToMethodType(

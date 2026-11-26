@@ -623,9 +623,12 @@ public class TypeSubstitutionUtils {
      * The inferred nullness whose {@link
      * ConstraintSolver.InferredNullability#TYPE_VARIABLE_OR_NULLABLE} and {@link
      * ConstraintSolver.InferredNullability#TYPE_VARIABLE_OR_NONNULL} variables this visitor
-     * resolves against the visited type, or {@code null} to resolve none. Set only when copying
-     * inferred nullness onto the type javac inferred, the one step that can tell a type variable
-     * from any other type.
+     * resolves against the visited type, or {@code null} to resolve none. Set only in the step that
+     * copies inferred nullness onto the destination type, which is the type javac inferred wherever
+     * one is available; that step alone can tell whether javac inferred a type variable or a class
+     * type. The destination is a declared type where {@link Config#isNullableBoundInferenceEnabled}
+     * is false, and then the solver produces none of these variables, and where javac's type for a
+     * referenced method has another number of parameters.
      */
     private final @Nullable InferredTypeVariableNullness inferredNullness;
 

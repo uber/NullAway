@@ -61,7 +61,8 @@ public final class NestedTypePathUpdater extends Types.MapVisitor<Integer> {
    * that type, as {@link #addAnnotation(Type, ImmutableList, Type)} adds a fixed one; where {@code
    * annotationFor} returns {@code null}, the type stays unchanged. A wildcard or a captured type
    * variable at {@code typePath} is passed to {@code annotationFor} itself, and the annotation it
-   * returns lands on the bound.
+   * returns is added to its upper bound: the bound of {@code ? extends}, the upper bound of the
+   * corresponding type parameter for another wildcard, or the upper bound of the capture.
    *
    * @return the updated type, or the original {@code type} instance if no change was made
    */
