@@ -21,6 +21,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import javax.lang.model.element.Element;
+import javax.lang.model.type.NoType;
 import javax.lang.model.type.NullType;
 import org.jspecify.annotations.Nullable;
 
@@ -141,27 +142,33 @@ final class FullTypeBounds {
       return null;
     }
     try {
-      List<Type> lower = new ArrayList<>();
-      List<Type> upper = new ArrayList<>();
-      List<Type> declared = new ArrayList<>();
-      collect(variable, true, lower, new ArrayList<>(), new LinkedHashSet<>());
-      collect(variable, false, upper, declared, new LinkedHashSet<>());
-      for (Type declarationBound : declared) {
+      List<Type> collectedLowerBounds = new ArrayList<>();
+      List<Type> collectedUpperBounds = new ArrayList<>();
+      List<Type> collectedDeclared = new ArrayList<>();
+      collect(variable, true, collectedLowerBounds, new ArrayList<>(), new LinkedHashSet<>());
+      collect(variable, false, collectedUpperBounds, collectedDeclared, new LinkedHashSet<>());
+      for (Type declarationBound : collectedDeclared) {
         // For <T, U extends T>, top-level nullability inference does not propagate U <: T.
         // Retain only top-level nullability rather than assume this dependent bound was checked.
         if (variable(declarationBound) != null) {
           return null;
         }
       }
-      boolean fromLower = !lower.isEmpty();
-      List<Type> candidates =
-          resolveBounds(fromLower ? lower : upper, nullability, resolving, completed);
-      if (candidates == null) {
+      // prefer to resolve lower bounds for the candidates since they capture actual data flow
+      // coming in, potentially yielding a more precise type.  This matters for array types, e.g.,
+      // if you have String[] <: T <: @Nullable String[]
+      boolean fromLower = !collectedLowerBounds.isEmpty();
+      List<Type> resolvedBounds =
+          resolveBounds(
+              fromLower ? collectedLowerBounds : collectedUpperBounds,
+              nullability,
+              resolving,
+              completed);
+      if (resolvedBounds == null) {
         return null;
       }
       Type candidate = null;
-      for (Type resolved : candidates) {
-        // An upper bound can supply annotations only when its Java type structure matches.
+      for (Type resolved : resolvedBounds) {
         Type projected = project(javacInstantiation, resolved, fromLower);
         if (projected == null) {
           return null;
@@ -178,16 +185,22 @@ final class FullTypeBounds {
       // Projection and merging already make each lower bound compatible with the candidate:
       // covariant nullability is joined, and invariant annotations must agree.
       List<Type> resolvedUpper =
-          fromLower ? resolveBounds(upper, nullability, resolving, completed) : candidates;
+          fromLower
+              ? resolveBounds(collectedUpperBounds, nullability, resolving, completed)
+              : resolvedBounds;
       if (resolvedUpper == null) {
         return null;
       }
-      for (Type resolved : resolvedUpper) {
-        if (!compatible(candidate, resolved, true, false)) {
-          return null;
+      // Check compatibility of candidate with resolved upper bounds.  We can only have an
+      // incompatibility if resolvedBounds were computed from lower bounds
+      if (fromLower) {
+        for (Type resolved : resolvedUpper) {
+          if (!compatible(candidate, resolved, true, false)) {
+            return null;
+          }
         }
       }
-      for (Type bound : declared) {
+      for (Type bound : collectedDeclared) {
         Type resolved = resolveType(bound, nullability, resolving, completed);
         if (resolved == null || !compatible(candidate, resolved, true, false)) {
           return null;
@@ -237,10 +250,11 @@ final class FullTypeBounds {
     if (!lower) {
       declared.add(variableBounds.declaredUpper);
     }
-    for (Type bound : lower ? variableBounds.lower : variableBounds.upper) {
-      InferenceVariable peer = variable(bound);
-      if (peer != null) {
-        collect(peer, lower, result, declared, visited);
+    List<Type> relevantBounds = lower ? variableBounds.lower : variableBounds.upper;
+    for (Type bound : relevantBounds) {
+      InferenceVariable inferenceVariableForBound = variable(bound);
+      if (inferenceVariableForBound != null) {
+        collect(inferenceVariableForBound, lower, result, declared, visited);
       } else if (!(bound instanceof NullType)) {
         result.add(bound);
       }
@@ -315,13 +329,17 @@ final class FullTypeBounds {
 
   /**
    * Projects bound annotations onto javac's instantiation, or returns null if projection is
-   * unsupported. Mapping a bound to a supertype with {@code asSuper} is allowed only in covariant
-   * positions; class arguments and enclosing types are invariant. For example, {@code
-   * ArrayList<@Nullable String>} can supply annotations for {@code List<String>}, but {@code
-   * List<ArrayList<String>>} cannot supply them for {@code List<List<String>>}. Replaces
-   * nullability annotations on javac's inferred type with those from the bound.
+   * unsupported. In covariant positions, {@code asSuper} can widen a lower bound to match javac's
+   * inferred type. An upper bound must already have the same Java type structure. Class arguments
+   * and enclosing types are invariant and must also match. For example, {@code ArrayList<@Nullable
+   * String>} can supply annotations for {@code List<String>}, but {@code List<ArrayList<String>>}
+   * cannot supply them for {@code List<List<String>>}. Replaces nullability annotations on javac's
+   * inferred type with those from the bound.
    */
   private @Nullable Type project(Type javacInstantiation, Type bound, boolean covariant) {
+    if (javacInstantiation instanceof NoType) {
+      return javacInstantiation;
+    }
     if (javacInstantiation instanceof Type.ArrayType array
         && bound instanceof Type.ArrayType actual) {
       Type element = project(array.elemtype, actual.elemtype, covariant);
