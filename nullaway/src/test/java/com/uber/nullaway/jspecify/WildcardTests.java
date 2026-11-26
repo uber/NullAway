@@ -2562,7 +2562,7 @@ public class WildcardTests extends NullAwayTestsBase {
                 nestedBound(l, "x").hashCode();
               }
               Object throughAnUnmarkedBound() {
-                // U extends R relates nothing in unannotated code, where the bound of U admits null
+                // inference reads no U <: R where U is declared in unannotated code
                 return Legacy.choose("fallback", null);
               }
             }
@@ -2574,7 +2574,7 @@ public class WildcardTests extends NullAwayTestsBase {
             import org.jspecify.annotations.NullMarked;
             @NullMarked
             class ModeledDeclaredBound {
-              // The test library model makes the bound of U nullable, so U extends R relates nothing.
+              // The test library model makes the bound of U nullable, so inference reads no U <: R.
               static <R, U extends R> R choose(R r, U u) {
                 return r;
               }

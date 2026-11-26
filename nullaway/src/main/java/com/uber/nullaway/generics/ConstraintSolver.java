@@ -183,8 +183,9 @@ public interface ConstraintSolver {
   /**
    * Solve the constraints, returning a map from inference variables to their inferred nullability.
    * The map only contains inference variables that appear in constraints or, where {@link
-   * com.uber.nullaway.Config#isNullableBoundInferenceEnabled} holds, in the declared bound of such
-   * a variable.
+   * com.uber.nullaway.Config#isNullableBoundInferenceEnabled} holds, that such a variable reaches
+   * through a chain of declared bounds read as {@code U <: R}: for {@code <Q, R extends Q, U
+   * extends R>} with only {@code U} constrained, the map holds {@code U}, {@code R}, and {@code Q}.
    *
    * @return a map from inference variables to their inferred nullability
    * @throws UnsatisfiableConstraintsException if the constraints are determined to be unsatisfiable
