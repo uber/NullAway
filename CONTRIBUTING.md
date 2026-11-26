@@ -43,6 +43,9 @@ If you have permission, explicitly apply the `bug` label, for example with `gh i
 Requesting features
 -------------------
 
+> [!NOTE]
+> Before filing, search [existing issues, including closed ones](https://github.com/uber/NullAway/issues?q=is%3Aissue). Before requesting support for an annotation or a JSpecify feature, check [Supported annotations](https://github.com/uber/NullAway/wiki/Supported-Annotations) and [JSpecify support](https://github.com/uber/NullAway/wiki/JSpecify-Support).
+
 The web UI provides a [feature request form](https://github.com/uber/NullAway/issues/new?template=feature_request.yml). For requests filed through `gh` or an API, include these required sections:
 
 * `### Problem or use case`: what you are trying to do and what NullAway does today that prevents it. If an existing option did not help, say what happened.
