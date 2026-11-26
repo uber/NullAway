@@ -78,7 +78,7 @@ body:
     id: nullaway_version
     attributes:
       label: NullAway version
-      description: The version of `com.uber.nullaway:nullaway`, with major, minor, and patch, or the commit if using an unreleased build.
+      description: The version of `com.uber.nullaway:nullaway`, or the commit if using an unreleased build.
       placeholder: "e.g. 0.14.2"
     validations:
       required: true
