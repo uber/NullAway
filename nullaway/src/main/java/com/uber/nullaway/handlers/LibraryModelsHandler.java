@@ -44,6 +44,7 @@ import com.google.common.collect.SetMultimap;
 import com.google.errorprone.VisitorState;
 import com.google.errorprone.util.ASTHelpers;
 import com.sun.source.tree.ExpressionTree;
+import com.sun.source.tree.MemberSelectTree;
 import com.sun.source.tree.MethodInvocationTree;
 import com.sun.tools.javac.code.Symbol;
 import com.sun.tools.javac.code.Type;
@@ -301,7 +302,7 @@ public class LibraryModelsHandler implements Handler {
     if (isNullableFieldInLibraryModels(exprSymbol)) {
       return true;
     }
-    if (!(expr instanceof MethodInvocationTree
+    if (!(expr instanceof MethodInvocationTree invocation
         && exprSymbol instanceof Symbol.MethodSymbol methodSymbol)) {
       return exprMayBeNull;
     }
@@ -310,6 +311,11 @@ public class LibraryModelsHandler implements Handler {
     if (NullabilityUtil.isMapGetOrDefault(methodSymbol, state)) {
       return true;
     }
+
+    if (isCanonicalNameOfClassLiteral(invocation, methodSymbol, state)) {
+      return false;
+    }
+
     OptimizedLibraryModels optLibraryModels = getOptLibraryModels(state.context);
     // A model of a method's return nullness matches the exact signature when the method is
     // annotated: the overriding method carries its own annotations, and an inherited model must
@@ -396,6 +402,10 @@ public class LibraryModelsHandler implements Handler {
       }
       return anyNull ? NullnessHint.HINT_NULLABLE : NullnessHint.FORCE_NONNULL;
     }
+
+    if (isCanonicalNameOfClassLiteral(castToNonNull(node.getTree()), callee, state)) {
+      return NullnessHint.FORCE_NONNULL;
+    }
     if (optLibraryModels.hasNonNullReturn(callee, types, !isMethodAnnotated)) {
       return NullnessHint.FORCE_NONNULL;
     } else if (optLibraryModels.hasNullableReturn(callee, types, !isMethodAnnotated)) {
@@ -428,6 +438,40 @@ public class LibraryModelsHandler implements Handler {
       return libraryModels.nullableFields().contains(fieldRef(enclosingClassName, fieldName));
     }
     return false;
+  }
+
+  /**
+   * Checks whether {@code invocation} calls {@link Class#getCanonicalName()} directly on a class
+   * literal whose type has a canonical name, in which case the result is never {@code null}.
+   *
+   * <p>Per JLS 6.7, a class has no canonical name if it is local or anonymous, or if it is a member
+   * of a class without a canonical name; an array type has a canonical name iff its element type
+   * does. Anonymous classes have no class literal, so for a literal it suffices to check that the
+   * (element) type is not directly or indirectly local. Receivers that are not class literals, e.g.
+   * {@code clazz.getCanonicalName()} or {@code obj.getClass().getCanonicalName()}, never match.
+   *
+   * <p>No check on the owner of {@code callee} is needed: a class literal always has type {@code
+   * Class}, so the only {@code getCanonicalName} method it can invoke is {@code
+   * Class#getCanonicalName()}.
+   *
+   * @param invocation the method invocation to check
+   * @param callee the symbol of the invoked method
+   * @param state the visitor state
+   * @return true if the invocation is known to return a non-null value
+   */
+  private static boolean isCanonicalNameOfClassLiteral(
+      MethodInvocationTree invocation, Symbol.MethodSymbol callee, VisitorState state) {
+    if (!callee.name.contentEquals("getCanonicalName")
+        || !(ASTHelpers.getReceiver(invocation) instanceof MemberSelectTree literal)
+        || !literal.getIdentifier().contentEquals("class")) {
+      return false;
+    }
+    Types types = state.getTypes();
+    Type type = castToNonNull(ASTHelpers.getType(literal.getExpression()));
+    while (types.isArray(type)) {
+      type = types.elemtype(type);
+    }
+    return !type.tsym.isDirectlyOrIndirectlyLocal();
   }
 
   private void setConditionalArgumentNullness(

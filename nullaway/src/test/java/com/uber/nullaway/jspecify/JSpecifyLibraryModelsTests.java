@@ -247,6 +247,164 @@ public class JSpecifyLibraryModelsTests extends NullAwayTestsBase {
         .doTest();
   }
 
+  @Test
+  public void getCanonicalNameOnClassLiteral() {
+    makeHelper()
+        .addSourceLines(
+            "Test.java",
+            """
+            import java.util.Map;
+            import java.util.function.IntSupplier;
+            import org.jspecify.annotations.NullMarked;
+
+            @NullMarked
+            class Test {
+              static class Member {
+                static class MemberOfMember {}
+              }
+
+              Class<?> field = String.class;
+
+              static void takesNonNull(String s) {}
+
+              // ---- class literals of types with a canonical name: non-null ----
+
+              int topLevelClass() {
+                return String.class.getCanonicalName().length();
+              }
+
+              int memberClass() {
+                return Map.Entry.class.getCanonicalName().length();
+              }
+
+              int memberOfMemberClass() {
+                return Member.MemberOfMember.class.getCanonicalName().length();
+              }
+
+              int primitiveType() {
+                return int.class.getCanonicalName().length();
+              }
+
+              int voidType() {
+                return void.class.getCanonicalName().length();
+              }
+
+              int arrayOfTopLevelClass() {
+                return String[].class.getCanonicalName().length();
+              }
+
+              int arrayOfPrimitive() {
+                return int[][].class.getCanonicalName().length();
+              }
+
+              int viaLocalVariable() {
+                String name = String.class.getCanonicalName();
+                return name.length();
+              }
+
+              String returnedFromNonNullMethod() {
+                return String.class.getCanonicalName();
+              }
+
+              void passedAsNonNullArgument() {
+                takesNonNull(String.class.getCanonicalName());
+              }
+
+              // ---- class literals of types without a canonical name: nullable ----
+
+              int localClass() {
+                class Local {}
+                // BUG: Diagnostic contains: dereferenced expression 'Local.class.getCanonicalName()' is @Nullable
+                return Local.class.getCanonicalName().length();
+              }
+
+              int memberOfLocalClass() {
+                class Local {
+                  class Inner {}
+                }
+                // BUG: Diagnostic contains: dereferenced expression 'Local.Inner.class.getCanonicalName()' is @Nullable
+                return Local.Inner.class.getCanonicalName().length();
+              }
+
+              int arrayOfLocalClass() {
+                class Local {}
+                // BUG: Diagnostic contains: dereferenced expression 'Local[].class.getCanonicalName()' is @Nullable
+                return Local[].class.getCanonicalName().length();
+              }
+
+              int localRecord() {
+                record LocalRecord() {}
+                // BUG: Diagnostic contains: dereferenced expression 'LocalRecord.class.getCanonicalName()' is @Nullable
+                return LocalRecord.class.getCanonicalName().length();
+              }
+
+              int localEnum() {
+                enum LocalEnum { A }
+                // BUG: Diagnostic contains: dereferenced expression 'LocalEnum.class.getCanonicalName()' is @Nullable
+                return LocalEnum.class.getCanonicalName().length();
+              }
+
+              int localInterface() {
+                interface LocalInterface {}
+                // BUG: Diagnostic contains: dereferenced expression 'LocalInterface.class.getCanonicalName()' is @Nullable
+                return LocalInterface.class.getCanonicalName().length();
+              }
+
+              int localClassInLambda() {
+                IntSupplier supplier = () -> {
+                  class InLambda {}
+                  // BUG: Diagnostic contains: dereferenced expression 'InLambda.class.getCanonicalName()' is @Nullable
+                  return InLambda.class.getCanonicalName().length();
+                };
+                return supplier.getAsInt();
+              }
+
+              int localClassViaLocalVariable() {
+                class Local {}
+                String name = Local.class.getCanonicalName();
+                // BUG: Diagnostic contains: dereferenced expression 'name' is @Nullable
+                return name.length();
+              }
+
+              String localClassReturned() {
+                class Local {}
+                // BUG: Diagnostic contains: returning @Nullable expression from method with @NonNull return type
+                return Local.class.getCanonicalName();
+              }
+
+              void localClassPassedAsArgument() {
+                class Local {}
+                // BUG: Diagnostic contains: passing @Nullable parameter 'Local.class.getCanonicalName()' where @NonNull is required
+                takesNonNull(Local.class.getCanonicalName());
+              }
+
+              // ---- receivers that are not class literals: remain nullable ----
+
+              int classTypedParameter(Class<?> clazz) {
+                // BUG: Diagnostic contains: dereferenced expression 'clazz.getCanonicalName()' is @Nullable
+                return clazz.getCanonicalName().length();
+              }
+
+              int fieldReceiver() {
+                // BUG: Diagnostic contains: dereferenced expression 'this.field.getCanonicalName()' is @Nullable
+                return this.field.getCanonicalName().length();
+              }
+
+              int getClassReceiver(Object o) {
+                // BUG: Diagnostic contains: dereferenced expression 'o.getClass().getCanonicalName()' is @Nullable
+                return o.getClass().getCanonicalName().length();
+              }
+
+              int literalStoredInLocalVariable() {
+                Class<?> clazz = String.class;
+                // BUG: Diagnostic contains: dereferenced expression 'clazz.getCanonicalName()' is @Nullable
+                return clazz.getCanonicalName().length();
+              }
+            }
+            """)
+        .doTest();
+  }
+
   private CompilationTestHelper makeHelper() {
     return makeTestHelperWithArgs(
         JSpecifyJavacConfig.withJSpecifyModeArgs(
