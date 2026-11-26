@@ -11,8 +11,9 @@ import org.junit.Test;
  * Fails when NullAway changes how it treats a value whose type is a type variable, or a wildcard
  * captured against one.
  *
- * <p>Such a value carries the JSpecify {@code NO_CHANGE} nullness operator. Wherever the same type
- * variable {@code T}, a capture included, or a capture of {@code ? super T} is expected, it is
+ * <p>Such a value carries the JSpecify {@code NO_CHANGE} nullness operator. Wherever the value's
+ * own type, such as the capture of {@code ? extends T}, a type variable that type reaches through
+ * non-nullable bounds, such as {@code T}, or a capture of {@code ? super T} is expected, it is
  * accepted: as an argument, a return, a field or array store, and a field initializer. An argument
  * is not accepted where a library model requires a non-null one. A type variable that the value's
  * type reaches only through a {@code @Nullable} bound does not accept it. It stays unsafe to
@@ -1159,6 +1160,21 @@ public class NullnessOperatorTests extends NullAwayTestsBase {
               }
               static <T extends @Nullable Object> void objectBound(
                   Box<? extends T> box, Function<? super Object, String> f) {
+                // BUG: Diagnostic contains: passing @Nullable parameter 'box.get()'
+                f.apply(box.get());
+              }
+              static <T extends @Nullable Object, U extends T> void nonNullChain(
+                  Box<? extends U> box, Function<? super T, String> f) {
+                f.apply(box.get());
+              }
+              static <T extends @Nullable Object, U extends @Nullable T> void nullableChain(
+                  Box<? extends U> box, Function<? super T, String> f) {
+                // BUG: Diagnostic contains: passing @Nullable parameter 'box.get()'
+                f.apply(box.get());
+              }
+              static <T extends @Nullable Object, U extends @Nullable T, V extends U>
+                  void nullableChainTwoBoundsDeep(
+                      Box<? extends V> box, Function<? super T, String> f) {
                 // BUG: Diagnostic contains: passing @Nullable parameter 'box.get()'
                 f.apply(box.get());
               }
