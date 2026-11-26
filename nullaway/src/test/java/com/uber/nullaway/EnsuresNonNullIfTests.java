@@ -427,6 +427,110 @@ public class EnsuresNonNullIfTests extends NullAwayTestsBase {
   }
 
   @Test
+  public void ensuresNonNullIfOnOtherReceiver() {
+    defaultCompilationHelper
+        .addSourceLines(
+            "Foo.java",
+            """
+            package com.uber;
+            import javax.annotation.Nullable;
+            import com.uber.nullaway.annotations.EnsuresNonNullIf;
+            class Foo {
+              @Nullable Item nullableItem;
+              @EnsuresNonNullIf("nullableItem")
+              public boolean hasNullableItem() {
+                return nullableItem != null;
+              }
+              @EnsuresNonNullIf(value="nullableItem", result=false)
+              public boolean lacksNullableItem() {
+                return nullableItem == null;
+              }
+              public void runOk(Foo other) {
+                if (other.hasNullableItem()) {
+                  other.nullableItem.call();
+                }
+                if (!other.lacksNullableItem()) {
+                  other.nullableItem.call();
+                }
+              }
+              public void castThisReceiver() {
+                if (((Foo) this).hasNullableItem()) {
+                  nullableItem.call();
+                }
+              }
+            }
+            """)
+        .addSourceLines(
+            "Client.java",
+            """
+            package com.uber;
+            class Client {
+              public void runOk(Foo foo) {
+                if (foo.hasNullableItem()) {
+                  foo.nullableItem.call();
+                }
+              }
+            }
+            """)
+        .addSourceLines(
+            "Item.java",
+            """
+            package com.uber;
+            class Item {
+              public void call() { }
+            }
+            """)
+        .doTest();
+  }
+
+  @Test
+  public void ensuresNonNullIfOnOtherReceiverDoesNotApplyToThis() {
+    defaultCompilationHelper
+        .addSourceLines(
+            "Foo.java",
+            """
+            package com.uber;
+            import javax.annotation.Nullable;
+            import com.uber.nullaway.annotations.EnsuresNonNullIf;
+            class Foo {
+              @Nullable Item nullableItem;
+              @EnsuresNonNullIf("nullableItem")
+              public boolean hasNullableItem() {
+                return nullableItem != null;
+              }
+              public void runNotOk(Foo other) {
+                if (other.hasNullableItem()) {
+                  // BUG: Diagnostic contains: dereferenced expression 'nullableItem' is @Nullable
+                  nullableItem.call();
+                }
+              }
+            }
+            """)
+        .addSourceLines(
+            "Sub.java",
+            """
+            package com.uber;
+            class Sub extends Foo {
+              public void runNotOk(Foo other) {
+                if (other.hasNullableItem()) {
+                  // BUG: Diagnostic contains: dereferenced expression 'this.nullableItem' is @Nullable
+                  this.nullableItem.call();
+                }
+              }
+            }
+            """)
+        .addSourceLines(
+            "Item.java",
+            """
+            package com.uber;
+            class Item {
+              public void call() { }
+            }
+            """)
+        .doTest();
+  }
+
+  @Test
   public void postConditions_Inheritance() {
     defaultCompilationHelper
         .addSourceLines(
