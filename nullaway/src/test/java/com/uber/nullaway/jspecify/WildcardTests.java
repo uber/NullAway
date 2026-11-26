@@ -2558,7 +2558,7 @@ public class WildcardTests extends NullAwayTestsBase {
               void throughABoundThatNestsTheVariable(List<T> l) {
                 // BUG: Diagnostic contains: dereferenced expression 'nestedArgument(l, "x")' is @Nullable
                 nestedArgument(l, "x").hashCode();
-                // a false negative: inference takes no constraint from a bound that nests R (#NNNN)
+                // a false negative: inference takes no constraint from a bound that nests R (#2192)
                 nestedBound(l, "x").hashCode();
               }
               Object throughAnUnmarkedBound() {
