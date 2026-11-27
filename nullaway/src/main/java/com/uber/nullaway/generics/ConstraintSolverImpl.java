@@ -39,6 +39,7 @@ public final class ConstraintSolverImpl implements ConstraintSolver {
   private final Config config;
   private final Handler handler;
   private final VisitorState state;
+  private @Nullable UnsatisfiableConstraintsException deferredFailure;
 
   /**
    * Maps the symbol of each fresh type variable created by {@link #registerInferenceVariables(Tree,
@@ -124,9 +125,29 @@ public final class ConstraintSolverImpl implements ConstraintSolver {
   }
 
   @Override
-  public void addSubtypeConstraint(Type subtype, Type supertype, boolean localVariableType)
-      throws UnsatisfiableConstraintsException {
-    subtype.accept(new AddSubtypeConstraintsVisitor(localVariableType), supertype);
+  public boolean containsInferenceVariable(Type type) {
+    TypeVarWithSymbolCollector collector =
+        new TypeVarWithSymbolCollector(inferenceVariables::containsKey);
+    type.accept(collector, null);
+    return !collector.getMatches().isEmpty();
+  }
+
+  @Override
+  public void addSubtypeConstraint(Type subtype, Type supertype, boolean localVariableType) {
+    if (deferredFailure != null) {
+      return;
+    }
+    try {
+      subtype.accept(new AddSubtypeConstraintsVisitor(localVariableType), supertype);
+    } catch (UnsatisfiableConstraintsException e) {
+      // Let constraint generation finish registering method references that share this result.
+      deferredFailure = e;
+    }
+  }
+
+  @Override
+  public boolean hasDeferredFailure() {
+    return deferredFailure != null;
   }
 
   class AddSubtypeConstraintsVisitor extends Types.DefaultTypeVisitor<@Nullable Void, Type> {
@@ -354,6 +375,9 @@ public final class ConstraintSolverImpl implements ConstraintSolver {
   @Override
   public Map<InferenceVariable, InferredNullability> solve()
       throws UnsatisfiableConstraintsException {
+    if (deferredFailure != null) {
+      throw deferredFailure;
+    }
     /* ---------- work-list propagation of nullability ---------- */
     Deque<InferenceVariable> work = new ArrayDeque<>();
     vars.forEach(

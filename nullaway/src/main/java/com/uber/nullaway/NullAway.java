@@ -1580,7 +1580,9 @@ public class NullAway extends BugChecker
    * @param memberReferenceTree if override is via a method reference, the relevant {@link
    *     MemberReferenceTree}; otherwise {@code null}
    * @param state visitor state.
-   * @return discovered error, or {@link Description#NO_MATCH} if no error
+   * @return discovered error, or {@link Description#NO_MATCH} if no error is found or a method
+   *     reference's inference failure has already been reported, as determined by {@link
+   *     GenericsChecks#hasReportedInferenceFailure(MemberReferenceTree)}
    */
   private Description checkOverriding(
       Symbol.MethodSymbol overriddenMethod,
@@ -1590,6 +1592,9 @@ public class NullAway extends BugChecker
       VisitorState state) {
     ResolvedMethodReference resolvedReference = null;
     if (memberReferenceTree != null) {
+      if (genericsChecks.hasReportedInferenceFailure(memberReferenceTree)) {
+        return Description.NO_MATCH;
+      }
       Type functionalInterfaceType = genericsChecks.getPolyExpressionType(memberReferenceTree);
       if (functionalInterfaceType != null) { // diff-coverage: ignore -- Unattributed javac tree.
         resolvedReference =

@@ -49,6 +49,13 @@ public interface ConstraintSolver {
       Tree site, List<? extends Element> typeVariables);
 
   /**
+   * Returns whether {@code type}, including its nested types and bounds, mentions a fresh type
+   * variable registered with this solver. Fresh variables from other inference problems are fixed
+   * types for this query.
+   */
+  boolean containsInferenceVariable(Type type);
+
+  /**
    * Exception thrown when the constraints added to the solver are determined to be unsatisfiable.
    *
    * <p>This is an unchecked exception since in our current solver implementation it needs to be
@@ -87,15 +94,21 @@ public interface ConstraintSolver {
    * must appear in the types as the fresh type variables returned by {@link
    * #registerInferenceVariables(Tree, List)}.
    *
+   * <p>The solver records the first contradiction detected while adding constraints and ignores
+   * subsequent constraints. {@link #solve()} throws the recorded contradiction.
+   *
    * @param subtype the subtype
    * @param supertype the supertype
    * @param localVariableType whether this constraint arises from assigning to a local variable. In
    *     such a case, the top-level types are not constrained to be subtypes (as local variable
    *     types are separately inferred), but the nested types are still constrained.
-   * @throws UnsatisfiableConstraintsException if the constraints are determined to be unsatisfiable
    */
-  void addSubtypeConstraint(Type subtype, Type supertype, boolean localVariableType)
-      throws UnsatisfiableConstraintsException;
+  void addSubtypeConstraint(Type subtype, Type supertype, boolean localVariableType);
+
+  /**
+   * Returns whether adding a constraint detected a contradiction that {@link #solve()} will report.
+   */
+  boolean hasDeferredFailure();
 
   enum InferredNullability {
     NONNULL,

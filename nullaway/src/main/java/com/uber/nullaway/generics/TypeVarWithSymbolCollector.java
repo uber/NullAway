@@ -14,11 +14,12 @@ import java.util.IdentityHashMap;
 import java.util.LinkedHashSet;
 import java.util.Objects;
 import java.util.Set;
+import java.util.function.Predicate;
 import javax.lang.model.element.Element;
 import org.jspecify.annotations.Nullable;
 
 /**
- * Visitor that collects every TypeVar whose symbol is the given Element.
+ * Visitor that collects every TypeVar whose symbol matches a given Element or predicate.
  *
  * <p>Usage:
  *
@@ -33,11 +34,16 @@ import org.jspecify.annotations.Nullable;
 public final class TypeVarWithSymbolCollector
     extends Types.DefaultTypeVisitor<@Nullable Void, @Nullable Void> {
 
-  private final Element symbol;
+  private final Predicate<Element> symbolPredicate;
   private final Set<TypeVar> matches = new LinkedHashSet<>();
 
   public TypeVarWithSymbolCollector(Element symbol) {
-    this.symbol = symbol;
+    this(candidate -> Objects.equals(candidate, symbol));
+  }
+
+  /** Collects type variables whose symbols satisfy {@code symbolPredicate}. */
+  TypeVarWithSymbolCollector(Predicate<Element> symbolPredicate) {
+    this.symbolPredicate = symbolPredicate;
   }
 
   private final Set<Type> seen = java.util.Collections.newSetFromMap(new IdentityHashMap<>());
@@ -57,7 +63,7 @@ public final class TypeVarWithSymbolCollector
   // ---- Core matching logic ----
   @Override
   public @Nullable Void visitTypeVar(TypeVar t, @Nullable Void p) {
-    if (Objects.equals(t.tsym, symbol)) {
+    if (symbolPredicate.test(t.tsym)) {
       matches.add(t);
     }
     scan(t.getUpperBound());
