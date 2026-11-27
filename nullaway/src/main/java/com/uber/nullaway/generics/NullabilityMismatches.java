@@ -7,7 +7,10 @@ import com.sun.tools.javac.code.Type;
 import com.uber.nullaway.Config;
 import com.uber.nullaway.handlers.Handler;
 import java.util.ArrayList;
+import java.util.Collections;
+import java.util.IdentityHashMap;
 import java.util.List;
+import java.util.Set;
 import org.jspecify.annotations.Nullable;
 
 /**
@@ -30,6 +33,16 @@ final class NullabilityMismatches {
   private final Config config;
   private final Handler handler;
   private final VisitorState state;
+
+  /**
+   * The source wildcards whose bound is being compared with each target wildcard's bound, by
+   * identity. A bound can name its own type variable again, as in {@code X extends Sibling<?, ?
+   * super X>}, and the descent returns to a pair it has not finished; {@code
+   * CheckIdenticalNullabilityVisitor} accepts such a pair, so this traversal reports nothing for
+   * it.
+   */
+  private final IdentityHashMap<Type.WildcardType, Set<Type.WildcardType>> activeBoundComparisons =
+      new IdentityHashMap<>();
 
   NullabilityMismatches(GenericsChecks checks, Config config, Handler handler, VisitorState state) {
     this.checks = checks;
@@ -135,22 +148,32 @@ final class NullabilityMismatches {
     Type.WildcardType targetWildcard = GenericsUtils.asWildcard(target);
     Type.WildcardType sourceWildcard = GenericsUtils.asWildcard(source);
     if (targetWildcard != null && sourceWildcard != null) {
-      // the check compares the effective upper bounds, and only an `? extends X` wildcard prints
-      // the bound it is compared by: `?` and `? super X` take one from a type variable
-      Type targetUpperBound =
-          GenericsUtils.wildcardUpperBound(targetWildcard, state, config, handler);
-      Type sourceUpperBound =
-          GenericsUtils.wildcardUpperBound(sourceWildcard, state, config, handler);
-      collect(
-          targetUpperBound,
-          sourceUpperBound,
-          targetPosition.then(
-              TypePath.Step.wildcardBound(), targetWildcard.kind == BoundKind.EXTENDS),
-          sourceWildcard.kind == BoundKind.EXTENDS ? sourceUpperBound : sourcePrintedNode,
-          sourcePosition.then(
-              TypePath.Step.wildcardBound(), sourceWildcard.kind == BoundKind.EXTENDS),
-          new BoundComparison(sourceWildcard, targetUpperBound),
-          mismatches);
+      Set<Type.WildcardType> activeSources =
+          activeBoundComparisons.computeIfAbsent(
+              targetWildcard, unused -> Collections.newSetFromMap(new IdentityHashMap<>()));
+      if (!activeSources.add(sourceWildcard)) {
+        return;
+      }
+      try {
+        // the check compares the effective upper bounds, and only an `? extends X` wildcard prints
+        // the bound it is compared by: `?` and `? super X` take one from a type variable
+        Type targetUpperBound =
+            GenericsUtils.wildcardUpperBound(targetWildcard, state, config, handler);
+        Type sourceUpperBound =
+            GenericsUtils.wildcardUpperBound(sourceWildcard, state, config, handler);
+        collect(
+            targetUpperBound,
+            sourceUpperBound,
+            targetPosition.then(
+                TypePath.Step.wildcardBound(), targetWildcard.kind == BoundKind.EXTENDS),
+            sourceWildcard.kind == BoundKind.EXTENDS ? sourceUpperBound : sourcePrintedNode,
+            sourcePosition.then(
+                TypePath.Step.wildcardBound(), sourceWildcard.kind == BoundKind.EXTENDS),
+            new BoundComparison(sourceWildcard, targetUpperBound),
+            mismatches);
+      } finally {
+        activeSources.remove(sourceWildcard);
+      }
       return;
     }
     if (targetWildcard != null && targetWildcard.kind == BoundKind.EXTENDS) {
