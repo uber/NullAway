@@ -140,9 +140,14 @@ public final class ConstraintSolverImpl implements ConstraintSolver {
     try {
       subtype.accept(new AddSubtypeConstraintsVisitor(localVariableType), supertype);
     } catch (UnsatisfiableConstraintsException e) {
-      // Let constraint generation finish registering sites that share this inference result.
+      // Let constraint generation finish registering method references that share this result.
       deferredFailure = e;
     }
+  }
+
+  @Override
+  public boolean hasDeferredFailure() {
+    return deferredFailure != null;
   }
 
   class AddSubtypeConstraintsVisitor extends Types.DefaultTypeVisitor<@Nullable Void, Type> {

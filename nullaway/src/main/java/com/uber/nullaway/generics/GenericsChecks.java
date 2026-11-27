@@ -1492,8 +1492,8 @@ public final class GenericsChecks {
       boolean assignedToLocal,
       boolean calledFromDataflow) {
     ConstraintSolver solver = makeSolver(state, analysis);
-    // allCalls tracks the top-level call, nested calls requiring inference, and method
-    // references whose checks depend on this problem's inference variables.
+    // allCalls tracks the top-level call, nested calls reached before a deferred failure, and
+    // method references whose checks depend on this problem's inference variables.
     Set<Tree> allCalls = new LinkedHashSet<>();
     allCalls.add(callTree);
     IdentityHashMap<MethodInvocationTree, PolyNullInferenceContext> polyNullContexts =
@@ -1803,7 +1803,10 @@ public final class GenericsChecks {
     // if the parameter is itself a generic call requiring inference, generate constraints for
     // that call
     if (isCallNeedingInference(rhsExpr)) {
-      allCalls.add(rhsExpr);
+      // Leave nested calls reached after a contradiction eligible for separate inference.
+      if (!solver.hasDeferredFailure()) {
+        allCalls.add(rhsExpr);
+      }
       generateConstraintsForCall(
           state,
           state.getPath(),

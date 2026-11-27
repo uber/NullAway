@@ -104,6 +104,11 @@ public interface ConstraintSolver {
    */
   void addSubtypeConstraint(Type subtype, Type supertype, boolean localVariableType);
 
+  /**
+   * Returns whether adding a constraint detected a contradiction that {@link #solve()} will report.
+   */
+  boolean hasDeferredFailure();
+
   enum InferredNullability {
     NONNULL,
     NULLABLE

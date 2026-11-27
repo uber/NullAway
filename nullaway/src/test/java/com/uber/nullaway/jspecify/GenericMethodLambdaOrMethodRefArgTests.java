@@ -437,6 +437,45 @@ public class GenericMethodLambdaOrMethodRefArgTests extends NullAwayTestsBase {
   }
 
   @Test
+  public void nestedCallsAfterEnclosingConstraintFailureAreInferredSeparately() {
+    makeTestHelperWithArgs(
+            JSpecifyJavacConfig.withJSpecifyModeArgs(
+                List.of(
+                    "-XepOpt:NullAway:AnnotatedPackages=com.uber",
+                    "-XepOpt:NullAway:WarnOnGenericInferenceFailure=false")))
+        .addSourceLines(
+            "Test.java",
+            """
+            import java.util.function.Supplier;
+            import org.jspecify.annotations.NullMarked;
+            import org.jspecify.annotations.Nullable;
+
+            @NullMarked
+            class Test {
+              static class Box<T extends @Nullable Object> {}
+              static <U extends @Nullable Object> Box<U> box(U value) { return new Box<>(); }
+              static <T, S> void takeBox(Box<T> first, Box<S> second) {}
+              static <T, S extends @Nullable Object> void takeSupplier(Box<T> first, Supplier<S> second) {}
+
+              void nestedArgumentAcceptsNull(Box<@Nullable String> first) {
+                // BUG: Diagnostic contains: incompatible types: Box<@Nullable String> cannot be converted to Box<String>
+                takeBox(first,
+                    box(
+                        box(null)));
+              }
+
+              void lambdaReturnAcceptsNull(Box<@Nullable String> first) {
+                // BUG: Diagnostic contains: incompatible types: Box<@Nullable String> cannot be converted to Box<String>
+                takeSupplier(first, () -> {
+                  return box(null);
+                });
+              }
+            }
+            """)
+        .doTest();
+  }
+
+  @Test
   public void failedJointInferenceSuppressesDependentReferenceDiagnosticsInEitherOrder() {
     makeTestHelperWithArgs(
             JSpecifyJavacConfig.withJSpecifyModeArgs(
