@@ -1983,6 +1983,13 @@ public final class GenericsChecks {
     }
   }
 
+  /** Returns whether a reference to a generic method leaves its type arguments to be inferred. */
+  private static boolean hasOmittedMethodReferenceTypeArguments(
+      MemberReferenceTree tree, Symbol.MethodSymbol referencedMethod) {
+    // javac uses null when a method reference omits its type arguments.
+    return referencedMethod.asType() instanceof Type.ForAll && tree.getTypeArguments() == null;
+  }
+
   /**
    * Generate constraints for a method reference argument by comparing functional interface method
    * parameter and return types against the referenced method.
@@ -2000,14 +2007,10 @@ public final class GenericsChecks {
       Type lhsType,
       MemberReferenceTree memberReferenceTree,
       @Nullable Set<Tree> allCalls) {
-    // if we have a reference to a generic method, and the call site does not pass explicit type
-    // arguments, register the referenced method's type variables as inference variables
     Symbol.MethodSymbol referencedMethod = ASTHelpers.getSymbol(memberReferenceTree);
-    List<? extends ExpressionTree> explicitTypeArguments = memberReferenceTree.getTypeArguments();
     Map<Element, Type.TypeVar> inferenceVariables;
     if (referencedMethod != null
-        && !referencedMethod.getTypeParameters().isEmpty()
-        && (explicitTypeArguments == null || explicitTypeArguments.isEmpty())) {
+        && hasOmittedMethodReferenceTypeArguments(memberReferenceTree, referencedMethod)) {
       inferenceVariables =
           solver.registerInferenceVariables(
               memberReferenceTree, referencedMethod.getTypeParameters());
@@ -2248,9 +2251,7 @@ public final class GenericsChecks {
                   convertTreesToTypes(typeArgumentTrees),
                   config)
               .asMethodType();
-    } else if (overridingMethod.asType() instanceof Type.ForAll) {
-      // the referenced method is a generic method and there are no explicit type arguments
-      // we need to substitute inferred nullability for type arguments if it was inferred
+    } else if (hasOmittedMethodReferenceTypeArguments(memberReferenceTree, overridingMethod)) {
       result = getInferredMethodTypeForGenericMethodReference(result, state);
     }
     // finally, run any handlers
@@ -3121,9 +3122,7 @@ public final class GenericsChecks {
   private void inferMethodReferenceTypeArguments(
       MemberReferenceTree tree, Type targetType, VisitorState state) {
     Symbol.MethodSymbol referencedMethod = castToNonNull(ASTHelpers.getSymbol(tree));
-    // javac represents omitted method-reference type arguments with null, not an empty list.
-    if (!(referencedMethod.type instanceof Type.ForAll)
-        || tree.getTypeArguments() != null
+    if (!hasOmittedMethodReferenceTypeArguments(tree, referencedMethod)
         || inferredTypeVarNullabilityForGenericCalls.containsKey(tree)) {
       return;
     }
