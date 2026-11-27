@@ -84,15 +84,16 @@ import org.jspecify.annotations.Nullable;
  * <p>A caret marks the smallest node whose nullness differs, {@code @Nullable String} rather than
  * the {@code Collection<@Nullable String>} around it, and it marks that node in both printed types.
  * The check compares the source viewed as the target's class, which is the source's own class or a
- * supertype of it, so which node of the type the reader wrote the caret belongs under has two
- * answers: where the view is the same class, the position is the same position; where it is a
- * supertype, only a node the substitution carried over from the written type can be pointed at.
- * Viewing an {@code ArrayList<@Nullable String>} as a {@code List} carries the {@code @Nullable
- * String} over; for {@code class Sub extends Base<List<@Nullable String>>}, viewing a {@code Sub}
- * as a {@code Base} rebuilds the {@code List<@Nullable String>} from the declaration of {@code
- * Sub}, which the written type does not hold. Where neither answers, the view is printed as {@code
- * found as} and carries the carets. Two differences below one printed node share its caret,
- * numbered for each.
+ * supertype of it, and the source caret goes into the type the reader wrote. Where the view is the
+ * source's own class, the caret goes at the same position. Where the view is a supertype, it goes
+ * only under a node the substitution carried over from the written type. Viewing an {@code
+ * ArrayList<@Nullable String>} as a {@code List} carries the {@code @Nullable String} over; for
+ * {@code class Sub extends Base<List<@Nullable String>>}, viewing a {@code Sub} as a {@code Base}
+ * rebuilds the {@code List<@Nullable String>} from the declaration of {@code Sub}, which the
+ * written type does not hold. Where the source is viewed as a supertype at the root and the node is
+ * not in the written type, that view is printed as {@code found as} and carries the carets. Below
+ * the root, as for an element of {@code List<Sub>}, no view is printed, and such a node gets no
+ * source caret. Two differences below one printed node share its caret, numbered for each.
  *
  * <p>A note explains itself in the entities the message already shows. Where the source wildcard
  * stands at a position of the type the reader wrote, including one the supertype view carried over
@@ -198,7 +199,7 @@ final class NullabilityMismatchMessage {
             rhsType,
             carets(listed, NullabilityMismatches.Mismatch::sourceCaret),
             numbered);
-    Type viewedSource = recorded.viewedSource();
+    Type viewedSource = sharedView(listed);
     if (found.marksPlaced() == listed.size() || viewedSource == null) {
       message.append(found.lines());
     } else {
@@ -209,7 +210,14 @@ final class NullabilityMismatchMessage {
           markedTypeLines(
                   "found as",
                   viewedSource,
-                  carets(listed, NullabilityMismatches.Mismatch::viewCaret),
+                  carets(
+                      listed,
+                      mismatch ->
+                          mismatch.viewedSource() != null
+                                  && ASTHelpers.isSameType(
+                                      mismatch.viewedSource(), viewedSource, state)
+                              ? mismatch.viewCaret()
+                              : null),
                   numbered)
               .lines());
     }
@@ -415,6 +423,26 @@ final class NullabilityMismatchMessage {
     return mismatch.relation() == NullabilityMismatches.Relation.SUPERTYPE
         ? "a supertype of " + target
         : target;
+  }
+
+  /**
+   * Returns the view of the source that every mismatch in {@code listed} without a caret in the
+   * written source was compared under, or {@code null} where one of them has no view or two have
+   * different ones, as the components of an intersection target do.
+   */
+  private @Nullable Type sharedView(List<NullabilityMismatches.Mismatch> listed) {
+    Type shared = null;
+    for (NullabilityMismatches.Mismatch mismatch : listed) {
+      if (mismatch.sourceCaret() != null) {
+        continue;
+      }
+      Type view = mismatch.viewedSource();
+      if (view == null || (shared != null && !ASTHelpers.isSameType(shared, view, state))) {
+        return null;
+      }
+      shared = view;
+    }
+    return shared;
   }
 
   /** Returns the caret {@code caret} gives each mismatch, in order. */

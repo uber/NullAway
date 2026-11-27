@@ -5,9 +5,9 @@ import org.junit.Test;
 /**
  * Where the check views the source as a supertype of its own class, the one the target names, the
  * {@code path:} line names the position in that supertype. A caret goes under the node of the type
- * the reader wrote where the substitution carried that node into the view. Where the node at fault
- * is not in the written type, the message prints the view on a {@code found as:} line and draws the
- * source carets under it.
+ * the reader wrote where the substitution carried that node into the view. Where the source itself
+ * is viewed as a supertype and the node at fault is not in the written type, the message prints the
+ * view on a {@code found as:} line and draws the source carets under it.
  */
 public class ViewedSourceTests extends MismatchMessageTestBase {
 

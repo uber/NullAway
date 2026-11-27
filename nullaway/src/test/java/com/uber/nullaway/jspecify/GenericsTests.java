@@ -3033,7 +3033,7 @@ public class GenericsTests extends NullAwayTestsBase {
               static class C implements A<String>, Serializable {}
               static void test1(Object o) {
                 var x = (A<String> & Serializable) o;
-                // BUG: Diagnostic contains: incompatible types: B cannot be converted to A<String> & Serializable
+                // BUG: Diagnostic contains: found as: A<@Nullable String>
                 x = new B();
                 // ok
                 x = new C();
@@ -3041,7 +3041,7 @@ public class GenericsTests extends NullAwayTestsBase {
               static void test2(Object o) {
                 var x = (A<@Nullable String> & Serializable) o;
                 x = new B();
-                // BUG: Diagnostic contains: incompatible types: C cannot be converted to A<@Nullable String> & Serializable
+                // BUG: Diagnostic contains: incompatible nullability in A type argument T: a type argument must match exactly; found String, required @Nullable String
                 x = new C();
               }
             }

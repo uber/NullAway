@@ -328,12 +328,9 @@ public class CheckIdenticalNullabilityVisitor extends Types.DefaultTypeVisitor<B
     for (Type bound : intersectionType.getExplicitComponents()) {
       if (!bound.accept(this, rhsType)) {
         if (mismatches == null) {
-          return false; // diff-coverage: ignore -- no test reaches an intersection target that
-          // fails, here or on master
+          return false; // diff-coverage: ignore -- reached on JDK 25+ only
         }
-        contained =
-            false; // diff-coverage: ignore -- no test reaches an intersection target that fails,
-        // here or on master
+        contained = false; // diff-coverage: ignore -- reached on JDK 25+ only
       }
     }
     return contained;

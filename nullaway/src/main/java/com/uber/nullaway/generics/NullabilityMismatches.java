@@ -60,7 +60,9 @@ final class NullabilityMismatches {
    * @param targetCaret where the target's caret goes, or {@code null} where the target gets none
    * @param sourceCaret where the source's caret goes in the source as written, or {@code null}
    *     where the node the check compared sits nowhere in that type
-   * @param viewCaret where the source's caret goes in {@link #viewedSource()}, or {@code null}
+   * @param viewedSource the source viewed as the class the target names at the root, where the
+   *     check compared that view rather than the written source, or {@code null}
+   * @param viewCaret where the source's caret goes in {@code viewedSource}, or {@code null}
    * @param sourcePrintedNode the node under {@code sourceCaret}; where there is no such caret, the
    *     deepest node the compared view of the source prints. It is the wildcard itself where the
    *     node at fault lies below a bound the wildcard leaves implicit
@@ -78,6 +80,7 @@ final class NullabilityMismatches {
       @Nullable TypePath targetNodePath,
       @Nullable TypePath targetCaret,
       @Nullable TypePath sourceCaret,
+      @Nullable Type viewedSource,
       @Nullable TypePath viewCaret,
       Type sourcePrintedNode,
       Type.@Nullable WildcardType sourceWildcard,
@@ -121,8 +124,10 @@ final class NullabilityMismatches {
    * @param targetSteps the steps taken into the target, named for the classes compared
    * @param target the target as written
    * @param source the source as written
-   * @param view the source viewed as the target's class at the root, or {@code null} where that
-   *     view is the written source itself
+   * @param viewedSource the source viewed as the target's class at the root, or {@code null} where
+   *     that view is the written source itself
+   * @param view where the comparison stands in {@code viewedSource}, or {@code null} where there is
+   *     no such view
    * @param sourceShown the deepest node of the compared source a printer would show
    * @param swapped whether the visitor's left side is the source, as inside the lower bound of a
    *     {@code ? super} wildcard, where the check asks whether that bound is a subtype of the
@@ -133,14 +138,13 @@ final class NullabilityMismatches {
       TypePath targetSteps,
       Track target,
       Track source,
+      @Nullable Type viewedSource,
       @Nullable Track view,
       Type sourceShown,
       boolean swapped,
       @Nullable BoundComparison bound) {}
 
   private Frame frame;
-
-  private @Nullable Type viewedSource;
 
   private final List<Mismatch> mismatches = new ArrayList<>();
 
@@ -154,6 +158,7 @@ final class NullabilityMismatches {
             Track.located(targetType, TypePath.root()),
             Track.located(sourceType, TypePath.root()),
             null,
+            null,
             sourceType,
             false,
             null);
@@ -162,14 +167,6 @@ final class NullabilityMismatches {
   /** Returns the rejected positions, in the order the check compared them. */
   List<Mismatch> mismatches() {
     return mismatches;
-  }
-
-  /**
-   * Returns the source viewed as the class the target names, where the check compared that view at
-   * the root rather than the written source, and {@code null} otherwise.
-   */
-  @Nullable Type viewedSource() {
-    return viewedSource;
   }
 
   /** Puts back a frame an {@code enter} method returned. */
@@ -189,12 +186,12 @@ final class NullabilityMismatches {
         && !frame.swapped()
         && frame.targetSteps().isRoot()
         && !rhsView.tsym.equals(rhs.tsym)) {
-      viewedSource = rhsView;
       frame =
           new Frame(
               frame.targetSteps(),
               frame.target(),
               frame.source(),
+              rhsView,
               Track.located(rhsView, TypePath.root()),
               frame.sourceShown(),
               frame.swapped(),
@@ -271,6 +268,7 @@ final class NullabilityMismatches {
             frame.targetSteps(),
             frame.target(),
             frame.source(),
+            frame.viewedSource(),
             frame.view(),
             frame.sourceShown(),
             !frame.swapped(),
@@ -299,6 +297,7 @@ final class NullabilityMismatches {
             target == null || target.hidden() ? null : target.path(),
             target == null ? null : target.path(),
             source == null ? null : source.path(),
+            frame.viewedSource(),
             view == null ? null : view.path(),
             source != null ? source.node() : frame.sourceShown(),
             bound == null ? null : bound.sourceWildcard(),
@@ -339,7 +338,16 @@ final class NullabilityMismatches {
         sourceShown = sourceStep.child();
       }
     }
-    frame = new Frame(targetSteps, target, source, view, sourceShown, saved.swapped(), bound);
+    frame =
+        new Frame(
+            targetSteps,
+            target,
+            source,
+            saved.viewedSource(),
+            view,
+            sourceShown,
+            saved.swapped(),
+            bound);
     return saved;
   }
 
