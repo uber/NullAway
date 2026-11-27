@@ -15,7 +15,7 @@ import com.uber.nullaway.LibraryModels.PolyNullLocation.Parameter;
 import com.uber.nullaway.LibraryModels.PolyNullLocation.Position;
 import com.uber.nullaway.LibraryModels.PolyNullLocation.Return;
 import com.uber.nullaway.NullabilityUtil;
-import com.uber.nullaway.Nullness;
+import com.uber.nullaway.handlers.Handler;
 import com.uber.nullaway.librarymodel.NestedTypePathUpdater;
 import java.util.ArrayList;
 import java.util.IdentityHashMap;
@@ -57,10 +57,23 @@ final class PolyNullInference {
 
   private PolyNullInference() {}
 
-  /** Applies a resolved PolyNull annotation to every modeled parameter and return location. */
+  /**
+   * Applies the resolved shared PolyNull variable to every modeled parameter and return location.
+   *
+   * <p>Each location takes the annotation that {@link GenericsUtils#inferredNullnessAnnotation}
+   * gives its type, as the type javac inferred for a method's own type variable does in {@link
+   * TypeSubstitutionUtils}. A type variable with a nullness annotation, such as an explicit type
+   * argument, takes {@code @Nullable} for {@code NULLABLE} and {@code TYPE_VARIABLE_OR_NULLABLE},
+   * and {@code @NonNull} otherwise.
+   */
   @SuppressWarnings({"ReferenceEquality", "TypeEquals"}) // deliberate reference equality checks
   static Type.MethodType applyToMethodType(
-      Type.MethodType methodType, ImmutableSet<PolyNullLocation> locations, Type annotationType) {
+      Type.MethodType methodType,
+      ImmutableSet<PolyNullLocation> locations,
+      ConstraintSolver.InferredNullability inferred,
+      VisitorState state,
+      Config config,
+      Handler handler) {
     boolean changed = false;
     ListBuffer<Type> updatedParameterTypes = new ListBuffer<>();
     int parameterIndex = 0;
@@ -69,12 +82,20 @@ final class PolyNullInference {
         remaining = remaining.tail, parameterIndex++) {
       Type parameterType = remaining.head;
       Type updatedParameterType =
-          applyToType(parameterType, new Parameter(parameterIndex), locations, annotationType);
+          applyToType(
+              parameterType,
+              new Parameter(parameterIndex),
+              locations,
+              inferred,
+              state,
+              config,
+              handler);
       updatedParameterTypes.append(updatedParameterType);
       changed |= updatedParameterType != parameterType;
     }
     Type returnType = methodType.restype;
-    Type updatedReturnType = applyToReturnType(returnType, locations, annotationType);
+    Type updatedReturnType =
+        applyToReturnType(returnType, locations, inferred, state, config, handler);
     changed |= updatedReturnType != returnType;
     return changed
         ? new Type.MethodType(
@@ -82,17 +103,27 @@ final class PolyNullInference {
         : methodType;
   }
 
-  /** Applies a resolved PolyNull annotation to every modeled location within a return type. */
+  /**
+   * Applies the resolved shared PolyNull variable to every modeled location within a return type,
+   * as {@link #applyToMethodType} does.
+   */
   static Type applyToReturnType(
-      Type returnType, ImmutableSet<PolyNullLocation> locations, Type annotationType) {
-    return applyToType(returnType, new Return(), locations, annotationType);
+      Type returnType,
+      ImmutableSet<PolyNullLocation> locations,
+      ConstraintSolver.InferredNullability inferred,
+      VisitorState state,
+      Config config,
+      Handler handler) {
+    return applyToType(returnType, new Return(), locations, inferred, state, config, handler);
   }
 
   /** Resolves PolyNull nullness by invocation after a shared generic-inference solver run. */
-  static IdentityHashMap<MethodInvocationTree, Nullness> resolveNullnessByInvocation(
-      IdentityHashMap<MethodInvocationTree, PolyNullInferenceContext> contexts,
-      Map<ConstraintSolver.InferenceVariable, ConstraintSolver.InferredNullability> solution) {
-    IdentityHashMap<MethodInvocationTree, Nullness> nullnessByInvocation = new IdentityHashMap<>();
+  static IdentityHashMap<MethodInvocationTree, ConstraintSolver.InferredNullability>
+      resolveNullnessByInvocation(
+          IdentityHashMap<MethodInvocationTree, PolyNullInferenceContext> contexts,
+          Map<ConstraintSolver.InferenceVariable, ConstraintSolver.InferredNullability> solution) {
+    IdentityHashMap<MethodInvocationTree, ConstraintSolver.InferredNullability>
+        nullnessByInvocation = new IdentityHashMap<>();
     for (Map.Entry<MethodInvocationTree, PolyNullInferenceContext> entry : contexts.entrySet()) {
       nullnessByInvocation.put(
           entry.getKey(), resolveContext(entry.getKey(), entry.getValue(), solution));
@@ -101,18 +132,14 @@ final class PolyNullInference {
   }
 
   /** Resolves the shared PolyNull variable for one invocation. */
-  static Nullness resolveContext(
+  static ConstraintSolver.InferredNullability resolveContext(
       MethodInvocationTree invocationTree,
       PolyNullInferenceContext inferenceContext,
       Map<ConstraintSolver.InferenceVariable, ConstraintSolver.InferredNullability> solution) {
-    ConstraintSolver.InferredNullability inferred =
-        solution.getOrDefault(
-            new ConstraintSolver.InferenceVariable(
-                inferenceContext.inferenceVariable().asElement(), invocationTree),
-            ConstraintSolver.InferredNullability.NONNULL);
-    return inferred == ConstraintSolver.InferredNullability.NULLABLE
-        ? Nullness.NULLABLE
-        : Nullness.NONNULL;
+    return solution.getOrDefault(
+        new ConstraintSolver.InferenceVariable(
+            inferenceContext.inferenceVariable().asElement(), invocationTree),
+        ConstraintSolver.InferredNullability.NONNULL);
   }
 
   /**
@@ -245,13 +272,25 @@ final class PolyNullInference {
     return variable;
   }
 
-  /** Applies {@code annotationType} at modeled locations within one method-type component. */
+  /** Applies {@code inferred} at modeled locations within one method-type component. */
   private static Type applyToType(
-      Type type, Position position, ImmutableSet<PolyNullLocation> locations, Type annotationType) {
+      Type type,
+      Position position,
+      ImmutableSet<PolyNullLocation> locations,
+      ConstraintSolver.InferredNullability inferred,
+      VisitorState state,
+      Config config,
+      Handler handler) {
     Type updated = type;
     for (PolyNullLocation location : locations) {
       if (location.position().equals(position)) {
-        updated = NestedTypePathUpdater.addAnnotation(updated, location.typePath(), annotationType);
+        updated =
+            NestedTypePathUpdater.addAnnotation(
+                updated,
+                location.typePath(),
+                leaf ->
+                    GenericsUtils.inferredNullnessAnnotation(
+                        leaf, inferred, config, handler, state));
       }
     }
     return updated;

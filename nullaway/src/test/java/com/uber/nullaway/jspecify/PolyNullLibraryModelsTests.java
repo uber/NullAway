@@ -103,7 +103,7 @@ public class PolyNullLibraryModelsTests extends NullAwayTestsBase {
                 PolyNullMethods.first(nonNull, nonNull).hashCode();
 
                 // Without PolyNull, both parameters retain their declared List<Object> types.
-                // BUG: Diagnostic contains: incompatible types: List<@Nullable Object> cannot be converted to List<Object>
+                // BUG: Diagnostic contains: incompatible nullability: found @Nullable Object, required Object
                 PolyNullMethods.first(nullable, nullable);
               }
             }
@@ -1432,6 +1432,101 @@ public class PolyNullLibraryModelsTests extends NullAwayTestsBase {
 
               Object test(Object value) {
                 return id(PolyNullMethods.varargsArray(() -> value, value, value));
+              }
+            }
+            """)
+        .doTest();
+  }
+
+  @Test
+  public void anArgumentWhoseTypeVariableHasANullableBoundMakesThePolyNullLocationsNullable() {
+    makeHelper()
+        .addSourceLines(
+            "Test.java",
+            """
+            import com.uber.lib.unannotated.PolyNullMethods;
+            import java.util.Map;
+            import java.util.Optional;
+            import java.util.function.Function;
+            import java.util.function.Supplier;
+            import org.jspecify.annotations.NullMarked;
+            import org.jspecify.annotations.NullUnmarked;
+            import org.jspecify.annotations.Nullable;
+
+            @NullMarked
+            class Test<T extends @Nullable Object> {
+              void lambdaArgument(T t) {
+                // BUG: Diagnostic contains: dereferenced expression 'PolyNullMethods.genericObject(t, () -> "x")' is @Nullable
+                PolyNullMethods.genericObject(t, () -> "x").toString();
+                T first = PolyNullMethods.genericFirst(t, () -> "x");
+              }
+              static <X extends @Nullable Object> void accept(X x) {}
+              void typeVariableResultPassedToAGenericMethod(T t) {
+                accept(PolyNullMethods.genericFirst(t, () -> "x"));
+              }
+              void lambdaParameter(T t) {
+                // BUG: Diagnostic contains: dereferenced expression 'value' is @Nullable
+                PolyNullMethods.withMapper(t, value -> value.toString());
+              }
+              void supplierOfTheTypeVariable(Optional<Object> optional, Supplier<T> supplier) {
+                // BUG: Diagnostic contains: dereferenced expression 'optional.orElseGet(supplier)' is @Nullable
+                optional.orElseGet(supplier).hashCode();
+              }
+              void functionReturningTheTypeVariable(Map<String, Object> map, Function<String, T> f) {
+                // BUG: Diagnostic contains: dereferenced expression 'map.computeIfAbsent("key", f)' is @Nullable
+                map.computeIfAbsent("key", f).hashCode();
+              }
+              void nonNullSupplier(Optional<String> optional, Supplier<String> supplier) {
+                optional.orElseGet(supplier).hashCode();
+              }
+              <R, S extends @Nullable R> void typeVariableWhoseBoundExcludesNull(
+                  Optional<R> optional, S fallback) {
+                // BUG: Diagnostic contains: dereferenced expression 'optional.orElseGet(() -> fallback)' is @Nullable
+                optional.orElseGet(() -> fallback).hashCode();
+              }
+              void explicitlyNullableTypeArgumentForAnExplicitlyNullableBound(T t) {
+                // BUG: Diagnostic contains: dereferenced expression 'PolyNullMethods.<@Nullable T, String>genericFirst(t, () -> "x")' is @Nullable
+                PolyNullMethods.<@Nullable T, String>genericFirst(t, () -> "x").hashCode();
+              }
+              @NullUnmarked
+              static class Unmarked<X> {
+                @NullMarked
+                void explicitlyNullableTypeArgument(X x) {
+                  if (x != null) {
+                    PolyNullMethods.<@Nullable X, String>genericFirst(x, () -> "x").hashCode();
+                  }
+                }
+              }
+            }
+            """)
+        .doTest();
+  }
+
+  @Test
+  public void aCaptureWhoseBoundAdmitsNullKeepsItsTypeAtAPolyNullLocation() {
+    makeHelper()
+        .addSourceLines(
+            "Test.java",
+            """
+            import com.uber.lib.unannotated.PolyNullMethods;
+            import java.util.List;
+            import org.jspecify.annotations.NullMarked;
+            import org.jspecify.annotations.Nullable;
+            @NullMarked
+            class Test<T extends @Nullable Object> {
+              static <U extends @Nullable Object> U first(List<U> list) {
+                return list.get(0);
+              }
+              T typeVariableResult(List<? extends T> list) {
+                return PolyNullMethods.genericFirst(first(list), () -> "x");
+              }
+              static <X extends @Nullable Object> void accept(X x) {}
+              void typeVariableResultPassedToAGenericMethod(List<? extends T> list) {
+                accept(PolyNullMethods.genericFirst(first(list), () -> "x"));
+              }
+              void classTypeResult(List<? extends T> list) {
+                // BUG: Diagnostic contains: dereferenced expression 'PolyNullMethods.genericObject(first(list), () -> "x")' is @Nullable
+                PolyNullMethods.genericObject(first(list), () -> "x").hashCode();
               }
             }
             """)

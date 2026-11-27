@@ -18,6 +18,7 @@ import com.uber.nullaway.NullAway;
 import com.uber.nullaway.Nullness;
 import com.uber.nullaway.handlers.Handler;
 import java.util.ArrayDeque;
+import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Deque;
 import java.util.IdentityHashMap;
@@ -48,6 +49,17 @@ public final class ConstraintSolverImpl implements ConstraintSolver {
   private final IdentityHashMap<Element, InferenceVariable> inferenceVariables =
       new IdentityHashMap<>();
 
+  /**
+   * Maps an inference variable whose declared bound is an unannotated use of another inference
+   * variable of the same site, such as {@code U} in {@code <R, U extends R>}, to that variable,
+   * where the declaration of {@code U} does not make its bound nullable by {@link
+   * GenericsUtils#declaredUpperBoundIsNullable}. {@link #solve()} makes each such bound a supertype
+   * edge {@code U <: R} for every {@code U} that appears in a constraint or that an earlier edge
+   * reaches, so it follows a chain such as {@code <Q, R extends Q, U extends R>} from {@code U} to
+   * {@code Q}. Recorded only where {@link Config#isNullableBoundInferenceEnabled} holds.
+   */
+  private final Map<InferenceVariable, InferenceVariable> declaredBounds = new LinkedHashMap<>();
+
   public ConstraintSolverImpl(Config config, VisitorState state, NullAway analysis) {
     this.config = config;
     this.handler = analysis.getHandler();
@@ -73,6 +85,21 @@ public final class ConstraintSolverImpl implements ConstraintSolver {
     final boolean nullableAllowed;
 
     NullnessState nullness = NullnessState.UNKNOWN;
+
+    /**
+     * Whether a type with parametric nullness ({@link GenericsUtils#hasParametricNullness}) that is
+     * not under inference flowed into this variable. Such a flow fixes no nullness, but where javac
+     * inferred a type with parametric nullness, the variable takes that type with no synthetic
+     * annotation rather than the non-null default. Recorded only where {@link
+     * Config#isNullableBoundInferenceEnabled} holds.
+     */
+    boolean parametric;
+
+    /**
+     * Whether one of the type variables that set {@link #parametric} has a bound that is explicitly
+     * nullable, rather than nullable by default in unannotated code.
+     */
+    boolean parametricNullable;
 
     /** Important to use a LinkedHashSet here for determinism in error messages. */
     final Set<InferenceVariable> supertypes = new LinkedHashSet<>();
@@ -118,6 +145,17 @@ public final class ConstraintSolverImpl implements ConstraintSolver {
     }
     for (Map.Entry<Element, Type.TypeVar> entry : fresh.entrySet()) {
       inferenceVariables.put(entry.getValue().tsym, new InferenceVariable(entry.getKey(), site));
+    }
+    if (config.isNullableBoundInferenceEnabled()) {
+      for (Type.TypeVar typeVar : fresh.values()) {
+        InferenceVariable inferenceVar = castToNonNull(inferenceVariables.get(typeVar.tsym));
+        InferenceVariable boundVar = inferenceVariableForUse(typeVar.getUpperBound());
+        if (boundVar != null
+            && !GenericsUtils.declaredUpperBoundIsNullable(
+                inferenceVar.typeVariable(), config, handler, state)) {
+          declaredBounds.put(inferenceVar, boundVar);
+        }
+      }
     }
 
     return fresh;
@@ -276,9 +314,15 @@ public final class ConstraintSolverImpl implements ConstraintSolver {
     /**
      * Adds constraints for type-argument containment where the formal argument is a wildcard. For
      * {@code ? extends S} and {@code ?}, containment requires the actual argument's effective upper
-     * bound to be a subtype of {@code S}. For {@code ? super S}, concrete actual arguments require
-     * {@code S <: subtypeTypeArg}; {@code ? super T} actual arguments require {@code S <: T}. Other
-     * actual wildcard forms place no useful nullability constraint.
+     * bound to be a subtype of {@code S}. For {@code ? extends U}, where {@code U} is an inference
+     * variable whose bound excludes null, an actual that is an unannotated, uncaptured type
+     * variable {@code T} with an explicitly nullable bound also constrains {@code U} to be
+     * {@code @Nullable}, which no solution satisfies; this check runs only where {@link
+     * Config#isNullableBoundInferenceEnabled} holds. An actual wildcard or capture bounded by such
+     * a {@code T}, as in {@code Box<? extends T>}, adds no such constraint (#2189). For {@code ?
+     * super S}, concrete actual arguments require {@code S <: subtypeTypeArg}; {@code ? super T}
+     * actual arguments require {@code S <: T}. Other actual wildcard forms place no useful
+     * nullability constraint.
      *
      * <p>Self-referential bounds such as {@code N extends Node<?>} can lead back to the exact same
      * containment check. Re-entering a check that is already in progress adds no constraints, since
@@ -298,8 +342,27 @@ public final class ConstraintSolverImpl implements ConstraintSolver {
           case UNBOUND, EXTENDS -> {
             Type subtypeUpperBound =
                 GenericsUtils.effectiveWildcardUpperBound(subtypeTypeArg, state, config, handler);
-            subtypeUpperBound.accept(
-                this, GenericsUtils.wildcardUpperBound(supertypeWildcard, state, config, handler));
+            Type supertypeUpperBound =
+                GenericsUtils.wildcardUpperBound(supertypeWildcard, state, config, handler);
+            InferenceVariable supertypeVar = inferenceVariableForUse(supertypeUpperBound);
+            if (config.isNullableBoundInferenceEnabled()
+                && supertypeWildcard.kind == BoundKind.EXTENDS
+                && supertypeVar != null
+                && !getState(supertypeVar).nullableAllowed) {
+              Element typeVariableWithNullableBound =
+                  typeVariableWithNullableBoundFor(subtypeTypeArg);
+              if (typeVariableWithNullableBound != null) {
+                // Under JSpecify, an unannotated T whose bound is @Nullable is a subtype of U only
+                // where U is @Nullable, and the non-null bound of U forbids that. Where the bound
+                // of U allows null, U is left unconstrained: the solver infers one nullness per
+                // variable, so a @Nullable U would replace the T that javac inferred for U with
+                // @Nullable T, and List<T> c = copy(in), with <U extends @Nullable Object>
+                // List<U> copy(List<? extends U> in), would be reported.
+                throw new UnsatisfiableConstraintsException(
+                    supertypeVar.typeVariable(), subtypeTypeArg, typeVariableWithNullableBound);
+              }
+            }
+            subtypeUpperBound.accept(this, supertypeUpperBound);
           }
           case SUPER -> {
             Type supertypeLowerBound = castToNonNull(supertypeWildcard.getSuperBound());
@@ -354,6 +417,22 @@ public final class ConstraintSolverImpl implements ConstraintSolver {
   @Override
   public Map<InferenceVariable, InferredNullability> solve()
       throws UnsatisfiableConstraintsException {
+    /* U extends R  ⇒  U <: R, for every U that appears in a constraint or that an edge reaches */
+    if (!declaredBounds.isEmpty()) {
+      List<InferenceVariable> boundedVars = new ArrayList<>(vars.keySet());
+      for (int i = 0; i < boundedVars.size(); i++) {
+        InferenceVariable sub = boundedVars.get(i);
+        InferenceVariable sup = declaredBounds.get(sub);
+        if (sup != null) {
+          if (!vars.containsKey(sup)) {
+            boundedVars.add(sup);
+          }
+          getState(sub).supertypes.add(sup);
+          getState(sup).subtypes.add(sub);
+        }
+      }
+    }
+
     /* ---------- work-list propagation of nullability ---------- */
     Deque<InferenceVariable> work = new ArrayDeque<>();
     vars.forEach(
@@ -391,17 +470,48 @@ public final class ConstraintSolverImpl implements ConstraintSolver {
       }
     }
 
+    /* a type variable that flowed into a variable flows into each of its supertype variables */
+    vars.forEach(
+        (inferenceVar, st) -> {
+          if (st.parametric) {
+            work.add(inferenceVar);
+          }
+        });
+    while (!work.isEmpty()) {
+      VarState st = castToNonNull(vars.get(work.removeFirst()));
+      for (InferenceVariable sup : st.supertypes) {
+        VarState supState = castToNonNull(vars.get(sup));
+        if (!supState.parametric || (st.parametricNullable && !supState.parametricNullable)) {
+          supState.parametric = true;
+          supState.parametricNullable |= st.parametricNullable;
+          work.add(sup);
+        }
+      }
+    }
+
     /* ---------- build final solution map ---------- */
     Map<InferenceVariable, InferredNullability> result = new LinkedHashMap<>();
     vars.forEach(
         (inferenceVar, st) -> {
-          // Note: if the nullness state is UNKNOWN, we infer NONNULL arbitrarily
-          // TODO does this matter?  should we use NULLABLE instead?
           result.put(
               inferenceVar,
-              st.nullness == NullnessState.NULLABLE
-                  ? InferredNullability.NULLABLE
-                  : InferredNullability.NONNULL);
+              switch (st.nullness) {
+                case NULLABLE -> InferredNullability.NULLABLE;
+                case NONNULL -> InferredNullability.NONNULL;
+                // nothing pushed the variable toward null, so non-null is the least solution,
+                // unless an unannotated type variable whose bound admits null flowed in and
+                // decides its nullness
+                case UNKNOWN -> {
+                  if (!st.parametric) {
+                    yield InferredNullability.NONNULL;
+                  }
+                  yield st.parametricNullable
+                          && GenericsUtils.boundIsExplicitlyNullable(
+                              inferenceVar.typeVariable(), config, handler, state)
+                      ? InferredNullability.TYPE_VARIABLE_OR_NULLABLE
+                      : InferredNullability.TYPE_VARIABLE_OR_NONNULL;
+                }
+              });
         });
     return result;
   }
@@ -436,6 +546,16 @@ public final class ConstraintSolverImpl implements ConstraintSolver {
     }
     if (isKnownNullable(s) && tVar != null) {
       updateNullness(tVar, NullnessState.NULLABLE);
+    }
+    if (config.isNullableBoundInferenceEnabled()
+        && tVar != null
+        && sVar == null
+        && GenericsUtils.hasParametricNullness(s, config, handler, state)) {
+      VarState st = getState(tVar);
+      st.parametric = true;
+      if (GenericsUtils.boundIsExplicitlyNullable(s.asElement(), config, handler, state)) {
+        st.parametricNullable = true;
+      }
     }
   }
 
@@ -499,6 +619,21 @@ public final class ConstraintSolverImpl implements ConstraintSolver {
   /** Returns whether this use denotes an inference variable without a nullness override. */
   private boolean treatAsTypeVariableForInference(Type t) {
     return inferenceVariableForUse(t) != null;
+  }
+
+  /**
+   * Where {@code t} is a type variable not under inference, not a capture, and carrying no nullness
+   * annotation at this use, returns the type variable whose declared bound makes the bound of
+   * {@code t} explicitly nullable, as {@link GenericsUtils#typeVariableWithNullableBound} finds it;
+   * returns {@code null} otherwise.
+   */
+  private @Nullable Element typeVariableWithNullableBoundFor(Type t) {
+    return t instanceof TypeVar tv
+            && !(t instanceof CapturedType)
+            && !inferenceVariables.containsKey(tv.asElement())
+            && !GenericsUtils.hasNullnessAnnotation(t, config)
+        ? GenericsUtils.typeVariableWithNullableBound(tv.asElement(), config, handler, state)
+        : null;
   }
 
   /** Returns whether a type is explicitly nullable or is the null type. */

@@ -589,7 +589,12 @@ public class CheckIdenticalNullabilityVisitorTests {
     private int budget;
 
     CountingVisitor(VisitorState state, NullAway nullAway, int budget) {
-      super(state, nullAway.getGenericsChecks(), nullAway.getConfig(), nullAway.getHandler());
+      super(
+          state,
+          nullAway.getGenericsChecks(),
+          nullAway.getConfig(),
+          nullAway.getHandler(),
+          ComparisonContext.NONE);
       this.budget = budget;
     }
 

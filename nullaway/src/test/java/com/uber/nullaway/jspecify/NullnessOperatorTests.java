@@ -11,13 +11,15 @@ import org.junit.Test;
  * Fails when NullAway changes how it treats a value whose type is a type variable, or a wildcard
  * captured against one.
  *
- * <p>Such a value carries the JSpecify {@code NO_CHANGE} nullness operator. Wherever the same type
- * variable {@code T}, or a capture of {@code ? super T}, is expected, it is accepted: as an
- * argument, a return, a field or array store, and a field initializer. An argument is not accepted
- * where a library model requires a non-null one. A type variable that the value's type reaches only
- * through a {@code @Nullable} bound does not accept it. It stays unsafe to dereference while that
- * type variable has a nullable upper bound. An explicit {@code @Nullable}, declared on the member
- * or supplied by a library model, overrides that and is reported at every sink.
+ * <p>Such a value carries the JSpecify {@code NO_CHANGE} nullness operator. It is accepted where
+ * the expected type is the value's own type (for example the capture of {@code ? extends T}), a
+ * type variable that the value's type reaches through non-nullable bounds (for example {@code T}),
+ * or a capture of {@code ? super} either of those types: as an argument, a return, a field or array
+ * store, and a field initializer. An argument is not accepted where a library model requires a
+ * non-null one. A type variable that the value's type reaches only through a {@code @Nullable}
+ * bound does not accept it. It stays unsafe to dereference while that type variable has a nullable
+ * upper bound. An explicit {@code @Nullable}, declared on the member or supplied by a library
+ * model, overrides that and is reported at every sink.
  *
  * <p>The tests that expect a diagnostic pin where the value stays nullable: a dereference,
  * unboxing, a target of a concrete type such as {@code Object}, a {@code @NonNull T} target or
@@ -1158,6 +1160,25 @@ public class NullnessOperatorTests extends NullAwayTestsBase {
               }
               static <T extends @Nullable Object> void objectBound(
                   Box<? extends T> box, Function<? super Object, String> f) {
+                // BUG: Diagnostic contains: passing @Nullable parameter 'box.get()'
+                f.apply(box.get());
+              }
+              static <T extends @Nullable Object, U extends T> void nonNullChain(
+                  Box<? extends U> box, Function<? super T, String> f) {
+                f.apply(box.get());
+              }
+              static <T extends @Nullable Object, U extends T, V extends U> void superOfAChainVariable(
+                  Box<? extends V> box, Function<? super U, String> f) {
+                f.apply(box.get());
+              }
+              static <T extends @Nullable Object, U extends @Nullable T> void nullableChain(
+                  Box<? extends U> box, Function<? super T, String> f) {
+                // BUG: Diagnostic contains: passing @Nullable parameter 'box.get()'
+                f.apply(box.get());
+              }
+              static <T extends @Nullable Object, U extends @Nullable T, V extends U>
+                  void nullableChainTwoBoundsDeep(
+                      Box<? extends V> box, Function<? super T, String> f) {
                 // BUG: Diagnostic contains: passing @Nullable parameter 'box.get()'
                 f.apply(box.get());
               }
