@@ -10,8 +10,7 @@ import org.junit.Test;
 public class NoteTests extends MismatchMessageTestBase {
 
   // A List<?> passed to Collection.addAll, as issue #1822 reported it. The message used to print
-  // the
-  // two types and that List<?> is a subtype of Collection<?>, which read as a contradiction.
+  // the two types and that List<?> is a subtype of Collection<?>, which read as a contradiction.
   @Test
   public void anUnboundedWildcardNamesTheTypeParameterItsBoundIsInheritedFrom() {
     assertMessage(

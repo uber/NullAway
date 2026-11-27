@@ -424,14 +424,12 @@ final class NullabilityMismatches {
         if (node instanceof Type.ArrayType arrayType) {
           return Track.located(arrayType.elemtype, track.path().then(TypePath.Step.arrayElement()));
         }
-        return null; // diff-coverage: ignore -- a step into an array element is taken only from an
-        // array
+        return null; // diff-coverage: ignore -- only an array has an element to step into
       }
       case WILDCARD_BOUND -> {
         Type.WildcardType wildcard = GenericsUtils.asWildcard(node);
         if (wildcard == null) {
-          return null; // diff-coverage: ignore -- a step into a wildcard bound is taken only from a
-          // wildcard
+          return null; // diff-coverage: ignore -- only a wildcard has a bound to step into
         }
         // the upper bound of `?` and `? super X` is not printed, so the caret stays on the wildcard
         return wildcard.kind == BoundKind.EXTENDS
