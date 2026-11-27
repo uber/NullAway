@@ -76,8 +76,7 @@ public class RequiredTypeRepairTests extends MismatchMessageTestBase {
         """
         incompatible nullability: found @Nullable String, required String
             found:    Sub<@Nullable String>
-            found as: List<@Nullable String>
-                           ^^^^^^^^^^^^^^^^
+                          ^^^^^^^^^^^^^^^^
             required: List<String>
                            ^^^^^^
             path: List type argument E

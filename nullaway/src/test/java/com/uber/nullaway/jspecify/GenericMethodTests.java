@@ -2243,8 +2243,8 @@ public class GenericMethodTests extends NullAwayTestsBase {
                 message.contains(
                     """
                     incompatible nullability: found @Nullable Object, required Object
-                        found:    Foo<@Nullable capture of ?>
-                                      ^^^^^^^^^^^^^^^^^^^^^^
+                        found:    Foo<capture of ?>
+                                      ^^^^^^^^^^^^
                         required: Foo<?>
                                       ^
                         path: Foo type argument T -> wildcard upper bound
@@ -3348,9 +3348,9 @@ public class GenericMethodTests extends NullAwayTestsBase {
                 return x;
               }
               void nullableQualifier(Outer<@Nullable String> o) {
-                // BUG: Diagnostic contains: incompatible types: Outer<@Nullable String>.Inner cannot be converted to Outer<String>.Inner
+                // BUG: Diagnostic contains: incompatible nullability: found @Nullable String, required String
                 id(o.new Inner(""));
-                // BUG: Diagnostic contains: incompatible types: Outer<@Nullable String>.GInner<String> cannot be converted to Outer<String>.GInner<String>
+                // BUG: Diagnostic contains: incompatible nullability: found @Nullable String, required String
                 id(o.new GInner<String>(""));
               }
               void nonNullQualifier(Outer<String> o) {

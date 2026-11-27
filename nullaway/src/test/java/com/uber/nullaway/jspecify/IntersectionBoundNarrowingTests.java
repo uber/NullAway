@@ -54,12 +54,12 @@ public class IntersectionBoundNarrowingTests extends NullAwayTestsBase {
               }
 
               Result<? extends A> rejectsAllNullableFirstComponent(AllNullable<?> source) {
-                // BUG: Diagnostic contains: incompatible types
+                // BUG: Diagnostic contains: incompatible nullability: found @Nullable A & @Nullable B, required A
                 return source.result();
               }
 
               Result<? extends B> rejectsAllNullableLastComponent(AllNullable<?> source) {
-                // BUG: Diagnostic contains: incompatible types
+                // BUG: Diagnostic contains: incompatible nullability: found @Nullable A & @Nullable B, required B
                 return source.result();
               }
             }

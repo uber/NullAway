@@ -319,7 +319,7 @@ public class WildcardTests extends NullAwayTestsBase {
               }
               void testPositive(Foo<@Nullable String> f, Foo<String> f2) {
                 // not legal since the wildcard upper bound is non-null
-                // BUG: Diagnostic contains: incompatible types: Test.Foo<@Nullable String> cannot be converted to Test.Foo<? extends String>
+                // BUG: Diagnostic contains: incompatible nullability: found @Nullable String, required String
                 String s = nonnullWildcard(f);
                 // legal
                 String s2 = nonnullWildcard(f2);
@@ -348,7 +348,7 @@ public class WildcardTests extends NullAwayTestsBase {
               }
               void testPositive(Foo<@Nullable String> f) {
                 // not legal since the wildcard upper bound is non-null
-                // BUG: Diagnostic contains: incompatible types: Test.Foo<@Nullable String> cannot be converted to Test.Foo<? extends String>
+                // BUG: Diagnostic contains: incompatible nullability: found @Nullable String, required String
                 String s = nonnullWildcard(f);
                 s.hashCode();
               }
@@ -379,7 +379,7 @@ public class WildcardTests extends NullAwayTestsBase {
                 s.hashCode();
               }
               void testPositive(Foo<Bar<@Nullable String>> f) {
-                // BUG: Diagnostic contains: incompatible types: Test.Foo<Test.Bar<@Nullable String>> cannot be converted to Test.Foo<? extends Test.Bar<String>>
+                // BUG: Diagnostic contains: incompatible nullability: found @Nullable String, required String
                 String s = nonnullWildcard(f);
                 s.hashCode();
               }
@@ -411,7 +411,7 @@ public class WildcardTests extends NullAwayTestsBase {
                 s.hashCode();
               }
               void testPositive(Foo<Bar<Baz<@Nullable String>>> f) {
-                // BUG: Diagnostic contains: incompatible types: Test.Foo<Test.Bar<Test.Baz<@Nullable String>>> cannot be converted to Test.Foo<? extends Test.Bar<Test.Baz<String>>>
+                // BUG: Diagnostic contains: incompatible nullability: found @Nullable String, required String
                 String s = nonnullWildcard(f);
                 s.hashCode();
               }
@@ -443,7 +443,7 @@ public class WildcardTests extends NullAwayTestsBase {
                 s.hashCode();
               }
               void testPositive(Foo<@Nullable Bar<Baz<String>>> f) {
-                // BUG: Diagnostic contains: incompatible types: Test.Foo<Test.@Nullable Bar<Test.Baz<String>>> cannot be converted to Test.Foo<? extends Test.Bar<Test.Baz<String>>>
+                // BUG: Diagnostic contains: incompatible nullability: found Test.@Nullable Bar<Test.Baz<String>>, required Test.Bar<Test.Baz<String>>
                 String s = nonnullWildcard(f);
                 s.hashCode();
               }
@@ -473,7 +473,7 @@ public class WildcardTests extends NullAwayTestsBase {
                 s.hashCode();
               }
               void testPositive(Foo<? extends @Nullable String> f) {
-                // BUG: Diagnostic contains: incompatible types: Test.Foo<? extends @Nullable String> cannot be converted to Test.Foo<? extends String>
+                // BUG: Diagnostic contains: incompatible nullability: found @Nullable String, required String
                 String s = nonnullWildcard(f);
                 s.hashCode();
               }
@@ -496,22 +496,22 @@ public class WildcardTests extends NullAwayTestsBase {
               Foo<? extends @Nullable String> nullableField;
               Test(Foo<? extends @Nullable String> f) {
                 nullableField = f;
-                // BUG: Diagnostic contains: incompatible types: Test.Foo<? extends @Nullable String> cannot be converted to Test.Foo<? extends String>
+                // BUG: Diagnostic contains: incompatible nullability: found @Nullable String, required String
                 nonnullField = f;
               }
               Foo<? extends @Nullable String> nullableReturn(Foo<? extends @Nullable String> f) {
                 return f;
               }
               Foo<? extends String> nonnullReturn(Foo<? extends @Nullable String> f) {
-                // BUG: Diagnostic contains: incompatible types: Test.Foo<? extends @Nullable String> cannot be converted to Test.Foo<? extends String>
+                // BUG: Diagnostic contains: incompatible nullability: found @Nullable String, required String
                 return f;
               }
               void testLocal(Foo<? extends @Nullable String> f) {
                 Foo<? extends @Nullable String> ok = f;
-                // BUG: Diagnostic contains: incompatible types: Test.Foo<? extends @Nullable String> cannot be converted to Test.Foo<? extends String>
+                // BUG: Diagnostic contains: incompatible nullability: found @Nullable String, required String
                 Foo<? extends String> bad = f;
                 var f2 = f;
-                // BUG: Diagnostic contains: incompatible types: Test.Foo<? extends @Nullable String> cannot be converted to Test.Foo<? extends String>
+                // BUG: Diagnostic contains: incompatible nullability: found @Nullable String, required String
                 Foo<? extends String> bad2 = f2;
               }
             }
@@ -566,11 +566,11 @@ public class WildcardTests extends NullAwayTestsBase {
                 Foo<? extends @Nullable Object> fromNonnullSuper = nonnullSuperFoo;
                 Foo<? extends @Nullable Object> fromNullableSuper = nullableSuperFoo;
                 Foo<? extends @Nullable Object> fromUnbounded = unboundedFoo;
-                // BUG: Diagnostic contains: incompatible types: Test.Foo<? super String> cannot be converted to Test.Foo<? extends Object>
+                // BUG: Diagnostic contains: incompatible nullability: found @Nullable Object, required Object
                 Foo<? extends Object> badFromNonnullSuper = nonnullSuperFoo;
-                // BUG: Diagnostic contains: incompatible types: Test.Foo<? super @Nullable String> cannot be converted to Test.Foo<? extends Object>
+                // BUG: Diagnostic contains: incompatible nullability: found @Nullable Object, required Object
                 Foo<? extends Object> badFromNullableSuper = nullableSuperFoo;
-                // BUG: Diagnostic contains: incompatible types: Test.Foo<?> cannot be converted to Test.Foo<? extends Object>
+                // BUG: Diagnostic contains: incompatible nullability: found @Nullable Object, required Object
                 Foo<? extends Object> badFromUnbounded = unboundedFoo;
               }
             }
@@ -595,7 +595,7 @@ public class WildcardTests extends NullAwayTestsBase {
                   NonNullBoundFoo<? super String> nonnullSuperStringFoo) {
                 NonNullBoundFoo<?> fromNonnull = nonnullObjectFoo;
                 NonNullBoundFoo<?> fromNonnullExtends = nonnullExtendsObjectFoo;
-                // BUG: Diagnostic contains: incompatible types: Test.NonNullBoundFoo<? extends @Nullable Object> cannot be converted to Test.NonNullBoundFoo<?>
+                // BUG: Diagnostic contains: incompatible nullability: found @Nullable Object, required Object
                 NonNullBoundFoo<?> fromNullableExtends = nullableExtendsObjectWithNonnullBoundFoo;
                 NonNullBoundFoo<?> fromSuper = nonnullSuperStringFoo;
               }
@@ -621,13 +621,13 @@ public class WildcardTests extends NullAwayTestsBase {
 
               static void nullableFirstArgument(Pair<@Nullable String, ?> pair) {
                 Pair<@Nullable String, ? extends @Nullable String> target = pair;
-                // BUG: Diagnostic contains: incompatible types
+                // BUG: Diagnostic contains: incompatible nullability: found @Nullable String, required String
                 Pair<@Nullable String, ? extends String> invalid = pair;
               }
 
               static void capturedFirstArgument(Pair<?, ?> pair) {
                 Pair<?, ? extends @Nullable Object> target = pair;
-                // BUG: Diagnostic contains: incompatible types
+                // BUG: Diagnostic contains: incompatible nullability: found @Nullable Object, required Object
                 Pair<?, ? extends Object> invalid = pair;
               }
 
@@ -636,7 +636,7 @@ public class WildcardTests extends NullAwayTestsBase {
 
               static void capturedFirstArgumentFromUnmarkedCode(UnmarkedPair<?, ?> pair) {
                 UnmarkedPair<?, ? extends @Nullable Object> target = pair;
-                // BUG: Diagnostic contains: incompatible types
+                // BUG: Diagnostic contains: incompatible nullability: found @Nullable Object, required Object
                 UnmarkedPair<?, ? extends Object> invalid = pair;
               }
             }
@@ -915,18 +915,18 @@ public class WildcardTests extends NullAwayTestsBase {
               }
 
               Nested<? extends String> testDirect(Nested<? extends String> receiver) {
-                // BUG: Diagnostic contains: incompatible types
+                // BUG: Diagnostic contains: incompatible nullability: found @Nullable String, required String
                 return receiver.wildcardUpperTypeVariable();
               }
 
               Nested<? extends String> testWithSelf(Nested<? extends String> receiver) {
-                // BUG: Diagnostic contains: incompatible types
+                // BUG: Diagnostic contains: incompatible nullability: found @Nullable String, required String
                 return receiver.self().wildcardUpperTypeVariable();
               }
 
               Nested<? extends String> testWithVar(Nested<? extends String> receiver) {
                 var local = receiver;
-                // BUG: Diagnostic contains: incompatible types
+                // BUG: Diagnostic contains: incompatible nullability: found @Nullable String, required String
                 return local.wildcardUpperTypeVariable();
               }
 
@@ -960,18 +960,18 @@ public class WildcardTests extends NullAwayTestsBase {
               }
 
               Nested<? extends Object> testDirect(Nested<?> receiver) {
-                // BUG: Diagnostic contains: incompatible types
+                // BUG: Diagnostic contains: incompatible nullability: found @Nullable Object, required Object
                 return receiver.wildcardUpperTypeVariable();
               }
 
               Nested<? extends Object> testWithSelf(Nested<?> receiver) {
-                // BUG: Diagnostic contains: incompatible types
+                // BUG: Diagnostic contains: incompatible nullability: found @Nullable Object, required Object
                 return receiver.self().wildcardUpperTypeVariable();
               }
 
               Nested<? extends Object> testWithVar(Nested<?> receiver) {
                 var local = receiver;
-                // BUG: Diagnostic contains: incompatible types
+                // BUG: Diagnostic contains: incompatible nullability: found @Nullable Object, required Object
                 return local.wildcardUpperTypeVariable();
               }
 
@@ -1479,7 +1479,7 @@ public class WildcardTests extends NullAwayTestsBase {
               }
               // We report an error here since we do not infer Foo<@Nullable Void> as the type of the Foo.of call;
               // javac itself has a similar inference limitation, see https://godbolt.org/z/Y875ahYMx
-              // BUG: Diagnostic contains: incompatible types: Foo<Void> cannot be converted to Foo<@Nullable Void>
+              // BUG: Diagnostic contains: incompatible nullability: a type argument must match exactly; found Void, required @Nullable Void
               static final Foo<@Nullable Void> FOO = Foo.of(new Foo<@Nullable Void>()).or(new Foo<@Nullable Void>());
 
               // This works due to the explicit type argument
@@ -2079,7 +2079,7 @@ public class WildcardTests extends NullAwayTestsBase {
               }
 
               static void superBoundedNullableElements(ListNode<? super ArrayList<String>> node) {
-                // BUG: Diagnostic contains: incompatible types: List<@Nullable String>
+                // BUG: Diagnostic contains: incompatible nullability: found @Nullable String, required String
                 takesList(node.get());
               }
             }
