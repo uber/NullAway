@@ -1803,6 +1803,7 @@ public final class GenericsChecks {
     if (isCallNeedingInference(rhsExpr)) {
       if (solver.hasDeferredFailure()) {
         // Leave this subtree to the nested call's own inference.
+        // Nested calls reached before the contradiction still share the enclosing failure (#2198).
         return;
       }
       allCalls.add(rhsExpr);

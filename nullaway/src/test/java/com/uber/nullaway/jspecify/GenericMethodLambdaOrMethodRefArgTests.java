@@ -1,6 +1,7 @@
 package com.uber.nullaway.jspecify;
 
 import static com.google.common.truth.Truth.assertThat;
+import static com.google.common.truth.Truth.assertWithMessage;
 
 import com.google.errorprone.CompilationTestHelper;
 import com.google.errorprone.FileObjects;
@@ -520,6 +521,57 @@ public class GenericMethodLambdaOrMethodRefArgTests extends NullAwayTestsBase {
             "Test.java:11: [NullAway] passing @Nullable parameter 'null' where @NonNull is required",
             "Test.java:19: [NullAway] inference failure: type variable T is constrained to be @Nullable, but its upper bound requires it to be @NonNull",
             "Test.java:19: [NullAway] incompatible types: Box<@Nullable String> cannot be converted to Box<String>");
+  }
+
+  @Test
+  public void nestedCallsBeforeEnclosingConstraintFailureShareItsResult() {
+    JavaFileObject source =
+        FileObjects.forSourceLines(
+            "Test.java",
+            """
+            import org.jspecify.annotations.NullMarked;
+            import org.jspecify.annotations.Nullable;
+
+            @NullMarked
+            class Test {
+              interface Fn<A extends @Nullable Object, B extends @Nullable Object> { B apply(A a); }
+              static class Box<T extends @Nullable Object> {}
+              static <U> Box<U> wrapF(Fn<@Nullable String, U> f) { return new Box<>(); }
+              static String needsNonNull(String s) { return s; }
+              static <T> void takeTwoRev(Box<String> first, Box<T> second) {}
+              static <U extends @Nullable Object> Box<U> box(U value) { return new Box<>(); }
+              static <T> void takeBoxRev(Box<@Nullable String> first, Box<T> second) {}
+
+              void independentReferenceMismatch(Box<@Nullable String> first) {
+                takeTwoRev(
+                    wrapF(Test::needsNonNull),
+                    first);
+              }
+
+              void validNestedCall(Box<@Nullable String> first) {
+                takeBoxRev(
+                    box(null),
+                    first);
+              }
+            }
+            """);
+    assertWithMessage("Missing reference error and false positives on box(null) (#2198)")
+        .that(
+            compileAndReportDiagnostics(
+                List.of(source),
+                JSpecifyJavacConfig.withJSpecifyModeArgs(
+                    List.of(
+                        "-d",
+                        temporaryFolder.getRoot().getAbsolutePath(),
+                        "-XepOpt:NullAway:AnnotatedPackages=com.uber",
+                        "-XepOpt:NullAway:WarnOnGenericInferenceFailure=true"))))
+        .containsExactly(
+            "Test.java:15: [NullAway] inference failure: type variable T is constrained to be @Nullable, but its upper bound requires it to be @NonNull",
+            "Test.java:17: [NullAway] incompatible types: Box<@Nullable String> cannot be converted to Box<String>",
+            "Test.java:21: [NullAway] inference failure: type variable T is constrained to be @Nullable, but its upper bound requires it to be @NonNull",
+            "Test.java:22: [NullAway] incompatible types: Box<String> cannot be converted to Box<@Nullable String>",
+            "Test.java:22: [NullAway] passing @Nullable parameter 'null' where @NonNull is required",
+            "Test.java:23: [NullAway] incompatible types: Box<@Nullable String> cannot be converted to Box<String>");
   }
 
   @Test
