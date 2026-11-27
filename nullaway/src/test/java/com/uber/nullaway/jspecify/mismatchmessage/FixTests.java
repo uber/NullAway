@@ -172,4 +172,86 @@ public class FixTests {
         .expectUnchanged()
         .doTest();
   }
+
+  @Test
+  public void theFixPutsTheAnnotationBeforeTheLastSegmentOfAQualifiedName() throws IOException {
+    makeHelper()
+        .addInputLines(
+            "Lib.java",
+            """
+            import java.util.List;
+            import java.util.Map;
+            import org.jspecify.annotations.NullMarked;
+            import org.jspecify.annotations.Nullable;
+            @NullMarked
+            class Lib {
+              static List<Map.@Nullable Entry<String, String>> entries() {
+                throw new RuntimeException();
+              }
+              static java.util.List<java.util.@Nullable List<String>> lists() {
+                throw new RuntimeException();
+              }
+            }
+            """)
+        .expectUnchanged()
+        .addInputLines(
+            "Test.java",
+            """
+            import java.util.Map;
+            import org.jspecify.annotations.NullMarked;
+            import org.jspecify.annotations.Nullable;
+            @NullMarked
+            class Test {
+              static class List<T> {}
+              void test() {
+                java.util.List<Map.Entry<String, String>> nested = Lib.entries();
+                java.util.List<java.util.List<String>> clashing = Lib.lists();
+              }
+            }
+            """)
+        .addOutputLines(
+            "Test.java",
+            """
+            import java.util.Map;
+            import org.jspecify.annotations.NullMarked;
+            import org.jspecify.annotations.Nullable;
+            @NullMarked
+            class Test {
+              static class List<T> {}
+              void test() {
+                java.util.List<Map.@Nullable Entry<String, String>> nested = Lib.entries();
+                java.util.List<java.util.@Nullable List<String>> clashing = Lib.lists();
+              }
+            }
+            """)
+        .doTest();
+  }
+
+  @Test
+  public void noEditForAVarargsParameterOrADeclarationOfSeveralVariables() throws IOException {
+    makeHelper()
+        .addInputLines(
+            "Test.java",
+            """
+            import java.util.ArrayList;
+            import java.util.Collection;
+            import java.util.List;
+            import org.jspecify.annotations.NullMarked;
+            @NullMarked
+            class Test {
+              static void take(Collection<? extends Object> c) {}
+              static void takeArray(Collection<? extends Object>[] c) {}
+              void varargs(List<?>... lists) {
+                takeArray(lists);
+              }
+              void several() {
+                List<?> first = new ArrayList<>(), second = new ArrayList<>();
+                take(first);
+                take(second);
+              }
+            }
+            """)
+        .expectUnchanged()
+        .doTest();
+  }
 }

@@ -10,9 +10,11 @@ import com.sun.source.tree.ExpressionTree;
 import com.sun.source.tree.Tree;
 import com.sun.source.tree.VariableTree;
 import com.sun.source.util.TreePath;
+import com.sun.source.util.TreeScanner;
 import com.sun.tools.javac.api.JavacTrees;
 import com.sun.tools.javac.code.Attribute;
 import com.sun.tools.javac.code.BoundKind;
+import com.sun.tools.javac.code.Flags;
 import com.sun.tools.javac.code.Symbol;
 import com.sun.tools.javac.code.Symtab;
 import com.sun.tools.javac.code.Type;
@@ -268,11 +270,44 @@ final class NullabilityMismatchMessage {
       return; // diff-coverage: ignore -- javac versions differ in whether an inferred type gets a
       // synthesized tree
     }
+    if (isVarargs(declaration) || sharesTypeTree(declarationPath)) {
+      // the printed type has no form for "...", and a shared type tree declares other variables too
+      return;
+    }
     SuggestedFix.Builder fix = SuggestedFix.builder();
     String printed =
         GenericTypePrettyPrintingVisitor.printForFix(
             type, state.withPath(declarationPath), fix, hasNullableModifier(declaration));
     fixes.add(fix.replace(typeTree, printed).build());
+  }
+
+  /** Whether {@code declaration} is a varargs parameter, whose type tree is written with "...". */
+  private static boolean isVarargs(VariableTree declaration) {
+    Symbol symbol = ASTHelpers.getSymbol(declaration);
+    return symbol != null && (symbol.flags() & Flags.VARARGS) != 0;
+  }
+
+  /**
+   * Whether the declaration at {@code declarationPath} shares its type tree with another variable,
+   * as each variable of {@code List<?> a, b;} does.
+   */
+  private static boolean sharesTypeTree(TreePath declarationPath) {
+    VariableTree declaration = (VariableTree) declarationPath.getLeaf();
+    Tree typeTree = declaration.getType();
+    Boolean shared =
+        new TreeScanner<Boolean, @Nullable Void>() {
+          @Override
+          public Boolean visitVariable(VariableTree variable, @Nullable Void unused) {
+            return (variable != declaration && variable.getType() == typeTree)
+                || Boolean.TRUE.equals(super.visitVariable(variable, null));
+          }
+
+          @Override
+          public Boolean reduce(@Nullable Boolean left, @Nullable Boolean right) {
+            return Boolean.TRUE.equals(left) || Boolean.TRUE.equals(right);
+          }
+        }.scan(declarationPath.getParentPath().getLeaf(), null);
+    return Boolean.TRUE.equals(shared);
   }
 
   /**

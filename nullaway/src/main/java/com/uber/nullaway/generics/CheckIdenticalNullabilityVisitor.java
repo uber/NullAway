@@ -113,8 +113,10 @@ public class CheckIdenticalNullabilityVisitor extends Types.DefaultTypeVisitor<B
   }
 
   /**
-   * Creates a visitor that records every comparison it rejects in {@code mismatches}, where that is
-   * not {@code null}.
+   * Creates a visitor that, where {@code mismatches} is not {@code null}, records in it each
+   * comparison it rejects. A wildcard comparison met again within the same outermost wildcard
+   * comparison, whether still in progress or already done, is taken to hold the second time; it is
+   * recorded where it was first made.
    */
   CheckIdenticalNullabilityVisitor(
       VisitorState state,
@@ -274,9 +276,8 @@ public class CheckIdenticalNullabilityVisitor extends Types.DefaultTypeVisitor<B
           GenericsUtils.effectiveUpperBoundsForTypeArguments(
               rhsClassTypeAsSuper, state, config, handler);
     }
-    if (mismatches != null) {
-      mismatches.enterClassComparison(rhsType, rhsClassTypeAsSuper);
-    }
+    NullabilityMismatches.Frame savedOutside =
+        mismatches == null ? null : mismatches.enterClassComparison(rhsType, rhsClassTypeAsSuper);
     boolean contained = true;
     for (int i = 0; i < lhsTypeArguments.size(); i++) {
       Type lhsTypeArgument = lhsTypeArguments.get(i);
@@ -315,6 +316,8 @@ public class CheckIdenticalNullabilityVisitor extends Types.DefaultTypeVisitor<B
           && contained;
     } finally {
       restore(saved);
+      // the loop above returns early only without a recorder, so this is the one exit to undo
+      restore(savedOutside);
     }
   }
 

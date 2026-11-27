@@ -201,8 +201,12 @@ final class GenericTypePrettyPrintingVisitor
     if (printsEnclosingType) {
       sb.append(descend(TypePath.Step.enclosingType(), enclosingType)).append('.');
     }
+    String className = printsEnclosingType ? t.tsym.getSimpleName().toString() : name(t.tsym);
+    // a type annotation on a qualified name goes before its last segment: Map.@Nullable Entry
+    int lastDot = className.lastIndexOf('.');
+    sb.append(className, 0, lastDot + 1);
     appendNullableAnnotationIfPresent(t, sb);
-    sb.append(printsEnclosingType ? t.tsym.getSimpleName().toString() : name(t.tsym));
+    sb.append(className, lastDot + 1, className.length());
     if (t.getTypeArguments().nonEmpty()) {
       sb.append('<');
       StringBuilder arguments = new StringBuilder();

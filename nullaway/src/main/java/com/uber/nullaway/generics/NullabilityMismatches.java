@@ -180,9 +180,11 @@ final class NullabilityMismatches {
   /**
    * Notes that the check compares {@code lhs} against {@code rhsView}, the right side {@code rhs}
    * viewed as the class of {@code lhs}. At the root of the source, a view of another class is what
-   * a caret goes into where the written source does not hold the compared node.
+   * a caret goes into where the written source does not hold the compared node. Returns the frame
+   * to restore once the comparison ends.
    */
-  void enterClassComparison(Type rhs, Type rhsView) {
+  Frame enterClassComparison(Type rhs, Type rhsView) {
+    Frame saved = frame;
     if (frame.view() == null
         && !frame.swapped()
         && frame.targetSteps().isRoot()
@@ -198,6 +200,7 @@ final class NullabilityMismatches {
               frame.swapped(),
               frame.bound());
     }
+    return saved;
   }
 
   /** Steps into type argument {@code index} of {@code lhs} and of {@code rhsView}. */
