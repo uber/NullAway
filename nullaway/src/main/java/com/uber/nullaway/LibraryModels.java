@@ -158,6 +158,11 @@ public interface LibraryModels {
    * method type arguments are substituted first, and at a modeled location the linked nullness
    * replaces the nullness the type argument supplied.
    *
+   * <p>Overrides inherit the model as a trusted contract. Override declaration checks ignore
+   * nullness differences at modeled locations, while checking the rest of the signature normally.
+   * The overriding implementation is checked using its declared annotations; NullAway does not
+   * verify that it preserves the linked-nullness relationship.
+   *
    * <p>This model is used only when {@code JSpecifyMode} and {@code JSpecifyExperimental} are
    * enabled. A PolyNull location takes precedence over any fixed nullable or non-null library model
    * for the same location, including models on overriding methods when the PolyNull model is
