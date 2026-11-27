@@ -92,6 +92,10 @@ public class TestLibraryModels implements LibraryModels {
                     "com.uber.lib.unannotated.UnannotatedWithModels",
                     "isNonNull(java.lang.Object)"),
                 0,
+                methodRef(
+                    "com.uber.lib.unannotated.UnannotatedWithModels",
+                    "returnsListWithModeledParameter(java.lang.Object)"),
+                0,
                 methodRef("com.uber.lib.unannotated.Box", "orElse(T)"),
                 0))
         .put(polyNullOverrideMethod("NullableOverride", "top"), 0)
@@ -219,6 +223,7 @@ public class TestLibraryModels implements LibraryModels {
             methodRef("com.uber.lib.unannotated.UnannotatedWithModels", "returnsNullUnannotated()"),
             methodRef(
                 "com.uber.lib.unannotated.UnannotatedWithModels", "returnsNullUnannotated2()"),
+            methodRef("com.uber.lib.unannotated.UnannotatedWithModels", "returnsNullableList()"),
             methodRef("com.uber.lib.unannotated.Box", "orElse(T)"),
             methodRef(
                 "com.uber.lib.unannotated.ConditionalReturns",
@@ -506,6 +511,17 @@ public class TestLibraryModels implements LibraryModels {
             new PolyNullLocation(
                 new Parameter(0), ImmutableList.of(new TypePathEntry(TYPE_ARGUMENT, 0))))
         .put(
+            methodRef(
+                "com.uber.lib.unannotated.UnannotatedWithModels",
+                "returnsPolyNullList(java.lang.Object)"),
+            new PolyNullLocation(new Parameter(0), ImmutableList.of()))
+        .put(
+            methodRef(
+                "com.uber.lib.unannotated.UnannotatedWithModels",
+                "returnsPolyNullList(java.lang.Object)"),
+            new PolyNullLocation(
+                new Return(), ImmutableList.of(new TypePathEntry(TYPE_ARGUMENT, 0))))
+        .put(
             method,
             new PolyNullLocation(
                 new Parameter(0), ImmutableList.of(new TypePathEntry(TYPE_ARGUMENT, 0))))
@@ -632,6 +648,22 @@ public class TestLibraryModels implements LibraryModels {
                 "com.uber.lib.unannotated.NestedAnnots", "<T>genericMethod(java.lang.Class<T>)"),
             ImmutableSetMultimap.of(
                 0,
+                new NestedAnnotationInfo(
+                    Annotation.NONNULL, ImmutableList.of(new TypePathEntry(TYPE_ARGUMENT, 0)))))
+        .put(
+            methodRef(
+                "com.uber.lib.unannotated.UnannotatedWithModels",
+                "returnsListWithNullableElements()"),
+            ImmutableSetMultimap.of(
+                -1,
+                new NestedAnnotationInfo(
+                    Annotation.NULLABLE, ImmutableList.of(new TypePathEntry(TYPE_ARGUMENT, 0)))))
+        .put(
+            methodRef(
+                "com.uber.lib.unannotated.UnannotatedWithModels",
+                "returnsListWithNonNullElements()"),
+            ImmutableSetMultimap.of(
+                -1,
                 new NestedAnnotationInfo(
                     Annotation.NONNULL, ImmutableList.of(new TypePathEntry(TYPE_ARGUMENT, 0)))))
         .put(
