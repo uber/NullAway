@@ -446,7 +446,11 @@ public class GenericsUtils {
     return isAnnotatedAsNullable(upperBound, config);
   }
 
-  private static boolean fromUnannotatedMethodOrClass(
+  /**
+   * Returns true if {@code typeVarElement} is declared by a method or class that NullAway treats as
+   * unannotated code.
+   */
+  static boolean fromUnannotatedMethodOrClass(
       Element typeVarElement, Config config, Handler handler, VisitorState state) {
     Element enclosingElement = typeVarElement.getEnclosingElement();
     if (!(enclosingElement instanceof Symbol.MethodSymbol)

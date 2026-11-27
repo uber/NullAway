@@ -152,7 +152,7 @@ public class SharedIntersectionTimeoutTests extends NullAwayTestsBase {
                 return comparableSibling();
               }
               void siblingWithNullableBoundAndMismatch() {
-                // BUG: Diagnostic contains: incompatible types
+                // BUG: Diagnostic contains: incompatible nullability in NullableSibling type argument Y: source has @Nullable String where target requires String
                 NullableSibling<?, String> x = nullableSibling();
               }
               void siblingWithNullableNonObjectBound() {

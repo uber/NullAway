@@ -93,7 +93,7 @@ public class GenericVoidReturnTests extends NullAwayTestsBase {
                 exec(() -> requiresNonNull(value), "x");
               }
               void incompatibleLambdaTypeArguments(List<@Nullable Void> values) {
-                // BUG: Diagnostic contains: incompatible types:
+                // BUG: Diagnostic contains: incompatible nullability in List type argument E: source has @Nullable Void where target requires Void
                 execList(() -> values, "x");
               }
               void substitutedVoidLambdaReturn(@Nullable Void value) {
@@ -119,7 +119,7 @@ public class GenericVoidReturnTests extends NullAwayTestsBase {
                 return requiresNonNull(value);
               }
               List<Void> incompatibleTypeArguments(List<@Nullable Void> values) {
-                // BUG: Diagnostic contains: incompatible types:
+                // BUG: Diagnostic contains: incompatible nullability in List type argument E: source has @Nullable Void where target requires Void
                 return values;
               }
 

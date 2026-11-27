@@ -10,6 +10,8 @@ import com.google.common.base.Preconditions;
 import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableSet;
 import com.google.errorprone.VisitorState;
+import com.google.errorprone.fixes.SuggestedFix;
+import com.google.errorprone.matchers.Description;
 import com.google.errorprone.suppliers.Suppliers;
 import com.google.errorprone.util.ASTHelpers;
 import com.sun.source.tree.AnnotatedTypeTree;
@@ -455,191 +457,43 @@ public final class GenericsChecks {
   }
 
   private void reportInvalidAssignmentInstantiationError(
-      Tree tree, Type lhsType, Type rhsType, VisitorState state) {
-    ErrorBuilder errorBuilder = analysis.getErrorBuilder();
-    String msg = errorMessageForIncompatibleTypesAtPseudoAssignment(lhsType, rhsType, state);
-    ErrorMessage errorMessage =
-        new ErrorMessage(ErrorMessage.MessageTypes.ASSIGN_GENERIC_NULLABLE, msg);
-    state.reportMatch(
-        errorBuilder.createErrorDescription(
-            errorMessage, analysis.buildDescription(tree), state, null));
+      Tree tree, Type lhsType, Type rhsType, ExpressionTree rhsTree, VisitorState state) {
+    NullabilityMismatchMessage.Report report =
+        new NullabilityMismatchMessage(this, config, handler, state)
+            .build(
+                lhsType,
+                rhsType,
+                tree instanceof VariableTree variableTree ? variableTree : null,
+                rhsTree);
+    reportNullabilityMismatch(
+        tree, ErrorMessage.MessageTypes.ASSIGN_GENERIC_NULLABLE, report, state);
   }
 
-  private String errorMessageForIncompatibleTypesAtPseudoAssignment(
-      Type lhsType, Type rhsType, VisitorState state) {
-    String prettyRhsType = prettyTypeForError(rhsType, state);
-    String prettyLhsType = prettyTypeForError(lhsType, state);
-    String result =
-        String.format(
-            "incompatible types: %s cannot be converted to %s", prettyRhsType, prettyLhsType);
-    boolean allowNonCaptureMismatch = prettyRhsType.equals(prettyLhsType);
-    WildcardBoundMismatch wildcardBoundMismatch =
-        firstWildcardBoundMismatch(lhsType, rhsType, state, allowNonCaptureMismatch);
-    if (wildcardBoundMismatch != null) {
-      result += " (" + describeWildcardBoundMismatch(wildcardBoundMismatch) + ")";
-    }
-    if (!ASTHelpers.isSameType(lhsType, rhsType, state)
-        && lhsType.getKind() == TypeKind.DECLARED
-        && rhsType.getKind() == TypeKind.DECLARED) {
-      Symbol.TypeSymbol lhsSym = lhsType.asElement();
-      if (lhsSym instanceof Symbol.ClassSymbol classSymbol) {
-        Type asSuper =
-            TypeSubstitutionUtils.asSuper(state.getTypes(), rhsType, classSymbol, config);
-        if (asSuper != null) {
-          result +=
-              String.format(
-                  " (%s is a subtype of %s)", prettyRhsType, prettyTypeForError(asSuper, state));
-        }
-      }
-    }
-    return result;
-  }
-
-  /**
-   * Returns the first wildcard bound difference between {@code lhsType} and {@code rhsType}, or
-   * {@code null} if no such difference can be found. Recursively traverses {@code lhsType} and
-   * {@code rhsType} to find such a difference.
-   *
-   * <p>This is especially useful when two types pretty-print identically, but differ in the
-   * effective upper bound of a wildcard nested somewhere inside the type.
-   *
-   * @param lhsType the lhs (target) type
-   * @param rhsType the rhs (source) type
-   * @param state the visitor state
-   * @param allowNonCaptureMismatch whether a mismatch may be returned when neither causal wildcard
-   *     is captured. Such details are useful when the full types print identically, but redundant
-   *     when the full types already expose the difference.
-   */
-  private @Nullable WildcardBoundMismatch firstWildcardBoundMismatch(
-      Type lhsType, Type rhsType, VisitorState state, boolean allowNonCaptureMismatch) {
-    // base case: both wildcard types
-    Type.WildcardType lhsWildcard = GenericsUtils.asWildcard(lhsType);
-    Type.WildcardType rhsWildcard = GenericsUtils.asWildcard(rhsType);
-    if (lhsWildcard != null && rhsWildcard != null) {
-      if (!allowNonCaptureMismatch
-          && !(lhsType instanceof Type.CapturedType)
-          && !(rhsType instanceof Type.CapturedType)) {
-        return null;
-      }
-      return wildcardBoundMismatch(lhsType, rhsType, lhsWildcard, rhsWildcard, state);
-    }
-    if (lhsType instanceof Type.ClassType lhsClassType && rhsType instanceof Type.ClassType) {
-      Type rhsTypeAsSuper =
-          TypeSubstitutionUtils.asSuper(
-              state.getTypes(), rhsType, (Symbol.ClassSymbol) lhsType.tsym, config);
-      if (!(rhsTypeAsSuper instanceof Type.ClassType rhsClassType)
-          || rhsTypeAsSuper.isRaw()
-          || lhsType.isRaw()) {
-        return null;
-      }
-      List<Type> lhsTypeArguments = lhsClassType.getTypeArguments();
-      List<Type> rhsTypeArguments = rhsClassType.getTypeArguments();
-      if (lhsTypeArguments.size() != rhsTypeArguments.size()) {
-        return null;
-      }
-      for (int i = 0; i < lhsTypeArguments.size(); i++) {
-        WildcardBoundMismatch mismatch =
-            firstWildcardBoundMismatch(
-                lhsTypeArguments.get(i), rhsTypeArguments.get(i), state, allowNonCaptureMismatch);
-        if (mismatch != null) {
-          return mismatch;
-        }
-      }
-      return firstWildcardBoundMismatch(
-          lhsClassType.getEnclosingType(),
-          rhsClassType.getEnclosingType(),
-          state,
-          allowNonCaptureMismatch);
-    }
-    if (lhsType instanceof Type.ArrayType lhsArrayType
-        && rhsType instanceof Type.ArrayType rhsArrayType) {
-      return firstWildcardBoundMismatch(
-          lhsArrayType.elemtype, rhsArrayType.elemtype, state, allowNonCaptureMismatch);
-    }
-    return null;
-  }
-
-  /**
-   * Creates a structured mismatch for two wildcards with visibly different effective upper bounds,
-   * or returns {@code null} if those bounds pretty-print the same.
-   */
-  private @Nullable WildcardBoundMismatch wildcardBoundMismatch(
-      Type lhsType,
-      Type rhsType,
-      Type.WildcardType lhsWildcard,
-      Type.WildcardType rhsWildcard,
+  /** Reports {@code report} at {@code tree}, with each of its fixes attached. */
+  private void reportNullabilityMismatch(
+      Tree tree,
+      ErrorMessage.MessageTypes messageType,
+      NullabilityMismatchMessage.Report report,
       VisitorState state) {
-    Type lhsUpperBound = GenericsUtils.wildcardUpperBound(lhsWildcard, state, config, handler);
-    Type rhsUpperBound = GenericsUtils.wildcardUpperBound(rhsWildcard, state, config, handler);
-    String prettyLhsUpperBound = prettyTypeForError(lhsUpperBound, state);
-    String prettyRhsUpperBound = prettyTypeForError(rhsUpperBound, state);
-    if (!prettyLhsUpperBound.equals(prettyRhsUpperBound)) {
-      return new WildcardBoundMismatch(lhsType, rhsType, prettyLhsUpperBound, prettyRhsUpperBound);
+    Description.Builder description = analysis.buildDescription(tree);
+    for (SuggestedFix fix : report.fixes()) {
+      description.addFix(fix);
     }
-    return null;
+    state.reportMatch(
+        analysis
+            .getErrorBuilder()
+            .createErrorDescription(
+                new ErrorMessage(messageType, report.message()), description, state, null));
   }
-
-  /**
-   * Describes a wildcard-bound mismatch, including provenance for every captured wildcard that
-   * directly participates in that mismatch.
-   */
-  private static String describeWildcardBoundMismatch(WildcardBoundMismatch mismatch) {
-    String result =
-        String.format(
-            "target wildcard upper bound is %s; source wildcard upper bound is %s",
-            mismatch.prettyTargetUpperBound(), mismatch.prettySourceUpperBound());
-    String targetCaptureDescription =
-        captureProvenanceDescription(mismatch.targetWildcardType(), "target");
-    if (targetCaptureDescription != null) {
-      result += "; " + targetCaptureDescription;
-    }
-    String sourceCaptureDescription =
-        captureProvenanceDescription(mismatch.sourceWildcardType(), "source");
-    if (sourceCaptureDescription != null) {
-      result += "; " + sourceCaptureDescription;
-    }
-    return result;
-  }
-
-  /** Returns a short description of the type parameter underlying a captured type, if available. */
-  private static @Nullable String captureProvenanceDescription(Type type, String assignmentRole) {
-    if (!(type instanceof Type.CapturedType capturedType)) {
-      return null;
-    }
-    Type.TypeVar formalTypeVariable = capturedType.wildcard.bound;
-    if (formalTypeVariable == null
-        || !(formalTypeVariable.tsym.owner instanceof Symbol.ClassSymbol owner)
-        || owner.getSimpleName().isEmpty()) {
-      return null;
-    }
-    return String.format(
-        "%s wildcard is the type argument for type variable %s of %s",
-        assignmentRole, formalTypeVariable.tsym.getSimpleName(), owner.getSimpleName());
-  }
-
-  /**
-   * A difference between the effective upper bounds of two corresponding wildcards.
-   *
-   * <p>The wildcard types are retained so the diagnostic can report provenance for the captured
-   * wildcard or wildcards that directly caused the mismatch, without reporting unrelated captures
-   * elsewhere in the enclosing types.
-   */
-  private record WildcardBoundMismatch(
-      Type targetWildcardType,
-      Type sourceWildcardType,
-      String prettyTargetUpperBound,
-      String prettySourceUpperBound) {}
 
   private void reportInvalidReturnTypeError(
-      Tree tree, Type methodType, Type returnType, VisitorState state) {
-    ErrorBuilder errorBuilder = analysis.getErrorBuilder();
-    ErrorMessage errorMessage =
-        new ErrorMessage(
-            ErrorMessage.MessageTypes.RETURN_NULLABLE_GENERIC,
-            errorMessageForIncompatibleTypesAtPseudoAssignment(methodType, returnType, state));
-    state.reportMatch(
-        errorBuilder.createErrorDescription(
-            errorMessage, analysis.buildDescription(tree), state, null));
+      ExpressionTree tree, Type methodType, Type returnType, VisitorState state) {
+    reportNullabilityMismatch(
+        tree,
+        ErrorMessage.MessageTypes.RETURN_NULLABLE_GENERIC,
+        new NullabilityMismatchMessage(this, config, handler, state)
+            .build(methodType, returnType, null, tree),
+        state);
   }
 
   private void reportMismatchedTypeForTernaryOperator(
@@ -664,15 +518,12 @@ public final class GenericsChecks {
       Type actualParameterType,
       ExpressionTree paramExpression,
       VisitorState state) {
-    ErrorBuilder errorBuilder = analysis.getErrorBuilder();
-    ErrorMessage errorMessage =
-        new ErrorMessage(
-            ErrorMessage.MessageTypes.PASS_NULLABLE_GENERIC,
-            errorMessageForIncompatibleTypesAtPseudoAssignment(
-                formalParameterType, actualParameterType, state));
-    state.reportMatch(
-        errorBuilder.createErrorDescription(
-            errorMessage, analysis.buildDescription(paramExpression), state, null));
+    reportNullabilityMismatch(
+        paramExpression,
+        ErrorMessage.MessageTypes.PASS_NULLABLE_GENERIC,
+        new NullabilityMismatchMessage(this, config, handler, state)
+            .build(formalParameterType, actualParameterType, null, paramExpression),
+        state);
   }
 
   private void reportInvalidMethodReferenceReturnTypeError(
@@ -1142,7 +993,7 @@ public final class GenericsChecks {
       }
       boolean isAssignmentValid = subtypeParameterNullability(lhsType, rhsType, state);
       if (!isAssignmentValid) {
-        reportInvalidAssignmentInstantiationError(tree, lhsType, rhsType, state);
+        reportInvalidAssignmentInstantiationError(tree, lhsType, rhsType, rhsTree, state);
       }
     }
   }
@@ -2555,80 +2406,16 @@ public final class GenericsChecks {
   }
 
   /**
-   * Compare two types for identical type parameter nullability, recursively checking nested generic
-   * types. See <a href="https://jspecify.dev/docs/spec/#nullness-delegating-subtyping">the JSpecify
-   * specification</a> and <a
-   * href="https://docs.oracle.com/javase/specs/jls/se14/html/jls-4.html#jls-4.10.2">the JLS
-   * subtyping rules for class and interface types</a>.
-   *
-   * @param lhsType type for the lhs of the assignment
-   * @param rhsType type for the rhs of the assignment
-   * @param visitor visitor carrying state for the recursive comparison
-   */
-  @SuppressWarnings({"ReferenceEquality", "TypeEquals"}) // deliberate reference equality check
-  private boolean identicalTypeParameterNullability(
-      Type lhsType, Type rhsType, CheckIdenticalNullabilityVisitor visitor) {
-    if (lhsType == rhsType) {
-      return true;
-    }
-    return lhsType.accept(visitor, rhsType);
-  }
-
-  /**
-   * Like {@link #identicalTypeParameterNullability(Type, Type, CheckIdenticalNullabilityVisitor)},
-   * but allows for covariant array subtyping at every dimension of an array type.
+   * Returns whether {@code rhsType} may be assigned to {@code lhsType} as far as the nullability of
+   * their type arguments goes; see {@link CheckIdenticalNullabilityVisitor#isSubtype}.
    *
    * @param lhsType type for the lhs of the assignment
    * @param rhsType type for the rhs of the assignment
    * @param state the visitor state
    */
   boolean subtypeParameterNullability(Type lhsType, Type rhsType, VisitorState state) {
-    return subtypeParameterNullability(
-        lhsType,
-        rhsType,
-        state,
-        new CheckIdenticalNullabilityVisitor(state, this, config, handler));
-  }
-
-  /**
-   * Continues a subtype nullability comparison with an existing visitor so recursive wildcard
-   * comparisons share cycle-detection state.
-   *
-   * @param lhsType type for the lhs of the assignment
-   * @param rhsType type for the rhs of the assignment
-   * @param state the visitor state
-   * @param visitor visitor carrying state for the recursive comparison
-   */
-  boolean subtypeParameterNullability(
-      Type lhsType, Type rhsType, VisitorState state, CheckIdenticalNullabilityVisitor visitor) {
-    if (lhsType.isRaw()) {
-      return true;
-    }
-    if (lhsType.getKind().equals(TypeKind.ARRAY) && rhsType.getKind().equals(TypeKind.ARRAY)) {
-      // for array types we must allow covariance, i.e., an array of @NonNull references is a
-      // subtype of an array of @Nullable references; see
-      // https://github.com/jspecify/jspecify/issues/65
-      Type.ArrayType lhsArrayType = (Type.ArrayType) lhsType;
-      Type.ArrayType rhsArrayType = (Type.ArrayType) rhsType;
-      Type lhsComponentType = lhsArrayType.getComponentType();
-      Type rhsComponentType = rhsArrayType.getComponentType();
-      boolean isLHSNullableAnnotated = isNullableAnnotated(lhsComponentType);
-      boolean isRHSNullableAnnotated = isNullableAnnotated(rhsComponentType);
-      // an array of @Nullable references is _not_ a subtype of an array of @NonNull references
-      if (isRHSNullableAnnotated && !isLHSNullableAnnotated) {
-        return false;
-      }
-      if (lhsComponentType.getKind().equals(TypeKind.ARRAY)
-          && rhsComponentType.getKind().equals(TypeKind.ARRAY)) {
-        // covariance applies at every dimension of a multi-dimensional array, not just the
-        // outermost one.  The ARRAY check keeps array types nested inside generic type arguments
-        // on the invariant path below, since generics are not covariant.
-        return subtypeParameterNullability(lhsComponentType, rhsComponentType, state, visitor);
-      }
-      return identicalTypeParameterNullability(lhsComponentType, rhsComponentType, visitor);
-    } else {
-      return identicalTypeParameterNullability(lhsType, rhsType, visitor);
-    }
+    return new CheckIdenticalNullabilityVisitor(state, this, config, handler)
+        .isSubtype(lhsType, rhsType);
   }
 
   /**
@@ -4695,9 +4482,10 @@ public final class GenericsChecks {
 
   /**
    * Returns a pretty-printed representation of type suitable for error messages. The representation
-   * uses simple names rather than fully-qualified names, and retains all type-use annotations.
+   * uses simple names rather than fully-qualified names, and keeps {@code @Nullable} and drops
+   * every other type-use annotation.
    */
-  private static String prettyTypeForError(Type type, VisitorState state) {
+  static String prettyTypeForError(Type type, VisitorState state) {
     return type.accept(new GenericTypePrettyPrintingVisitor(state), null);
   }
 

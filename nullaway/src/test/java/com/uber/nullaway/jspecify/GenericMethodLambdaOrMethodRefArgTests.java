@@ -231,7 +231,7 @@ public class GenericMethodLambdaOrMethodRefArgTests extends NullAwayTestsBase {
 
               static void implicitParameterNonNull(Box<Box<String>> nested) {
                 var flat = nested.flatMap(box -> box);
-                // BUG: Diagnostic contains: incompatible types: Box<String> cannot be converted to Box<@Nullable String>
+                // BUG: Diagnostic contains: incompatible nullability in Box type argument T: a type argument must match exactly; source has String where target requires @Nullable String
                 acceptsNullable(flat);
               }
 
@@ -1337,7 +1337,7 @@ public class GenericMethodLambdaOrMethodRefArgTests extends NullAwayTestsBase {
                 receiver(makeCancelable(this::target));
               }
               void testPositive() {
-                // BUG: Diagnostic contains: incompatible types: Callback<Object> cannot be converted to Callback<@Nullable Object>
+                // BUG: Diagnostic contains: incompatible nullability in Callback type argument T: a type argument must match exactly; source has Object where target requires @Nullable Object
                 receiver(makeCancelable(this::targetNonNullParam));
               }
             }

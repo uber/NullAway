@@ -247,7 +247,7 @@ public class VarDeclaredLocalTests extends NullAwayTestsBase {
                   boolean b, String s, Box<String> nonNull, Box<@Nullable String> nullable) {
                 s.length();
                 var x = b ? nonNull : nonNull;
-                // BUG: Diagnostic contains: incompatible types: Box<@Nullable String> cannot be converted to Box<String>
+                // BUG: Diagnostic contains: incompatible nullability in Box type argument T: source has @Nullable String where target requires String
                 x = id(nullable);
               }
             }
