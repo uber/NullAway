@@ -15,22 +15,22 @@ public class SourceFixTests extends MismatchMessageTestBase {
   public void theFixRewritesEveryMismatchingWildcard() {
     assertMessage(
         """
-        incompatible nullability in Map type argument K -> wildcard upper bound and 1 other position: found @Nullable Object, required Object
-            found:    Map<?, ?>
-                          ^  ^
-                          1  2
-            required: Map<? extends Object, ? extends Object>
-                                    ^^^^^^            ^^^^^^
-                                    1                 2
+        incompatible nullability in Map type argument K -> wildcard upper bound and 1 other position: source has @Nullable Object where target requires Object
+            source: Map<?, ?>
+                        ^  ^
+                        1  2
+            target: Map<? extends Object, ? extends Object>
+                                  ^^^^^^            ^^^^^^
+                                  1                 2
          \s
             1. path: Map type argument K -> wildcard upper bound
-               found:    @Nullable Object
-               required: Object
+               source: @Nullable Object
+               target: Object
                note: the source ? has no explicit upper bound, so its upper bound is inherited from type parameter K of Map
          \s
             2. path: Map type argument V -> wildcard upper bound
-               found:    @Nullable Object
-               required: Object
+               source: @Nullable Object
+               target: Object
                note: the source ? has no explicit upper bound, so its upper bound is inherited from type parameter V of Map
          \s
             fix: declare m as Map<? extends Object, ? extends Object>
@@ -51,11 +51,11 @@ public class SourceFixTests extends MismatchMessageTestBase {
   public void theFixLeavesAWildcardTheTargetAllowsToBeNullable() {
     assertMessage(
         """
-        incompatible nullability in Map type argument K -> wildcard upper bound: found @Nullable Object, required Object
-            found:    Map<?, ?>
-                          ^
-            required: Map<? extends Object, ? extends @Nullable Object>
-                                    ^^^^^^
+        incompatible nullability in Map type argument K -> wildcard upper bound: source has @Nullable Object where target requires Object
+            source: Map<?, ?>
+                        ^
+            target: Map<? extends Object, ? extends @Nullable Object>
+                                  ^^^^^^
             note: the source ? has no explicit upper bound, so its upper bound is inherited from type parameter K of Map
             fix: declare m as Map<? extends Object, ?>
         """,
@@ -75,11 +75,11 @@ public class SourceFixTests extends MismatchMessageTestBase {
   public void theFixSurvivesAMismatchInTheHarmlessDirection() {
     assertMessage(
         """
-        incompatible nullability in Box type argument T -> wildcard upper bound: found @Nullable Object, required Object
-            found:    Box<?, ?>
-                          ^
-            required: Box<? extends Object, ? extends @Nullable Object>
-                                    ^^^^^^
+        incompatible nullability in Box type argument T -> wildcard upper bound: source has @Nullable Object where target requires Object
+            source: Box<?, ?>
+                        ^
+            target: Box<? extends Object, ? extends @Nullable Object>
+                                  ^^^^^^
             note: the source ? has no explicit upper bound, so its upper bound is inherited from type parameter T of Box
             fix: declare b as Box<? extends Object, ?>
         """,
@@ -100,11 +100,11 @@ public class SourceFixTests extends MismatchMessageTestBase {
   public void theFixSurvivesASuperBoundedArgumentTheTargetAlsoDeclaresSuper() {
     assertMessage(
         """
-        incompatible nullability in Map type argument K -> wildcard upper bound: found @Nullable Object, required Object
-            found:    Map<?, ? super String>
-                          ^
-            required: Map<? extends Object, ? super String>
-                                    ^^^^^^
+        incompatible nullability in Map type argument K -> wildcard upper bound: source has @Nullable Object where target requires Object
+            source: Map<?, ? super String>
+                        ^
+            target: Map<? extends Object, ? super String>
+                                  ^^^^^^
             note: the source ? has no explicit upper bound, so its upper bound is inherited from type parameter K of Map
             fix: declare m as Map<? extends Object, ? super String>
         """,
@@ -124,11 +124,11 @@ public class SourceFixTests extends MismatchMessageTestBase {
   public void theFixRewritesAWildcardInsideAnArrayElement() {
     assertMessage(
         """
-        incompatible nullability in array element -> Collection type argument E -> wildcard upper bound: found @Nullable Object, required Object
-            found:    List<?> []
-                           ^
-            required: Collection<? extends Object> []
-                                           ^^^^^^
+        incompatible nullability in array element -> Collection type argument E -> wildcard upper bound: source has @Nullable Object where target requires Object
+            source: List<?> []
+                         ^
+            target: Collection<? extends Object> []
+                                         ^^^^^^
             note: the source ? has no explicit upper bound, so its upper bound is inherited from type parameter E of List
             fix: declare lists as List<? extends Object> []
         """,
@@ -148,11 +148,11 @@ public class SourceFixTests extends MismatchMessageTestBase {
   public void theFixRewritesAWildcardInsideANestedTypeArgument() {
     assertMessage(
         """
-        incompatible nullability in Collection type argument E -> wildcard upper bound -> List type argument E -> wildcard upper bound: found @Nullable Object, required Object
-            found:    List<List<?>>
-                                ^
-            required: Collection<? extends List<? extends Object>>
-                                                          ^^^^^^
+        incompatible nullability in Collection type argument E -> wildcard upper bound -> List type argument E -> wildcard upper bound: source has @Nullable Object where target requires Object
+            source: List<List<?>>
+                              ^
+            target: Collection<? extends List<? extends Object>>
+                                                        ^^^^^^
             note: the source ? has no explicit upper bound, so its upper bound is inherited from type parameter E of List
             fix: declare lists as List<List<? extends Object>>
         """,
@@ -172,11 +172,11 @@ public class SourceFixTests extends MismatchMessageTestBase {
   public void theFixRewritesAWildcardInAnEnclosingTypeArgument() {
     assertMessage(
         """
-        incompatible nullability in enclosing type -> Outer type argument T -> wildcard upper bound: found @Nullable Object, required Object
-            found:    Outer<?>.Inner
-                            ^
-            required: Outer<? extends Object>.Inner
-                                      ^^^^^^
+        incompatible nullability in enclosing type -> Outer type argument T -> wildcard upper bound: source has @Nullable Object where target requires Object
+            source: Outer<?>.Inner
+                          ^
+            target: Outer<? extends Object>.Inner
+                                    ^^^^^^
             note: the source ? has no explicit upper bound, so its upper bound is inherited from type parameter T of Outer
             fix: declare inner as Outer<? extends Object>.Inner
         """,
@@ -196,14 +196,14 @@ public class SourceFixTests extends MismatchMessageTestBase {
   }
 
   @Test
-  public void theSourceFixIsStillOfferedWhereTheRequiredTypeIsNotEditable() {
+  public void theSourceFixIsStillOfferedWhereTheTargetTypeIsNotEditable() {
     assertMessage(
         """
-        incompatible nullability in Collection type argument E -> wildcard upper bound: found @Nullable Object, required Object
-            found:    List<?>
-                           ^
-            required: Collection<? extends Object>
-                                           ^^^^^^
+        incompatible nullability in Collection type argument E -> wildcard upper bound: source has @Nullable Object where target requires Object
+            source: List<?>
+                         ^
+            target: Collection<? extends Object>
+                                         ^^^^^^
             note: the source ? has no explicit upper bound, so its upper bound is inherited from type parameter E of List
             fix: declare l as List<? extends Object>
         """,
@@ -220,22 +220,22 @@ public class SourceFixTests extends MismatchMessageTestBase {
   public void noFixWhenAnExplicitBoundMismatchRemains() {
     assertMessage(
         """
-        incompatible nullability in Map type argument K -> wildcard upper bound and 1 other position: found @Nullable Object, required Object
-            found:    Map<?, ? extends @Nullable Object>
-                          ^            ^^^^^^^^^^^^^^^^
-                          1            2
-            required: Map<? extends Object, ? extends Object>
-                                    ^^^^^^            ^^^^^^
-                                    1                 2
+        incompatible nullability in Map type argument K -> wildcard upper bound and 1 other position: source has @Nullable Object where target requires Object
+            source: Map<?, ? extends @Nullable Object>
+                        ^            ^^^^^^^^^^^^^^^^
+                        1            2
+            target: Map<? extends Object, ? extends Object>
+                                  ^^^^^^            ^^^^^^
+                                  1                 2
          \s
             1. path: Map type argument K -> wildcard upper bound
-               found:    @Nullable Object
-               required: Object
+               source: @Nullable Object
+               target: Object
                note: the source ? has no explicit upper bound, so its upper bound is inherited from type parameter K of Map
          \s
             2. path: Map type argument V -> wildcard upper bound
-               found:    @Nullable Object
-               required: Object
+               source: @Nullable Object
+               target: Object
         """,
         """
         static void take(Map<? extends Object, ? extends Object> m) {}
@@ -250,22 +250,22 @@ public class SourceFixTests extends MismatchMessageTestBase {
   public void noFixWhenAConcreteTypeArgumentAlsoMismatches() {
     assertMessage(
         """
-        incompatible nullability in Map type argument K -> wildcard upper bound and 1 other position: found @Nullable Object, required Object
-            found:    Map<?, @Nullable String>
-                          ^  ^^^^^^^^^^^^^^^^
-                          1  2
-            required: Map<? extends Object, String>
-                                    ^^^^^^  ^^^^^^
-                                    1       2
+        incompatible nullability in Map type argument K -> wildcard upper bound and 1 other position: source has @Nullable Object where target requires Object
+            source: Map<?, @Nullable String>
+                        ^  ^^^^^^^^^^^^^^^^
+                        1  2
+            target: Map<? extends Object, String>
+                                  ^^^^^^  ^^^^^^
+                                  1       2
          \s
             1. path: Map type argument K -> wildcard upper bound
-               found:    @Nullable Object
-               required: Object
+               source: @Nullable Object
+               target: Object
                note: the source ? has no explicit upper bound, so its upper bound is inherited from type parameter K of Map
          \s
             2. path: Map type argument V
-               found:    @Nullable String
-               required: String
+               source: @Nullable String
+               target: String
         """,
         """
         static void take(Map<? extends Object, String> m) {}
@@ -280,22 +280,22 @@ public class SourceFixTests extends MismatchMessageTestBase {
   public void noFixWhenOneMismatchCannotBeRewritten() {
     assertMessage(
         """
-        incompatible nullability in Map type argument K -> wildcard upper bound and 1 other position: found @Nullable Object, required Object
-            found:    Map<?, ? super String>
-                          ^  ^^^^^^^^^^^^^^
-                          1  2
-            required: Map<? extends Object, ? extends Object>
-                                    ^^^^^^            ^^^^^^
-                                    1                 2
+        incompatible nullability in Map type argument K -> wildcard upper bound and 1 other position: source has @Nullable Object where target requires Object
+            source: Map<?, ? super String>
+                        ^  ^^^^^^^^^^^^^^
+                        1  2
+            target: Map<? extends Object, ? extends Object>
+                                  ^^^^^^            ^^^^^^
+                                  1                 2
          \s
             1. path: Map type argument K -> wildcard upper bound
-               found:    @Nullable Object
-               required: Object
+               source: @Nullable Object
+               target: Object
                note: the source ? has no explicit upper bound, so its upper bound is inherited from type parameter K of Map
          \s
             2. path: Map type argument V -> wildcard upper bound
-               found:    @Nullable Object
-               required: Object
+               source: @Nullable Object
+               target: Object
                note: the source ? super String has no explicit upper bound, so its upper bound is inherited from type parameter V of Map
         """,
         """
@@ -311,11 +311,11 @@ public class SourceFixTests extends MismatchMessageTestBase {
   public void noFixWhenBoundsDifferBelowTheTopLevel() {
     assertMessage(
         """
-        incompatible nullability in Holder type argument E -> wildcard upper bound -> List type argument E: found @Nullable Object, required Object
-            found:    Holder<?>
-                             ^
-            required: Holder<? extends List<Object>>
-                                            ^^^^^^
+        incompatible nullability in Holder type argument E -> wildcard upper bound -> List type argument E: source has @Nullable Object where target requires Object
+            source: Holder<?>
+                           ^
+            target: Holder<? extends List<Object>>
+                                          ^^^^^^
             note: the source ? has no explicit upper bound, so its upper bound is inherited from type parameter E of Holder
         """,
         """
@@ -332,11 +332,11 @@ public class SourceFixTests extends MismatchMessageTestBase {
   public void noFixWhenTheRewrittenTypeHoldsACapture() {
     assertMessage(
         """
-        incompatible nullability in Map type argument K -> wildcard upper bound -> List type argument E -> wildcard upper bound: found @Nullable Object, required Object
-            found:    Map<List<?>, capture of ?>
-                               ^
-            required: Map<? extends List<? extends Object>, ?>
-                                                   ^^^^^^
+        incompatible nullability in Map type argument K -> wildcard upper bound -> List type argument E -> wildcard upper bound: source has @Nullable Object where target requires Object
+            source: Map<List<?>, capture of ?>
+                             ^
+            target: Map<? extends List<? extends Object>, ?>
+                                                 ^^^^^^
             note: the source ? has no explicit upper bound, so its upper bound is inherited from type parameter E of List
         """,
         """
@@ -359,30 +359,30 @@ public class SourceFixTests extends MismatchMessageTestBase {
         Map.of(
             "PLAIN",
             """
-            incompatible nullability in Map type argument K -> wildcard upper bound: found @Nullable Object, required Object
-                found:    Map<?, String>
-                              ^
-                required: Map<? extends Object, String>
-                                        ^^^^^^
+            incompatible nullability in Map type argument K -> wildcard upper bound: source has @Nullable Object where target requires Object
+                source: Map<?, String>
+                            ^
+                target: Map<? extends Object, String>
+                                      ^^^^^^
                 note: the source ? has no explicit upper bound, so its upper bound is inherited from type parameter K of Map
                 fix: declare plain as Map<? extends Object, String>
             """,
             "TAINTED",
             """
-            incompatible nullability in Map type argument K -> wildcard upper bound: found @Nullable Object, required Object
-                found:    Map<?, String>
-                              ^
-                required: Map<? extends Object, String>
-                                        ^^^^^^
+            incompatible nullability in Map type argument K -> wildcard upper bound: source has @Nullable Object where target requires Object
+                source: Map<?, String>
+                            ^
+                target: Map<? extends Object, String>
+                                      ^^^^^^
                 note: the source ? has no explicit upper bound, so its upper bound is inherited from type parameter K of Map
             """,
             "TAINTED_ARRAY_ELEMENT",
             """
-            incompatible nullability in Map type argument K -> wildcard upper bound: found @Nullable Object, required Object
-                found:    Map<?, String []>
-                              ^
-                required: Map<? extends Object, String []>
-                                        ^^^^^^
+            incompatible nullability in Map type argument K -> wildcard upper bound: source has @Nullable Object where target requires Object
+                source: Map<?, String []>
+                            ^
+                target: Map<? extends Object, String []>
+                                      ^^^^^^
                 note: the source ? has no explicit upper bound, so its upper bound is inherited from type parameter K of Map
             """),
         """
@@ -409,11 +409,11 @@ public class SourceFixTests extends MismatchMessageTestBase {
   public void theFixNamesTheFieldItRewrites() {
     assertMessage(
         """
-        incompatible nullability in Collection type argument E -> wildcard upper bound: found @Nullable Object, required Object
-            found:    List<?>
-                           ^
-            required: Collection<? extends Object>
-                                           ^^^^^^
+        incompatible nullability in Collection type argument E -> wildcard upper bound: source has @Nullable Object where target requires Object
+            source: List<?>
+                         ^
+            target: Collection<? extends Object>
+                                         ^^^^^^
             note: the source ? has no explicit upper bound, so its upper bound is inherited from type parameter E of List
             fix: declare field as List<? extends Object>
         """,

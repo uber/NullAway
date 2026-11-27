@@ -13,11 +13,11 @@ public class CaretTests extends MismatchMessageTestBase {
   public void onlyTheInnermostDifferingNodeIsMarkedInsideAWildcardBound() {
     assertMessage(
         """
-        incompatible nullability in List type argument E -> wildcard upper bound -> List type argument E: found @Nullable String, required String
-            found:    List<? extends List<@Nullable String>>
-                                          ^^^^^^^^^^^^^^^^
-            required: List<? extends List<String>>
-                                          ^^^^^^
+        incompatible nullability in List type argument E -> wildcard upper bound -> List type argument E: source has @Nullable String where target requires String
+            source: List<? extends List<@Nullable String>>
+                                        ^^^^^^^^^^^^^^^^
+            target: List<? extends List<String>>
+                                        ^^^^^^
         """,
         """
         static void take(List<? extends List<String>> l) {}
@@ -32,11 +32,11 @@ public class CaretTests extends MismatchMessageTestBase {
   public void caretSkipsATypeArgumentTheTargetAccepts() {
     assertMessage(
         """
-        incompatible nullability in Map type argument V -> wildcard upper bound: found @Nullable Object, required Object
-            found:    Map<? extends String, ? extends @Nullable Object>
-                                                      ^^^^^^^^^^^^^^^^
-            required: Map<? extends Object, ? extends Object>
-                                                      ^^^^^^
+        incompatible nullability in Map type argument V -> wildcard upper bound: source has @Nullable Object where target requires Object
+            source: Map<? extends String, ? extends @Nullable Object>
+                                                    ^^^^^^^^^^^^^^^^
+            target: Map<? extends Object, ? extends Object>
+                                                    ^^^^^^
         """,
         """
         static void take(Map<? extends Object, ? extends Object> m) {}
@@ -54,11 +54,11 @@ public class CaretTests extends MismatchMessageTestBase {
   public void caretNamesTheConcreteArgumentWhenEveryWildcardIsAccepted() {
     assertMessage(
         """
-        incompatible nullability in Map type argument V: found @Nullable String, required String
-            found:    Map<? extends String, @Nullable String>
-                                            ^^^^^^^^^^^^^^^^
-            required: Map<? extends Object, String>
-                                            ^^^^^^
+        incompatible nullability in Map type argument V: source has @Nullable String where target requires String
+            source: Map<? extends String, @Nullable String>
+                                          ^^^^^^^^^^^^^^^^
+            target: Map<? extends Object, String>
+                                          ^^^^^^
         """,
         """
         static void take(Map<? extends Object, String> m) {}
@@ -76,11 +76,11 @@ public class CaretTests extends MismatchMessageTestBase {
   public void caretMarksTheFailingArgumentWhereTheTargetRepeatsAType() {
     assertMessage(
         """
-        incompatible nullability in Three type argument C: found @Nullable String, required String
-            found:    Three<? extends String, String, @Nullable String>
-                                                      ^^^^^^^^^^^^^^^^
-            required: Three<? extends Object, String, String>
-                                                      ^^^^^^
+        incompatible nullability in Three type argument C: source has @Nullable String where target requires String
+            source: Three<? extends String, String, @Nullable String>
+                                                    ^^^^^^^^^^^^^^^^
+            target: Three<? extends Object, String, String>
+                                                    ^^^^^^
         """,
         """
         static class Three<A, B, C extends @Nullable Object> {}
@@ -96,11 +96,11 @@ public class CaretTests extends MismatchMessageTestBase {
   public void onlyTheFailingArgumentIsNamedBesideAWildcardTheTargetAccepts() {
     assertMessage(
         """
-        incompatible nullability in Three type argument C: found @Nullable String, required String
-            found:    Three<?, String, @Nullable String>
-                                       ^^^^^^^^^^^^^^^^
-            required: Three<? extends @Nullable Object, String, String>
-                                                                ^^^^^^
+        incompatible nullability in Three type argument C: source has @Nullable String where target requires String
+            source: Three<?, String, @Nullable String>
+                                     ^^^^^^^^^^^^^^^^
+            target: Three<? extends @Nullable Object, String, String>
+                                                              ^^^^^^
         """,
         """
         static class Three<A, B, C extends @Nullable Object> {}
@@ -116,22 +116,22 @@ public class CaretTests extends MismatchMessageTestBase {
   public void bothPositionsAreMarkedWhereOneInstanceFillsTwoTypeArguments() {
     assertMessage(
         """
-        incompatible nullability in Map type argument K -> wildcard upper bound and 1 other position: found @Nullable Object, required Object
-            found:    Map<capture of ?, capture of ?>
-                          ^^^^^^^^^^^^  ^^^^^^^^^^^^
-                          1             2
-            required: Map<? extends Object, ? extends Object>
-                                    ^^^^^^            ^^^^^^
-                                    1                 2
+        incompatible nullability in Map type argument K -> wildcard upper bound and 1 other position: source has @Nullable Object where target requires Object
+            source: Map<capture of ?, capture of ?>
+                        ^^^^^^^^^^^^  ^^^^^^^^^^^^
+                        1             2
+            target: Map<? extends Object, ? extends Object>
+                                  ^^^^^^            ^^^^^^
+                                  1                 2
          \s
             1. path: Map type argument K -> wildcard upper bound
-               found:    @Nullable Object
-               required: Object
+               source: @Nullable Object
+               target: Object
                note: the source wildcard is the type argument for type parameter E of List
          \s
             2. path: Map type argument V -> wildcard upper bound
-               found:    @Nullable Object
-               required: Object
+               source: @Nullable Object
+               target: Object
                note: the source wildcard is the type argument for type parameter E of List
         """,
         """
@@ -150,11 +150,11 @@ public class CaretTests extends MismatchMessageTestBase {
   public void aMismatchInsideAnArrayElementTypeArgumentIsMarked() {
     assertMessage(
         """
-        incompatible nullability in array element -> List type argument E: found @Nullable String, required String
-            found:    List<@Nullable String> []
-                           ^^^^^^^^^^^^^^^^
-            required: List<String> []
-                           ^^^^^^
+        incompatible nullability in array element -> List type argument E: source has @Nullable String where target requires String
+            source: List<@Nullable String> []
+                         ^^^^^^^^^^^^^^^^
+            target: List<String> []
+                         ^^^^^^
         """,
         """
         static void take(List<String>[] l) {}
@@ -169,11 +169,11 @@ public class CaretTests extends MismatchMessageTestBase {
   public void aNullableArrayComponentTypeIsMarkedInsideATypeArgument() {
     assertMessage(
         """
-        incompatible nullability in List type argument E -> array element: found @Nullable String, required String
-            found:    List<@Nullable String []>
-                           ^^^^^^^^^^^^^^^^
-            required: List<String []>
-                           ^^^^^^
+        incompatible nullability in List type argument E -> array element: source has @Nullable String where target requires String
+            source: List<@Nullable String []>
+                         ^^^^^^^^^^^^^^^^
+            target: List<String []>
+                         ^^^^^^
         """,
         """
         static void take(List<String[]> l) {}
@@ -188,11 +188,11 @@ public class CaretTests extends MismatchMessageTestBase {
   public void aNullableArrayTypeIsMarkedInsideATypeArgument() {
     assertMessage(
         """
-        incompatible nullability in List type argument E: found String @Nullable [], required String []
-            found:    List<String @Nullable []>
-                           ^^^^^^^^^^^^^^^^^^^
-            required: List<String []>
-                           ^^^^^^^^^
+        incompatible nullability in List type argument E: source has String @Nullable [] where target requires String []
+            source: List<String @Nullable []>
+                         ^^^^^^^^^^^^^^^^^^^
+            target: List<String []>
+                         ^^^^^^^^^
         """,
         """
         static void take(List<String[]> l) {}
@@ -207,22 +207,22 @@ public class CaretTests extends MismatchMessageTestBase {
   public void twoMismatchesUnderOneWildcardShareItsCaret() {
     assertMessage(
         """
-        incompatible nullability in Foo type argument T -> wildcard upper bound -> Map type argument K and 1 other position: found @Nullable String, required String
-            found:    Foo<?>
-                          ^
-                          1,2
-            required: Foo<? extends Map<String, String>>
-                                        ^^^^^^  ^^^^^^
-                                        1       2
+        incompatible nullability in Foo type argument T -> wildcard upper bound -> Map type argument K and 1 other position: source has @Nullable String where target requires String
+            source: Foo<?>
+                        ^
+                        1,2
+            target: Foo<? extends Map<String, String>>
+                                      ^^^^^^  ^^^^^^
+                                      1       2
          \s
             1. path: Foo type argument T -> wildcard upper bound -> Map type argument K
-               found:    @Nullable String
-               required: String
+               source: @Nullable String
+               target: String
                note: the source ? has no explicit upper bound, so its upper bound is inherited from type parameter T of Foo
          \s
             2. path: Foo type argument T -> wildcard upper bound -> Map type argument V
-               found:    @Nullable String
-               required: String
+               source: @Nullable String
+               target: String
                note: the source ? has no explicit upper bound, so its upper bound is inherited from type parameter T of Foo
         """,
         """
@@ -239,22 +239,22 @@ public class CaretTests extends MismatchMessageTestBase {
   public void twoMismatchesUnderOneNestedWildcardShareItsCaret() {
     assertMessage(
         """
-        incompatible nullability in List type argument E -> wildcard upper bound -> Foo type argument T -> wildcard upper bound -> Map type argument K and 1 other position: found @Nullable String, required String
-            found:    List<Foo<?>>
-                               ^
-                               1,2
-            required: List<? extends Foo<? extends Map<String, String>>>
-                                                       ^^^^^^  ^^^^^^
-                                                       1       2
+        incompatible nullability in List type argument E -> wildcard upper bound -> Foo type argument T -> wildcard upper bound -> Map type argument K and 1 other position: source has @Nullable String where target requires String
+            source: List<Foo<?>>
+                             ^
+                             1,2
+            target: List<? extends Foo<? extends Map<String, String>>>
+                                                     ^^^^^^  ^^^^^^
+                                                     1       2
          \s
             1. path: List type argument E -> wildcard upper bound -> Foo type argument T -> wildcard upper bound -> Map type argument K
-               found:    @Nullable String
-               required: String
+               source: @Nullable String
+               target: String
                note: the source ? has no explicit upper bound, so its upper bound is inherited from type parameter T of Foo
          \s
             2. path: List type argument E -> wildcard upper bound -> Foo type argument T -> wildcard upper bound -> Map type argument V
-               found:    @Nullable String
-               required: String
+               source: @Nullable String
+               target: String
                note: the source ? has no explicit upper bound, so its upper bound is inherited from type parameter T of Foo
         """,
         """

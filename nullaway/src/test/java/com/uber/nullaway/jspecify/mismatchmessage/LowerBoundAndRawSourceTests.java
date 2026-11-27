@@ -3,7 +3,7 @@ package com.uber.nullaway.jspecify.mismatchmessage;
 import org.junit.Test;
 
 /**
- * A difference in a {@code ? super} bound is located like any other, and the required side reads as
+ * A difference in a {@code ? super} bound is located like any other, and the target side reads as
  * {@code a supertype of} the bound the target states. A raw source has no type arguments to compare
  * and draws no message at all, and neither does an array of a raw target type.
  */
@@ -13,11 +13,11 @@ public class LowerBoundAndRawSourceTests extends MismatchMessageTestBase {
   public void aLowerBoundDifferenceIsMarkedInBothTypes() {
     assertMessage(
         """
-        incompatible nullability in List type argument E -> wildcard lower bound: found String, required a supertype of @Nullable String
-            found:    List<? super String>
-                                   ^^^^^^
-            required: List<? super @Nullable String>
-                                   ^^^^^^^^^^^^^^^^
+        incompatible nullability in List type argument E -> wildcard lower bound: source has String where target requires a supertype of @Nullable String
+            source: List<? super String>
+                                 ^^^^^^
+            target: List<? super @Nullable String>
+                                 ^^^^^^^^^^^^^^^^
         """,
         """
         static void takeNonNullLower(List<? super String> l) {}
@@ -36,11 +36,11 @@ public class LowerBoundAndRawSourceTests extends MismatchMessageTestBase {
   public void aLowerBoundDifferenceIsMarkedAcrossASupertypeView() {
     assertMessage(
         """
-        incompatible nullability in Base type argument T -> wildcard lower bound: found String, required a supertype of @Nullable String
-            found:    Sub<? super String>
-                                  ^^^^^^
-            required: Base<? super @Nullable String>
-                                   ^^^^^^^^^^^^^^^^
+        incompatible nullability in Base type argument T -> wildcard lower bound: source has String where target requires a supertype of @Nullable String
+            source: Sub<? super String>
+                                ^^^^^^
+            target: Base<? super @Nullable String>
+                                 ^^^^^^^^^^^^^^^^
         """,
         """
         static class Base<T extends @Nullable Object> {}

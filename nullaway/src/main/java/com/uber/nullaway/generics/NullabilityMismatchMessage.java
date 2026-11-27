@@ -38,11 +38,11 @@ import org.jspecify.annotations.Nullable;
  * Map<? extends Object, String>}, the text reads:
  *
  * <pre>
- * incompatible nullability in Map type argument K -&gt; wildcard upper bound: found @Nullable Object, required Object
- *     found:    Map&lt;?, String&gt;
- *                   ^
- *     required: Map&lt;? extends Object, String&gt;
- *                             ^^^^^^
+ * incompatible nullability in Map type argument K -&gt; wildcard upper bound: source has @Nullable Object where target requires Object
+ *     source: Map&lt;?, String&gt;
+ *                 ^
+ *     target: Map&lt;? extends Object, String&gt;
+ *                           ^^^^^^
  *     note: the source ? has no explicit upper bound, so its upper bound is inherited from type parameter K of Map
  *     fix: declare m as Map&lt;? extends Object, String&gt;
  * </pre>
@@ -55,13 +55,14 @@ import org.jspecify.annotations.Nullable;
  *
  * <h2>The vocabulary</h2>
  *
- * <p>Each line opens with a key that means the same thing wherever it appears: {@code found} is the
- * source type, {@code found as} the supertype of it the check compared, {@code required} the target
- * type, {@code path} where in the type one difference sits, {@code note} a fact about the source
- * that its printed form does not show, and {@code fix} a declaration whose rewritten type the check
- * accepts. Where there are several differences, each gets a numbered entry with its own {@code
- * path}, {@code found}, and {@code required}, five at most, and {@code and N more, not listed}
- * counts the rest.
+ * <p>Each line opens with a key that means the same thing wherever it appears: {@code source} is
+ * the source type, {@code source viewed as} the supertype of it the check compared, {@code target}
+ * the target type, {@code path} where in the type one difference sits, {@code note} a fact about
+ * the source that its printed form does not show, and {@code fix} a declaration whose rewritten
+ * type the check accepts. Where there are several differences, each gets a numbered entry with its
+ * own {@code path}, {@code source}, and {@code target}, five at most, and {@code and N more, not
+ * listed} counts the rest. The keys of the type lines are padded to one width, so the types of one
+ * message start in the same column.
  *
  * <h2>The first line</h2>
  *
@@ -72,8 +73,8 @@ import org.jspecify.annotations.Nullable;
  * String} fails against {@code @Nullable String} as surely as the reverse. That direction is the
  * one a reader can misread as a false subtype claim, since every {@code String} is a
  * {@code @Nullable String}, so there the line says first that a type argument has to match exactly.
- * Where the target bounds a {@code ? super} wildcard, the required side reads {@code a supertype
- * of} that bound.
+ * Where the target bounds a {@code ? super} wildcard, the target side reads {@code a supertype of}
+ * that bound.
  *
  * <p>Where the check records no position, the message is the two types and the subtype relation
  * between them, opening {@code incompatible types:}, which is all that can be said about a
@@ -91,9 +92,9 @@ import org.jspecify.annotations.Nullable;
  * {@code class Sub extends Base<List<@Nullable String>>}, viewing a {@code Sub} as a {@code Base}
  * rebuilds the {@code List<@Nullable String>} from the declaration of {@code Sub}, which the
  * written type does not hold. Where the source is viewed as a supertype at the root and the node is
- * not in the written type, that view is printed as {@code found as} and carries the carets. Below
- * the root, as for an element of {@code List<Sub>}, no view is printed, and such a node gets no
- * source caret. Two differences below one printed node share its caret, numbered for each.
+ * not in the written type, that view is printed as {@code source viewed as} and carries the carets.
+ * Below the root, as for an element of {@code List<Sub>}, no view is printed, and such a node gets
+ * no source caret. Two differences below one printed node share its caret, numbered for each.
  *
  * <p>A note explains itself in the entities the message already shows. Where the source wildcard
  * stands at a position of the type the reader wrote, including one the supertype view carried over
@@ -117,13 +118,12 @@ import org.jspecify.annotations.Nullable;
  *
  * <p>The two candidates differ in what they presume. Writing an explicit bound on a wildcard the
  * source declaration already writes is a mechanical fix of that wildcard, so it is offered wherever
- * it works. Changing the required type is a claim about which side of a contract is wrong, which
- * this class cannot know, so it comes with two limits: it is offered only where the required type
- * is written at the diagnostic itself, as it is in a variable declaration, and it only ever adds
- * {@code @Nullable}. At a call the required type comes from a signature somewhere else, and
- * proposing an edit to it would be a guess at what that signature is for; taking a
- * {@code @Nullable} away would be a guess of the same kind about a contract the author stated on
- * purpose.
+ * it works. Changing the target type is a claim about which side of a contract is wrong, which this
+ * class cannot know, so it comes with two limits: it is offered only where the target type is
+ * written at the diagnostic itself, as it is in a variable declaration, and it only ever adds
+ * {@code @Nullable}. At a call the target type comes from a signature somewhere else, and proposing
+ * an edit to it would be a guess at what that signature is for; taking a {@code @Nullable} away
+ * would be a guess of the same kind about a contract the author stated on purpose.
  *
  * <p>A fix also has to survive printing. The printer shows {@code @Nullable} and drops every other
  * type-use annotation, and it writes the dimensions of a nested array in the reverse of the order a
@@ -149,6 +149,25 @@ final class NullabilityMismatchMessage {
   private static final int MAX_LISTED_MISMATCHES = 5;
 
   /**
+   * The key of the line that prints the source type, and of the source node in a numbered entry.
+   */
+  private static final String SOURCE_LABEL = "source";
+
+  /** The key of the line that prints the supertype of the source type the check compared. */
+  private static final String VIEWED_SOURCE_LABEL = "source viewed as";
+
+  /**
+   * The key of the line that prints the target type, and of the target node in a numbered entry.
+   */
+  private static final String TARGET_LABEL = "target";
+
+  /**
+   * The width the keys of the type lines are padded to where no viewed source is printed: the
+   * length of {@link #SOURCE_LABEL} and {@link #TARGET_LABEL}, which is the same.
+   */
+  private static final int TYPE_LABEL_WIDTH = SOURCE_LABEL.length();
+
+  /**
    * The text of a diagnostic and the fixes to attach to it.
    *
    * @param message the text
@@ -164,26 +183,26 @@ final class NullabilityMismatchMessage {
    * <p>Where the check records no rejected position, the message is the two types and the subtype
    * relation between them, which is all that can be said about a difference nothing located.
    *
-   * @param lhsType the required type
-   * @param rhsType the type found
-   * @param requiredTypeDeclaration the declaration of a variable whose type is {@code lhsType}
-   *     where the diagnostic is reported at it, which admits a fix of the required type; {@code
-   *     null} elsewhere
-   * @param sourceExpression the expression whose type is {@code rhsType}, which admits a fix of the
-   *     declaration it names; {@code null} where there is none
+   * @param targetType the type the pseudo-assignment assigns to
+   * @param sourceType the type of the value assigned
+   * @param targetTypeDeclaration the declaration of a variable whose type is {@code targetType}
+   *     where the diagnostic is reported at it, which admits a fix of the target type; {@code null}
+   *     elsewhere
+   * @param sourceExpression the expression whose type is {@code sourceType}, which admits a fix of
+   *     the declaration it names; {@code null} where there is none
    */
   Report build(
-      Type lhsType,
-      Type rhsType,
-      @Nullable VariableTree requiredTypeDeclaration,
+      Type targetType,
+      Type sourceType,
+      @Nullable VariableTree targetTypeDeclaration,
       @Nullable ExpressionTree sourceExpression) {
-    NullabilityMismatches recorded = new NullabilityMismatches(lhsType, rhsType);
+    NullabilityMismatches recorded = new NullabilityMismatches(targetType, sourceType);
     new CheckIdenticalNullabilityVisitor(state, checks, config, handler, recorded)
-        .isSubtype(lhsType, rhsType);
+        .isSubtype(targetType, sourceType);
     List<NullabilityMismatches.Mismatch> mismatches = recorded.mismatches();
     if (mismatches.isEmpty()) {
       return new Report(
-          plainIncompatibleTypesMessage(lhsType, rhsType),
+          plainIncompatibleTypesMessage(targetType, sourceType),
           List.of()); // diff-coverage: ignore -- every false result of the visitor comes from a
       // reject call, so a rejection records a position
     }
@@ -193,22 +212,27 @@ final class NullabilityMismatchMessage {
             : mismatches;
     boolean numbered = listed.size() > 1;
     StringBuilder message = new StringBuilder(summaryLine(mismatches));
-    MarkedType found =
+    MarkedType source =
         markedTypeLines(
-            "found",
-            rhsType,
+            SOURCE_LABEL,
+            TYPE_LABEL_WIDTH,
+            sourceType,
             carets(listed, NullabilityMismatches.Mismatch::sourceCaret),
             numbered);
     Type viewedSource = sharedView(listed);
-    if (found.marksPlaced() == listed.size() || viewedSource == null) {
-      message.append(found.lines());
+    int labelWidth = TYPE_LABEL_WIDTH;
+    if (source.marksPlaced() == listed.size() || viewedSource == null) {
+      message.append(source.lines());
     } else {
       // a node the check compared is at no position of the type the reader wrote, so the view of
       // it the check did compare is printed too and carries the carets
-      message.append(markedTypeLines("found", rhsType, List.of(), numbered).lines());
+      labelWidth = VIEWED_SOURCE_LABEL.length();
+      message.append(
+          markedTypeLines(SOURCE_LABEL, labelWidth, sourceType, List.of(), numbered).lines());
       message.append(
           markedTypeLines(
-                  "found as",
+                  VIEWED_SOURCE_LABEL,
+                  labelWidth,
                   viewedSource,
                   carets(
                       listed,
@@ -223,8 +247,9 @@ final class NullabilityMismatchMessage {
     }
     message.append(
         markedTypeLines(
-                "required",
-                lhsType,
+                TARGET_LABEL,
+                labelWidth,
+                targetType,
                 carets(listed, NullabilityMismatches.Mismatch::targetCaret),
                 numbered)
             .lines());
@@ -240,20 +265,20 @@ final class NullabilityMismatchMessage {
               "%s\n  and %d more, not listed", separator, mismatches.size() - listed.size()));
     }
     List<SuggestedFix> fixes = new ArrayList<>();
-    VariableTree sourceDeclaration = sourceDeclaration(sourceExpression, rhsType);
+    VariableTree sourceDeclaration = sourceDeclaration(sourceExpression, sourceType);
     if (sourceDeclaration != null) {
-      Type rewrittenSourceType = sourceTypeFix(lhsType, rhsType, mismatches);
+      Type rewrittenSourceType = sourceTypeFix(targetType, sourceType, mismatches);
       if (rewrittenSourceType != null) {
         message.append(separator);
         appendFix(message, fixes, sourceDeclaration, rewrittenSourceType);
         separator = "";
       }
     }
-    if (requiredTypeDeclaration != null) {
-      Type rewrittenTargetType = targetTypeFix(lhsType, rhsType, mismatches);
+    if (targetTypeDeclaration != null) {
+      Type rewrittenTargetType = targetTypeFix(targetType, sourceType, mismatches);
       if (rewrittenTargetType != null) {
         message.append(separator);
-        appendFix(message, fixes, requiredTypeDeclaration, rewrittenTargetType);
+        appendFix(message, fixes, targetTypeDeclaration, rewrittenTargetType);
       }
     }
     return new Report(message.toString(), fixes);
@@ -364,22 +389,23 @@ final class NullabilityMismatchMessage {
    * Builds the message for a difference the traversal did not locate: the two types, and the
    * supertype view that lines them up where their erasures differ.
    */
-  private String plainIncompatibleTypesMessage(Type lhsType, Type rhsType) {
-    String prettyRhsType = GenericsChecks.prettyTypeForError(rhsType, state);
-    String prettyLhsType = GenericsChecks.prettyTypeForError(lhsType, state);
+  private String plainIncompatibleTypesMessage(Type targetType, Type sourceType) {
+    String prettySourceType = GenericsChecks.prettyTypeForError(sourceType, state);
+    String prettyTargetType = GenericsChecks.prettyTypeForError(targetType, state);
     String result =
         String.format(
-            "incompatible types: %s cannot be converted to %s", prettyRhsType, prettyLhsType);
-    if (!ASTHelpers.isSameType(lhsType, rhsType, state)
-        && lhsType.getKind() == TypeKind.DECLARED
-        && rhsType.getKind() == TypeKind.DECLARED
-        && lhsType.asElement() instanceof Symbol.ClassSymbol classSymbol) {
-      Type asSuper = TypeSubstitutionUtils.asSuper(state.getTypes(), rhsType, classSymbol, config);
+            "incompatible types: %s cannot be converted to %s", prettySourceType, prettyTargetType);
+    if (!ASTHelpers.isSameType(targetType, sourceType, state)
+        && targetType.getKind() == TypeKind.DECLARED
+        && sourceType.getKind() == TypeKind.DECLARED
+        && targetType.asElement() instanceof Symbol.ClassSymbol classSymbol) {
+      Type asSuper =
+          TypeSubstitutionUtils.asSuper(state.getTypes(), sourceType, classSymbol, config);
       if (asSuper != null) {
         result +=
             String.format(
                 " (%s is a subtype of %s)",
-                prettyRhsType, GenericsChecks.prettyTypeForError(asSuper, state));
+                prettySourceType, GenericsChecks.prettyTypeForError(asSuper, state));
       }
     }
     return result;
@@ -398,7 +424,7 @@ final class NullabilityMismatchMessage {
             : String.format(
                 "%s and %d other position%s",
                 first.path().describe(), others, others == 1 ? "" : "s");
-    // a non-null type argument where a @Nullable one is required reads as a false subtype claim,
+    // a non-null type argument where the target has a @Nullable one reads as a false subtype claim,
     // since every String is a @Nullable String; what fails is that a type argument has to match
     String exactly =
         first.relation() == NullabilityMismatches.Relation.SAME
@@ -407,18 +433,18 @@ final class NullabilityMismatchMessage {
             ? "a type argument must match exactly; "
             : "";
     return String.format(
-        "incompatible nullability in %s: %sfound %s, required %s",
+        "incompatible nullability in %s: %ssource has %s where target requires %s",
         where,
         exactly,
         GenericsChecks.prettyTypeForError(first.sourceNode(), state),
-        required(first));
+        targetRequirement(first));
   }
 
   /**
-   * Names what the check required of the source at {@code mismatch}: the target node, or for the
+   * Names what the target requires of the source at {@code mismatch}: the target node, or for the
    * lower bound of a {@code ? super} wildcard, a supertype of it.
    */
-  private String required(NullabilityMismatches.Mismatch mismatch) {
+  private String targetRequirement(NullabilityMismatches.Mismatch mismatch) {
     String target = GenericsChecks.prettyTypeForError(mismatch.targetNode(), state);
     return mismatch.relation() == NullabilityMismatches.Relation.SUPERTYPE
         ? "a supertype of " + target
@@ -457,8 +483,9 @@ final class NullabilityMismatchMessage {
   }
 
   /**
-   * Prints {@code type} on a labelled line, with a caret run under each position in {@code paths}
-   * and, where {@code numbered}, the index of each under its caret.
+   * Prints {@code type} on a line keyed {@code label}, padded to {@code labelWidth} so that the
+   * types of one message start in the same column, with a caret run under each position in {@code
+   * paths} and, where {@code numbered}, the index of each under its caret.
    *
    * <p>Pointing at the position is what naming the type variable cannot do. One type may hold
    * several arguments for identically named variables — {@code Map<List<Long>, List<Float>>} has
@@ -466,7 +493,7 @@ final class NullabilityMismatchMessage {
    * meant, and even a unique name makes them map it back onto the printed type themselves.
    */
   private MarkedType markedTypeLines(
-      String label, Type type, List<@Nullable TypePath> paths, boolean numbered) {
+      String label, int labelWidth, Type type, List<@Nullable TypePath> paths, boolean numbered) {
     String printed = type.accept(new GenericTypePrettyPrintingVisitor(state, paths), null);
     StringBuilder stripped = new StringBuilder();
     StringBuilder carets = new StringBuilder();
@@ -500,7 +527,7 @@ final class NullabilityMismatchMessage {
       padTo(numbers, start).append(String.join(",", indices));
       marks += indices.size();
     }
-    String prefix = String.format("  %-9s ", label + ":");
+    String prefix = "  " + padTo(new StringBuilder(label + ":"), labelWidth + 1) + " ";
     // the printer brackets what it was asked to, and this removes any marker regardless: nothing a
     // caller marks may put a control character in front of a reader
     String line =
@@ -545,9 +572,10 @@ final class NullabilityMismatchMessage {
     StringBuilder detail = new StringBuilder();
     if (number != 0) {
       detail.append("\n\n").append(header).append("path: ").append(mismatch.path().describe());
-      detail.append("\n").append(body).append("found:    ");
+      detail.append("\n").append(body).append(SOURCE_LABEL).append(": ");
       detail.append(GenericsChecks.prettyTypeForError(mismatch.sourceNode(), state));
-      detail.append("\n").append(body).append("required: ").append(required(mismatch));
+      detail.append("\n").append(body).append(TARGET_LABEL).append(": ");
+      detail.append(targetRequirement(mismatch));
     }
     String note = boundOriginNote(mismatch);
     if (note != null) {
@@ -816,11 +844,11 @@ final class NullabilityMismatchMessage {
         new Type.StructuralTypeMapping<@Nullable Void>() {
           @Override
           public Type visitWildcardType(Type.WildcardType t, @Nullable Void unused) {
-            Type requiredBound = boundForWildcard.get(t);
-            return requiredBound == null
+            Type targetBound = boundForWildcard.get(t);
+            return targetBound == null
                 ? super.visitWildcardType(t, null)
                 : new Type.WildcardType(
-                    requiredBound, BoundKind.EXTENDS, Symtab.instance(state.context).boundClass);
+                    targetBound, BoundKind.EXTENDS, Symtab.instance(state.context).boundClass);
           }
         },
         null);

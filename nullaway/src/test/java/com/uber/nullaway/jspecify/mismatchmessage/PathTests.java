@@ -15,11 +15,11 @@ public class PathTests extends MismatchMessageTestBase {
   public void pathNamesTheTypeParameterTheDeclarationDeclared() {
     assertMessage(
         """
-        incompatible nullability in Result type argument Failure: found @Nullable String, required String
-            found:    Result<String, @Nullable String>
-                                     ^^^^^^^^^^^^^^^^
-            required: Result<String, String>
-                                     ^^^^^^
+        incompatible nullability in Result type argument Failure: source has @Nullable String where target requires String
+            source: Result<String, @Nullable String>
+                                   ^^^^^^^^^^^^^^^^
+            target: Result<String, String>
+                                   ^^^^^^
         """,
         """
         static class Result<Success extends @Nullable Object, Failure extends @Nullable Object> {}
@@ -35,11 +35,11 @@ public class PathTests extends MismatchMessageTestBase {
   public void pathRepeatsTheTypeParameterNameAtEveryLevelThatSharesIt() {
     assertMessage(
         """
-        incompatible nullability in List type argument E -> Collection type argument E -> List type argument E: found @Nullable String, required String
-            found:    List<Collection<List<@Nullable String>>>
-                                           ^^^^^^^^^^^^^^^^
-            required: List<Collection<List<String>>>
-                                           ^^^^^^
+        incompatible nullability in List type argument E -> Collection type argument E -> List type argument E: source has @Nullable String where target requires String
+            source: List<Collection<List<@Nullable String>>>
+                                         ^^^^^^^^^^^^^^^^
+            target: List<Collection<List<String>>>
+                                         ^^^^^^
         """,
         """
         static void take(List<Collection<List<String>>> l) {}
@@ -54,11 +54,11 @@ public class PathTests extends MismatchMessageTestBase {
   public void pathKeepsTheEnclosingTypeApartFromTheInnerType() {
     assertMessage(
         """
-        incompatible nullability in Inner type argument U: found @Nullable Integer, required Integer
-            found:    Outer<String>.Inner<@Nullable Integer>
-                                          ^^^^^^^^^^^^^^^^^
-            required: Outer<String>.Inner<Integer>
-                                          ^^^^^^^
+        incompatible nullability in Inner type argument U: source has @Nullable Integer where target requires Integer
+            source: Outer<String>.Inner<@Nullable Integer>
+                                        ^^^^^^^^^^^^^^^^^
+            target: Outer<String>.Inner<Integer>
+                                        ^^^^^^^
         """,
         """
         static class Outer<T extends @Nullable Object> {
@@ -76,21 +76,21 @@ public class PathTests extends MismatchMessageTestBase {
   public void twoMismatchesInsideOneTypeArgumentSharePathPrefix() {
     assertMessage(
         """
-        incompatible nullability in Map type argument V -> Map type argument K and 1 other position: found @Nullable String, required String
-            found:    Map<String, Map<@Nullable String, @Nullable Integer>>
-                                      ^^^^^^^^^^^^^^^^  ^^^^^^^^^^^^^^^^^
-                                      1                 2
-            required: Map<String, Map<String, Integer>>
-                                      ^^^^^^  ^^^^^^^
-                                      1       2
+        incompatible nullability in Map type argument V -> Map type argument K and 1 other position: source has @Nullable String where target requires String
+            source: Map<String, Map<@Nullable String, @Nullable Integer>>
+                                    ^^^^^^^^^^^^^^^^  ^^^^^^^^^^^^^^^^^
+                                    1                 2
+            target: Map<String, Map<String, Integer>>
+                                    ^^^^^^  ^^^^^^^
+                                    1       2
          \s
             1. path: Map type argument V -> Map type argument K
-               found:    @Nullable String
-               required: String
+               source: @Nullable String
+               target: String
          \s
             2. path: Map type argument V -> Map type argument V
-               found:    @Nullable Integer
-               required: Integer
+               source: @Nullable Integer
+               target: Integer
         """,
         """
         static void take(Map<String, Map<String, Integer>> m) {}
@@ -105,21 +105,21 @@ public class PathTests extends MismatchMessageTestBase {
   public void mismatchesAtDifferentDepthsEachGetTheirOwnPath() {
     assertMessage(
         """
-        incompatible nullability in Map type argument K and 1 other position: found @Nullable String, required String
-            found:    Map<@Nullable String, List<? extends Collection<@Nullable Integer>>>
-                          ^^^^^^^^^^^^^^^^                            ^^^^^^^^^^^^^^^^^
-                          1                                           2
-            required: Map<String, List<? extends Collection<Integer>>>
-                          ^^^^^^                            ^^^^^^^
-                          1                                 2
+        incompatible nullability in Map type argument K and 1 other position: source has @Nullable String where target requires String
+            source: Map<@Nullable String, List<? extends Collection<@Nullable Integer>>>
+                        ^^^^^^^^^^^^^^^^                            ^^^^^^^^^^^^^^^^^
+                        1                                           2
+            target: Map<String, List<? extends Collection<Integer>>>
+                        ^^^^^^                            ^^^^^^^
+                        1                                 2
          \s
             1. path: Map type argument K
-               found:    @Nullable String
-               required: String
+               source: @Nullable String
+               target: String
          \s
             2. path: Map type argument V -> List type argument E -> wildcard upper bound -> Collection type argument E
-               found:    @Nullable Integer
-               required: Integer
+               source: @Nullable Integer
+               target: Integer
         """,
         """
         static void take(Map<String, List<? extends Collection<Integer>>> m) {}
@@ -135,11 +135,11 @@ public class PathTests extends MismatchMessageTestBase {
   public void pathReachesATypeArgumentOfAnArrayElement() {
     assertMessage(
         """
-        incompatible nullability in array element -> List type argument E: a type argument must match exactly; found String, required @Nullable String
-            found:    List<String> []
-                           ^^^^^^
-            required: @Nullable List<@Nullable String> []
-                                     ^^^^^^^^^^^^^^^^
+        incompatible nullability in array element -> List type argument E: a type argument must match exactly; source has String where target requires @Nullable String
+            source: List<String> []
+                         ^^^^^^
+            target: @Nullable List<@Nullable String> []
+                                   ^^^^^^^^^^^^^^^^
         """,
         """
         void test(List<String>[] arr) {
@@ -153,11 +153,11 @@ public class PathTests extends MismatchMessageTestBase {
   public void pathDescendsIntoEveryDimensionOfANestedArray() {
     assertMessage(
         """
-        incompatible nullability in array element -> array element: found @Nullable Integer, required Integer
-            found:    @Nullable Integer [] []
-                      ^^^^^^^^^^^^^^^^^
-            required: Integer @Nullable [] []
-                      ^^^^^^^
+        incompatible nullability in array element -> array element: source has @Nullable Integer where target requires Integer
+            source: @Nullable Integer [] []
+                    ^^^^^^^^^^^^^^^^^
+            target: Integer @Nullable [] []
+                    ^^^^^^^
         """,
         """
         void test(@Nullable Integer[][] src) {
@@ -171,11 +171,11 @@ public class PathTests extends MismatchMessageTestBase {
   public void pathDescendsIntoEveryDimensionOfAThreeDimensionalArray() {
     assertMessage(
         """
-        incompatible nullability in array element -> array element -> array element: found @Nullable Integer, required Integer
-            found:    @Nullable Integer [] [] []
-                      ^^^^^^^^^^^^^^^^^
-            required: Integer @Nullable [] [] []
-                      ^^^^^^^
+        incompatible nullability in array element -> array element -> array element: source has @Nullable Integer where target requires Integer
+            source: @Nullable Integer [] [] []
+                    ^^^^^^^^^^^^^^^^^
+            target: Integer @Nullable [] [] []
+                    ^^^^^^^
         """,
         """
         void test(@Nullable Integer[][][] src3) {
@@ -189,11 +189,11 @@ public class PathTests extends MismatchMessageTestBase {
   public void aNullableSourceIsComparedBelowItsOwnNullness() {
     assertMessage(
         """
-        incompatible nullability in Collection type argument E -> wildcard upper bound: found @Nullable Object, required Object
-            found:    @Nullable List<?>
-                                     ^
-            required: Collection<? extends Object>
-                                           ^^^^^^
+        incompatible nullability in Collection type argument E -> wildcard upper bound: source has @Nullable Object where target requires Object
+            source: @Nullable List<?>
+                                   ^
+            target: Collection<? extends Object>
+                                         ^^^^^^
             note: the source ? has no explicit upper bound, so its upper bound is inherited from type parameter E of List
             fix: declare l as @Nullable List<? extends Object>
         """,
@@ -212,11 +212,11 @@ public class PathTests extends MismatchMessageTestBase {
   public void aNullableTargetIsComparedBelowItsOwnNullness() {
     assertMessage(
         """
-        incompatible nullability in List type argument E: found @Nullable String, required String
-            found:    List<@Nullable String>
-                           ^^^^^^^^^^^^^^^^
-            required: @Nullable List<String>
-                                     ^^^^^^
+        incompatible nullability in List type argument E: source has @Nullable String where target requires String
+            source: List<@Nullable String>
+                         ^^^^^^^^^^^^^^^^
+            target: @Nullable List<String>
+                                   ^^^^^^
         """,
         """
         static void param(@Nullable List<String> l) {}
@@ -231,11 +231,11 @@ public class PathTests extends MismatchMessageTestBase {
   public void pathNamesOnlyTheTypeArgumentTheCheckRejects() {
     assertMessage(
         """
-        incompatible nullability in Pair type argument A: found @Nullable String, required String
-            found:    Pair<@Nullable String, Integer []>
-                           ^^^^^^^^^^^^^^^^
-            required: Pair<String, ? extends @Nullable Integer []>
-                           ^^^^^^
+        incompatible nullability in Pair type argument A: source has @Nullable String where target requires String
+            source: Pair<@Nullable String, Integer []>
+                         ^^^^^^^^^^^^^^^^
+            target: Pair<String, ? extends @Nullable Integer []>
+                         ^^^^^^
         """,
         """
         static class Pair<A extends @Nullable Object, B extends @Nullable Object> {}
@@ -251,11 +251,11 @@ public class PathTests extends MismatchMessageTestBase {
   public void aCapturedSourceIsComparedThroughItsUpperBound() {
     assertMessage(
         """
-        incompatible nullability in List type argument E: found @Nullable String, required String
-            found:    capture of ? extends List<@Nullable String>
-                                                ^^^^^^^^^^^^^^^^
-            required: List<String>
-                           ^^^^^^
+        incompatible nullability in List type argument E: source has @Nullable String where target requires String
+            source: capture of ? extends List<@Nullable String>
+                                              ^^^^^^^^^^^^^^^^
+            target: List<String>
+                         ^^^^^^
             fix: declare l as List<@Nullable String>
         """,
         """
@@ -270,11 +270,11 @@ public class PathTests extends MismatchMessageTestBase {
   public void aCapturedArgumentIsComparedThroughItsUpperBound() {
     assertMessage(
         """
-        incompatible nullability in List type argument E: found @Nullable String, required String
-            found:    List<@Nullable String>
-                           ^^^^^^^^^^^^^^^^
-            required: List<String>
-                           ^^^^^^
+        incompatible nullability in List type argument E: source has @Nullable String where target requires String
+            source: List<@Nullable String>
+                         ^^^^^^^^^^^^^^^^
+            target: List<String>
+                         ^^^^^^
         """,
         """
         static void take(List<String> l) {}
@@ -289,11 +289,11 @@ public class PathTests extends MismatchMessageTestBase {
   public void pathCrossesAWildcardLowerBound() {
     assertMessage(
         """
-        incompatible nullability in List type argument E -> wildcard lower bound -> List type argument E -> wildcard upper bound: found Object, required a supertype of @Nullable Object
-            found:    List<? super List<? extends Object>>
-                                                  ^^^^^^
-            required: List<? super List<?>>
-                                        ^
+        incompatible nullability in List type argument E -> wildcard lower bound -> List type argument E -> wildcard upper bound: source has Object where target requires a supertype of @Nullable Object
+            source: List<? super List<? extends Object>>
+                                                ^^^^^^
+            target: List<? super List<?>>
+                                      ^
         """,
         """
         static void take(List<? super List<?>> l) {}

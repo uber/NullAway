@@ -611,7 +611,7 @@ public class CustomLibraryModelsTests {
             @NullMarked
             public class Test {
               void testPositive(NestedAnnots<NestedAnnots<String>> p) {
-                // BUG: Diagnostic contains: incompatible nullability in NestedAnnots type argument T -> NestedAnnots type argument T: a type argument must match exactly; found String, required @Nullable String
+                // BUG: Diagnostic contains: incompatible nullability in NestedAnnots type argument T -> NestedAnnots type argument T: a type argument must match exactly; source has String where target requires @Nullable String
                 NestedAnnots.deeplyNested(p);
               }
               void testNegative(NestedAnnots<NestedAnnots<@Nullable String>> p) {
@@ -638,7 +638,7 @@ public class CustomLibraryModelsTests {
             @NullMarked
             public class Test {
               void testPositive() {
-                // BUG: Diagnostic contains: incompatible nullability in NestedAnnots type argument T -> array element -> NestedAnnots type argument T: found @Nullable String, required String
+                // BUG: Diagnostic contains: incompatible nullability in NestedAnnots type argument T -> array element -> NestedAnnots type argument T: source has @Nullable String where target requires String
                 NestedAnnots<NestedAnnots<String>[]> unused = NestedAnnots.nestedArray1();
               }
               void testNegative() {
@@ -665,7 +665,7 @@ public class CustomLibraryModelsTests {
             @NullMarked
             public class Test {
               void testPositive() {
-                // BUG: Diagnostic contains: incompatible nullability in NestedAnnots type argument T: found String @Nullable [], required String []
+                // BUG: Diagnostic contains: incompatible nullability in NestedAnnots type argument T: source has String @Nullable [] where target requires String []
                 NestedAnnots<String[]> unused = NestedAnnots.nestedArray2();
               }
               void testNegative() {
@@ -692,11 +692,11 @@ public class CustomLibraryModelsTests {
             @NullMarked
             public class Test {
               void testUpper(NestedAnnots<@Nullable String> t) {
-                // BUG: Diagnostic contains: incompatible nullability in NestedAnnots type argument T -> wildcard upper bound: found @Nullable String, required String
+                // BUG: Diagnostic contains: incompatible nullability in NestedAnnots type argument T -> wildcard upper bound: source has @Nullable String where target requires String
                 NestedAnnots.wildcardUpper(t);
               }
               void testLower(NestedAnnots<String> t) {
-                // BUG: Diagnostic contains: incompatible nullability in NestedAnnots type argument T -> wildcard lower bound: found String, required a supertype of @Nullable String
+                // BUG: Diagnostic contains: incompatible nullability in NestedAnnots type argument T -> wildcard lower bound: source has String where target requires a supertype of @Nullable String
                 NestedAnnots.wildcardLower(t);
               }
             }
@@ -725,7 +725,7 @@ public class CustomLibraryModelsTests {
                 // should reject since return type of wildcardUpperTypeVariable
                 // is modeled to be NestedAnnots<? extends @Nullable T>, which
                 // here is incompatible with the return type NestedAnnots<? extends String>
-                // BUG: Diagnostic contains: incompatible nullability in NestedAnnots type argument T -> wildcard upper bound: found @Nullable String, required String
+                // BUG: Diagnostic contains: incompatible nullability in NestedAnnots type argument T -> wildcard upper bound: source has @Nullable String where target requires String
                 return receiver.wildcardUpperTypeVariable();
               }
 
@@ -734,7 +734,7 @@ public class CustomLibraryModelsTests {
                 // should reject since return type of wildcardUpperTypeVariable
                 // is modeled to be NestedAnnots<? extends @Nullable T>, which
                 // here is incompatible with the return type NestedAnnots<? extends String>
-                // BUG: Diagnostic contains: incompatible nullability in NestedAnnots type argument T -> wildcard upper bound: found @Nullable String, required String
+                // BUG: Diagnostic contains: incompatible nullability in NestedAnnots type argument T -> wildcard upper bound: source has @Nullable String where target requires String
                 return receiver.self().wildcardUpperTypeVariable();
               }
 
@@ -745,7 +745,7 @@ public class CustomLibraryModelsTests {
                 // should reject since return type of wildcardUpperTypeVariable
                 // is modeled to be NestedAnnots<? extends @Nullable T>, which
                 // here is incompatible with the return type NestedAnnots<? extends String>
-                // BUG: Diagnostic contains: incompatible nullability in NestedAnnots type argument T -> wildcard upper bound: found @Nullable String, required String
+                // BUG: Diagnostic contains: incompatible nullability in NestedAnnots type argument T -> wildcard upper bound: source has @Nullable String where target requires String
                 return foo.wildcardUpperTypeVariable();
               }
 
@@ -771,7 +771,7 @@ public class CustomLibraryModelsTests {
             public class Test {
 
               UnboundWildcards<? extends Object> testLiteral() {
-                // BUG: Diagnostic contains: incompatible nullability in UnboundWildcards type argument T -> wildcard upper bound: found @Nullable Object, required Object
+                // BUG: Diagnostic contains: incompatible nullability in UnboundWildcards type argument T -> wildcard upper bound: source has @Nullable Object where target requires Object
                 return UnboundWildcards.literalWildcard();
               }
 
@@ -781,7 +781,7 @@ public class CustomLibraryModelsTests {
 
               UnboundWildcards<? extends Object> testCaptured(
                   UnboundWildcards<?> receiver) {
-                // BUG: Diagnostic contains: incompatible nullability in UnboundWildcards type argument T -> wildcard upper bound: found @Nullable Object, required Object
+                // BUG: Diagnostic contains: incompatible nullability in UnboundWildcards type argument T -> wildcard upper bound: source has @Nullable Object where target requires Object
                 return receiver.self().typeVariable();
               }
 
@@ -811,9 +811,9 @@ public class CustomLibraryModelsTests {
             public class Test {
               void testPositive() {
                 NestedAnnots.multipleArgs(
-                    // BUG: Diagnostic contains: incompatible nullability in NestedAnnots type argument T: found @Nullable String, required String
+                    // BUG: Diagnostic contains: incompatible nullability in NestedAnnots type argument T: source has @Nullable String where target requires String
                     new NestedAnnots<@Nullable String>(),
-                    // BUG: Diagnostic contains: incompatible nullability in NestedAnnots type argument T: a type argument must match exactly; found Integer, required @Nullable Integer
+                    // BUG: Diagnostic contains: incompatible nullability in NestedAnnots type argument T: a type argument must match exactly; source has Integer where target requires @Nullable Integer
                     new NestedAnnots<Integer>());
               }
               void testNegative() {

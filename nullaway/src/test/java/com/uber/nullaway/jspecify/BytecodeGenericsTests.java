@@ -267,7 +267,7 @@ public class BytecodeGenericsTests extends NullAwayTestsBase {
             import com.uber.lib.generics.NullableTypeParam;
             class Test {
               static void testPositive(NullableTypeParam<@Nullable String> t1) {
-                // BUG: Diagnostic contains: incompatible nullability in NullableTypeParam type argument E: found @Nullable String, required String
+                // BUG: Diagnostic contains: incompatible nullability in NullableTypeParam type argument E: source has @Nullable String where target requires String
                 NullableTypeParam<String> t2 = t1;
               }
               static void testNegative(NullableTypeParam<@Nullable String> t1) {
@@ -289,9 +289,9 @@ public class BytecodeGenericsTests extends NullAwayTestsBase {
             import com.uber.lib.generics.NullableTypeParam;
             class Test {
               static void testPositive(NullableTypeParam<String> t1) {
-                // BUG: Diagnostic contains: incompatible nullability in NullableTypeParam type argument E: a type argument must match exactly; found String, required @Nullable String
+                // BUG: Diagnostic contains: incompatible nullability in NullableTypeParam type argument E: a type argument must match exactly; source has String where target requires @Nullable String
                 NullableTypeParam.staticField = t1;
-                // BUG: Diagnostic contains: incompatible nullability in NullableTypeParam type argument E: found @Nullable String, required String
+                // BUG: Diagnostic contains: incompatible nullability in NullableTypeParam type argument E: source has @Nullable String where target requires String
                 NullableTypeParam<String> t2 = NullableTypeParam.staticField;
               }
               static void testNegative(NullableTypeParam<@Nullable String> t1) {
@@ -315,9 +315,9 @@ public class BytecodeGenericsTests extends NullAwayTestsBase {
             import com.uber.lib.generics.GenericTypeArgMethods;
             class Test {
               static void testPositive(NullableTypeParam<String> t1) {
-                // BUG: Diagnostic contains: incompatible nullability in NullableTypeParam type argument E: a type argument must match exactly; found String, required @Nullable String
+                // BUG: Diagnostic contains: incompatible nullability in NullableTypeParam type argument E: a type argument must match exactly; source has String where target requires @Nullable String
                 GenericTypeArgMethods.nullableTypeParamArg(t1);
-                // BUG: Diagnostic contains: incompatible nullability in NullableTypeParam type argument E: found @Nullable String, required String
+                // BUG: Diagnostic contains: incompatible nullability in NullableTypeParam type argument E: source has @Nullable String where target requires String
                 NullableTypeParam<String> t2 = GenericTypeArgMethods.nullableTypeParamReturn();
               }
               static void testNegative(NullableTypeParam<@Nullable String> t1) {

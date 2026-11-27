@@ -727,11 +727,11 @@ public class GenericLambdaTests extends NullAwayTestsBase {
                 UnmarkedListSupplier s = () -> { return l; };
               }
               void expressionBodyToMarkedInterface(List<@Nullable String> l) {
-                // BUG: Diagnostic contains: incompatible nullability in List type argument E: found @Nullable String, required String
+                // BUG: Diagnostic contains: incompatible nullability in List type argument E: source has @Nullable String where target requires String
                 MarkedListSupplier s = () -> l;
               }
               void blockBodyToMarkedInterface(List<@Nullable String> l) {
-                // BUG: Diagnostic contains: incompatible nullability in List type argument E: found @Nullable String, required String
+                // BUG: Diagnostic contains: incompatible nullability in List type argument E: source has @Nullable String where target requires String
                 MarkedListSupplier s = () -> { return l; };
               }
               void matchingTypeArgumentsToMarkedInterface(List<String> l) {

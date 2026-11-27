@@ -7,7 +7,7 @@ import org.junit.Test;
  * {@code path:} line names the position in that supertype. A caret goes under the node of the type
  * the reader wrote where the substitution carried that node into the view. Where the source itself
  * is viewed as a supertype and the node at fault is not in the written type, the message prints the
- * view on a {@code found as:} line and draws the source carets under it.
+ * view on a {@code source viewed as:} line and draws the source carets under it.
  */
 public class ViewedSourceTests extends MismatchMessageTestBase {
 
@@ -15,11 +15,11 @@ public class ViewedSourceTests extends MismatchMessageTestBase {
   public void aCarriedOverNodeInsideAWildcardBoundIsMarkedOnTheWrittenSource() {
     assertMessage(
         """
-        incompatible nullability in Base type argument T -> wildcard upper bound -> List type argument E: found @Nullable String, required String
-            found:    Sub<? extends List<@Nullable String>>
-                                         ^^^^^^^^^^^^^^^^
-            required: Base<? extends List<String>>
-                                          ^^^^^^
+        incompatible nullability in Base type argument T -> wildcard upper bound -> List type argument E: source has @Nullable String where target requires String
+            source: Sub<? extends List<@Nullable String>>
+                                       ^^^^^^^^^^^^^^^^
+            target: Base<? extends List<String>>
+                                        ^^^^^^
         """,
         """
         static class Base<T extends @Nullable Object> {}
@@ -36,11 +36,11 @@ public class ViewedSourceTests extends MismatchMessageTestBase {
   public void aCarriedOverNodeInsideAnArrayElementIsMarkedOnTheWrittenSource() {
     assertMessage(
         """
-        incompatible nullability in Base type argument T -> array element: found @Nullable String, required String
-            found:    Sub<@Nullable String []>
-                          ^^^^^^^^^^^^^^^^
-            required: Base<String []>
-                           ^^^^^^
+        incompatible nullability in Base type argument T -> array element: source has @Nullable String where target requires String
+            source: Sub<@Nullable String []>
+                        ^^^^^^^^^^^^^^^^
+            target: Base<String []>
+                         ^^^^^^
         """,
         """
         static class Base<T extends @Nullable Object> {}
@@ -57,11 +57,11 @@ public class ViewedSourceTests extends MismatchMessageTestBase {
   public void aCarriedOverCaptureIsMarkedOnTheWrittenSourceAndKeepsItsProvenance() {
     assertMessage(
         """
-        incompatible nullability in Base type argument T -> wildcard upper bound: found @Nullable Object, required Object
-            found:    Sub<capture of ?>
-                          ^^^^^^^^^^^^
-            required: Base<? extends Object>
-                                     ^^^^^^
+        incompatible nullability in Base type argument T -> wildcard upper bound: source has @Nullable Object where target requires Object
+            source: Sub<capture of ?>
+                        ^^^^^^^^^^^^
+            target: Base<? extends Object>
+                                   ^^^^^^
             note: the source wildcard is the type argument for type parameter T of Sub
         """,
         """
@@ -82,12 +82,12 @@ public class ViewedSourceTests extends MismatchMessageTestBase {
   public void aNodeFromTheSubclassDeclarationIsMarkedOnTheViewedSource() {
     assertMessage(
         """
-        incompatible nullability in Base type argument T -> List type argument E: found @Nullable String, required String
-            found:    Sub
-            found as: Base<List<@Nullable String>>
-                                ^^^^^^^^^^^^^^^^
-            required: Base<List<String>>
-                                ^^^^^^
+        incompatible nullability in Base type argument T -> List type argument E: source has @Nullable String where target requires String
+            source:           Sub
+            source viewed as: Base<List<@Nullable String>>
+                                        ^^^^^^^^^^^^^^^^
+            target:           Base<List<String>>
+                                        ^^^^^^
         """,
         """
         static class Base<T extends @Nullable Object> {}
@@ -104,12 +104,12 @@ public class ViewedSourceTests extends MismatchMessageTestBase {
   public void aWildcardFromTheSubclassDeclarationGetsANoteThatStatesItsBoundOnly() {
     assertMessage(
         """
-        incompatible nullability in Base type argument B -> wildcard upper bound -> List type argument E -> wildcard upper bound: found @Nullable Object, required Object
-            found:    Sub
-            found as: Base<List<?>>
-                                ^
-            required: Base<? extends List<? extends Object>>
-                                                    ^^^^^^
+        incompatible nullability in Base type argument B -> wildcard upper bound -> List type argument E -> wildcard upper bound: source has @Nullable Object where target requires Object
+            source:           Sub
+            source viewed as: Base<List<?>>
+                                        ^
+            target:           Base<? extends List<? extends Object>>
+                                                            ^^^^^^
             note: the source wildcard has an implicit @Nullable Object upper bound
         """,
         """
@@ -127,11 +127,11 @@ public class ViewedSourceTests extends MismatchMessageTestBase {
   public void aPathAcrossAViewReachesIntoWhateverTheSubclassPassed() {
     assertMessage(
         """
-        incompatible nullability in Base type argument B -> wildcard upper bound -> List type argument E -> wildcard upper bound: found @Nullable Object, required Object
-            found:    Indirect<?>
-                               ^
-            required: Base<? extends List<? extends Object>>
-                                                    ^^^^^^
+        incompatible nullability in Base type argument B -> wildcard upper bound -> List type argument E -> wildcard upper bound: source has @Nullable Object where target requires Object
+            source: Indirect<?>
+                             ^
+            target: Base<? extends List<? extends Object>>
+                                                  ^^^^^^
             note: the source ? has no explicit upper bound, so its upper bound is inherited from type parameter X of Indirect
             fix: declare i as Indirect<? extends Object>
         """,
@@ -173,11 +173,11 @@ public class ViewedSourceTests extends MismatchMessageTestBase {
             "MESSAGE",
             messageIs(
                 """
-                incompatible nullability in Result type argument T: found @Nullable String, required String
-                    found:    Result<@Nullable String>
-                                     ^^^^^^^^^^^^^^^^
-                    required: Result<String>
-                                     ^^^^^^
+                incompatible nullability in Result type argument T: source has @Nullable String where target requires String
+                    source: Result<@Nullable String>
+                                   ^^^^^^^^^^^^^^^^
+                    target: Result<String>
+                                   ^^^^^^
                 """))
         .addSourceLines(
             "Test.java",
@@ -196,11 +196,11 @@ public class ViewedSourceTests extends MismatchMessageTestBase {
   public void aReorderingSubclassIsMarkedAtTheArgumentItPassesOn() {
     assertMessage(
         """
-        incompatible nullability in List type argument E -> wildcard upper bound -> Pair type argument A: found @Nullable String, required String
-            found:    List<Swap<String, @Nullable String>>
-                                        ^^^^^^^^^^^^^^^^
-            required: List<? extends Pair<String, String>>
-                                          ^^^^^^
+        incompatible nullability in List type argument E -> wildcard upper bound -> Pair type argument A: source has @Nullable String where target requires String
+            source: List<Swap<String, @Nullable String>>
+                                      ^^^^^^^^^^^^^^^^
+            target: List<? extends Pair<String, String>>
+                                        ^^^^^^
         """,
         """
         static class Pair<A extends @Nullable Object, B extends @Nullable Object> {}
@@ -217,11 +217,11 @@ public class ViewedSourceTests extends MismatchMessageTestBase {
   public void aReorderingSubclassInsideAnArrayIsMarkedAtTheArgumentItPassesOn() {
     assertMessage(
         """
-        incompatible nullability in array element -> Pair type argument A: found @Nullable String, required String
-            found:    Swap<String, @Nullable String> []
-                                   ^^^^^^^^^^^^^^^^
-            required: Pair<String, String> []
-                           ^^^^^^
+        incompatible nullability in array element -> Pair type argument A: source has @Nullable String where target requires String
+            source: Swap<String, @Nullable String> []
+                                 ^^^^^^^^^^^^^^^^
+            target: Pair<String, String> []
+                         ^^^^^^
         """,
         """
         static class Pair<A extends @Nullable Object, B extends @Nullable Object> {}
@@ -238,11 +238,11 @@ public class ViewedSourceTests extends MismatchMessageTestBase {
   public void aReorderingSubclassTwoLevelsDownIsMarkedAtTheArgumentItPassesOn() {
     assertMessage(
         """
-        incompatible nullability in List type argument E -> wildcard upper bound -> List type argument E -> wildcard upper bound -> Pair type argument A: found @Nullable String, required String
-            found:    List<List<Swap<String, @Nullable String>>>
-                                             ^^^^^^^^^^^^^^^^
-            required: List<? extends List<? extends Pair<String, String>>>
-                                                         ^^^^^^
+        incompatible nullability in List type argument E -> wildcard upper bound -> List type argument E -> wildcard upper bound -> Pair type argument A: source has @Nullable String where target requires String
+            source: List<List<Swap<String, @Nullable String>>>
+                                           ^^^^^^^^^^^^^^^^
+            target: List<? extends List<? extends Pair<String, String>>>
+                                                       ^^^^^^
         """,
         """
         static class Pair<A extends @Nullable Object, B extends @Nullable Object> {}
@@ -259,11 +259,11 @@ public class ViewedSourceTests extends MismatchMessageTestBase {
   public void anEnclosingTypeArgumentOfASubclassIsMarkedOnTheWrittenSource() {
     assertMessage(
         """
-        incompatible nullability in enclosing type -> Outer type argument T: found @Nullable String, required String
-            found:    Outer<@Nullable String>.SubInner
-                            ^^^^^^^^^^^^^^^^
-            required: Outer<String>.Inner
-                            ^^^^^^
+        incompatible nullability in enclosing type -> Outer type argument T: source has @Nullable String where target requires String
+            source: Outer<@Nullable String>.SubInner
+                          ^^^^^^^^^^^^^^^^
+            target: Outer<String>.Inner
+                          ^^^^^^
         """,
         """
         static class Outer<T extends @Nullable Object> {

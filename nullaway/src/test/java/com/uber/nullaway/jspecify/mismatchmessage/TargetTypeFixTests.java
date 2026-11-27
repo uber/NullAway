@@ -4,25 +4,25 @@ import java.util.Map;
 import org.junit.Test;
 
 /**
- * A {@code fix:} line that names the variable a declaration declares offers the required type with
+ * A {@code fix:} line that names the variable a declaration declares offers the target type with
  * the nullness of the source. It appears where the diagnostic points at the declaration that writes
- * the required type, a local variable declaration, and not at a call, an assignment, or a return,
- * whose required type is written somewhere else. It is also withheld where printing it would drop a
+ * the target type, a local variable declaration, and not at a call, an assignment, or a return,
+ * whose target type is written somewhere else. It is also withheld where printing it would drop a
  * type-use annotation. {@link FixTests} checks the edit the fix makes.
  */
-public class RequiredTypeFixTests extends MismatchMessageTestBase {
+public class TargetTypeFixTests extends MismatchMessageTestBase {
 
   private static final String MAP_VALUES_MESSAGE =
       """
-      incompatible nullability in Map type argument V: found @Nullable String, required String
-          found:    Map<? extends String, @Nullable String>
-                                          ^^^^^^^^^^^^^^^^
-          required: Map<? extends Object, String>
-                                          ^^^^^^
+      incompatible nullability in Map type argument V: source has @Nullable String where target requires String
+          source: Map<? extends String, @Nullable String>
+                                        ^^^^^^^^^^^^^^^^
+          target: Map<? extends Object, String>
+                                        ^^^^^^
       """;
 
   @Test
-  public void theFixIsOfferedOnlyWhereTheDiagnosticPointsAtTheRequiredTypeDeclaration() {
+  public void theFixIsOfferedOnlyWhereTheDiagnosticPointsAtTheTargetTypeDeclaration() {
     assertMessages(
         Map.of(
             "DECLARATION",
@@ -64,11 +64,11 @@ public class RequiredTypeFixTests extends MismatchMessageTestBase {
   public void theFixIsTheDeclaredTypeNotAnInstantiatedSupertype() {
     assertMessage(
         """
-        incompatible nullability in List type argument E: found @Nullable String, required String
-            found:    Sub<@Nullable String>
-                          ^^^^^^^^^^^^^^^^
-            required: List<String>
-                           ^^^^^^
+        incompatible nullability in List type argument E: source has @Nullable String where target requires String
+            source: Sub<@Nullable String>
+                        ^^^^^^^^^^^^^^^^
+            target: List<String>
+                         ^^^^^^
             fix: declare l as List<@Nullable String>
         """,
         """
@@ -87,31 +87,31 @@ public class RequiredTypeFixTests extends MismatchMessageTestBase {
         Map.of(
             "WILDCARD_BOUND",
             """
-            incompatible nullability in Collection type argument E -> wildcard upper bound: found @Nullable Object, required Object
-                found:    List<?>
-                               ^
-                required: Collection<? extends Object>
-                                               ^^^^^^
+            incompatible nullability in Collection type argument E -> wildcard upper bound: source has @Nullable Object where target requires Object
+                source: List<?>
+                             ^
+                target: Collection<? extends Object>
+                                             ^^^^^^
                 note: the source ? has no explicit upper bound, so its upper bound is inherited from type parameter E of List
                 fix: declare list as List<? extends Object>
                 fix: declare c as Collection<? extends @Nullable Object>
             """,
             "ARRAY_ELEMENT",
             """
-            incompatible nullability in array element -> List type argument E: found @Nullable String, required String
-                found:    List<@Nullable String> []
-                               ^^^^^^^^^^^^^^^^
-                required: List<String> []
-                               ^^^^^^
+            incompatible nullability in array element -> List type argument E: source has @Nullable String where target requires String
+                source: List<@Nullable String> []
+                             ^^^^^^^^^^^^^^^^
+                target: List<String> []
+                             ^^^^^^
                 fix: declare d as List<@Nullable String> []
             """,
             "ENCLOSING_TYPE",
             """
-            incompatible nullability in enclosing type -> Outer type argument T: found @Nullable String, required String
-                found:    Outer<@Nullable String>.Inner
-                                ^^^^^^^^^^^^^^^^
-                required: Outer<String>.Inner
-                                ^^^^^^
+            incompatible nullability in enclosing type -> Outer type argument T: source has @Nullable String where target requires String
+                source: Outer<@Nullable String>.Inner
+                              ^^^^^^^^^^^^^^^^
+                target: Outer<String>.Inner
+                              ^^^^^^
                 fix: declare d as Outer<@Nullable String>.Inner
             """),
         """
@@ -144,36 +144,36 @@ public class RequiredTypeFixTests extends MismatchMessageTestBase {
         Map.of(
             "PLAIN",
             """
-            incompatible nullability in Map type argument V: found @Nullable String, required String
-                found:    Map<String, @Nullable String>
-                                      ^^^^^^^^^^^^^^^^
-                required: Map<String, String>
-                                      ^^^^^^
+            incompatible nullability in Map type argument V: source has @Nullable String where target requires String
+                source: Map<String, @Nullable String>
+                                    ^^^^^^^^^^^^^^^^
+                target: Map<String, String>
+                                    ^^^^^^
                 fix: declare plain as Map<String, @Nullable String>
             """,
             "TAINTED",
             """
-            incompatible nullability in Map type argument V: found @Nullable String, required String
-                found:    Map<String, @Nullable String>
-                                      ^^^^^^^^^^^^^^^^
-                required: Map<String, String>
-                                      ^^^^^^
+            incompatible nullability in Map type argument V: source has @Nullable String where target requires String
+                source: Map<String, @Nullable String>
+                                    ^^^^^^^^^^^^^^^^
+                target: Map<String, String>
+                                    ^^^^^^
             """,
             "TAINTED_BOUND",
             """
-            incompatible nullability in Map type argument V: found @Nullable String, required String
-                found:    Map<? extends String, @Nullable String>
-                                                ^^^^^^^^^^^^^^^^
-                required: Map<? extends String, String>
-                                                ^^^^^^
+            incompatible nullability in Map type argument V: source has @Nullable String where target requires String
+                source: Map<? extends String, @Nullable String>
+                                              ^^^^^^^^^^^^^^^^
+                target: Map<? extends String, String>
+                                              ^^^^^^
             """,
             "TYPE_VARIABLE",
             """
-            incompatible nullability in Map type argument V: found @Nullable String, required String
-                found:    Map<T, @Nullable String>
-                                 ^^^^^^^^^^^^^^^^
-                required: Map<T, String>
-                                 ^^^^^^
+            incompatible nullability in Map type argument V: source has @Nullable String where target requires String
+                source: Map<T, @Nullable String>
+                               ^^^^^^^^^^^^^^^^
+                target: Map<T, String>
+                               ^^^^^^
                 fix: declare d as Map<T, @Nullable String>
             """),
         """

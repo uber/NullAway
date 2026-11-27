@@ -14,11 +14,11 @@ public class TraversalCostTests extends MismatchMessageTestBase {
   public void aSharedBoundBesideTheMismatchIsWalkedOnce() {
     assertMessage(
         """
-        incompatible nullability in P type argument A: found @Nullable String, required String
-            found:    P<@Nullable String, L24<?>>
-                        ^^^^^^^^^^^^^^^^
-            required: P<String, L24<?>>
-                        ^^^^^^
+        incompatible nullability in P type argument A: source has @Nullable String where target requires String
+            source: P<@Nullable String, L24<?>>
+                      ^^^^^^^^^^^^^^^^
+            target: P<String, L24<?>>
+                      ^^^^^^
             fix: declare x as P<@Nullable String, L24<?>>
         """,
         """
@@ -62,11 +62,11 @@ public class TraversalCostTests extends MismatchMessageTestBase {
   public void aSharedBoundBesideANestedMismatchIsWalkedOnce() {
     assertMessage(
         """
-        incompatible nullability in List type argument E -> Box type argument B: found @Nullable String, required String
-            found:    List<Box<L24<?>, @Nullable String>>
-                                       ^^^^^^^^^^^^^^^^
-            required: List<Box<L24<?>, String>>
-                                       ^^^^^^
+        incompatible nullability in List type argument E -> Box type argument B: source has @Nullable String where target requires String
+            source: List<Box<L24<?>, @Nullable String>>
+                                     ^^^^^^^^^^^^^^^^
+            target: List<Box<L24<?>, String>>
+                                     ^^^^^^
             fix: declare x as List<Box<L24<?>, @Nullable String>>
         """,
         """

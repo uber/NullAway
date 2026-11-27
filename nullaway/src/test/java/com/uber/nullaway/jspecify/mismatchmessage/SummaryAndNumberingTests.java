@@ -15,37 +15,37 @@ public class SummaryAndNumberingTests extends MismatchMessageTestBase {
   public void listsAtMostFiveMismatchesAndSaysHowManyMoreThereAre() {
     assertMessage(
         """
-        incompatible nullability in Args type argument A -> wildcard upper bound and 5 other positions: found @Nullable Object, required Object
-            found:    Args<?, ?, ?, ?, ?, ?>
-                           ^  ^  ^  ^  ^
-                           1  2  3  4  5
-            required: Args<? extends Object, ? extends Object, ? extends Object, ? extends Object, ? extends Object, ? extends Object>
-                                     ^^^^^^            ^^^^^^            ^^^^^^            ^^^^^^            ^^^^^^
-                                     1                 2                 3                 4                 5
+        incompatible nullability in Args type argument A -> wildcard upper bound and 5 other positions: source has @Nullable Object where target requires Object
+            source: Args<?, ?, ?, ?, ?, ?>
+                         ^  ^  ^  ^  ^
+                         1  2  3  4  5
+            target: Args<? extends Object, ? extends Object, ? extends Object, ? extends Object, ? extends Object, ? extends Object>
+                                   ^^^^^^            ^^^^^^            ^^^^^^            ^^^^^^            ^^^^^^
+                                   1                 2                 3                 4                 5
          \s
             1. path: Args type argument A -> wildcard upper bound
-               found:    @Nullable Object
-               required: Object
+               source: @Nullable Object
+               target: Object
                note: the source ? has no explicit upper bound, so its upper bound is inherited from type parameter A of Args
          \s
             2. path: Args type argument B -> wildcard upper bound
-               found:    @Nullable Object
-               required: Object
+               source: @Nullable Object
+               target: Object
                note: the source ? has no explicit upper bound, so its upper bound is inherited from type parameter B of Args
          \s
             3. path: Args type argument C -> wildcard upper bound
-               found:    @Nullable Object
-               required: Object
+               source: @Nullable Object
+               target: Object
                note: the source ? has no explicit upper bound, so its upper bound is inherited from type parameter C of Args
          \s
             4. path: Args type argument D -> wildcard upper bound
-               found:    @Nullable Object
-               required: Object
+               source: @Nullable Object
+               target: Object
                note: the source ? has no explicit upper bound, so its upper bound is inherited from type parameter D of Args
          \s
             5. path: Args type argument E -> wildcard upper bound
-               found:    @Nullable Object
-               required: Object
+               source: @Nullable Object
+               target: Object
                note: the source ? has no explicit upper bound, so its upper bound is inherited from type parameter E of Args
          \s
             and 1 more, not listed
@@ -66,37 +66,37 @@ public class SummaryAndNumberingTests extends MismatchMessageTestBase {
   public void listsFiveMismatchesWithoutSayingThereAreMore() {
     assertMessage(
         """
-        incompatible nullability in Args type argument A -> wildcard upper bound and 4 other positions: found @Nullable Object, required Object
-            found:    Args<?, ?, ?, ?, ?>
-                           ^  ^  ^  ^  ^
-                           1  2  3  4  5
-            required: Args<? extends Object, ? extends Object, ? extends Object, ? extends Object, ? extends Object>
-                                     ^^^^^^            ^^^^^^            ^^^^^^            ^^^^^^            ^^^^^^
-                                     1                 2                 3                 4                 5
+        incompatible nullability in Args type argument A -> wildcard upper bound and 4 other positions: source has @Nullable Object where target requires Object
+            source: Args<?, ?, ?, ?, ?>
+                         ^  ^  ^  ^  ^
+                         1  2  3  4  5
+            target: Args<? extends Object, ? extends Object, ? extends Object, ? extends Object, ? extends Object>
+                                   ^^^^^^            ^^^^^^            ^^^^^^            ^^^^^^            ^^^^^^
+                                   1                 2                 3                 4                 5
          \s
             1. path: Args type argument A -> wildcard upper bound
-               found:    @Nullable Object
-               required: Object
+               source: @Nullable Object
+               target: Object
                note: the source ? has no explicit upper bound, so its upper bound is inherited from type parameter A of Args
          \s
             2. path: Args type argument B -> wildcard upper bound
-               found:    @Nullable Object
-               required: Object
+               source: @Nullable Object
+               target: Object
                note: the source ? has no explicit upper bound, so its upper bound is inherited from type parameter B of Args
          \s
             3. path: Args type argument C -> wildcard upper bound
-               found:    @Nullable Object
-               required: Object
+               source: @Nullable Object
+               target: Object
                note: the source ? has no explicit upper bound, so its upper bound is inherited from type parameter C of Args
          \s
             4. path: Args type argument D -> wildcard upper bound
-               found:    @Nullable Object
-               required: Object
+               source: @Nullable Object
+               target: Object
                note: the source ? has no explicit upper bound, so its upper bound is inherited from type parameter D of Args
          \s
             5. path: Args type argument E -> wildcard upper bound
-               found:    @Nullable Object
-               required: Object
+               source: @Nullable Object
+               target: Object
                note: the source ? has no explicit upper bound, so its upper bound is inherited from type parameter E of Args
          \s
             fix: declare args as Args<? extends Object, ? extends Object, ? extends Object, ? extends Object, ? extends Object>
@@ -115,21 +115,21 @@ public class SummaryAndNumberingTests extends MismatchMessageTestBase {
   public void adjacentTypeArgumentsThatBothMismatchAreNumberedSideBySide() {
     assertMessage(
         """
-        incompatible nullability in Map type argument K and 1 other position: found @Nullable String, required String
-            found:    Map<@Nullable String, @Nullable String>
-                          ^^^^^^^^^^^^^^^^  ^^^^^^^^^^^^^^^^
-                          1                 2
-            required: Map<String, String>
-                          ^^^^^^  ^^^^^^
-                          1       2
+        incompatible nullability in Map type argument K and 1 other position: source has @Nullable String where target requires String
+            source: Map<@Nullable String, @Nullable String>
+                        ^^^^^^^^^^^^^^^^  ^^^^^^^^^^^^^^^^
+                        1                 2
+            target: Map<String, String>
+                        ^^^^^^  ^^^^^^
+                        1       2
          \s
             1. path: Map type argument K
-               found:    @Nullable String
-               required: String
+               source: @Nullable String
+               target: String
          \s
             2. path: Map type argument V
-               found:    @Nullable String
-               required: String
+               source: @Nullable String
+               target: String
         """,
         """
         static void take(Map<String, String> m) {}
@@ -141,14 +141,14 @@ public class SummaryAndNumberingTests extends MismatchMessageTestBase {
   }
 
   @Test
-  public void invariantTypeArgumentIsReportedWhenTheSourceIsLessNullableThanRequired() {
+  public void invariantTypeArgumentIsReportedWhenTheSourceIsLessNullableThanTheTarget() {
     assertMessage(
         """
-        incompatible nullability in List type argument E: a type argument must match exactly; found String, required @Nullable String
-            found:    List<String>
-                           ^^^^^^
-            required: List<@Nullable String>
-                           ^^^^^^^^^^^^^^^^
+        incompatible nullability in List type argument E: a type argument must match exactly; source has String where target requires @Nullable String
+            source: List<String>
+                         ^^^^^^
+            target: List<@Nullable String>
+                         ^^^^^^^^^^^^^^^^
         """,
         """
         void test(List<String> source) {

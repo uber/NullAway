@@ -30,7 +30,7 @@ public class FixTests {
   }
 
   @Test
-  public void theRequiredTypeFixImportsTheNullableAnnotationItAdds() throws IOException {
+  public void theTargetTypeFixImportsTheNullableAnnotationItAdds() throws IOException {
     makeHelper()
         .addInputLines(
             "Lib.java",

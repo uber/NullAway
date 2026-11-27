@@ -281,7 +281,7 @@ public class StreamNullabilityPropagatorTests extends NullAwayTestsBase {
             @NullMarked
             class Test {
               static List<String> filterDoesNotProveNonNull(List<@Nullable String> values) {
-                // BUG: Diagnostic contains: incompatible nullability in List type argument E: found @Nullable String, required String
+                // BUG: Diagnostic contains: incompatible nullability in List type argument E: source has @Nullable String where target requires String
                 return values.stream().filter(value -> true).toList();
               }
 
@@ -302,7 +302,7 @@ public class StreamNullabilityPropagatorTests extends NullAwayTestsBase {
                 return values.stream()
                     .filter(Objects::nonNull)
                     .map(Test::maybeNull)
-                    // BUG: Diagnostic contains: incompatible nullability in List type argument E: found @Nullable String, required String
+                    // BUG: Diagnostic contains: incompatible nullability in List type argument E: source has @Nullable String where target requires String
                     .toList();
               }
             }
