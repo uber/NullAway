@@ -94,7 +94,8 @@ public interface ConstraintSolver {
    * must appear in the types as the fresh type variables returned by {@link
    * #registerInferenceVariables(Tree, List)}.
    *
-   * <p>Any contradiction detected while adding constraints is reported by {@link #solve()}.
+   * <p>The solver records the first contradiction detected while adding constraints and ignores
+   * subsequent constraints. {@link #solve()} throws the recorded contradiction.
    *
    * @param subtype the subtype
    * @param supertype the supertype
