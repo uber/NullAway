@@ -32,6 +32,16 @@ public class GenericInferencePerformanceTests {
     for (int level = 0; level < 6; level++) {
       expression = "join(" + expression + ", " + expression + ")";
     }
+    checkNestedCallInferenceWork(expression);
+  }
+
+  @Test
+  public void nestedDataflowQueriesAfterContradictionsAvoidRepeatedConstraintGeneration() {
+    checkNestedCallInferenceWork("join(null, ".repeat(63) + "\"leaf\"" + ")".repeat(63));
+  }
+
+  /** Checks the inference work for an expression containing 63 calls to {@code join}. */
+  private void checkNestedCallInferenceWork(String expression) {
     CompilationTestHelper.newInstance(InferenceWorkChecker.class, getClass())
         .setArgs(
             JSpecifyJavacConfig.withJSpecifyModeArgs(
@@ -84,9 +94,9 @@ public class GenericInferencePerformanceTests {
       DataflowQueryScanner scanner = new DataflowQueryScanner(checks, state);
       scanner.scan(state.getPath(), null);
       assertThat(scanner.calls).isEqualTo(63);
-      // Allow implementation overhead while rejecting joint inference of the outermost call for
-      // every nested call.
-      assertThat(executableTypes.get()).isAtMost(32 * scanner.calls);
+      // Allow joint inference of each call's own subtree in the balanced expression. In the
+      // failing chain, each contradiction leaves the remaining calls to their own inference.
+      assertThat(executableTypes.get()).isAtMost(24 * scanner.calls);
       assertThat(executableTypes.get()).isAtLeast(scanner.calls);
       return NO_MATCH;
     }

@@ -1672,9 +1672,9 @@ public final class GenericsChecks {
    * @param callTree the call tree representing the generic method call or diamond constructor call
    * @param methodType the executable type of {@code callTree}, as computed by {@link
    *     #getExecutableTypeForInference}
-   * @param allCalls the top-level call, nested calls requiring inference, and method references
-   *     whose checks depend on this problem's inference variables. This is an output parameter
-   *     mutated during constraint generation to add nested sites.
+   * @param allCalls the sites that share this inference result. Constraint generation adds nested
+   *     calls that require inference and are reached before a contradiction, and method references
+   *     whose checks depend on this problem's inference variables.
    * @param polyNullContexts PolyNull inference contexts for calls in this inference problem. This
    *     is an output parameter mutated during constraint generation to add contexts for modeled
    *     calls.
@@ -1778,9 +1778,9 @@ public final class GenericsChecks {
    *
    * @param state the visitor state
    * @param solver the constraint solver
-   * @param allCalls the top-level call, nested calls requiring inference, and method references
-   *     whose checks depend on this problem's inference variables. This is an output parameter
-   *     mutated during constraint generation to add nested sites.
+   * @param allCalls the sites that share this inference result. Constraint generation adds nested
+   *     calls that require inference and are reached before a contradiction, and method references
+   *     whose checks depend on this problem's inference variables.
    * @param rhsExpr the right-hand side expression of the pseudo-assignment
    * @param lhsType the left-hand side type of the pseudo-assignment
    * @param polyNullContexts PolyNull inference contexts for calls in this inference problem. This
@@ -1800,13 +1800,12 @@ public final class GenericsChecks {
         NullabilityUtil.stripParensAndUpdateTreePath(rhsExpr, state);
     rhsExpr = exprTreeAndState.expr();
     state = exprTreeAndState.state();
-    // if the parameter is itself a generic call requiring inference, generate constraints for
-    // that call
     if (isCallNeedingInference(rhsExpr)) {
-      // Leave nested calls reached after a contradiction eligible for separate inference.
-      if (!solver.hasDeferredFailure()) {
-        allCalls.add(rhsExpr);
+      if (solver.hasDeferredFailure()) {
+        // Leave this subtree to the nested call's own inference.
+        return;
       }
+      allCalls.add(rhsExpr);
       generateConstraintsForCall(
           state,
           state.getPath(),
@@ -1867,8 +1866,7 @@ public final class GenericsChecks {
   }
 
   /**
-   * Generate constraints for any return expression inside lambda argument. If the return expression
-   * is a method invocation then recursively call generateConstraintsForCall
+   * Generates constraints for the parameter types and return expressions of a lambda argument.
    *
    * <p>Implicit parameter types come from the ground target's descriptor while generating body
    * constraints. Keep them separate from cached inference results, and restore the enclosing
@@ -1881,9 +1879,9 @@ public final class GenericsChecks {
    * @param path the tree path to the enclosing call if available and possibly distinct from {@code
    *     state.getPath()}
    * @param solver the constraint solver
-   * @param allCalls the top-level call, nested calls requiring inference, and method references
-   *     whose checks depend on this problem's inference variables. This is an output parameter
-   *     mutated during constraint generation to add nested sites.
+   * @param allCalls the sites that share this inference result. Constraint generation adds nested
+   *     calls that require inference and are reached before a contradiction, and method references
+   *     whose checks depend on this problem's inference variables.
    * @param lhsType the type to which the lambda is being assigned
    * @param lambda The lambda argument
    * @param polyNullContexts PolyNull inference contexts for calls in this inference problem. This
