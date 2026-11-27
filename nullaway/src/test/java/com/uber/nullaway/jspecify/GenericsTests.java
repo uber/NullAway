@@ -229,7 +229,7 @@ public class GenericsTests extends NullAwayTestsBase {
               static class Holder<E extends @Nullable Object> {}
               static void typeArguments() {
                 Holder<String> other = new Holder<@Other String>();
-                // BUG: Diagnostic contains: incompatible types: Holder<@Nullable String> cannot be
+                // BUG: Diagnostic contains: incompatible nullability: found @Nullable String, required String
                 Holder<String> otherThenNullable = new Holder<@Other @Nullable String>();
               }
             }
@@ -355,7 +355,7 @@ public class GenericsTests extends NullAwayTestsBase {
                       public void onResult(Integer value) {
                         // BUG: Diagnostic contains: incompatible nullability: a type argument must match exactly; found Integer, required @Nullable Integer
                         removeCallback(this);
-                        // BUG: Diagnostic contains: incompatible types: Callback<Integer> cannot be converted to Callback<@Nullable Integer>
+                        // BUG: Diagnostic contains: incompatible nullability: a type argument must match exactly; found Integer, required @Nullable Integer
                         Callback<@Nullable Integer> self = this;
                       }
                       void callOnResult() {
@@ -2057,28 +2057,28 @@ public class GenericsTests extends NullAwayTestsBase {
                 Outer<@Nullable String>.Inner result = input;
               }
               void staticSubclassWithNullableOuterMismatches(NullableInner input) {
-                // BUG: Diagnostic contains: incompatible types:
+                // BUG: Diagnostic contains: incompatible nullability: found @Nullable String, required String
                 Outer<String>.Inner result = input;
               }
               void staticSubclassWithNonNullOuterMatches(NonNullInner input) {
                 Outer<String>.Inner result = input;
               }
               void staticSubclassWithNonNullOuterMismatches(NonNullInner input) {
-                // BUG: Diagnostic contains: incompatible types:
+                // BUG: Diagnostic contains: incompatible nullability: a type argument must match exactly; found String, required @Nullable String
                 Outer<@Nullable String>.Inner result = input;
               }
               void unrelatedEnclosingTypeMatches(Unrelated<String>.Derived input) {
                 Outer<@Nullable String>.Inner result = input;
               }
               void unrelatedEnclosingTypeMismatches(Unrelated<String>.Derived input) {
-                // BUG: Diagnostic contains: incompatible types:
+                // BUG: Diagnostic contains: incompatible nullability: found @Nullable String, required String
                 Outer<String>.Inner result = input;
               }
               void lexicalOuterMismatchDoesNotRejectMatchingSupertype(Cross<String>.Derived input) {
                 Outer<@Nullable String>.Inner result = input;
               }
               void lexicalOuterMatchDoesNotAcceptMismatchingSupertype(Cross<String>.Derived input) {
-                // BUG: Diagnostic contains: incompatible types:
+                // BUG: Diagnostic contains: incompatible nullability: found @Nullable String, required String
                 Outer<String>.Inner result = input;
               }
             }
@@ -3371,7 +3371,7 @@ public class GenericsTests extends NullAwayTestsBase {
                 Inner<T> identity() { return this; }
               }
               Inner<@Nullable Object> mThing = new Inner<@Nullable Object>().identity();
-              // BUG: Diagnostic contains: incompatible types: Inner<@Nullable Object> cannot be converted to Inner<Object>
+              // BUG: Diagnostic contains: incompatible nullability: found @Nullable Object, required Object
               Inner<Object> mNonNullThing = new Inner<@Nullable Object>().identity();
             }
             """)

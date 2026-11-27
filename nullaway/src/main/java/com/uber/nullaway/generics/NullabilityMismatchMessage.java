@@ -60,9 +60,10 @@ import org.jspecify.annotations.Nullable;
  * a node in one where the difference cannot be seen.
  *
  * <p>A note explains itself in the entities the message already shows. Where the source wildcard
- * stands at a position of the type the reader wrote, the note names the type parameter it takes its
- * bound from. Where the source was viewed as a supertype, that parameter belongs to a declaration
- * this message never prints, and naming it would set a second frame of reference against the {@code
+ * stands at a position of the type the reader wrote, including one the supertype view carried over
+ * from it, the note names the type parameter it takes its bound from. Where the view rebuilt the
+ * wildcard, as from the supertype a subclass declares, that parameter belongs to a declaration this
+ * message never prints, and naming it would set a second frame of reference against the {@code
  * path} line: {@code Base type argument B} beside {@code type parameter S of Sub} reads as a
  * contradiction rather than as two answers. The note there states the bound and stops. Where the
  * node is one a side does not print, as with the bound an unbounded wildcard leaves implicit, the
@@ -248,9 +249,10 @@ final class NullabilityMismatchMessage {
    * that view is the type the reader wrote or cannot be taken.
    *
    * <p>The traversal compares the source in this view at every level, so a node it reports may sit
-   * at no position in the type the reader wrote: viewing a {@code Sub<?>} as a {@code Base} keeps
-   * the wildcard and changes the type printed around it. Printing the view gives the caret
-   * something to point at that the comparison actually used.
+   * at no position in the type the reader wrote: viewing a {@code Sub} declared as {@code extends
+   * Base<List<@Nullable String>>} as a {@code Base} reports a node that only the declaration of
+   * {@code Sub} contains. Printing the view gives the caret something to point at that the
+   * comparison actually used.
    */
   private @Nullable Type sourceViewedAsTarget(Type targetType, Type sourceType) {
     if (!(targetType.tsym instanceof Symbol.ClassSymbol targetSymbol)
@@ -493,8 +495,9 @@ final class NullabilityMismatchMessage {
             : "? super " + GenericsChecks.prettyTypeForError(wildcard.type, state);
     if (formalTypeVariable == null || owner == null) {
       // no type parameter this message prints stands behind the bound: the wildcard sits at no
-      // position in the type the reader wrote, as happens once that source is viewed as a
-      // supertype, or the variable it instantiates has no named owner. The note says what the
+      // position in the type the reader wrote, as happens where the supertype view rebuilt it from
+      // a subclass declaration, or the variable it instantiates has no named owner. The note says
+      // what the
       // bound is and leaves where it came from alone
       // "the source wildcard" rather than the symbol: two printed types carry a ? here, and the
       // note is about the one the comparison used rather than about a character to go and find

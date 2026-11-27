@@ -103,7 +103,7 @@ public class PolyNullLibraryModelsTests extends NullAwayTestsBase {
                 PolyNullMethods.first(nonNull, nonNull).hashCode();
 
                 // Without PolyNull, both parameters retain their declared List<Object> types.
-                // BUG: Diagnostic contains: incompatible types: List<@Nullable Object> cannot be converted to List<Object>
+                // BUG: Diagnostic contains: incompatible nullability: found @Nullable Object, required Object
                 PolyNullMethods.first(nullable, nullable);
               }
             }
