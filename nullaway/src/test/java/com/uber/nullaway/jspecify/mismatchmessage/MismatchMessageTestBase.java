@@ -4,15 +4,17 @@ import com.google.errorprone.CompilationTestHelper;
 import com.uber.nullaway.NullAwayTestsBase;
 import com.uber.nullaway.generics.JSpecifyJavacConfig;
 import java.util.List;
+import java.util.Map;
 import java.util.function.Predicate;
+import java.util.regex.Pattern;
 
 /**
  * Compiles a {@code @NullMarked} class in JSpecify mode and compares the whole text of the generic
  * nullability diagnostic reported at one line of it.
  *
  * <p>The comparison is exact, so an expected message also states which lines the diagnostic does
- * not carry, such as a {@code did you mean} line or a {@code consider changing the required type}
- * line. A failure prints the expected message beside every diagnostic the compilation reported.
+ * not carry, such as a {@code fix:} line. A failure prints the expected message beside every
+ * diagnostic the compilation reported.
  */
 abstract class MismatchMessageTestBase extends NullAwayTestsBase {
 
@@ -39,6 +41,17 @@ abstract class MismatchMessageTestBase extends NullAwayTestsBase {
         .expectErrorMessage("MESSAGE", messageIs(expected))
         .addSourceLines("Test.java", nullMarkedClass(members))
         .doTest();
+  }
+
+  /**
+   * Compiles {@code members} as the body of {@code @NullMarked class Test} and expects, for each
+   * key of {@code expectedByKey}, the line after {@code // BUG: Diagnostic matches: KEY} to report
+   * exactly the message mapped to that key. {@link #assertMessage} documents the rest.
+   */
+  void assertMessages(Map<String, String> expectedByKey, String members) {
+    CompilationTestHelper helper = makeHelper();
+    expectedByKey.forEach((key, expected) -> helper.expectErrorMessage(key, messageIs(expected)));
+    helper.addSourceLines("Test.java", nullMarkedClass(members)).doTest();
   }
 
   /**
@@ -69,15 +82,19 @@ abstract class MismatchMessageTestBase extends NullAwayTestsBase {
 
   /**
    * Matches one diagnostic text exactly. Error Prone prints the matcher when no diagnostic on the
-   * marked line matches it, so {@link #toString} is the expected message.
+   * marked line matches it, so {@link #toString} is the expected message. The {@code Did you mean}
+   * line Error Prone appends for an attached fix is not part of the message, and {@link FixTests}
+   * checks the fixes.
    */
   private record MessageIs(String expected) implements Predicate<String> {
 
     private static final String PREFIX = "[NullAway] ";
     private static final String LINK_LINE = "    (see http://t.uber.com/nullaway )";
+    private static final Pattern FIX_LINE = Pattern.compile("\n  Did you mean '.*'\\?$");
 
     @Override
-    public boolean test(String message) {
+    public boolean test(String diagnostic) {
+      String message = FIX_LINE.matcher(diagnostic).replaceFirst("");
       if (!message.startsWith(PREFIX) || !message.endsWith(LINK_LINE)) {
         return false;
       }

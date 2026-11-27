@@ -293,9 +293,9 @@ public class JDKIntegrationTest {
               void testCall() {
                 ParameterAnnotation.takesNullableArray(nonNullArray);
                 ParameterAnnotation.takesNullableArray(nullableArray);
-                // BUG: Diagnostic contains: incompatible types
+                // BUG: Diagnostic contains: incompatible nullability in array element: found @Nullable String, required String
                 ParameterAnnotation.takesNullableArray(nullableElements);
-                // BUG: Diagnostic contains: incompatible types
+                // BUG: Diagnostic contains: incompatible nullability in array element: found @Nullable String, required String
                 ParameterAnnotation.takesNullableArray(nullableArrayAndElements);
                 ParameterAnnotation.takesNullableElements(nonNullArray);
                 ParameterAnnotation.takesNullableElements(nullableElements);
@@ -339,12 +339,12 @@ public class JDKIntegrationTest {
                 }
 
                 int nullableElementsLength = ReturnAnnotation.returnNullableElements().length;
-                // BUG: Diagnostic contains: incompatible types
+                // BUG: Diagnostic contains: incompatible nullability in array element: found @Nullable String, required String
                 String[] nullableElements = ReturnAnnotation.returnNullableElements();
 
                 // BUG: Diagnostic contains: dereferenced expression 'ReturnAnnotation.returnNullableArrayAndElements()' is @Nullable
                 int nullableArrayAndElementsLength = ReturnAnnotation.returnNullableArrayAndElements().length;
-                // BUG: Diagnostic contains: incompatible types
+                // BUG: Diagnostic contains: incompatible nullability in array element: found @Nullable String, required String
                 String @Nullable [] nullableArrayAndElements =
                     ReturnAnnotation.returnNullableArrayAndElements();
               }
@@ -381,7 +381,7 @@ public class JDKIntegrationTest {
 
                 int nullableComponentArraysLength =
                     ReturnAnnotation.returnNullableComponentArrays2D().length;
-                // BUG: Diagnostic contains: incompatible types
+                // BUG: Diagnostic contains: incompatible nullability in array element: found String @Nullable [], required String []
                 String[][] nullableComponentArrays =
                     ReturnAnnotation.returnNullableComponentArrays2D();
                 // TODO: This should report a nullable dereference. NullAway currently loses the
@@ -391,7 +391,7 @@ public class JDKIntegrationTest {
 
                 // BUG: Diagnostic contains: dereferenced expression 'ReturnAnnotation.returnNullableOuterAndComponentArrays2D()' is @Nullable
                 int nullableOuterAndComponentArraysLength = ReturnAnnotation.returnNullableOuterAndComponentArrays2D().length;
-                // BUG: Diagnostic contains: incompatible types
+                // BUG: Diagnostic contains: incompatible nullability in array element: found String @Nullable [], required String []
                 String @Nullable [][] nullableOuterAndComponentArrays =
                     ReturnAnnotation.returnNullableOuterAndComponentArrays2D();
               }
@@ -656,21 +656,21 @@ public class JDKIntegrationTest {
             class Test {
               void testCall() {
                 // -- Type argument nullability
-                // BUG: Diagnostic contains: incompatible types
+                // BUG: Diagnostic contains: incompatible nullability in List type argument E: found @Nullable String, required String
                 List<String> typeArg1 = ReturnAnnotation.nestedAnnotTypeArg();
                 List<@Nullable String> typeArg2 = ReturnAnnotation.nestedAnnotTypeArg();
                 // -- Array Element nullability
-                // BUG: Diagnostic contains: incompatible types
+                // BUG: Diagnostic contains: incompatible nullability in array element: found @Nullable String, required String
                 String[] arrayElement1 = ReturnAnnotation.nestedAnnotArrayElement();
-                // BUG: Diagnostic contains: incompatible types
+                // BUG: Diagnostic contains: incompatible nullability in array element: found @Nullable String, required String
                 String @Nullable [] arrayElement2 = ReturnAnnotation.nestedAnnotArrayElement();
                 @Nullable String [] arrayElement3 = ReturnAnnotation.nestedAnnotArrayElement();
                 // -- mixed type nullability
-                // BUG: Diagnostic contains: incompatible types
+                // BUG: Diagnostic contains: incompatible nullability in array element: found @Nullable List<@Nullable Integer>, required List<Integer>
                 List<Integer>[] mixed1 = ReturnAnnotation.nestedAnnotMixed();
-                // BUG: Diagnostic contains: incompatible types
+                // BUG: Diagnostic contains: incompatible nullability in array element -> List type argument E: found @Nullable Integer, required Integer
                 @Nullable List<Integer>[] mixed2 = ReturnAnnotation.nestedAnnotMixed();
-                // BUG: Diagnostic contains: incompatible types
+                // BUG: Diagnostic contains: incompatible nullability in array element: found @Nullable List<@Nullable Integer>, required List<@Nullable Integer>
                 List<@Nullable Integer>[] mixed3 = ReturnAnnotation.nestedAnnotMixed();
                 @Nullable List<@Nullable Integer>[] mixed4 = ReturnAnnotation.nestedAnnotMixed();
               }
@@ -718,11 +718,11 @@ public class JDKIntegrationTest {
                 @Nullable List<Integer>[] nonNullTypeArgMixed = (@Nullable List<Integer>[]) new List<?>[3];
                 // === test calls
                 ParameterAnnotation.nestedAnnotations(nullableTypeArg, nullableArray, nullableMixed);
-                // BUG: Diagnostic contains: incompatible types
+                // BUG: Diagnostic contains: incompatible nullability in List type argument E: a type argument must match exactly; found String, required @Nullable String
                 ParameterAnnotation.nestedAnnotations(nonNullTypeArg, nullableArray, nullableMixed);
                 ParameterAnnotation.nestedAnnotations(nullableTypeArg, nonNullArray, nullableMixed);
                 ParameterAnnotation.nestedAnnotations(nullableTypeArg, nullableArray, nonNullArrayMixed);
-                // BUG: Diagnostic contains: incompatible types
+                // BUG: Diagnostic contains: incompatible nullability in array element -> List type argument E: a type argument must match exactly; found Integer, required @Nullable Integer
                 ParameterAnnotation.nestedAnnotations(nullableTypeArg, nullableArray, nonNullTypeArgMixed);
               }
             }

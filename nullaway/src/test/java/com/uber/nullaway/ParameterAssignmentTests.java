@@ -72,14 +72,14 @@ public class ParameterAssignmentTests extends NullAwayTestsBase {
             @NullMarked
             class Test {
               void typeArgumentMismatchIsReported(List<String> p, List<@Nullable String> q) {
-                // BUG: Diagnostic contains: incompatible nullability: found @Nullable String, required String
+                // BUG: Diagnostic contains: incompatible nullability in List type argument E: found @Nullable String, required String
                 p = q;
               }
               void matchingTypeArgumentsAreAllowed(List<@Nullable String> p, List<@Nullable String> q) {
                 p = q;
               }
               void arrayElementMismatchIsReported(String[] p, @Nullable String[] q) {
-                // BUG: Diagnostic contains: incompatible nullability: found @Nullable String, required String
+                // BUG: Diagnostic contains: incompatible nullability in array element: found @Nullable String, required String
                 p = q;
               }
               void matchingArrayElementTypesAreAllowed(@Nullable String[] p, @Nullable String[] q) {

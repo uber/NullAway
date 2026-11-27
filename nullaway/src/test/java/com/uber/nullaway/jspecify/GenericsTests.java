@@ -52,7 +52,7 @@ public class GenericsTests extends NullAwayTestsBase {
                 // BUG: Diagnostic contains: Generic type parameter
                 testBadNonNull(new NonNullTypeParam<@Nullable String>());
                 testBadNonNull(
-                    // BUG: Diagnostic contains: incompatible nullability: found @Nullable String, required String
+                    // BUG: Diagnostic contains: incompatible nullability in NonNullTypeParam type argument E: found @Nullable String, required String
                     new NonNullTypeParam<
                         // BUG: Diagnostic contains: Generic type parameter
                         @Nullable String>());
@@ -229,7 +229,7 @@ public class GenericsTests extends NullAwayTestsBase {
               static class Holder<E extends @Nullable Object> {}
               static void typeArguments() {
                 Holder<String> other = new Holder<@Other String>();
-                // BUG: Diagnostic contains: incompatible nullability: found @Nullable String, required String
+                // BUG: Diagnostic contains: incompatible nullability in Holder type argument E: found @Nullable String, required String
                 Holder<String> otherThenNullable = new Holder<@Other @Nullable String>();
               }
             }
@@ -288,17 +288,17 @@ public class GenericsTests extends NullAwayTestsBase {
               static void param(Wrapper<String>.@Nullable Fn<String> p) {}
               static void positiveParam() {
                 Wrapper<@Nullable String>.Fn<String> x = null;
-                // BUG: Diagnostic contains: incompatible nullability: a type argument must match exactly; found Test.Wrapper<@Nullable String>.Fn<String>, required Test.Wrapper<String>.@Nullable Fn<String>
+                // BUG: Diagnostic contains: incompatible nullability in enclosing type -> Wrapper type argument P: found @Nullable String, required String
                 param(x);
               }
               static void positiveAssign() {
                 Wrapper<@Nullable String>.Fn<String> p1 = null;
-                // BUG: Diagnostic contains: incompatible nullability: found @Nullable String, required String
+                // BUG: Diagnostic contains: incompatible nullability in enclosing type -> Wrapper type argument P: found @Nullable String, required String
                 Wrapper<String>.Fn<String> p2 = p1;
               }
               static Wrapper<String>.@Nullable Fn<String> positiveReturn() {
                 Wrapper<@Nullable String>.Fn<String> p1 = null;
-                // BUG: Diagnostic contains: incompatible nullability: a type argument must match exactly; found Test.Wrapper<@Nullable String>.Fn<String>, required Test.Wrapper<String>.@Nullable Fn<String>
+                // BUG: Diagnostic contains: incompatible nullability in enclosing type -> Wrapper type argument P: found @Nullable String, required String
                 return p1;
               }
               static void negativeParam() {
@@ -349,13 +349,13 @@ public class GenericsTests extends NullAwayTestsBase {
               }
               public void testPositive() {
                 addCallback(
-                    // BUG: Diagnostic contains: incompatible nullability: a type argument must match exactly; found Integer, required @Nullable Integer
+                    // BUG: Diagnostic contains: incompatible nullability in Callback type argument T: a type argument must match exactly; found Integer, required @Nullable Integer
                     new Callback<Integer>() {
                       @Override
                       public void onResult(Integer value) {
-                        // BUG: Diagnostic contains: incompatible nullability: a type argument must match exactly; found Integer, required @Nullable Integer
+                        // BUG: Diagnostic contains: incompatible nullability in Callback type argument T: a type argument must match exactly; found Integer, required @Nullable Integer
                         removeCallback(this);
-                        // BUG: Diagnostic contains: incompatible nullability: a type argument must match exactly; found Integer, required @Nullable Integer
+                        // BUG: Diagnostic contains: incompatible nullability in Callback type argument T: a type argument must match exactly; found Integer, required @Nullable Integer
                         Callback<@Nullable Integer> self = this;
                       }
                       void callOnResult() {
@@ -457,7 +457,7 @@ public class GenericsTests extends NullAwayTestsBase {
             class Test {
               static class NullableTypeParam<E extends @Nullable Object> {}
               static void testPositive(NullableTypeParam<@Nullable String> t1) {
-                // BUG: Diagnostic contains: incompatible nullability: found @Nullable String, required String
+                // BUG: Diagnostic contains: incompatible nullability in NullableTypeParam type argument E: found @Nullable String, required String
                 NullableTypeParam<String> t2 = t1;
               }
               static void testNegative(NullableTypeParam<@Nullable String> t1) {
@@ -480,7 +480,7 @@ public class GenericsTests extends NullAwayTestsBase {
               static class NullableTypeParam<E extends @Nullable Object> {}
               static void testNoWarningForMismatch(NullableTypeParam<@Nullable String> t1) {
                 // we still get an error here as we are not forcing use of JSpecify's @Nullable
-                // BUG: Diagnostic contains: incompatible nullability: found @Nullable String, required String
+                // BUG: Diagnostic contains: incompatible nullability in NullableTypeParam type argument E: found @Nullable String, required String
                 NullableTypeParam<String> t2 = t1;
               }
               static void testNegative(NullableTypeParam<@Nullable String> t1) {
@@ -503,7 +503,7 @@ public class GenericsTests extends NullAwayTestsBase {
               static class SampleClass<E extends @Nullable Object> {}
               static class SampleClassMultipleArguments<E1 extends @Nullable Object, E2> {}
               static void testPositive() {
-                // BUG: Diagnostic contains: incompatible nullability: a type argument must match exactly; found String, required @Nullable String
+                // BUG: Diagnostic contains: incompatible nullability in SampleClassMultipleArguments type argument E1 -> SampleClass type argument E -> SampleClass type argument E: a type argument must match exactly; found String, required @Nullable String
                 SampleClassMultipleArguments<SampleClass<SampleClass<@Nullable String>>, String> t1 =
                     new SampleClassMultipleArguments<SampleClass<SampleClass<String>>, String>();
               }
@@ -528,7 +528,7 @@ public class GenericsTests extends NullAwayTestsBase {
               interface Fn<P extends @Nullable Object, R extends @Nullable Object> {}
               class FnImpl implements Fn<@Nullable String, @Nullable String> {}
               void testPositive() {
-                // BUG: Diagnostic contains: incompatible nullability: found @Nullable String, required String
+                // BUG: Diagnostic contains: incompatible nullability in Fn type argument R: found @Nullable String, required String
                 Fn<@Nullable String, String> f = new FnImpl();
               }
               void testNegative() {
@@ -552,7 +552,7 @@ public class GenericsTests extends NullAwayTestsBase {
               interface Fn2<P extends @Nullable Object> {}
               class FnImpl implements Fn1<@Nullable String, @Nullable String>, Fn2<String> {}
               void testPositive() {
-                // BUG: Diagnostic contains: incompatible nullability: a type argument must match exactly; found String, required @Nullable String
+                // BUG: Diagnostic contains: incompatible nullability in Fn2 type argument P: a type argument must match exactly; found String, required @Nullable String
                 Fn2<@Nullable String> f = new FnImpl();
               }
               void testNegative() {
@@ -579,7 +579,7 @@ public class GenericsTests extends NullAwayTestsBase {
               class FnImpl2 extends SubClassA<@Nullable String> {}
               void testPositive() {
                 SuperClassC<@Nullable String> f;
-                // BUG: Diagnostic contains: incompatible nullability: a type argument must match exactly; found String, required @Nullable String
+                // BUG: Diagnostic contains: incompatible nullability in SuperClassC type argument P1: a type argument must match exactly; found String, required @Nullable String
                 f = new FnImpl1();
               }
               void testNegative() {
@@ -604,9 +604,9 @@ public class GenericsTests extends NullAwayTestsBase {
               class D<P extends @Nullable Object> {}
               class B<P extends @Nullable Object> extends D<P> {}
               void testPositive(B<@Nullable String> b) {
-                // BUG: Diagnostic contains: incompatible nullability: found @Nullable String, required String
+                // BUG: Diagnostic contains: incompatible nullability in D type argument P: found @Nullable String, required String
                 D<String> f1 = new B<@Nullable String>();
-                // BUG: Diagnostic contains: incompatible nullability: found @Nullable String, required String
+                // BUG: Diagnostic contains: incompatible nullability in D type argument P: found @Nullable String, required String
                 D<String> f2 = b;
               }
               void testNegative(B<String> b) {
@@ -634,7 +634,7 @@ public class GenericsTests extends NullAwayTestsBase {
                 Super<@Nullable String, String> s = new Sub<String, @Nullable String>();
               }
               void testPositive() {
-                // BUG: Diagnostic contains: incompatible nullability: 2 mismatches between source and target types
+                // BUG: Diagnostic contains: incompatible nullability in Super type argument A and 1 other position: a type argument must match exactly; found String, required @Nullable String
                 Super<@Nullable String, String> s2 = new Sub<@Nullable String, String>();
               }
             }
@@ -656,11 +656,11 @@ public class GenericsTests extends NullAwayTestsBase {
               class C<P extends @Nullable Object> {}
               class A<T extends C<P>, P extends @Nullable Object> {}
               void testPositive() {
-                // BUG: Diagnostic contains: incompatible nullability: found @Nullable String, required String
+                // BUG: Diagnostic contains: incompatible nullability in D type argument P -> C type argument P: found @Nullable String, required String
                 D<C<String>> f1 = new B<C<@Nullable String>>();
-                // BUG: Diagnostic contains: incompatible nullability: found @Nullable String, required String
+                // BUG: Diagnostic contains: incompatible nullability in A type argument P: found @Nullable String, required String
                 A<C<String>, String> f2 = new A<C<String>, @Nullable String>();
-                // BUG: Diagnostic contains: incompatible nullability: found Test.@Nullable C<String>, required Test.C<String>
+                // BUG: Diagnostic contains: incompatible nullability in D type argument P: found Test.@Nullable C<String>, required Test.C<String>
                 D<C<String>> f3 = new B<@Nullable C<String>>();
               }
               void testNegative() {
@@ -1008,7 +1008,7 @@ public class GenericsTests extends NullAwayTestsBase {
                 }
               }
               static void testPositive() {
-                // BUG: Diagnostic contains: incompatible nullability: a type argument must match exactly; found Object, required @Nullable Object
+                // BUG: Diagnostic contains: incompatible nullability in A type argument T1: a type argument must match exactly; found Object, required @Nullable Object
                 A<@Nullable Object> p = new B<>();
               }
               static void testNegative() {
@@ -1030,11 +1030,11 @@ public class GenericsTests extends NullAwayTestsBase {
             class Test {
               static class A<T extends @Nullable Object> { }
               static A<String> testPositive1() {
-               // BUG: Diagnostic contains: incompatible nullability: found @Nullable String, required String
+               // BUG: Diagnostic contains: incompatible nullability in A type argument T: found @Nullable String, required String
                return new A<@Nullable String>();
               }
               static A<@Nullable String> testPositive2() {
-               // BUG: Diagnostic contains: incompatible nullability: a type argument must match exactly; found String, required @Nullable String
+               // BUG: Diagnostic contains: incompatible nullability in A type argument T: a type argument must match exactly; found String, required @Nullable String
                return new A<String>();
               }
               static A<@Nullable String> testNegative() {
@@ -1056,7 +1056,7 @@ public class GenericsTests extends NullAwayTestsBase {
             class Test {
               static class A<T extends @Nullable Object> { }
               static A<String> testPositive(A<@Nullable String> a) {
-               // BUG: Diagnostic contains: incompatible nullability: found @Nullable String, required String
+               // BUG: Diagnostic contains: incompatible nullability in A type argument T: found @Nullable String, required String
                return a;
               }
               static A<@Nullable String> testNegative(A<@Nullable String> a) {
@@ -1079,7 +1079,7 @@ public class GenericsTests extends NullAwayTestsBase {
               static class A<T extends @Nullable Object> { }
               static A<String> testPositive(A<@Nullable String> a, int num) {
                if (num % 2 == 0) {
-                // BUG: Diagnostic contains: incompatible nullability: found @Nullable String, required String
+                // BUG: Diagnostic contains: incompatible nullability in A type argument T: found @Nullable String, required String
                  return a;
                 } else {
                  return new A<String>();
@@ -1225,15 +1225,15 @@ public class GenericsTests extends NullAwayTestsBase {
               static void sampleMethod3(A<@Nullable String> a1) {
               }
               static void testPositive1(A<A<@Nullable String>> a1, A<String> a2) {
-                // BUG: Diagnostic contains: incompatible nullability: found @Nullable String, required String
+                // BUG: Diagnostic contains: incompatible nullability in A type argument T -> A type argument T: found @Nullable String, required String
                 A<String> a = sampleMethod1(a1, a2);
               }
               static void testPositive2(A<A<String>> a1, A<String> a2) {
-                // BUG: Diagnostic contains: incompatible nullability: a type argument must match exactly; found String, required @Nullable String
+                // BUG: Diagnostic contains: incompatible nullability in A type argument T -> A type argument T: a type argument must match exactly; found String, required @Nullable String
                 A<String> a = sampleMethod2(a1, a2);
               }
               static void testPositive3(A<String> a1) {
-                // BUG: Diagnostic contains: incompatible nullability: a type argument must match exactly; found String, required @Nullable String
+                // BUG: Diagnostic contains: incompatible nullability in A type argument T: a type argument must match exactly; found String, required @Nullable String
                 sampleMethod3(a1);
               }
               static void testNegative(A<A<String>> a1, A<String> a2) {
@@ -1258,7 +1258,7 @@ public class GenericsTests extends NullAwayTestsBase {
                 void bar(A<T> a) { foo(a); this.foo(a); }
               }
               static void test(A<@Nullable String> p, A<String> q) {
-                // BUG: Diagnostic contains: incompatible nullability: a type argument must match exactly; found String, required @Nullable String
+                // BUG: Diagnostic contains: incompatible nullability in A type argument T: a type argument must match exactly; found String, required @Nullable String
                 p.foo(q);
                 // this one is fine
                 p.foo(p);
@@ -1282,9 +1282,9 @@ public class GenericsTests extends NullAwayTestsBase {
                  return new A<@Nullable String>();
               }
               static void testPositive(A<@Nullable String> a1, A<String> a2) {
-                 // BUG: Diagnostic contains: incompatible nullability: found @Nullable String, required String
+                 // BUG: Diagnostic contains: incompatible nullability in A type argument T: found @Nullable String, required String
                  A<@Nullable String> b = sampleMethodWithVarArgs(a1);
-                 // BUG: Diagnostic contains: incompatible nullability: found @Nullable String, required String
+                 // BUG: Diagnostic contains: incompatible nullability in A type argument T: found @Nullable String, required String
                  A<@Nullable String> b2 = sampleMethodWithVarArgs(a2, a1);
               }
               static void testNegative(A<String> a1, A<String> a2) {
@@ -1310,7 +1310,7 @@ public class GenericsTests extends NullAwayTestsBase {
                  return new A<@Nullable String>();
               }
               static void testPositive(A<@Nullable String>[] arr) {
-                 // BUG: Diagnostic contains: incompatible nullability: found @Nullable String, required String
+                 // BUG: Diagnostic contains: incompatible nullability in array element -> A type argument T: found @Nullable String, required String
                  A<@Nullable String> b = sampleMethodWithVarArgs(arr);
               }
               static void testNegative(A<String>[] arr) {
@@ -1391,9 +1391,9 @@ public class GenericsTests extends NullAwayTestsBase {
             class Test {
               static class A<T extends @Nullable Object> { }
               static void testPositive() {
-                // BUG: Diagnostic contains: incompatible nullability: a type argument must match exactly; found String, required @Nullable String
+                // BUG: Diagnostic contains: incompatible nullability in A type argument T -> array element -> A type argument T: a type argument must match exactly; found String, required @Nullable String
                 A<A<@Nullable String>[]> var1 = new A<A<String>[]>();
-                // BUG: Diagnostic contains: incompatible nullability: found @Nullable String, required String
+                // BUG: Diagnostic contains: incompatible nullability in A type argument T -> array element -> A type argument T: found @Nullable String, required String
                 A<A<String>[]> var2 = new A<A<@Nullable String>[]>();
               }
               static void testNegative() {
@@ -1416,7 +1416,7 @@ public class GenericsTests extends NullAwayTestsBase {
             class Test {
               static class A<T extends @Nullable Object> { }
               static void testPositive() {
-                // BUG: Diagnostic contains: incompatible nullability: found @Nullable String, required String
+                // BUG: Diagnostic contains: incompatible nullability in A type argument T -> array element -> A type argument T: found @Nullable String, required String
                 A<A<String>[]> var2 = new A<A<@Nullable String>[]>();
               }
             }
@@ -1435,7 +1435,7 @@ public class GenericsTests extends NullAwayTestsBase {
             class Test {
               static class A<T extends @Nullable Object> { }
               static void testPositive() {
-                // BUG: Diagnostic contains: incompatible nullability: a type argument must match exactly; found int [], required int @Nullable []
+                // BUG: Diagnostic contains: incompatible nullability in A type argument T: a type argument must match exactly; found int [], required int @Nullable []
                 A<int @Nullable[]> x = new A<int[]>();
               }
               static void testNegative() {
@@ -1793,7 +1793,7 @@ public class GenericsTests extends NullAwayTestsBase {
               void test() {
                 C<@Nullable String> c1 = new C<>();
                 A<@Nullable String>.B<@Nullable String> ok1 = c1.new D<@Nullable String>();
-                // BUG: Diagnostic contains: incompatible nullability: found @Nullable String, required String
+                // BUG: Diagnostic contains: incompatible nullability in enclosing type -> A type argument X: found @Nullable String, required String
                 A<String>.B<@Nullable String> bad = c1.new D<@Nullable String>();
                 C<String> c2 = new C<>();
                 A<String>.B<@Nullable String> ok2 = c2.new D<@Nullable String>();
@@ -2057,28 +2057,28 @@ public class GenericsTests extends NullAwayTestsBase {
                 Outer<@Nullable String>.Inner result = input;
               }
               void staticSubclassWithNullableOuterMismatches(NullableInner input) {
-                // BUG: Diagnostic contains: incompatible nullability: found @Nullable String, required String
+                // BUG: Diagnostic contains: incompatible nullability in enclosing type -> Outer type argument T: found @Nullable String, required String
                 Outer<String>.Inner result = input;
               }
               void staticSubclassWithNonNullOuterMatches(NonNullInner input) {
                 Outer<String>.Inner result = input;
               }
               void staticSubclassWithNonNullOuterMismatches(NonNullInner input) {
-                // BUG: Diagnostic contains: incompatible nullability: a type argument must match exactly; found String, required @Nullable String
+                // BUG: Diagnostic contains: incompatible nullability in enclosing type -> Outer type argument T: a type argument must match exactly; found String, required @Nullable String
                 Outer<@Nullable String>.Inner result = input;
               }
               void unrelatedEnclosingTypeMatches(Unrelated<String>.Derived input) {
                 Outer<@Nullable String>.Inner result = input;
               }
               void unrelatedEnclosingTypeMismatches(Unrelated<String>.Derived input) {
-                // BUG: Diagnostic contains: incompatible nullability: found @Nullable String, required String
+                // BUG: Diagnostic contains: incompatible nullability in enclosing type -> Outer type argument T: found @Nullable String, required String
                 Outer<String>.Inner result = input;
               }
               void lexicalOuterMismatchDoesNotRejectMatchingSupertype(Cross<String>.Derived input) {
                 Outer<@Nullable String>.Inner result = input;
               }
               void lexicalOuterMatchDoesNotAcceptMismatchingSupertype(Cross<String>.Derived input) {
-                // BUG: Diagnostic contains: incompatible nullability: found @Nullable String, required String
+                // BUG: Diagnostic contains: incompatible nullability in enclosing type -> Outer type argument T: found @Nullable String, required String
                 Outer<String>.Inner result = input;
               }
             }
@@ -3138,7 +3138,7 @@ public class GenericsTests extends NullAwayTestsBase {
                     foo(f);
                 }
                 void testPositive(Function<V, V> f) {
-                    // BUG: Diagnostic contains: incompatible nullability: 2 mismatches between source and target types
+                    // BUG: Diagnostic contains: incompatible nullability in Function type argument T and 1 other position: a type argument must match exactly; found V, required @Nullable V
                     foo(f);
                 }
                 abstract void takesArray(Function<@Nullable V, @Nullable V>[] f);
@@ -3146,7 +3146,7 @@ public class GenericsTests extends NullAwayTestsBase {
                     takesArray(f);
                 }
                 void testPositiveArray(Function<V, V>[] f) {
-                    // BUG: Diagnostic contains: incompatible nullability: 2 mismatches between source and target types
+                    // BUG: Diagnostic contains: incompatible nullability in array element -> Function type argument T and 1 other position: a type argument must match exactly; found V, required @Nullable V
                     takesArray(f);
                 }
             }
@@ -3168,11 +3168,11 @@ public class GenericsTests extends NullAwayTestsBase {
                 abstract <V extends @Nullable Object> void foo(
                         Function<@NonNull V, @NonNull V> f);
                 void testPositive(Function<@Nullable String, @Nullable String> f) {
-                    // BUG: Diagnostic contains: incompatible nullability: 2 mismatches between source and target types
+                    // BUG: Diagnostic contains: incompatible nullability in Function type argument T and 1 other position: found @Nullable String, required String
                     this.<@Nullable String>foo(f);
                 }
                 void testPositiveArray(Function<String @Nullable [], String @Nullable []> f) {
-                    // BUG: Diagnostic contains: incompatible nullability: 2 mismatches between source and target types
+                    // BUG: Diagnostic contains: incompatible nullability in Function type argument T and 1 other position: found String @Nullable [], required String []
                     this.<String @Nullable []>foo(f);
                 }
             }
@@ -3196,15 +3196,15 @@ public class GenericsTests extends NullAwayTestsBase {
                     foo(f);
                 }
                 void testPositive1(Function<@Nullable V, V> f) {
-                    // BUG: Diagnostic contains: incompatible nullability: 2 mismatches between source and target types
+                    // BUG: Diagnostic contains: incompatible nullability in Function type argument T and 1 other position: found @Nullable V, required V
                     foo(f);
                 }
                 void testPositive2(Function<V, V> f) {
-                    // BUG: Diagnostic contains: incompatible nullability: a type argument must match exactly; found V, required @Nullable V
+                    // BUG: Diagnostic contains: incompatible nullability in Function type argument R: a type argument must match exactly; found V, required @Nullable V
                     foo(f);
                 }
                 void testPositive3(Function<@Nullable V, @Nullable V> f) {
-                    // BUG: Diagnostic contains: incompatible nullability: found @Nullable V, required V
+                    // BUG: Diagnostic contains: incompatible nullability in Function type argument T: found @Nullable V, required V
                     foo(f);
                 }
             }
@@ -3286,7 +3286,7 @@ public class GenericsTests extends NullAwayTestsBase {
                 void bar(Function<String,String> f) {
                   // no error since foo is in @NullUnmarked code
                   foo = f;
-                  // BUG: Diagnostic contains: incompatible nullability: a type argument must match exactly; found Function<String, String>, required @Nullable Function<@Nullable String, @Nullable String>
+                  // BUG: Diagnostic contains: incompatible nullability in Function type argument T and 1 other position: a type argument must match exactly; found String, required @Nullable String
                   bar = f;
                 }
               }
@@ -3371,7 +3371,7 @@ public class GenericsTests extends NullAwayTestsBase {
                 Inner<T> identity() { return this; }
               }
               Inner<@Nullable Object> mThing = new Inner<@Nullable Object>().identity();
-              // BUG: Diagnostic contains: incompatible nullability: found @Nullable Object, required Object
+              // BUG: Diagnostic contains: incompatible nullability in Inner type argument T: found @Nullable Object, required Object
               Inner<Object> mNonNullThing = new Inner<@Nullable Object>().identity();
             }
             """)
@@ -3440,7 +3440,7 @@ public class GenericsTests extends NullAwayTestsBase {
               }
               private static class B extends A<@Nullable Object> {
                 B(List<Object> l) {
-                  // BUG: Diagnostic contains: incompatible nullability: a type argument must match exactly; found Object, required @Nullable Object
+                  // BUG: Diagnostic contains: incompatible nullability in List type argument E: a type argument must match exactly; found Object, required @Nullable Object
                   super(l);
                 }
               }
@@ -3678,9 +3678,9 @@ public class GenericsTests extends NullAwayTestsBase {
               class B<T extends @Nullable Object> extends A<@Nullable T> {}
               class C<T extends @Nullable Object> extends A<@NonNull T> {}
               void test() {
-                // BUG: Diagnostic contains: incompatible nullability: found @Nullable Object, required Object
+                // BUG: Diagnostic contains: incompatible nullability in A type argument T: found @Nullable Object, required Object
                 A<Object> a = new B<Object>();
-                // BUG: Diagnostic contains: incompatible nullability: a type argument must match exactly; found Object, required @Nullable Object
+                // BUG: Diagnostic contains: incompatible nullability in A type argument T: a type argument must match exactly; found Object, required @Nullable Object
                 A<@Nullable Object> a2 = new C<@Nullable Object>();
               }
             }
@@ -3711,10 +3711,10 @@ public class GenericsTests extends NullAwayTestsBase {
               static void accept(MaybeNull<String> nonNullThing) {}
               static void test(MaybeNull<@Nullable String> nullable, MaybeNull<String> nonNull) {
                 accept(nullable.asNonNull());
-                // BUG: Diagnostic contains: incompatible nullability: found @Nullable String, required String
+                // BUG: Diagnostic contains: incompatible nullability in MaybeNull type argument T: found @Nullable String, required String
                 accept(nonNull.asNullable());
                 MaybeNull<@Nullable String> m1 = nonNull.asNullable();
-                // BUG: Diagnostic contains: incompatible nullability: found @Nullable String, required String
+                // BUG: Diagnostic contains: incompatible nullability in MaybeNull type argument T: found @Nullable String, required String
                 MaybeNull<String> m2 = nonNull.asNullable();
               }
             }
@@ -3737,11 +3737,11 @@ public class GenericsTests extends NullAwayTestsBase {
                 Foo<@NonNull T> nonNullField = new Foo<>();
                 Foo<@Nullable T> nullableField = new Foo<>();
                 static void test(Foo<@Nullable String> nullableFoo, Foo<@NonNull String> nonnullFoo) {
-                  // BUG: Diagnostic contains: incompatible nullability: a type argument must match exactly; found String, required @Nullable String
+                  // BUG: Diagnostic contains: incompatible nullability in Foo type argument T: a type argument must match exactly; found String, required @Nullable String
                   Foo<@Nullable String> f1 = nullableFoo.nonNullField;
                   Foo<String> f2 = nullableFoo.nonNullField;
                   Foo<@Nullable String> f3 = nonnullFoo.nullableField;
-                  // BUG: Diagnostic contains: incompatible nullability: found @Nullable String, required String
+                  // BUG: Diagnostic contains: incompatible nullability in Foo type argument T: found @Nullable String, required String
                   Foo<String> f4 = nonnullFoo.nullableField;
                 }
               }

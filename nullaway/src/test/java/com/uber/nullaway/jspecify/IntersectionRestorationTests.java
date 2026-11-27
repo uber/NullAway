@@ -36,7 +36,7 @@ public class IntersectionRestorationTests extends NullAwayTestsBase {
               }
 
               void rejectsNonNullMatchingComponent(Factory<String> factory) {
-                // BUG: Diagnostic contains: incompatible types
+                // BUG: Diagnostic contains: incompatible nullability in A type argument E: found @Nullable String, required String
                 A<String> result = factory.fromA().get();
               }
 
@@ -45,7 +45,7 @@ public class IntersectionRestorationTests extends NullAwayTestsBase {
               }
 
               void rejectsWideningOtherInvariantComponent(Factory<String> factory) {
-                // BUG: Diagnostic contains: incompatible types
+                // BUG: Diagnostic contains: incompatible nullability in B type argument E: a type argument must match exactly; found String, required @Nullable String
                 B<@Nullable String> result = factory.fromA().get();
               }
 
@@ -54,7 +54,7 @@ public class IntersectionRestorationTests extends NullAwayTestsBase {
               }
 
               void rejectsWideningMatchingInvariantComponent(Factory<String> factory) {
-                // BUG: Diagnostic contains: incompatible types
+                // BUG: Diagnostic contains: incompatible nullability in B type argument E: a type argument must match exactly; found String, required @Nullable String
                 B<@Nullable String> result = factory.fromB().get();
               }
             }

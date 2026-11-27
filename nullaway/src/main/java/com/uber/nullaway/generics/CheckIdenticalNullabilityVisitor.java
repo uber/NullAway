@@ -25,12 +25,19 @@ import org.jspecify.annotations.Nullable;
  * <p>Performance: a visitor caches successful wildcard containment checks for its lifetime. Reuse
  * the instance to share those results across checks, as long as the types and their annotations
  * have not changed.
+ *
+ * <p>A visitor given a {@link NullabilityMismatches} records every comparison it rejects there, and
+ * goes on comparing after a rejection rather than returning at the first, so that a diagnostic can
+ * name each position the check rejects. Its result is the same as without one.
  */
 public class CheckIdenticalNullabilityVisitor extends Types.DefaultTypeVisitor<Boolean, Type> {
   private final VisitorState state;
   private final GenericsChecks genericsChecks;
   private final Config config;
   private final Handler handler;
+
+  /** Where to record each rejected comparison, or {@code null} to return at the first one. */
+  private final @Nullable NullabilityMismatches mismatches;
 
   /** Successful containment checks, reusable for the lifetime of this visitor. */
   private @Nullable Set<ContainmentKey> successfulWildcardComparisons;
@@ -102,10 +109,91 @@ public class CheckIdenticalNullabilityVisitor extends Types.DefaultTypeVisitor<B
 
   CheckIdenticalNullabilityVisitor(
       VisitorState state, GenericsChecks genericsChecks, Config config, Handler handler) {
+    this(state, genericsChecks, config, handler, null);
+  }
+
+  /**
+   * Creates a visitor that records every comparison it rejects in {@code mismatches}, where that is
+   * not {@code null}.
+   */
+  CheckIdenticalNullabilityVisitor(
+      VisitorState state,
+      GenericsChecks genericsChecks,
+      Config config,
+      Handler handler,
+      @Nullable NullabilityMismatches mismatches) {
     this.state = state;
     this.genericsChecks = genericsChecks;
     this.config = config;
     this.handler = handler;
+    this.mismatches = mismatches;
+  }
+
+  /**
+   * Returns whether {@code rhsType} may be assigned to {@code lhsType} as far as the nullability of
+   * their type arguments goes. The nullness of the two types themselves is not compared. An array
+   * is covariant in the nullness of its elements at every dimension, so an array of non-null
+   * references is a subtype of an array of {@code @Nullable} ones; see <a
+   * href="https://github.com/jspecify/jspecify/issues/65">jspecify/jspecify#65</a>.
+   *
+   * @param lhsType type for the lhs of the assignment
+   * @param rhsType type for the rhs of the assignment
+   */
+  boolean isSubtype(Type lhsType, Type rhsType) {
+    if (lhsType.isRaw()) {
+      return true;
+    }
+    if (lhsType instanceof Type.ArrayType lhsArrayType
+        && rhsType instanceof Type.ArrayType rhsArrayType) {
+      NullabilityMismatches.Frame saved =
+          mismatches == null ? null : mismatches.enterArrayElement(lhsArrayType, rhsArrayType);
+      try {
+        Type lhsComponentType = lhsArrayType.getComponentType();
+        Type rhsComponentType = rhsArrayType.getComponentType();
+        // an array of @Nullable references is _not_ a subtype of an array of @NonNull references
+        if (genericsChecks.isNullableAnnotated(rhsComponentType)
+            && !genericsChecks.isNullableAnnotated(lhsComponentType)) {
+          reject(NullabilityMismatches.Relation.SUBTYPE, lhsComponentType, rhsComponentType);
+          return false;
+        }
+        if (lhsComponentType instanceof Type.ArrayType
+            && rhsComponentType instanceof Type.ArrayType) {
+          // covariance applies at every dimension of a multi-dimensional array. An array nested
+          // inside a type argument is compared by visitArrayType, since generics are not covariant
+          return isSubtype(lhsComponentType, rhsComponentType);
+        }
+        return haveIdenticalNestedNullability(lhsComponentType, rhsComponentType);
+      } finally {
+        restore(saved);
+      }
+    }
+    return haveIdenticalNestedNullability(lhsType, rhsType);
+  }
+
+  /**
+   * Returns whether the type arguments of {@code lhsType} and {@code rhsType} have identical
+   * nullability, without comparing the nullness of the two types themselves.
+   */
+  @SuppressWarnings({"ReferenceEquality", "TypeEquals"}) // deliberate reference equality check
+  private boolean haveIdenticalNestedNullability(Type lhsType, Type rhsType) {
+    if (lhsType == rhsType) {
+      return true;
+    }
+    return lhsType.accept(this, rhsType);
+  }
+
+  /** Records a rejected comparison, where this visitor records them. */
+  private void reject(NullabilityMismatches.Relation relation, Type lhsNode, Type rhsNode) {
+    if (mismatches != null) {
+      mismatches.reject(relation, lhsNode, rhsNode);
+    }
+  }
+
+  /** Puts back the frame an {@code enter} method of {@link #mismatches} returned. */
+  private void restore(NullabilityMismatches.@Nullable Frame saved) {
+    if (mismatches != null && saved != null) {
+      mismatches.restore(saved);
+    }
   }
 
   /**
@@ -137,7 +225,15 @@ public class CheckIdenticalNullabilityVisitor extends Types.DefaultTypeVisitor<B
         // Bail out if resolving the upper bound did not produce a usable concrete bound.
         return true;
       }
-      rhsType = rhsUpperBound;
+      NullabilityMismatches.Frame saved =
+          mismatches == null
+              ? null
+              : mismatches.enterUpperBounds(null, lhsType, rhsType, rhsUpperBound);
+      try {
+        return visitClassType(lhsType, rhsUpperBound);
+      } finally {
+        restore(saved);
+      }
     }
     if (lhsType.isIntersection()) {
       return handleIntersectionType((Type.IntersectionClassType) lhsType, rhsType);
@@ -164,33 +260,47 @@ public class CheckIdenticalNullabilityVisitor extends Types.DefaultTypeVisitor<B
       throw new RuntimeException(
           "Number of types arguments in " + rhsTypeAsSuper + " does not match " + lhsType);
     }
+    Type.ClassType rhsClassTypeAsSuper = (Type.ClassType) rhsTypeAsSuper;
     List<Type> lhsUpperBounds = lhsTypeArguments;
     List<Type> rhsUpperBounds = rhsTypeArguments;
     ParameterizationKey lhsParameterization = null;
     ParameterizationKey rhsParameterization = null;
     if (config.handleWildcardGenerics()) {
       lhsParameterization = new ParameterizationKey(lhsType);
-      rhsParameterization = new ParameterizationKey((Type.ClassType) rhsTypeAsSuper);
+      rhsParameterization = new ParameterizationKey(rhsClassTypeAsSuper);
       lhsUpperBounds =
           GenericsUtils.effectiveUpperBoundsForTypeArguments(lhsType, state, config, handler);
       rhsUpperBounds =
           GenericsUtils.effectiveUpperBoundsForTypeArguments(
-              (Type.ClassType) rhsTypeAsSuper, state, config, handler);
+              rhsClassTypeAsSuper, state, config, handler);
     }
+    if (mismatches != null) {
+      mismatches.enterClassComparison(rhsType, rhsClassTypeAsSuper);
+    }
+    boolean contained = true;
     for (int i = 0; i < lhsTypeArguments.size(); i++) {
       Type lhsTypeArgument = lhsTypeArguments.get(i);
       Type lhsUpperBound = lhsUpperBounds.get(i);
       Type rhsTypeArgument = rhsTypeArguments.get(i);
       Type rhsUpperBound = rhsUpperBounds.get(i);
-      if (!typeArgumentContainedBy(
-          lhsTypeArgument,
-          rhsTypeArgument,
-          lhsUpperBound,
-          rhsUpperBound,
-          i,
-          lhsParameterization,
-          rhsParameterization)) {
-        return false;
+      NullabilityMismatches.Frame saved =
+          mismatches == null ? null : mismatches.enterTypeArgument(i, lhsType, rhsClassTypeAsSuper);
+      try {
+        if (!typeArgumentContainedBy(
+            lhsTypeArgument,
+            rhsTypeArgument,
+            lhsUpperBound,
+            rhsUpperBound,
+            i,
+            lhsParameterization,
+            rhsParameterization)) {
+          if (mismatches == null) {
+            return false;
+          }
+          contained = false;
+        }
+      } finally {
+        restore(saved);
       }
     }
     // If there is an enclosing type (for non-static inner classes), its type argument nullability
@@ -198,14 +308,32 @@ public class CheckIdenticalNullabilityVisitor extends Types.DefaultTypeVisitor<B
     // object, which gets handled by the fallback visitType() method
     // We use rhsTypeAsSuper here rather than rhsType, since rhsType may be a captured type
     // variable, whose getEnclosingType() returns null.
-    return lhsType.getEnclosingType().accept(this, rhsTypeAsSuper.getEnclosingType());
+    NullabilityMismatches.Frame saved =
+        mismatches == null ? null : mismatches.enterEnclosingType(lhsType, rhsClassTypeAsSuper);
+    try {
+      return lhsType.getEnclosingType().accept(this, rhsTypeAsSuper.getEnclosingType())
+          && contained;
+    } finally {
+      restore(saved);
+    }
   }
 
   /** Check identical nullability for every type in the intersection */
   private Boolean handleIntersectionType(
       Type.IntersectionClassType intersectionType, Type rhsType) {
-    return intersectionType.getBounds().stream()
-        .allMatch(type -> ((Type) type).accept(this, rhsType));
+    boolean contained = true;
+    for (Type bound : intersectionType.getExplicitComponents()) {
+      if (!bound.accept(this, rhsType)) {
+        if (mismatches == null) {
+          return false; // diff-coverage: ignore -- no test reaches an intersection target that
+          // fails, here or on master
+        }
+        contained =
+            false; // diff-coverage: ignore -- no test reaches an intersection target that fails,
+        // here or on master
+      }
+    }
+    return contained;
   }
 
   @Override
@@ -219,7 +347,13 @@ public class CheckIdenticalNullabilityVisitor extends Types.DefaultTypeVisitor<B
       return true;
     }
     Type rhsComponentType = rhsArrayType.getComponentType();
-    return haveIdenticalNullability(lhsComponentType, rhsComponentType);
+    NullabilityMismatches.Frame saved =
+        mismatches == null ? null : mismatches.enterArrayElement(lhsType, rhsArrayType);
+    try {
+      return haveIdenticalNullability(lhsComponentType, rhsComponentType);
+    } finally {
+      restore(saved);
+    }
   }
 
   @Override
@@ -303,6 +437,7 @@ public class CheckIdenticalNullabilityVisitor extends Types.DefaultTypeVisitor<B
     boolean isLHSNullableAnnotated = genericsChecks.isNullableAnnotated(lhsType);
     boolean isRHSNullableAnnotated = genericsChecks.isNullableAnnotated(rhsType);
     if (isLHSNullableAnnotated != isRHSNullableAnnotated) {
+      reject(NullabilityMismatches.Relation.SAME, lhsType, rhsType);
       return false;
     }
     return lhsType.accept(this, rhsType);
@@ -358,11 +493,14 @@ public class CheckIdenticalNullabilityVisitor extends Types.DefaultTypeVisitor<B
     try {
       boolean result =
           switch (lhsWildcard.kind) {
-            case UNBOUND, EXTENDS -> typeArgumentSubtype(lhsUpperBound, rhsUpperBound);
+            case UNBOUND, EXTENDS ->
+                upperBoundContains(lhsWildcard, lhsUpperBound, rhsTypeArgument, rhsUpperBound);
             case SUPER -> superWildcardContains(lhsWildcard, rhsTypeArgument);
           };
       // A nested success may rely on an unfinished check, so cache results only after the outer
-      // check passes. A failure ends the traversal immediately; there is no failed result to reuse.
+      // check passes. A failed result is not cached: without a recorder the failure ends the
+      // check, and with one the provisional entry keeps the traversal from entering the same
+      // comparison twice within the outer check, so recording stays linear in the bound graph.
       if (outermost && result) {
         if (successfulWildcardComparisons == null) {
           successfulWildcardComparisons = new HashSet<>();
@@ -378,6 +516,27 @@ public class CheckIdenticalNullabilityVisitor extends Types.DefaultTypeVisitor<B
       if (outermost) {
         provisionalWildcardComparisons = null;
       }
+    }
+  }
+
+  /**
+   * Returns whether the upper bound of the actual type argument on the right is a subtype of the
+   * upper bound of the formal {@code ? extends S} or {@code ?} on the left.
+   */
+  private boolean upperBoundContains(
+      Type.WildcardType lhsWildcard, Type lhsUpperBound, Type rhsTypeArgument, Type rhsUpperBound) {
+    NullabilityMismatches.Frame saved =
+        mismatches == null
+            ? null
+            : mismatches.enterUpperBounds(
+                lhsWildcard,
+                lhsUpperBound,
+                GenericsUtils.asWildcard(rhsTypeArgument) == null ? null : rhsTypeArgument,
+                rhsUpperBound);
+    try {
+      return typeArgumentSubtype(lhsUpperBound, rhsUpperBound);
+    } finally {
+      restore(saved);
     }
   }
 
@@ -399,24 +558,40 @@ public class CheckIdenticalNullabilityVisitor extends Types.DefaultTypeVisitor<B
         return true;
       }
       Type rhsBound = castToNonNull(rhsWildcard.getSuperBound());
-      return typeArgumentSubtype(rhsBound, lhsBound);
+      NullabilityMismatches.Frame saved =
+          mismatches == null
+              ? null
+              : mismatches.enterLowerBounds(lhsWildcard, lhsBound, rhsTypeArgument, rhsBound);
+      try {
+        return typeArgumentSubtype(rhsBound, lhsBound);
+      } finally {
+        restore(saved);
+      }
     }
-    return typeArgumentSubtype(rhsTypeArgument, lhsBound);
+    NullabilityMismatches.Frame saved =
+        mismatches == null
+            ? null
+            : mismatches.enterLowerBounds(lhsWildcard, lhsBound, null, rhsTypeArgument);
+    try {
+      return typeArgumentSubtype(rhsTypeArgument, lhsBound);
+    } finally {
+      restore(saved);
+    }
   }
 
   /**
    * Returns whether the actual type argument on the right is a nullability-aware subtype of the
    * formal type argument on the left. This check first rejects flows from nullable to non-null at
-   * the top level of the type argument, then delegates to {@link
-   * GenericsChecks#subtypeParameterNullability(Type, Type, VisitorState)} for recursive nested
-   * checks.
+   * the top level of the type argument, then compares the nested nullability with {@link
+   * #isSubtype}.
    */
   private boolean typeArgumentSubtype(Type lhsType, Type rhsType) {
     boolean isLHSNullableAnnotated = genericsChecks.isNullableAnnotated(lhsType);
     boolean isRHSNullableAnnotated = genericsChecks.isNullableAnnotated(rhsType);
     if (isRHSNullableAnnotated && !isLHSNullableAnnotated) {
+      reject(NullabilityMismatches.Relation.SUBTYPE, lhsType, rhsType);
       return false;
     }
-    return genericsChecks.subtypeParameterNullability(lhsType, rhsType, state, this);
+    return isSubtype(lhsType, rhsType);
   }
 }

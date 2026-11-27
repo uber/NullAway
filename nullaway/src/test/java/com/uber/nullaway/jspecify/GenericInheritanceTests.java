@@ -245,7 +245,7 @@ public class GenericInheritanceTests extends NullAwayTestsBase {
               <Y extends Sub<String>> void nullableThroughBound(Y y) {
                 // BUG: Diagnostic contains: dereferenced expression 'y.get()' is @Nullable
                 y.get().hashCode();
-                // BUG: Diagnostic contains: incompatible types: Y cannot be converted to Outer<String>
+                // BUG: Diagnostic contains: incompatible nullability in Outer type argument O: found @Nullable String, required String
                 Outer<String> nonNull = y;
                 Outer<@Nullable String> nullable = y;
                 y.new Inner(null);
@@ -272,7 +272,7 @@ public class GenericInheritanceTests extends NullAwayTestsBase {
               void nullableThroughCapturedWildcard(List<? extends Sub<String>> l) {
                 // BUG: Diagnostic contains: dereferenced expression 'l.get(0).get()' is @Nullable
                 l.get(0).get().hashCode();
-                // BUG: Diagnostic contains: incompatible types: capture of ? extends Sub<String> cannot be converted to Outer<String>
+                // BUG: Diagnostic contains: incompatible nullability in Outer type argument O: found @Nullable String, required String
                 Outer<String> nonNull = l.get(0);
                 Outer<@Nullable String> nullable = l.get(0);
               }
@@ -361,7 +361,7 @@ public class GenericInheritanceTests extends NullAwayTestsBase {
               }
 
               static <V extends @Nullable Object> MyFuture<List<V>> invalid() {
-                // BUG: Diagnostic contains: incompatible nullability: found @Nullable V, required V
+                // BUG: Diagnostic contains: incompatible nullability in MyFuture type argument T -> List type argument E: found @Nullable V, required V
                 return new ListFuture<V>();
               }
             }
@@ -393,10 +393,10 @@ public class GenericInheritanceTests extends NullAwayTestsBase {
                   List<@Nullable String> nullableList,
                   List<String> nonNullList) {
                 List<@Nullable String> valid = box.get();
-                // BUG: Diagnostic contains: incompatible nullability: found @Nullable String, required String
+                // BUG: Diagnostic contains: incompatible nullability in List type argument E: found @Nullable String, required String
                 List<String> invalid = box.get();
                 box.set(nullableList);
-                // BUG: Diagnostic contains: incompatible nullability: a type argument must match exactly; found String, required @Nullable String
+                // BUG: Diagnostic contains: incompatible nullability in List type argument E: a type argument must match exactly; found String, required @Nullable String
                 box.set(nonNullList);
               }
             }
@@ -423,7 +423,7 @@ public class GenericInheritanceTests extends NullAwayTestsBase {
 
               void test(Child<String> child) {
                 List<@Nullable O> valid = child.get();
-                // BUG: Diagnostic contains: incompatible nullability: found @Nullable O, required O
+                // BUG: Diagnostic contains: incompatible nullability in List type argument E: found @Nullable O, required O
                 List<O> invalid = child.get();
               }
             }

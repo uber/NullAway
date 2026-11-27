@@ -3,10 +3,11 @@ package com.uber.nullaway.jspecify.mismatchmessage;
 import org.junit.Test;
 
 /**
- * Where the source is compared as a supertype of another class, the {@code path:} line names the
- * position in that supertype. A caret goes under the node of the type the reader wrote where the
- * substitution carried that node into the view. Where the node at fault is not in the written type,
- * the message prints the view on a {@code found as:} line and draws the source carets under it.
+ * Where the check views the source as a supertype of its own class, the one the target names, the
+ * {@code path:} line names the position in that supertype. A caret goes under the node of the type
+ * the reader wrote where the substitution carried that node into the view. Where the node at fault
+ * is not in the written type, the message prints the view on a {@code found as:} line and draws the
+ * source carets under it.
  */
 public class ViewedSourceTests extends MismatchMessageTestBase {
 
@@ -14,12 +15,11 @@ public class ViewedSourceTests extends MismatchMessageTestBase {
   public void aCarriedOverNodeInsideAWildcardBoundIsMarkedOnTheWrittenSource() {
     assertMessage(
         """
-        incompatible nullability: found @Nullable String, required String
+        incompatible nullability in Base type argument T -> wildcard upper bound -> List type argument E: found @Nullable String, required String
             found:    Sub<? extends List<@Nullable String>>
                                          ^^^^^^^^^^^^^^^^
             required: Base<? extends List<String>>
                                           ^^^^^^
-            path: Base type argument T -> wildcard upper bound -> List type argument E
         """,
         """
         static class Base<T extends @Nullable Object> {}
@@ -36,12 +36,11 @@ public class ViewedSourceTests extends MismatchMessageTestBase {
   public void aCarriedOverNodeInsideAnArrayElementIsMarkedOnTheWrittenSource() {
     assertMessage(
         """
-        incompatible nullability: found @Nullable String, required String
+        incompatible nullability in Base type argument T -> array element: found @Nullable String, required String
             found:    Sub<@Nullable String []>
                           ^^^^^^^^^^^^^^^^
             required: Base<String []>
                            ^^^^^^
-            path: Base type argument T -> array element
         """,
         """
         static class Base<T extends @Nullable Object> {}
@@ -58,12 +57,11 @@ public class ViewedSourceTests extends MismatchMessageTestBase {
   public void aCarriedOverCaptureIsMarkedOnTheWrittenSourceAndKeepsItsProvenance() {
     assertMessage(
         """
-        incompatible nullability: found @Nullable Object, required Object
+        incompatible nullability in Base type argument T -> wildcard upper bound: found @Nullable Object, required Object
             found:    Sub<capture of ?>
                           ^^^^^^^^^^^^
             required: Base<? extends Object>
                                      ^^^^^^
-            path: Base type argument T -> wildcard upper bound
             note: the source wildcard is the type argument for type parameter T of Sub
         """,
         """
@@ -84,13 +82,12 @@ public class ViewedSourceTests extends MismatchMessageTestBase {
   public void aNodeFromTheSubclassDeclarationIsMarkedOnTheViewedSource() {
     assertMessage(
         """
-        incompatible nullability: found @Nullable String, required String
+        incompatible nullability in Base type argument T -> List type argument E: found @Nullable String, required String
             found:    Sub
             found as: Base<List<@Nullable String>>
                                 ^^^^^^^^^^^^^^^^
             required: Base<List<String>>
                                 ^^^^^^
-            path: Base type argument T -> List type argument E
         """,
         """
         static class Base<T extends @Nullable Object> {}
@@ -107,13 +104,12 @@ public class ViewedSourceTests extends MismatchMessageTestBase {
   public void aWildcardFromTheSubclassDeclarationGetsANoteThatStatesItsBoundOnly() {
     assertMessage(
         """
-        incompatible nullability: found @Nullable Object, required Object
+        incompatible nullability in Base type argument B -> wildcard upper bound -> List type argument E -> wildcard upper bound: found @Nullable Object, required Object
             found:    Sub
             found as: Base<List<?>>
                                 ^
             required: Base<? extends List<? extends Object>>
                                                     ^^^^^^
-            path: Base type argument B -> wildcard upper bound -> List type argument E -> wildcard upper bound
             note: the source wildcard has an implicit @Nullable Object upper bound
         """,
         """
@@ -131,15 +127,13 @@ public class ViewedSourceTests extends MismatchMessageTestBase {
   public void aPathAcrossAViewReachesIntoWhateverTheSubclassPassed() {
     assertMessage(
         """
-        incompatible nullability: found @Nullable Object, required Object
+        incompatible nullability in Base type argument B -> wildcard upper bound -> List type argument E -> wildcard upper bound: found @Nullable Object, required Object
             found:    Indirect<?>
                                ^
             required: Base<? extends List<? extends Object>>
                                                     ^^^^^^
-            path: Base type argument B -> wildcard upper bound -> List type argument E -> wildcard upper bound
-            note: the source ? has no explicit upper bound, so its upper bound is inherited from type
-                  parameter X of Indirect
-            did you mean Indirect<? extends Object>?
+            note: the source ? has no explicit upper bound, so its upper bound is inherited from type parameter X of Indirect
+            fix: declare i as Indirect<? extends Object>
         """,
         """
         static class Base<B> {}
@@ -179,12 +173,11 @@ public class ViewedSourceTests extends MismatchMessageTestBase {
             "MESSAGE",
             messageIs(
                 """
-                incompatible nullability: found @Nullable String, required String
+                incompatible nullability in Result type argument T: found @Nullable String, required String
                     found:    Result<@Nullable String>
                                      ^^^^^^^^^^^^^^^^
                     required: Result<String>
                                      ^^^^^^
-                    path: Result type argument T
                 """))
         .addSourceLines(
             "Test.java",
@@ -197,5 +190,91 @@ public class ViewedSourceTests extends MismatchMessageTestBase {
                 }
                 """))
         .doTest();
+  }
+
+  @Test
+  public void aReorderingSubclassIsMarkedAtTheArgumentItPassesOn() {
+    assertMessage(
+        """
+        incompatible nullability in List type argument E -> wildcard upper bound -> Pair type argument A: found @Nullable String, required String
+            found:    List<Swap<String, @Nullable String>>
+                                        ^^^^^^^^^^^^^^^^
+            required: List<? extends Pair<String, String>>
+                                          ^^^^^^
+        """,
+        """
+        static class Pair<A extends @Nullable Object, B extends @Nullable Object> {}
+        static class Swap<X extends @Nullable Object, Y extends @Nullable Object> extends Pair<Y, X> {}
+        static void take(List<? extends Pair<String, String>> l) {}
+        void test(List<Swap<String, @Nullable String>> l) {
+          // BUG: Diagnostic matches: MESSAGE
+          take(l);
+        }
+        """);
+  }
+
+  @Test
+  public void aReorderingSubclassInsideAnArrayIsMarkedAtTheArgumentItPassesOn() {
+    assertMessage(
+        """
+        incompatible nullability in array element -> Pair type argument A: found @Nullable String, required String
+            found:    Swap<String, @Nullable String> []
+                                   ^^^^^^^^^^^^^^^^
+            required: Pair<String, String> []
+                           ^^^^^^
+        """,
+        """
+        static class Pair<A extends @Nullable Object, B extends @Nullable Object> {}
+        static class Swap<X extends @Nullable Object, Y extends @Nullable Object> extends Pair<Y, X> {}
+        static void take(Pair<String, String>[] a) {}
+        void test(Swap<String, @Nullable String>[] a) {
+          // BUG: Diagnostic matches: MESSAGE
+          take(a);
+        }
+        """);
+  }
+
+  @Test
+  public void aReorderingSubclassTwoLevelsDownIsMarkedAtTheArgumentItPassesOn() {
+    assertMessage(
+        """
+        incompatible nullability in List type argument E -> wildcard upper bound -> List type argument E -> wildcard upper bound -> Pair type argument A: found @Nullable String, required String
+            found:    List<List<Swap<String, @Nullable String>>>
+                                             ^^^^^^^^^^^^^^^^
+            required: List<? extends List<? extends Pair<String, String>>>
+                                                         ^^^^^^
+        """,
+        """
+        static class Pair<A extends @Nullable Object, B extends @Nullable Object> {}
+        static class Swap<X extends @Nullable Object, Y extends @Nullable Object> extends Pair<Y, X> {}
+        static void take(List<? extends List<? extends Pair<String, String>>> l) {}
+        void test(List<List<Swap<String, @Nullable String>>> l) {
+          // BUG: Diagnostic matches: MESSAGE
+          take(l);
+        }
+        """);
+  }
+
+  @Test
+  public void anEnclosingTypeArgumentOfASubclassIsMarkedOnTheWrittenSource() {
+    assertMessage(
+        """
+        incompatible nullability in enclosing type -> Outer type argument T: found @Nullable String, required String
+            found:    Outer<@Nullable String>.SubInner
+                            ^^^^^^^^^^^^^^^^
+            required: Outer<String>.Inner
+                            ^^^^^^
+        """,
+        """
+        static class Outer<T extends @Nullable Object> {
+          class Inner {}
+          class SubInner extends Inner {}
+        }
+        static void take(Outer<String>.Inner i) {}
+        void test(Outer<@Nullable String>.SubInner s) {
+          // BUG: Diagnostic matches: MESSAGE
+          take(s);
+        }
+        """);
   }
 }

@@ -24,8 +24,13 @@ final class TypePath {
     enum Kind {
       /** Into the type argument at {@link Step#index}. */
       TYPE_ARGUMENT,
-      /** Into the declared upper bound of a wildcard. */
+      /**
+       * Into the upper bound of a wildcard: the bound {@code ? extends X} states, and the one
+       * {@code ?} and {@code ? super X} take from their type parameter, which is not printed.
+       */
       WILDCARD_BOUND,
+      /** Into the bound {@code ? super X} states. */
+      WILDCARD_LOWER_BOUND,
       /** Into the element type of an array. */
       ARRAY_ELEMENT,
       /** Into the enclosing instance type of an inner class. */
@@ -39,6 +44,10 @@ final class TypePath {
 
     static Step wildcardBound() {
       return new Step(Kind.WILDCARD_BOUND, -1, null, null);
+    }
+
+    static Step wildcardLowerBound() {
+      return new Step(Kind.WILDCARD_LOWER_BOUND, -1, null, null);
     }
 
     static Step arrayElement() {
@@ -62,9 +71,13 @@ final class TypePath {
       return switch (kind) {
         case TYPE_ARGUMENT ->
             formal == null || owner == null
-                ? "type argument " + (index + 1)
+                ? "type argument "
+                    + (index
+                        + 1) // diff-coverage: ignore -- every step the recorder builds carries its
+                // formal and owner
                 : owner.getSimpleName() + " type argument " + formal.tsym.getSimpleName();
         case WILDCARD_BOUND -> "wildcard upper bound";
+        case WILDCARD_LOWER_BOUND -> "wildcard lower bound";
         case ARRAY_ELEMENT -> "array element";
         case ENCLOSING_TYPE -> "enclosing type";
       };
@@ -87,6 +100,13 @@ final class TypePath {
   /** Returns this path extended by {@code step}. */
   TypePath then(Step step) {
     return new TypePath(ImmutableList.<Step>builder().addAll(steps).add(step).build());
+  }
+
+  /** Returns this path extended by every step of {@code relative}, in order. */
+  TypePath append(TypePath relative) {
+    return relative.isRoot()
+        ? this // diff-coverage: ignore -- append is called only with a non-root path
+        : new TypePath(ImmutableList.<Step>builder().addAll(steps).addAll(relative.steps).build());
   }
 
   /** Returns the descents from the root, in order. */

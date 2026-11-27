@@ -10,6 +10,8 @@ import com.google.common.base.Preconditions;
 import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableSet;
 import com.google.errorprone.VisitorState;
+import com.google.errorprone.fixes.SuggestedFix;
+import com.google.errorprone.matchers.Description;
 import com.google.errorprone.suppliers.Suppliers;
 import com.google.errorprone.util.ASTHelpers;
 import com.sun.source.tree.AnnotatedTypeTree;
@@ -455,29 +457,43 @@ public final class GenericsChecks {
   }
 
   private void reportInvalidAssignmentInstantiationError(
-      Tree tree, Type lhsType, Type rhsType, VisitorState state) {
-    ErrorBuilder errorBuilder = analysis.getErrorBuilder();
-    String msg =
+      Tree tree, Type lhsType, Type rhsType, ExpressionTree rhsTree, VisitorState state) {
+    NullabilityMismatchMessage.Report report =
         new NullabilityMismatchMessage(this, config, handler, state)
-            .build(lhsType, rhsType, tree instanceof VariableTree);
-    ErrorMessage errorMessage =
-        new ErrorMessage(ErrorMessage.MessageTypes.ASSIGN_GENERIC_NULLABLE, msg);
+            .build(
+                lhsType,
+                rhsType,
+                tree instanceof VariableTree variableTree ? variableTree : null,
+                rhsTree);
+    reportNullabilityMismatch(
+        tree, ErrorMessage.MessageTypes.ASSIGN_GENERIC_NULLABLE, report, state);
+  }
+
+  /** Reports {@code report} at {@code tree}, with each of its fixes attached. */
+  private void reportNullabilityMismatch(
+      Tree tree,
+      ErrorMessage.MessageTypes messageType,
+      NullabilityMismatchMessage.Report report,
+      VisitorState state) {
+    Description.Builder description = analysis.buildDescription(tree);
+    for (SuggestedFix fix : report.fixes()) {
+      description.addFix(fix);
+    }
     state.reportMatch(
-        errorBuilder.createErrorDescription(
-            errorMessage, analysis.buildDescription(tree), state, null));
+        analysis
+            .getErrorBuilder()
+            .createErrorDescription(
+                new ErrorMessage(messageType, report.message()), description, state, null));
   }
 
   private void reportInvalidReturnTypeError(
-      Tree tree, Type methodType, Type returnType, VisitorState state) {
-    ErrorBuilder errorBuilder = analysis.getErrorBuilder();
-    ErrorMessage errorMessage =
-        new ErrorMessage(
-            ErrorMessage.MessageTypes.RETURN_NULLABLE_GENERIC,
-            new NullabilityMismatchMessage(this, config, handler, state)
-                .build(methodType, returnType, false));
-    state.reportMatch(
-        errorBuilder.createErrorDescription(
-            errorMessage, analysis.buildDescription(tree), state, null));
+      ExpressionTree tree, Type methodType, Type returnType, VisitorState state) {
+    reportNullabilityMismatch(
+        tree,
+        ErrorMessage.MessageTypes.RETURN_NULLABLE_GENERIC,
+        new NullabilityMismatchMessage(this, config, handler, state)
+            .build(methodType, returnType, null, tree),
+        state);
   }
 
   private void reportMismatchedTypeForTernaryOperator(
@@ -502,15 +518,12 @@ public final class GenericsChecks {
       Type actualParameterType,
       ExpressionTree paramExpression,
       VisitorState state) {
-    ErrorBuilder errorBuilder = analysis.getErrorBuilder();
-    ErrorMessage errorMessage =
-        new ErrorMessage(
-            ErrorMessage.MessageTypes.PASS_NULLABLE_GENERIC,
-            new NullabilityMismatchMessage(this, config, handler, state)
-                .build(formalParameterType, actualParameterType, false));
-    state.reportMatch(
-        errorBuilder.createErrorDescription(
-            errorMessage, analysis.buildDescription(paramExpression), state, null));
+    reportNullabilityMismatch(
+        paramExpression,
+        ErrorMessage.MessageTypes.PASS_NULLABLE_GENERIC,
+        new NullabilityMismatchMessage(this, config, handler, state)
+            .build(formalParameterType, actualParameterType, null, paramExpression),
+        state);
   }
 
   private void reportInvalidMethodReferenceReturnTypeError(
@@ -980,7 +993,7 @@ public final class GenericsChecks {
       }
       boolean isAssignmentValid = subtypeParameterNullability(lhsType, rhsType, state);
       if (!isAssignmentValid) {
-        reportInvalidAssignmentInstantiationError(tree, lhsType, rhsType, state);
+        reportInvalidAssignmentInstantiationError(tree, lhsType, rhsType, rhsTree, state);
       }
     }
   }
@@ -2393,80 +2406,16 @@ public final class GenericsChecks {
   }
 
   /**
-   * Compare two types for identical type parameter nullability, recursively checking nested generic
-   * types. See <a href="https://jspecify.dev/docs/spec/#nullness-delegating-subtyping">the JSpecify
-   * specification</a> and <a
-   * href="https://docs.oracle.com/javase/specs/jls/se14/html/jls-4.html#jls-4.10.2">the JLS
-   * subtyping rules for class and interface types</a>.
-   *
-   * @param lhsType type for the lhs of the assignment
-   * @param rhsType type for the rhs of the assignment
-   * @param visitor visitor carrying state for the recursive comparison
-   */
-  @SuppressWarnings({"ReferenceEquality", "TypeEquals"}) // deliberate reference equality check
-  private boolean identicalTypeParameterNullability(
-      Type lhsType, Type rhsType, CheckIdenticalNullabilityVisitor visitor) {
-    if (lhsType == rhsType) {
-      return true;
-    }
-    return lhsType.accept(visitor, rhsType);
-  }
-
-  /**
-   * Like {@link #identicalTypeParameterNullability(Type, Type, CheckIdenticalNullabilityVisitor)},
-   * but allows for covariant array subtyping at every dimension of an array type.
+   * Returns whether {@code rhsType} may be assigned to {@code lhsType} as far as the nullability of
+   * their type arguments goes; see {@link CheckIdenticalNullabilityVisitor#isSubtype}.
    *
    * @param lhsType type for the lhs of the assignment
    * @param rhsType type for the rhs of the assignment
    * @param state the visitor state
    */
   boolean subtypeParameterNullability(Type lhsType, Type rhsType, VisitorState state) {
-    return subtypeParameterNullability(
-        lhsType,
-        rhsType,
-        state,
-        new CheckIdenticalNullabilityVisitor(state, this, config, handler));
-  }
-
-  /**
-   * Continues a subtype nullability comparison with an existing visitor so recursive wildcard
-   * comparisons share cycle-detection state.
-   *
-   * @param lhsType type for the lhs of the assignment
-   * @param rhsType type for the rhs of the assignment
-   * @param state the visitor state
-   * @param visitor visitor carrying state for the recursive comparison
-   */
-  boolean subtypeParameterNullability(
-      Type lhsType, Type rhsType, VisitorState state, CheckIdenticalNullabilityVisitor visitor) {
-    if (lhsType.isRaw()) {
-      return true;
-    }
-    if (lhsType.getKind().equals(TypeKind.ARRAY) && rhsType.getKind().equals(TypeKind.ARRAY)) {
-      // for array types we must allow covariance, i.e., an array of @NonNull references is a
-      // subtype of an array of @Nullable references; see
-      // https://github.com/jspecify/jspecify/issues/65
-      Type.ArrayType lhsArrayType = (Type.ArrayType) lhsType;
-      Type.ArrayType rhsArrayType = (Type.ArrayType) rhsType;
-      Type lhsComponentType = lhsArrayType.getComponentType();
-      Type rhsComponentType = rhsArrayType.getComponentType();
-      boolean isLHSNullableAnnotated = isNullableAnnotated(lhsComponentType);
-      boolean isRHSNullableAnnotated = isNullableAnnotated(rhsComponentType);
-      // an array of @Nullable references is _not_ a subtype of an array of @NonNull references
-      if (isRHSNullableAnnotated && !isLHSNullableAnnotated) {
-        return false;
-      }
-      if (lhsComponentType.getKind().equals(TypeKind.ARRAY)
-          && rhsComponentType.getKind().equals(TypeKind.ARRAY)) {
-        // covariance applies at every dimension of a multi-dimensional array, not just the
-        // outermost one.  The ARRAY check keeps array types nested inside generic type arguments
-        // on the invariant path below, since generics are not covariant.
-        return subtypeParameterNullability(lhsComponentType, rhsComponentType, state, visitor);
-      }
-      return identicalTypeParameterNullability(lhsComponentType, rhsComponentType, visitor);
-    } else {
-      return identicalTypeParameterNullability(lhsType, rhsType, visitor);
-    }
+    return new CheckIdenticalNullabilityVisitor(state, this, config, handler)
+        .isSubtype(lhsType, rhsType);
   }
 
   /**
