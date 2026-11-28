@@ -23,7 +23,7 @@ import javax.lang.model.element.Element;
 import javax.lang.model.type.TypeVariable;
 import org.jspecify.annotations.Nullable;
 
-/** Recovers javac's inferred type arguments without inferring their nullness. */
+/** Recovers javac-inferred type arguments by matching type structure, ignoring nullness. */
 final class JavacInstantiations {
 
   private JavacInstantiations() {}
@@ -35,8 +35,8 @@ final class JavacInstantiations {
    * <p>For calls, the declaration should be the receiver-substituted executable type and the
    * attributed type should be the invocation's method-select type (or attributed constructor
    * signature). Class instantiations can instead be recovered by matching the constructed class's
-   * declaration against its attributed constructed type. For anonymous classes, callers must supply
-   * the superclass or interface type named in the allocation, not the anonymous class type.
+   * declaration against its attributed constructed type. For anonymous classes, the inputs must
+   * describe the constructed superclass or interface, not the anonymous class.
    *
    * <p>Returned types retain javac's metadata; their annotations do not determine inferred
    * nullness. Repeated occurrences of a variable must match the same type structure, ignoring

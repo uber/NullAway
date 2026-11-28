@@ -18,6 +18,7 @@ import com.uber.nullaway.generics.ConstraintSolver.InferenceVariable;
 import com.uber.nullaway.generics.ConstraintSolver.Solution;
 import com.uber.nullaway.generics.ConstraintSolver.UnsatisfiableConstraintsException;
 import java.util.Map;
+import java.util.Set;
 import javax.lang.model.element.Element;
 import org.junit.Test;
 
@@ -97,16 +98,25 @@ public class RegistrationLifecycleTests {
             solver.registerInferenceVariables(
                 tree,
                 method.getTypeParameters(),
+                Map.of(),
+                Set.copyOf(method.getTypeParameters()),
                 name.equals("repeatedOwnership") ? Map.of(t, foreign.get(t)) : Map.of());
         solver.addSubtypeConstraint(evidence, fresh.get(t), false);
         Map<Element, Type.TypeVar> again =
             solver.registerInferenceVariables(
                 tree,
                 method.getTypeParameters(),
+                Map.of(),
+                Set.copyOf(method.getTypeParameters()),
                 Map.of(t, evidence, u, state.getSymtab().objectType));
         assertThat(again).isSameInstanceAs(fresh);
         assertThat(again.get(t)).isSameInstanceAs(fresh.get(t));
-        solver.registerInferenceVariables(tree, method.getTypeParameters(), Map.of());
+        solver.registerInferenceVariables(
+            tree,
+            method.getTypeParameters(),
+            Map.of(),
+            Set.copyOf(method.getTypeParameters()),
+            Map.of());
         Solution result = solver.solve();
         Type inferred = result.inferredTypes().get(new InferenceVariable(t, tree));
         assertThat(
@@ -122,6 +132,8 @@ public class RegistrationLifecycleTests {
             solver.registerInferenceVariables(
                 tree,
                 method.getTypeParameters(),
+                Map.of(),
+                Set.copyOf(method.getTypeParameters()),
                 Map.of(t, state.getSymtab().stringType, u, state.getSymtab().stringType));
         solver.addSubtypeConstraint(fresh.get(t), state.getSymtab().stringType, false);
         solver.addSubtypeConstraint(state.getSymtab().botType, fresh.get(u), false);
