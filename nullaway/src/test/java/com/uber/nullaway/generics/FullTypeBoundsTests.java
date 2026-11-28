@@ -20,6 +20,7 @@ import com.uber.nullaway.NullAway;
 import com.uber.nullaway.Nullness;
 import com.uber.nullaway.generics.ConstraintSolver.InferenceVariable;
 import java.util.LinkedHashMap;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import javax.lang.model.element.Element;
@@ -246,6 +247,28 @@ public class FullTypeBoundsTests {
   }
 
   @Test
+  public void resolutionReusesUnchangedTypes() {
+    CompilationTestHelper.newInstance(BoundsChecker.class, getClass())
+        .addSourceLines(
+            "Test.java",
+            """
+            import java.lang.annotation.ElementType;
+            import java.lang.annotation.Target;
+            import java.util.List;
+            import org.jspecify.annotations.Nullable;
+            class Test {
+              @Target(ElementType.TYPE_USE) @interface Marker {}
+              static class Outer<A> { class Inner<B> {} }
+              <T> void reuseUnchangedArray(List<@Nullable String> @Marker [] @Marker [] unchanged) {}
+              <T> void reuseUnchangedClass(Outer<@Nullable String>.@Marker Inner<Integer> unchanged) {}
+              <T> void reuseChangedArray(T[] changedArray) {}
+              <T> void reuseChangedEnclosing(Outer<T>.@Marker Inner<@Nullable Integer> changedEnclosing) {}
+            }
+            """)
+        .doTest();
+  }
+
+  @Test
   public void dependentDeclarationBoundsUseTopLevelOnlyFallback() {
     CompilationTestHelper.newInstance(BoundsChecker.class, getClass())
         .addSourceLines(
@@ -315,6 +338,10 @@ public class FullTypeBoundsTests {
                       "NullAway:HandleWildcardGenerics", "true")));
       ConstraintSolver solver = new ConstraintSolverImpl(analysis.getConfig(), state, analysis);
       String name = tree.getName().toString();
+      if (name.startsWith("reuse")) {
+        checkResolutionReuse(tree, method, state, analysis);
+        return NO_MATCH;
+      }
       if (name.startsWith("dependent")) {
         checkDependentDeclaration(tree, method, solver, analysis);
         return NO_MATCH;
@@ -494,6 +521,38 @@ public class FullTypeBoundsTests {
                       ? "Substitution"
                       : "TopLevelOnly")
           .build();
+    }
+
+    /** Checks reuse and rebuilding when an array component or enclosing type changes. */
+    private static void checkResolutionReuse(
+        MethodTree tree, Symbol.MethodSymbol method, VisitorState state, NullAway analysis) {
+      Element declaration = method.getTypeParameters().get(0);
+      InferenceVariable variable = new InferenceVariable(declaration, tree);
+      FullTypeBounds bounds =
+          new FullTypeBounds(analysis.getConfig(), state, Map.of(declaration, variable));
+      Type replacement = state.getSymtab().stringType;
+      Symbol.VarSymbol parameter = method.getParameters().head;
+      Type original = parameter.type;
+      Type resolved =
+          bounds.resolveType(
+              original, Map.of(), new LinkedHashSet<>(), Map.of(variable, replacement));
+      assertThat(resolved).isNotNull();
+      if (parameter.getSimpleName().contentEquals("unchanged")) {
+        assertThat(resolved).isSameInstanceAs(original);
+      } else {
+        assertThat(resolved).isNotSameInstanceAs(original);
+        if (resolved instanceof Type.ArrayType array) {
+          assertThat(array.elemtype).isSameInstanceAs(replacement);
+        } else {
+          assertThat(resolved.getEnclosingType()).isNotSameInstanceAs(original.getEnclosingType());
+          assertThat(resolved.getEnclosingType().getTypeArguments().head)
+              .isSameInstanceAs(replacement);
+          assertThat(resolved.getTypeArguments().head)
+              .isSameInstanceAs(original.getTypeArguments().head);
+        }
+      }
+      assertThat(resolved.getAnnotationMirrors())
+          .containsExactlyElementsIn(original.getAnnotationMirrors());
     }
 
     /** Checks a fixture parameter's underscore-separated solver-input roles. */

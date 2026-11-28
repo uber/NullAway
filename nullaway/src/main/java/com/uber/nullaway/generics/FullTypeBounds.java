@@ -3,6 +3,7 @@ package com.uber.nullaway.generics;
 import static com.uber.nullaway.NullabilityUtil.castToNonNull;
 import static com.uber.nullaway.generics.TypeMetadataBuilder.TYPE_METADATA_BUILDER;
 
+import com.google.common.annotations.VisibleForTesting;
 import com.google.errorprone.VisitorState;
 import com.sun.source.tree.Tree;
 import com.sun.tools.javac.code.Attribute;
@@ -262,11 +263,16 @@ final class FullTypeBounds {
   }
 
   /**
-   * Replaces nested inference variables with their resolved substitutions. Returns null if a
-   * variable cannot be resolved or any part of the type is unsupported: a wildcard, capture, fixed
-   * type variable, raw type, or intersection.
+   * Replaces nested inference variables with their resolved substitutions, reusing types whose
+   * components are unchanged. Returns null if a variable cannot be resolved or any part of the type
+   * is unsupported: a wildcard, capture, fixed type variable, raw type, or intersection.
    */
-  private @Nullable Type resolveType(
+  @SuppressWarnings({
+    "ReferenceEquality",
+    "TypeEquals"
+  }) // Equal Java types can have different annotations.
+  @VisibleForTesting
+  @Nullable Type resolveType(
       Type type,
       Map<InferenceVariable, Nullness> nullability,
       Set<InferenceVariable> resolving,
@@ -279,26 +285,34 @@ final class FullTypeBounds {
           : TypeSubstitutionUtils.restoreExplicitNullabilityAnnotations(
               type, inferred, state.getTypes(), config);
     }
-    // TODO: Reuse array and class types when their components are unchanged, as
-    // restoreExplicitNullabilityAnnotations does, to avoid allocations at every nesting level.
     if (type instanceof Type.ArrayType array) {
       Type element = resolveType(array.elemtype, nullability, resolving, completed);
-      return element == null ? null : TYPE_METADATA_BUILDER.createArrayType(array, element);
+      if (element == null) {
+        return null;
+      }
+      return element == array.elemtype
+          ? type
+          : TYPE_METADATA_BUILDER.createArrayType(array, element);
     }
     if (type instanceof Type.ClassType clazz && !clazz.isRaw() && !clazz.isIntersection()) {
-      Type enclosing = resolveType(clazz.getEnclosingType(), nullability, resolving, completed);
+      Type originalEnclosing = clazz.getEnclosingType();
+      Type enclosing = resolveType(originalEnclosing, nullability, resolving, completed);
       if (enclosing == null) {
         return null;
       }
+      boolean changed = enclosing != originalEnclosing;
       ListBuffer<Type> arguments = new ListBuffer<>();
       for (Type argument : clazz.getTypeArguments()) {
         Type resolved = resolveType(argument, nullability, resolving, completed);
         if (resolved == null) {
           return null;
         }
+        changed |= resolved != argument;
         arguments.append(resolved);
       }
-      return TYPE_METADATA_BUILDER.createClassType(clazz, enclosing, arguments.toList());
+      return changed
+          ? TYPE_METADATA_BUILDER.createClassType(clazz, enclosing, arguments.toList())
+          : type;
     }
     return type.isPrimitive() || type.hasTag(TypeTag.NONE) ? type : null;
   }
