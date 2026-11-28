@@ -9,6 +9,62 @@ import org.junit.Test;
 
 public class GenericMethodLambdaOrMethodRefArgTests extends NullAwayTestsBase {
 
+  @Test
+  public void nestedUnmarkedGenericCallPreservesLambdaParameterNullness() {
+    makeHelper()
+        .addSourceLines(
+            "Test.java",
+            """
+            import java.util.function.Consumer;
+            import org.jspecify.annotations.*;
+            @NullMarked class Test {
+              static class Box<E extends @Nullable Object> {
+                E get() { throw new UnsupportedOperationException(); }
+              }
+              static <X> X outer(X x) { return x; }
+              static <T> T marked(T x, Consumer<T> c) { return x; }
+              @NullUnmarked static <T> T unmarked(T x, Consumer<T> c) { return x; }
+              void directMarkedNullable(Box<@Nullable String> value) {
+                var result = marked(value, p -> {
+                  // BUG: Diagnostic contains: dereferenced expression
+                  p.get().length();
+                });
+              }
+              void nestedMarkedNullable(Box<@Nullable String> value) {
+                var result = outer(marked(value, p -> {
+                  // BUG: Diagnostic contains: dereferenced expression
+                  p.get().length();
+                }));
+              }
+              void directUnmarkedNullable(Box<@Nullable String> value) {
+                var result = unmarked(value, p -> {
+                  // BUG: Diagnostic contains: dereferenced expression
+                  p.get().length();
+                });
+              }
+              void nestedUnmarkedNullable(Box<@Nullable String> value) {
+                var result = outer(unmarked(value, p -> {
+                  // BUG: Diagnostic contains: dereferenced expression
+                  p.get().length();
+                }));
+              }
+              void directMarkedNonNull(Box<String> value) {
+                var result = marked(value, p -> { p.get().length(); });
+              }
+              void nestedMarkedNonNull(Box<String> value) {
+                var result = outer(marked(value, p -> { p.get().length(); }));
+              }
+              void directUnmarkedNonNull(Box<String> value) {
+                var result = unmarked(value, p -> { p.get().length(); });
+              }
+              void nestedUnmarkedNonNull(Box<String> value) {
+                var result = outer(unmarked(value, p -> { p.get().length(); }));
+              }
+            }
+            """)
+        .doTest();
+  }
+
   // Integration control for fresh-variable bound rebinding in ConstraintSolverImpl: lambda member
   // lookup must retain both the modeled bound and B<Integer>. It does not isolate typeWithAnnot's
   // intersection branch; the separate-inference test below exercises the metadata-cloning crash.

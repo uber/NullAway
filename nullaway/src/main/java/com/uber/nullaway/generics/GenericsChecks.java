@@ -2989,6 +2989,38 @@ public final class GenericsChecks {
   }
 
   /**
+   * Publishes functional argument targets from a cached inference result for an unmarked call,
+   * without checking its argument compatibility. Nested calls share an inference result with their
+   * parent, but still need targets based on their own substitutions. Do this when scanning the call
+   * so any enclosing lambda's parameter types are finalized before resolving the receiver type.
+   */
+  public void cacheInferredFunctionalArgumentTypesForUnmarkedCall(
+      Symbol.MethodSymbol methodSymbol,
+      Tree tree,
+      List<? extends ExpressionTree> actualParams,
+      VisitorState state) {
+    if (!(inferredTypeVarNullabilityForGenericCalls.get(tree) instanceof InferenceSuccess)
+        || actualParams.stream()
+            .map(ASTHelpers::stripParentheses)
+            .noneMatch(
+                argument ->
+                    argument instanceof LambdaExpressionTree
+                        || argument instanceof MemberReferenceTree)) {
+      return;
+    }
+    Type.MethodType methodType = getInvokedMethodTypeAtCall(methodSymbol, tree, null, state, false);
+    new InvocationArguments(tree, methodType)
+        .forEach(
+            (argumentWithParentheses, argPos, formalParamType, unused) -> {
+              ExpressionTree argument = ASTHelpers.stripParentheses(argumentWithParentheses);
+              if (argument instanceof LambdaExpressionTree
+                  || argument instanceof MemberReferenceTree) {
+                maybeStorePolyExpressionTypeFromTarget(argument, formalParamType, state);
+              }
+            });
+  }
+
+  /**
    * Checks that for each parameter p at a call, the type parameter nullability for p's type matches
    * that of the corresponding formal parameter. If a mismatch is found, report an error.
    *
