@@ -3401,6 +3401,7 @@ public class GenericMethodTests extends NullAwayTestsBase {
               }
               static void acceptsNested(Box<Box<@Nullable String>> box) {}
               static void reproduce(Box<Box<Box<@Nullable String>>> nested) {
+                // Inference computes R -> Box<@Nullable String>, so flat has type Box<Box<@Nullable String>>.
                 var flat = nested.flatMap(box -> box);
                 acceptsNested(flat);
               }

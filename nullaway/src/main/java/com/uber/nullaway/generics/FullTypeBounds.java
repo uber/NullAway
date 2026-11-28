@@ -279,6 +279,8 @@ final class FullTypeBounds {
           : TypeSubstitutionUtils.restoreExplicitNullabilityAnnotations(
               type, inferred, state.getTypes(), config);
     }
+    // TODO: Reuse array and class types when their components are unchanged, as
+    // restoreExplicitNullabilityAnnotations does, to avoid allocations at every nesting level.
     if (type instanceof Type.ArrayType array) {
       Type element = resolveType(array.elemtype, nullability, resolving, completed);
       return element == null ? null : TYPE_METADATA_BUILDER.createArrayType(array, element);
@@ -476,7 +478,7 @@ final class FullTypeBounds {
         : state.getTypes().isSameType(subtype, supertype);
   }
 
-  /** Identifies a registered variable even when its use has an explicit nullness annotation. */
+  /** Returns the inference variable associated with a registered fresh type-variable symbol. */
   private @Nullable InferenceVariable variable(Type type) {
     return type instanceof Type.TypeVar variable && !(type instanceof Type.CapturedType)
         ? inferenceVariables.get(variable.asElement())
