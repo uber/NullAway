@@ -3,7 +3,9 @@ package com.uber.nullaway.generics;
 import static com.google.common.truth.Truth.assertThat;
 import static com.google.errorprone.BugPattern.SeverityLevel.SUGGESTION;
 import static com.google.errorprone.matchers.Description.NO_MATCH;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 
+import com.google.common.base.VerifyException;
 import com.google.errorprone.BugPattern;
 import com.google.errorprone.CompilationTestHelper;
 import com.google.errorprone.ErrorProneFlags;
@@ -18,6 +20,7 @@ import com.uber.nullaway.NullAway;
 import com.uber.nullaway.Nullness;
 import com.uber.nullaway.generics.ConstraintSolver.InferenceVariable;
 import java.util.LinkedHashMap;
+import java.util.List;
 import java.util.Map;
 import javax.lang.model.element.Element;
 import org.junit.Test;
@@ -583,6 +586,15 @@ public class FullTypeBoundsTests {
               tree, method.getTypeParameters(), receivesInstantiation ? instantiations : Map.of());
       assertThat(repeated.get(t)).isSameInstanceAs(initial.get(t));
       assertThat(repeated.get(u)).isSameInstanceAs(initial.get(u));
+      assertThat(solver.registerInferenceVariables(tree, List.of(u, t), Map.of()))
+          .isSameInstanceAs(initial);
+      assertThrows(
+          VerifyException.class,
+          () -> solver.registerInferenceVariables(tree, List.of(t), Map.of()));
+      assertThrows(
+          VerifyException.class,
+          () -> solver.registerInferenceVariables(tree, List.of(t, method), Map.of()));
+
       assertThat(
               solver
                   .registerInferenceVariables(tree, method.getTypeParameters(), instantiations)

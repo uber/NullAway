@@ -51,9 +51,12 @@ public final class ConstraintSolverImpl implements ConstraintSolver {
   private final Map<Element, InferenceVariable> inferenceVariables = new LinkedHashMap<>();
 
   /**
-   * Fresh variables retained for repeated registration of a site with the same declarations.
-   * Different declarations fail verification; re-registration preserves symbols and collected
-   * bounds.
+   * Retains fresh variables so a site can receive javac instantiations after constraints have been
+   * added, without discarding its bounds. Current production callers register each site once per
+   * solver, including PolyNull inference, which uses a separate solver; tests also exercise later
+   * registrations. Reusing symbols avoids rebuilding variables and rebinding earlier constraints;
+   * replacing them without that rebinding would disconnect earlier bounds from later constraints.
+   * Different declarations fail verification.
    */
   private final IdentityHashMap<Tree, Map<Element, Type.TypeVar>> freshVariablesBySite =
       new IdentityHashMap<>();
@@ -110,7 +113,7 @@ public final class ConstraintSolverImpl implements ConstraintSolver {
     Map<Element, Type.TypeVar> existing = freshVariablesBySite.get(site);
     if (existing != null) {
       Verify.verify(
-          existing.keySet().equals(new LinkedHashSet<>(typeVariables)),
+          existing.size() == typeVariables.size() && existing.keySet().containsAll(typeVariables),
           "Repeated inference registration must use the same declarations");
       fullTypeBounds.register(site, existing, javacInstantiations);
       return existing;
