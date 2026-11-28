@@ -6,6 +6,7 @@ import static com.google.errorprone.matchers.Description.NO_MATCH;
 
 import com.google.errorprone.BugPattern;
 import com.google.errorprone.CompilationTestHelper;
+import com.google.errorprone.ErrorProneFlags;
 import com.google.errorprone.VisitorState;
 import com.google.errorprone.bugpatterns.BugChecker;
 import com.google.errorprone.matchers.Description;
@@ -14,12 +15,13 @@ import com.sun.source.tree.MethodTree;
 import com.sun.tools.javac.code.BoundKind;
 import com.sun.tools.javac.code.Symbol;
 import com.sun.tools.javac.code.Type;
+import com.uber.nullaway.NullAway;
 import java.util.List;
 import java.util.Map;
 import javax.lang.model.element.Element;
 import org.junit.Test;
 
-/** Checks recovery of javac's inferred type arguments independently of nullability inference. */
+/** Checks recovery of javac-inferred type arguments independently of nullness inference. */
 public class JavacInstantiationsTests {
 
   @Test
@@ -43,6 +45,9 @@ public class JavacInstantiationsTests {
             "quantifiedAttribution",
             "quantifiedVariableAttribution",
             "capturedDeclaration",
+            "capturedWildcardDeclaration",
+            "capturedWildcardAttribution",
+            "supertypeAlignment",
             "errorDeclaration",
             "fixedDeclaration",
             "conflictingInstantiations",
@@ -52,6 +57,7 @@ public class JavacInstantiationsTests {
             "missingClassInstantiation",
             "wildcardKindConflict",
             "wildcardConcreteConflict",
+            "wildcardFixedAttribution",
             "errorAttribution",
             "rejectSelf",
             "rejectArray",
@@ -63,7 +69,7 @@ public class JavacInstantiationsTests {
           .append(name)
           .append(
               "(List<String> strings, List<T> unresolved, List<? extends T> wildcard, T[] array,"
-                  + " Host<T>.Inner inner, F fixed) {}\n");
+                  + " Host<T>.Inner inner, F fixed, java.util.ArrayList<String> arrayList) {}\n");
     }
     source.append("}\n");
     CompilationTestHelper.newInstance(InstantiationChecker.class, getClass())
@@ -176,11 +182,35 @@ public class JavacInstantiationsTests {
         case "capturedDeclaration" -> {
           Type.CapturedType capture =
               new Type.CapturedType(
-                  variable.tsym.name, method, variable, state.getSymtab().botType, wildcard);
+                  variable.tsym.name,
+                  method,
+                  variable,
+                  state.getSymtab().botType,
+                  (Type.WildcardType) extendsString);
           declaration = capture;
-          // Even a requested capture must be ignored, without traversing its variable bound.
+          // Neither the requested capture nor its synthesized variable bound is evidence.
           variables = List.of(t, capture.asElement());
           rejected = true;
+        }
+        case "capturedWildcardDeclaration" -> {
+          declaration =
+              new Type.CapturedType(
+                  variable.tsym.name, method, object, state.getSymtab().botType, wildcard);
+        }
+        case "capturedWildcardAttribution" -> {
+          declaration = wildcard;
+          attributed =
+              new Type.CapturedType(
+                  variable.tsym.name,
+                  method,
+                  variable,
+                  state.getSymtab().botType,
+                  (Type.WildcardType) extendsString);
+        }
+        case "supertypeAlignment" -> {
+          declaration = parameters.get(1).type;
+          attributed = parameters.get(6).type;
+          expected = attributed.getTypeArguments().head;
         }
         case "errorDeclaration" -> {
           Type error =
@@ -232,6 +262,12 @@ public class JavacInstantiationsTests {
                   ? new Type.WildcardType(string, BoundKind.SUPER, wildcard.tsym)
                   : string;
           attributed = executable(state, List.of(string, second), object, List.of());
+          rejected = tree.getName().contentEquals("wildcardKindConflict");
+        }
+        case "wildcardFixedAttribution" -> {
+          declaration = executable(state, List.of(variable, wildcard), object, List.of());
+          attributed =
+              executable(state, List.of(string, parameters.get(5).type), object, List.of());
           rejected = true;
         }
         case "errorAttribution" -> {
@@ -262,7 +298,12 @@ public class JavacInstantiationsTests {
       }
       Map<Element, Type> instantiations =
           JavacInstantiations.inferInstantiations(
-              declaration, attributed, variables, state.getTypes());
+              declaration,
+              attributed,
+              variables,
+              state,
+              new NullAway(ErrorProneFlags.fromMap(Map.of("NullAway:OnlyNullMarked", "true")))
+                  .getConfig());
       if (rejected) {
         assertThat(instantiations).isEmpty();
       } else {

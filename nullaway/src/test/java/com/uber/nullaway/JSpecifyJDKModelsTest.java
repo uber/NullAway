@@ -318,7 +318,8 @@ public class JSpecifyJDKModelsTest extends NullAwayTestsBase {
   }
 
   @Ignore(
-      "We need to merge https://github.com/uber/NullAway/pull/1689 and re-generate JSpecify JDK models before this will work")
+      "We need to merge https://github.com/uber/NullAway/pull/1689 and re-generate JSpecify JDK"
+          + " models before this will work")
   @Test
   public void nullableArrayContents() {
     makeHelper()
@@ -358,7 +359,8 @@ public class JSpecifyJDKModelsTest extends NullAwayTestsBase {
                         s.hashCode();
                     });
                 }
-            }""")
+            }\
+            """)
         .doTest();
   }
 
@@ -386,7 +388,8 @@ public class JSpecifyJDKModelsTest extends NullAwayTestsBase {
                         .filter(Objects::nonNull)
                         .toList();
                 }
-            }""")
+            }\
+            """)
         .doTest();
   }
 
@@ -638,6 +641,40 @@ public class JSpecifyJDKModelsTest extends NullAwayTestsBase {
               void inferredNestedNonNullPayloadCanBeDereferenced() {
                 Optional.of(Optional.of(CompletableFuture.completedFuture("ok")))
                     .get().get().join().length();
+              }
+            }
+            """)
+        .doTest();
+  }
+
+  @Test
+  public void modeledNestedReturnAnnotationInGenericInference() {
+    makeHelper()
+        .addSourceLines(
+            "Test.java",
+            """
+            import java.util.concurrent.CompletableFuture;
+            import org.jspecify.annotations.NullMarked;
+            import org.jspecify.annotations.Nullable;
+            @NullMarked
+            class Test {
+              static <T> T identity(T value) { return value; }
+              void identityPreservesNullablePayload() {
+                CompletableFuture<@Nullable Void> valid = identity(CompletableFuture.allOf());
+              }
+              void identityRejectsNonNullPayload() {
+                // BUG: Diagnostic contains: incompatible types
+                CompletableFuture<Void> invalid = identity(CompletableFuture.allOf());
+              }
+              CompletableFuture<@Nullable Void> returned() {
+                return identity(CompletableFuture.allOf());
+              }
+              CompletableFuture<Void> invalidReturn() {
+                // BUG: Diagnostic contains: incompatible types
+                return identity(CompletableFuture.allOf());
+              }
+              void identityPreservesNonNullPayload() {
+                identity(CompletableFuture.completedFuture("ok")).join().length();
               }
             }
             """)
