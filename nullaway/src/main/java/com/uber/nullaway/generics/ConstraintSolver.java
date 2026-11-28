@@ -383,9 +383,10 @@ public interface ConstraintSolver {
   }
 
   /**
-   * Inferred annotation sources and their certification status. Sources for incomplete or
-   * inconsistent variables are retained for ordinary compatibility diagnostics, not for caching as
-   * successful inference. All collections are immutable snapshots in insertion order.
+   * Inferred annotation sources and the variables whose types could not be fully checked
+   * (incomplete) or violate a constraint (inconsistent). Sources for either set are retained for
+   * ordinary compatibility diagnostics, not for caching as successful inference. All collections
+   * are immutable snapshots in insertion order.
    */
   record Solution(
       Map<InferenceVariable, Type> inferredTypes,

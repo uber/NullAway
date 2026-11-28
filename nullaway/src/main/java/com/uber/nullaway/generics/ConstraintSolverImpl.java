@@ -167,7 +167,10 @@ public final class ConstraintSolverImpl implements ConstraintSolver {
     /** Important to use a LinkedHashSet here for determinism in error messages. */
     final Set<InferenceVariable> subtypes = new LinkedHashSet<>();
 
-    /** Scalar edges exclude occurrence-overridden relationships that are only structural. */
+    /**
+     * Sources for edges that propagate top-level nullness. An explicitly annotated use such as
+     * {@code @NonNull T} can constrain T's nested types without constraining T's own nullness.
+     */
     final Map<InferenceVariable, SourceEvidence> scalarSupertypeOrigins = new LinkedHashMap<>();
 
     final Map<InferenceVariable, SourceEvidence> scalarSubtypeOrigins = new LinkedHashMap<>();
