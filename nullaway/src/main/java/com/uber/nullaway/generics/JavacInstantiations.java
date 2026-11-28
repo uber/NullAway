@@ -44,7 +44,8 @@ final class JavacInstantiations {
   }
 
   /** Matches syntactic type positions, deliberately not traversing type-variable bounds. */
-  private static final class Matcher {
+  private static final class Matcher
+      extends Types.DefaultTypeVisitor<@Nullable Void, @Nullable Type> {
     private final Set<Element> variables;
     private final Types types;
     private final Map<Element, Type> instantiations = new LinkedHashMap<>();
@@ -57,50 +58,102 @@ final class JavacInstantiations {
 
     /** Records consistent variable instantiations at corresponding type positions. */
     private void match(Type declaration, @Nullable Type attributed) {
-      if (declaration instanceof Type.ForAll quantified) {
-        match(quantified.qtype, attributed);
-      } else if (attributed instanceof Type.ForAll quantified) {
+      if (attributed instanceof Type.ForAll quantified) {
         match(declaration, quantified.qtype);
-      } else if (declaration instanceof Type.CapturedType) {
-        // Synthesized capture bounds are not attributed instantiations.
-      } else if (declaration instanceof Type.TypeVar variable) {
-        Element symbol = variable.asElement();
-        if (!variables.contains(symbol) || rejected.contains(symbol)) {
-          return;
-        }
-        Type previous = instantiations.get(symbol);
-        if (attributed == null
-            || attributed.isErroneous()
-            || containsInferenceVariable(attributed)
-            || (previous != null && !types.isSameType(previous, attributed))) {
-          rejected.add(symbol);
-          instantiations.remove(symbol);
-        } else {
-          instantiations.put(symbol, attributed);
-        }
-      } else if (declaration instanceof Type.MethodType method) {
-        Type.MethodType actual = attributed instanceof Type.MethodType m ? m : null;
-        matchLists(method.argtypes, actual == null ? List.of() : actual.argtypes);
-        match(method.restype, actual == null ? null : actual.restype);
-        matchLists(method.thrown, actual == null ? List.of() : actual.thrown);
-      } else if (declaration instanceof Type.ArrayType array) {
-        match(array.elemtype, attributed instanceof Type.ArrayType a ? a.elemtype : null);
-      } else if (declaration instanceof Type.ClassType clazz) {
-        // These are two views of the same executable, not an arbitrary subtype comparison.
-        Type.ClassType actual =
-            attributed instanceof Type.ClassType c && clazz.tsym.equals(c.tsym) && !c.isRaw()
-                ? c
-                : null;
-        match(clazz.getEnclosingType(), actual == null ? null : actual.getEnclosingType());
-        matchLists(
-            clazz.getTypeArguments(), actual == null ? List.of() : actual.getTypeArguments());
-      } else if (declaration instanceof Type.WildcardType wildcard && !wildcard.isUnbound()) {
-        if (attributed instanceof Type.WildcardType actual) {
-          match(wildcard.type, wildcard.kind == actual.kind ? actual.type : null);
-        } else {
-          match(wildcard.type, null);
-        }
+      } else {
+        declaration.accept(this, attributed);
       }
+    }
+
+    /** Ignores leaf types and other types with no syntactic variable occurrences. */
+    @Override
+    public @Nullable Void visitType(Type declaration, @Nullable Type attributed) {
+      return null;
+    }
+
+    /** Matches a quantified declaration's executable type without visiting its variable bounds. */
+    @Override
+    public @Nullable Void visitForAll(Type.ForAll declaration, @Nullable Type attributed) {
+      match(declaration.qtype, attributed);
+      return null;
+    }
+
+    /** Ignores synthesized captures, whose bounds are not attributed instantiations. */
+    @Override
+    public @Nullable Void visitCapturedType(
+        Type.CapturedType declaration, @Nullable Type attributed) {
+      return null;
+    }
+
+    /** Records a requested variable unless any of its occurrences has rejected it. */
+    @Override
+    public @Nullable Void visitTypeVar(Type.TypeVar declaration, @Nullable Type attributed) {
+      Element symbol = declaration.asElement();
+      if (!variables.contains(symbol) || rejected.contains(symbol)) {
+        return null;
+      }
+      Type previous = instantiations.get(symbol);
+      if (attributed == null
+          || attributed.isErroneous()
+          || containsInferenceVariable(attributed)
+          || (previous != null && !types.isSameType(previous, attributed))) {
+        rejected.add(symbol);
+        instantiations.remove(symbol);
+      } else {
+        instantiations.put(symbol, attributed);
+      }
+      return null;
+    }
+
+    /** Matches parameter, return, and thrown types in their original order. */
+    @Override
+    public @Nullable Void visitMethodType(Type.MethodType declaration, @Nullable Type attributed) {
+      Type.MethodType actual = attributed instanceof Type.MethodType m ? m : null;
+      matchLists(declaration.argtypes, actual == null ? List.of() : actual.argtypes);
+      match(declaration.restype, actual == null ? null : actual.restype);
+      matchLists(declaration.thrown, actual == null ? List.of() : actual.thrown);
+      return null;
+    }
+
+    /** Matches an array's component, rejecting its variables if the array shape is missing. */
+    @Override
+    public @Nullable Void visitArrayType(Type.ArrayType declaration, @Nullable Type attributed) {
+      match(declaration.elemtype, attributed instanceof Type.ArrayType a ? a.elemtype : null);
+      return null;
+    }
+
+    /** Matches enclosing types and arguments only for the same non-raw attributed class. */
+    @Override
+    public @Nullable Void visitClassType(Type.ClassType declaration, @Nullable Type attributed) {
+      // These are two views of the same executable, not an arbitrary subtype comparison.
+      Type.ClassType actual =
+          attributed instanceof Type.ClassType c && declaration.tsym.equals(c.tsym) && !c.isRaw()
+              ? c
+              : null;
+      match(declaration.getEnclosingType(), actual == null ? null : actual.getEnclosingType());
+      matchLists(
+          declaration.getTypeArguments(), actual == null ? List.of() : actual.getTypeArguments());
+      return null;
+    }
+
+    /** Preserves class-position matching for error types, which are also class types. */
+    @Override
+    public @Nullable Void visitErrorType(Type.ErrorType declaration, @Nullable Type attributed) {
+      return visitClassType(declaration, attributed);
+    }
+
+    /** Matches bounded wildcards only when their bound kinds agree. */
+    @Override
+    public @Nullable Void visitWildcardType(
+        Type.WildcardType declaration, @Nullable Type attributed) {
+      if (!declaration.isUnbound()) {
+        match(
+            declaration.type,
+            attributed instanceof Type.WildcardType actual && declaration.kind == actual.kind
+                ? actual.type
+                : null);
+      }
+      return null;
     }
 
     /**

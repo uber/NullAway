@@ -41,10 +41,14 @@ public class JavacInstantiationsTests {
             "fixedWildcardAttribution",
             "quantifiedDeclaration",
             "quantifiedAttribution",
+            "quantifiedVariableAttribution",
+            "capturedDeclaration",
+            "errorDeclaration",
             "fixedDeclaration",
             "conflictingInstantiations",
             "mismatchedArity",
             "missingMethodInstantiation",
+            "missingArrayInstantiation",
             "missingClassInstantiation",
             "wildcardKindConflict",
             "wildcardConcreteConflict",
@@ -83,6 +87,7 @@ public class JavacInstantiationsTests {
       }
       Element t = method.getTypeParameters().get(0);
       Type variable = ((Symbol) t).type;
+      List<? extends Element> variables = method.getTypeParameters();
       var parameters = method.getParameters();
       Type string = state.getSymtab().stringType;
       Type object = state.getSymtab().objectType;
@@ -164,6 +169,32 @@ public class JavacInstantiationsTests {
                   com.sun.tools.javac.util.List.nil(),
                   executable(state, List.of(string), object, List.of()));
         }
+        case "quantifiedVariableAttribution" -> {
+          expected = executable(state, List.of(string), object, List.of());
+          attributed = new Type.ForAll(com.sun.tools.javac.util.List.nil(), expected);
+        }
+        case "capturedDeclaration" -> {
+          Type.CapturedType capture =
+              new Type.CapturedType(
+                  variable.tsym.name, method, variable, state.getSymtab().botType, wildcard);
+          declaration = capture;
+          // Even a requested capture must be ignored, without traversing its variable bound.
+          variables = List.of(t, capture.asElement());
+          rejected = true;
+        }
+        case "errorDeclaration" -> {
+          Type error =
+              new Type.ErrorType(method.name, (Symbol.TypeSymbol) method.owner, Type.noType) {
+                @Override
+                public com.sun.tools.javac.util.List<Type> getTypeArguments() {
+                  return com.sun.tools.javac.util.List.of(variable);
+                }
+              };
+          // ErrorType is a ClassType: its unmatched occurrences still reject a prior match.
+          declaration = executable(state, List.of(variable, error), object, List.of());
+          attributed = executable(state, List.of(string, string), object, List.of());
+          rejected = true;
+        }
         case "fixedDeclaration" -> {
           declaration = parameters.get(5).type;
           rejected = true;
@@ -180,6 +211,12 @@ public class JavacInstantiationsTests {
         }
         case "missingMethodInstantiation" -> {
           declaration = executable(state, List.of(variable), object, List.of());
+          rejected = true;
+        }
+        case "missingArrayInstantiation" -> {
+          declaration =
+              executable(state, List.of(variable, parameters.get(3).type), object, List.of());
+          attributed = executable(state, List.of(string, string), object, List.of());
           rejected = true;
         }
         case "missingClassInstantiation" -> {
@@ -225,7 +262,7 @@ public class JavacInstantiationsTests {
       }
       Map<Element, Type> instantiations =
           JavacInstantiations.inferInstantiations(
-              declaration, attributed, method.getTypeParameters(), state.getTypes());
+              declaration, attributed, variables, state.getTypes());
       if (rejected) {
         assertThat(instantiations).isEmpty();
       } else {
