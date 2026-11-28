@@ -23,7 +23,7 @@ import javax.lang.model.element.Element;
 import javax.lang.model.type.TypeVariable;
 import org.jspecify.annotations.Nullable;
 
-/** Recovers javac-inferred type arguments by matching type structure, ignoring nullness. */
+/** Recovers javac's inferred type arguments without inferring their nullness. */
 final class JavacInstantiations {
 
   private JavacInstantiations() {}
@@ -35,13 +35,14 @@ final class JavacInstantiations {
    * <p>For calls, the declaration should be the receiver-substituted executable type and the
    * attributed type should be the invocation's method-select type (or attributed constructor
    * signature). Class instantiations can instead be recovered by matching the constructed class's
-   * declaration against its attributed constructed type. For anonymous classes, the inputs must
-   * describe the constructed superclass or interface, not the anonymous class.
+   * declaration against its attributed constructed type. For anonymous classes, callers must supply
+   * the superclass or interface type named in the allocation, not the anonymous class type.
    *
-   * <p>Returned types retain javac's metadata, but their annotations are provisional, not nullness
-   * evidence. Repeated occurrences must have the same nominal shape, ignoring annotations; a
-   * conflicting or unresolved variable is omitted. Variables absent from the compared shapes are
-   * not defaulted to their declaration bounds. Fixed, non-listed type variables remain fixed.
+   * <p>Returned types retain javac's metadata; their annotations do not determine inferred
+   * nullness. Repeated occurrences of a variable must match the same type structure, ignoring
+   * annotations; a conflicting or unresolved variable is omitted. Variables absent from the
+   * compared types are not defaulted to their declaration bounds. Type variables not listed in
+   * {@code vars} remain fixed.
    */
   static Map<Element, Type> inferInstantiations(
       Type declaration,
@@ -212,7 +213,8 @@ final class JavacInstantiations {
     }
 
     /**
-     * Records attributed evidence unless it is unresolved or conflicts with an earlier occurrence.
+     * Records a variable's attributed type unless it is unresolved or differs from an earlier
+     * match.
      */
     private void record(Element variable, Type attributed) {
       if (rejected.contains(variable)) {
