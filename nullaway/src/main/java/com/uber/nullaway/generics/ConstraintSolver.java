@@ -54,7 +54,7 @@ public interface ConstraintSolver {
    * @param javacInstantiations javac's inferred type arguments, keyed by declared variable; any
    *     variable may be omitted and then receives at most a {@link TopLevelOnly} result unless an
    *     earlier registration supplied its instantiation. These types supply Java structure only;
-   *     their nullness annotations are not bounds.
+   *     their nullness annotations are not used to generate inference constraints.
    * @return a map from each declared type variable to its fresh type variable for {@code site}
    */
   Map<Element, Type.TypeVar> registerInferenceVariables(
@@ -67,20 +67,20 @@ public interface ConstraintSolver {
    */
   sealed interface InferredType permits Substitution, TopLevelOnly {
     /** Returns the established top-level qualifier for either kind of result. */
-    default Nullness topLevelNullness(Config config) {
-      if (this instanceof TopLevelOnly topLevel) {
-        return topLevel.nullness();
-      }
-      return GenericsUtils.isAnnotatedAsNullable(((Substitution) this).type(), config)
-          ? Nullness.NULLABLE
-          : Nullness.NONNULL;
-    }
+    Nullness topLevelNullness(Config config);
   }
 
   /**
    * An inferred replacement type, including nested nullness and containing no inference variables.
    */
-  record Substitution(Type type) implements InferredType {}
+  record Substitution(Type type) implements InferredType {
+    @Override
+    public Nullness topLevelNullness(Config config) {
+      return GenericsUtils.isAnnotatedAsNullable(type, config)
+          ? Nullness.NULLABLE
+          : Nullness.NONNULL;
+    }
+  }
 
   /**
    * An inferred top-level nullness qualifier. Consumers retain the attributed type's nested
@@ -96,6 +96,11 @@ public interface ConstraintSolver {
       if (nullness != Nullness.NONNULL && nullness != Nullness.NULLABLE) {
         throw new IllegalArgumentException("Expected an inferred top-level nullness qualifier");
       }
+    }
+
+    @Override
+    public Nullness topLevelNullness(Config config) {
+      return nullness;
     }
   }
 

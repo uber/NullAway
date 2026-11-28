@@ -43,6 +43,20 @@ public class ConstraintSolverSolveTests extends NullAwayTestsBase {
   }
 
   @Test
+  public void inferredTypeTopLevelNullness() {
+    CompilationTestHelper.newInstance(SolveChecker.class, getClass())
+        .addSourceLines(
+            "Test.java",
+            """
+            import org.jspecify.annotations.Nullable;
+            class Test {
+              <T> void qualifiers(@Nullable String nullable, String nonNull) {}
+            }
+            """)
+        .doTest();
+  }
+
+  @Test
   public void nestedLowerChainsHaveBoundedWork() {
     StringBuilder source =
         new StringBuilder(
@@ -184,6 +198,18 @@ public class ConstraintSolverSolveTests extends NullAwayTestsBase {
                       "true",
                       "NullAway:HandleWildcardGenerics",
                       "true")));
+      if (tree.getName().contentEquals("qualifiers")) {
+        var config = analysis.getConfig();
+        InferredType nullable = new Substitution(method.getParameters().get(0).type);
+        InferredType nonNull = new Substitution(method.getParameters().get(1).type);
+        assertThat(nullable.topLevelNullness(config)).isEqualTo(Nullness.NULLABLE);
+        assertThat(nonNull.topLevelNullness(config)).isEqualTo(Nullness.NONNULL);
+        assertThat(new TopLevelOnly(Nullness.NULLABLE).topLevelNullness(config))
+            .isEqualTo(Nullness.NULLABLE);
+        assertThat(new TopLevelOnly(Nullness.NONNULL).topLevelNullness(config))
+            .isEqualTo(Nullness.NONNULL);
+        return NO_MATCH;
+      }
       ConstraintSolver solver = new ConstraintSolverImpl(analysis.getConfig(), state, analysis);
       if (tree.getName().toString().startsWith("chain")) {
         checkChain(tree, method, solver, state);
