@@ -2,6 +2,7 @@ package com.uber.nullaway.dataflow;
 
 import java.util.Objects;
 import javax.lang.model.element.Element;
+import javax.lang.model.element.Modifier;
 import org.jspecify.annotations.Nullable;
 
 /**
@@ -33,14 +34,29 @@ public class ArrayIndexElement implements AccessPathElement {
   }
 
   /**
-   * Creates an ArrayIndexElement with a local variable or field index.
+   * Creates an array index for a local variable or static field; returns {@code null} for an
+   * instance field.
+   *
+   * <p>This representation stores only the index variable's symbol, not a receiver. Tracking an
+   * instance field would therefore treat {@code a[left.i]} and {@code a[right.i]} as the same
+   * element, even when the two field values differ.
    *
    * @param javaElement the element of the array
    * @param indexElement the local variable or field element representing the index
-   * @return an instance of ArrayIndexElement
+   * @return an instance of ArrayIndexElement, or {@code null} for an instance-field index
    */
-  public static ArrayIndexElement withVariableIndex(Element javaElement, Element indexElement) {
+  public static @Nullable ArrayIndexElement withVariableIndex(
+      Element javaElement, Element indexElement) {
+    if (indexElement.getKind().isField()
+        && !indexElement.getModifiers().contains(Modifier.STATIC)) {
+      return null;
+    }
     return new ArrayIndexElement(javaElement, indexElement);
+  }
+
+  /** Returns the represented index: an {@link Integer} constant or a variable {@link Element}. */
+  public Object getIndex() {
+    return index;
   }
 
   @Override

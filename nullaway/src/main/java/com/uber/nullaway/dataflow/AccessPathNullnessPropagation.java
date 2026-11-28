@@ -31,13 +31,17 @@ import com.google.errorprone.VisitorState;
 import com.google.errorprone.suppliers.Supplier;
 import com.google.errorprone.suppliers.Suppliers;
 import com.google.errorprone.util.ASTHelpers;
+import com.sun.source.tree.ArrayAccessTree;
 import com.sun.source.tree.BindingPatternTree;
 import com.sun.source.tree.CaseTree;
 import com.sun.source.tree.CompilationUnitTree;
 import com.sun.source.tree.EnhancedForLoopTree;
 import com.sun.source.tree.ExpressionTree;
+import com.sun.source.tree.MemberSelectTree;
 import com.sun.source.tree.MethodInvocationTree;
+import com.sun.source.tree.ParenthesizedTree;
 import com.sun.source.tree.Tree;
+import com.sun.source.tree.TypeCastTree;
 import com.sun.source.tree.VariableTree;
 import com.sun.source.util.TreePath;
 import com.sun.tools.javac.code.Symbol;
@@ -58,6 +62,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.function.Predicate;
 import javax.annotation.CheckReturnValue;
+import javax.lang.model.element.Element;
 import javax.lang.model.element.ElementKind;
 import javax.lang.model.element.VariableElement;
 import javax.lang.model.type.TypeKind;
@@ -167,6 +172,8 @@ public class AccessPathNullnessPropagation
 
   private VisitorState state;
 
+  private CompilationUnitTree compilationUnit;
+
   private final AccessPath.AccessPathContext apContext;
 
   private final Config config;
@@ -188,9 +195,8 @@ public class AccessPathNullnessPropagation
    * @param stateForNewCompilationUnit the new visitor state
    */
   public void updateForNewCompilationUnit(VisitorState stateForNewCompilationUnit) {
-    this.state =
-        stateForNewCompilationUnit.withPath(
-            new FailingTreePath(stateForNewCompilationUnit.getPath().getCompilationUnit()));
+    this.compilationUnit = stateForNewCompilationUnit.getPath().getCompilationUnit();
+    this.state = stateForNewCompilationUnit.withPath(new FailingTreePath(compilationUnit));
   }
 
   /**
@@ -241,7 +247,8 @@ public class AccessPathNullnessPropagation
     this.defaultAssumption = defaultAssumption;
     this.methodReturnsNonNull = analysis::isMethodUnannotated;
     // Overwrite the TreePath with a FailingTreePath to ensure it never gets used
-    this.state = state.withPath(new FailingTreePath(state.getPath().getCompilationUnit()));
+    this.compilationUnit = state.getPath().getCompilationUnit();
+    this.state = state.withPath(new FailingTreePath(compilationUnit));
     this.apContext = apContext;
     this.config = analysis.getConfig();
     this.handler = analysis.getHandler();
@@ -611,6 +618,7 @@ public class AccessPathNullnessPropagation
     // may lose it
     Nullness result = nullnessAdaptedToTarget(rhsValue, rhs, () -> holderTarget(target));
     Nullness value = adaptNullnessForAccessPath(rhsValue, rhs, target);
+    invalidateArrayAccessPaths(input.getRegularStore(), updates, target);
 
     if (target instanceof LocalVariableNode localVariableNode
         && !castToNonNull(ASTHelpers.getType(target.getTree())).isPrimitive()) {
@@ -620,6 +628,17 @@ public class AccessPathNullnessPropagation
 
     if (target instanceof ArrayAccessNode arrayAccessNode) {
       setNonnullIfAnalyzeable(updates, arrayAccessNode.getArray());
+      if (config.isJSpecifyMode()
+          && !arrayAccessNode.getType().getKind().isPrimitive()
+          && isStableArrayAssignmentExpression(arrayAccessNode.getTree())
+          && isStableArrayAssignmentExpression(rhs.getTree())) {
+        // The CFG evaluates the location before the RHS. Only refine paths whose array and index
+        // cannot have changed during operand evaluation.
+        AccessPath elementPath = AccessPath.getAccessPathForNode(arrayAccessNode, state, apContext);
+        if (elementPath != null) {
+          updates.set(elementPath, value);
+        }
+      }
     }
 
     if (target instanceof FieldAccessNode fieldAccessNode) {
@@ -639,6 +658,44 @@ public class AccessPathNullnessPropagation
     }
 
     return updateRegularStore(result, input, updates);
+  }
+
+  /**
+   * Accepts literals, variable reads, and field or array reads built from those expressions,
+   * allowing parentheses and casts. Rejects calls, assignments, and all other expression kinds.
+   *
+   * <p>Used on both sides of an array assignment before recording the assigned element's nullness.
+   * For example, {@code a[i] = changeIndex()} may write to a different element than a later
+   * evaluation of {@code a[i]}; a call returning an array may also return a different array on the
+   * next read. This check does not track aliases or change how calls invalidate existing facts.
+   */
+  private static boolean isStableArrayAssignmentExpression(@Nullable Tree tree) {
+    if (tree == null) {
+      return false;
+    }
+    return switch (tree.getKind()) {
+      case IDENTIFIER,
+          NULL_LITERAL,
+          STRING_LITERAL,
+          BOOLEAN_LITERAL,
+          CHAR_LITERAL,
+          INT_LITERAL,
+          LONG_LITERAL,
+          FLOAT_LITERAL,
+          DOUBLE_LITERAL ->
+          true;
+      case MEMBER_SELECT ->
+          isStableArrayAssignmentExpression(((MemberSelectTree) tree).getExpression());
+      case PARENTHESIZED ->
+          isStableArrayAssignmentExpression(((ParenthesizedTree) tree).getExpression());
+      case TYPE_CAST -> isStableArrayAssignmentExpression(((TypeCastTree) tree).getExpression());
+      case ARRAY_ACCESS -> {
+        ArrayAccessTree access = (ArrayAccessTree) tree;
+        yield isStableArrayAssignmentExpression(access.getExpression())
+            && isStableArrayAssignmentExpression(access.getIndex());
+      }
+      default -> false;
+    };
   }
 
   /**
@@ -881,16 +938,11 @@ public class AccessPathNullnessPropagation
     Nullness resultNullness;
     // Unsoundly assume @NonNull, except in JSpecify mode where we check the type
     if (config.isJSpecifyMode()) {
-      // For enhanced-for-loops we get the array expression from the node as the tree is desugared
-      ExpressionTree arrayExpr = node.getArrayExpression();
-      if (arrayExpr == null) {
-        arrayExpr = node.getTree().getExpression();
-      }
-      boolean isElementNullable =
-          NullabilityUtil.isArrayExpressionElementNullable(arrayExpr, config);
+      boolean isElementNullable = arrayElementIsNullable(node);
       if (isElementNullable) {
         AccessPath arrayAccessPath = AccessPath.getAccessPathForNode(node, state, apContext);
         if (arrayAccessPath != null) {
+          // Preserve definite null from assignments such as a[0] = null.
           resultNullness = input.getRegularStore().getNullnessOfAccessPath(arrayAccessPath);
         } else {
           resultNullness = Nullness.NULLABLE;
@@ -903,6 +955,28 @@ public class AccessPathNullnessPropagation
       resultNullness = Nullness.NONNULL;
     }
     return updateRegularStore(resultNullness, input, updates);
+  }
+
+  /**
+   * Checks whether an array read's immediate element type is nullable, including inferred types.
+   *
+   * <p>For an enhanced-for loop, uses the source array expression rather than the temporary created
+   * by the CFG. Looks up its source path because this transfer's stored visitor state has no usable
+   * path. If the source path is unavailable, falls back to annotations on the expression or symbol.
+   */
+  private boolean arrayElementIsNullable(ArrayAccessNode node) {
+    ExpressionTree arrayExpression = node.getArrayExpression();
+    Tree arrayTree = arrayExpression != null ? arrayExpression : node.getArray().getTree();
+    if (arrayTree instanceof ExpressionTree expression) {
+      TreePath expressionPath = TreePath.getPath(compilationUnit, expression);
+      if (expressionPath != null) {
+        return genericsChecks.isArrayElementNullable(
+            expression, state.withPath(expressionPath), /* calledFromDataflow= */ true);
+      }
+      return NullabilityUtil.isArrayExpressionElementNullable(expression, config);
+    }
+    Symbol arraySymbol = ASTHelpers.getSymbol(arrayTree);
+    return arraySymbol != null && NullabilityUtil.isArrayElementNullable(arraySymbol, config);
   }
 
   @Override
@@ -1541,6 +1615,84 @@ public class AccessPathNullnessPropagation
   public TransferResult<Nullness, NullnessStore> visitMarker(
       MarkerNode markerNode, TransferInput<Nullness, NullnessStore> input) {
     return noStoreChanges(NULLABLE, input);
+  }
+
+  /**
+   * Invalidates array-dependent facts affected by an assignment in JSpecify mode.
+   *
+   * <p>A write to {@code a[i]} invalidates facts about array elements even through other array
+   * variables, since they may refer to the same array. Distinct known integer indices are excluded.
+   * Assigning a local or field invalidates only array-dependent paths that reference that symbol,
+   * including as an index or map key. Fields are matched by symbol regardless of receiver, since
+   * receivers may alias. The caller records any known value of the assigned element afterward.
+   */
+  private void invalidateArrayAccessPaths(
+      NullnessStore store, ReadableUpdates updates, Node target) {
+    if (!config.isJSpecifyMode()) {
+      return;
+    }
+    Predicate<AccessPath> affected;
+    if (target instanceof ArrayAccessNode arrayAccess) {
+      Integer writtenIndex =
+          arrayAccess.getIndex() instanceof IntegerLiteralNode literal ? literal.getValue() : null;
+      affected = path -> mayOverlapArrayWrite(path, writtenIndex);
+    } else {
+      Element changedSymbol;
+      if (target instanceof LocalVariableNode local) {
+        changedSymbol = local.getElement();
+      } else if (target instanceof FieldAccessNode field) {
+        changedSymbol = field.getElement();
+      } else {
+        return;
+      }
+      affected = path -> containsArrayAccess(path) && referencesSymbol(path, changedSymbol);
+    }
+    for (Nullness nullness : Nullness.values()) {
+      for (AccessPath path : store.getAccessPathsWithValue(nullness)) {
+        if (affected.test(path)) {
+          updates.set(path, NULLABLE);
+        }
+      }
+    }
+  }
+
+  /**
+   * Checks whether {@code path}, including its map key, contains an array access whose index may
+   * equal {@code writtenIndex}. A null index means unknown; array identity is not used to rule out
+   * overlap because different array expressions may alias.
+   */
+  private static boolean mayOverlapArrayWrite(AccessPath path, @Nullable Integer writtenIndex) {
+    for (AccessPathElement element : path.getElements()) {
+      if (element instanceof ArrayIndexElement arrayIndex
+          && (writtenIndex == null
+              || !(arrayIndex.getIndex() instanceof Integer storedIndex)
+              || writtenIndex.equals(storedIndex))) {
+        return true;
+      }
+    }
+    return path.getMapGetArg() instanceof AccessPath keyPath
+        && mayOverlapArrayWrite(keyPath, writtenIndex);
+  }
+
+  /** Checks whether assigning {@code symbol} may change the value reached by {@code path}. */
+  private static boolean referencesSymbol(AccessPath path, Element symbol) {
+    if (symbol.equals(path.getRoot())) {
+      return true;
+    }
+    for (AccessPathElement element : path.getElements()) {
+      if (symbol.equals(element.getJavaElement())
+          || (element instanceof ArrayIndexElement arrayIndex
+              && symbol.equals(arrayIndex.getIndex()))) {
+        return true;
+      }
+    }
+    return path.getMapGetArg() instanceof AccessPath keyPath && referencesSymbol(keyPath, symbol);
+  }
+
+  /** Returns whether a path depends on an array element, including accesses below that element. */
+  private static boolean containsArrayAccess(AccessPath path) {
+    return path.getElements().stream().anyMatch(element -> element instanceof ArrayIndexElement)
+        || (path.getMapGetArg() instanceof AccessPath keyPath && containsArrayAccess(keyPath));
   }
 
   @CheckReturnValue
