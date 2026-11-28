@@ -149,10 +149,8 @@ public final class ConstraintSolverImpl implements ConstraintSolver {
   /** Per-variable state (nullability, sub-/supertype edges). */
   private static final class VarState {
     /**
-     * Indicates whether the type variable has a @Nullable upper bound, and thus can be @Nullable
-     * itself. Not strictly necessary for constraint solving, but allows us to give a more useful
-     * diagnostic if we get a contradiction due to the @NonNull upper bound, which could be helpful
-     * in the future.
+     * Whether the effective upper bound permits nullable instantiations. Used to reject nullable
+     * top-level constraints and wildcard arguments whose fixed type-variable bounds permit null.
      */
     final boolean nullableAllowed;
 
@@ -197,6 +195,14 @@ public final class ConstraintSolverImpl implements ConstraintSolver {
 
     final Map<String, BoundEvidence> lowerBoundEvidence = new LinkedHashMap<>();
 
+    /**
+     * Fixed type-variable lower bounds on this variable itself, excluding annotated target uses
+     * such as {@code @Nullable E}.
+     */
+    final List<Type> rootFixedLowerBounds = new ArrayList<>();
+
+    final Set<String> rootFixedLowerBoundKeys = new LinkedHashSet<>();
+
     /** Fixed type-variable lower uses retained as declaration-diagnostic provenance. */
     final List<Type> fixedTypeVariableLowerBounds = new ArrayList<>();
 
@@ -225,6 +231,12 @@ public final class ConstraintSolverImpl implements ConstraintSolver {
    * messages.
    */
   private final Map<InferenceVariable, VarState> vars = new LinkedHashMap<>();
+
+  /** Deferred containment obligations, checked after every call's lower bounds are available. */
+  private final Set<NonNullWildcardRequirement> nonNullWildcardRequirements = new LinkedHashSet<>();
+
+  /** A wildcard's actual upper bound must fit an inferred variable whose bound excludes null. */
+  private record NonNullWildcardRequirement(Type actual, InferenceVariable required) {}
 
   /** Incremented whenever a variable, structured bound, or variable edge is added. */
   private int structuredConstraintVersion = 0;
@@ -768,8 +780,16 @@ public final class ConstraintSolverImpl implements ConstraintSolver {
           case UNBOUND, EXTENDS -> {
             Type subtypeUpperBound =
                 GenericsUtils.effectiveWildcardUpperBound(subtypeTypeArg, state, config, handler);
-            subtypeUpperBound.accept(
-                this, GenericsUtils.wildcardUpperBound(supertypeWildcard, state, config, handler));
+            Type supertypeUpperBound =
+                GenericsUtils.wildcardUpperBound(supertypeWildcard, state, config, handler);
+            InferenceVariable required = inferenceVariableForUse(supertypeUpperBound);
+            if (supertypeWildcard.kind == BoundKind.EXTENDS
+                && required != null
+                && !getState(required).nullableAllowed) {
+              nonNullWildcardRequirements.add(
+                  new NonNullWildcardRequirement(subtypeUpperBound, required));
+            }
+            subtypeUpperBound.accept(this, supertypeUpperBound);
           }
           case SUPER -> {
             Type supertypeLowerBound = castToNonNull(supertypeWildcard.getSuperBound());
@@ -827,6 +847,7 @@ public final class ConstraintSolverImpl implements ConstraintSolver {
     lowerConflicts.clear();
     lowerConflictKeys.clear();
     prepareStructuredConstraints();
+    constrainNonNullWildcardRequirements();
 
     /* ---------- work-list propagation of nullability ---------- */
     Deque<InferenceVariable> work = new ArrayDeque<>();
@@ -1193,6 +1214,22 @@ public final class ConstraintSolverImpl implements ConstraintSolver {
   }
 
   /**
+   * Checks fixed caller bounds after nested calls have contributed their constraints. In
+   * null-marked code, {@code <U> void requireNonNull(Box<? extends U> b)} cannot accept {@code
+   * Box<T>} for {@code T extends @Nullable Object}: U excludes null, but T can be instantiated with
+   * a nullable type. For {@code requireNonNull(id(box))}, this check must wait for id's lower
+   * bounds. A U with a nullable upper bound can instead retain T itself, without replacing it with
+   * {@code @Nullable T} or its upper bound.
+   */
+  private void constrainNonNullWildcardRequirements() {
+    for (NonNullWildcardRequirement requirement : nonNullWildcardRequirements) {
+      if (hasNullableFixedLowerBound(requirement.actual())) {
+        throw new NonNullWildcardBoundViolationException(requirement.required());
+      }
+    }
+  }
+
+  /**
    * Checks corresponding invariant slots in a common Java shape. Arrays descend covariantly, so
    * differing component-root nullness is not a conflict. An intersection supplies independent
    * nominal views of both lowers, not a synthetic class whose empty argument list can hide their
@@ -1267,6 +1304,81 @@ public final class ConstraintSolverImpl implements ConstraintSolver {
       }
     } finally {
       endBoundComparison("lower-at-shape", first, shape);
+    }
+  }
+
+  /**
+   * Finds fixed type-variable lower bounds that explicitly permit null, following edges that
+   * propagate top-level nullness. Structural edges would also follow annotated uses such as
+   * {@code @NonNull T}, incorrectly ignoring the annotation. All calls have contributed their lower
+   * bounds before this walk, so visiting an outer call first does not change the result.
+   */
+  private boolean hasNullableFixedLowerBound(Type actual) {
+    if (Nullness.hasNonNullAnnotation(actual.getAnnotationMirrors().stream(), config)) {
+      return false;
+    }
+    InferenceVariable variable = inferenceVariableForUse(actual);
+    if (variable == null) {
+      return actual instanceof TypeVar
+          && !(actual instanceof CapturedType)
+          && inferenceVariableForStructure(actual) == null
+          && explicitlyNullableBound(actual, new LinkedHashSet<>());
+    }
+    Deque<InferenceVariable> work = new ArrayDeque<>();
+    Set<InferenceVariable> visited = new LinkedHashSet<>();
+    work.add(variable);
+    visited.add(variable);
+    while (!work.isEmpty()) {
+      VarState current = castToNonNull(vars.get(work.removeFirst()));
+      for (Type lower : current.rootFixedLowerBounds) {
+        if (lower instanceof TypeVar
+            && !(lower instanceof CapturedType)
+            && inferenceVariableForStructure(lower) == null
+            && !Nullness.hasNonNullAnnotation(lower.getAnnotationMirrors().stream(), config)
+            && explicitlyNullableBound(lower, new LinkedHashSet<>())) {
+          return true;
+        }
+      }
+      for (InferenceVariable subtype : current.subtypes) {
+        if (visited.add(subtype)) {
+          work.add(subtype);
+        }
+      }
+    }
+    return false;
+  }
+
+  /**
+   * Reads explicit or library-modeled nullable bounds, without treating an unmarked default as
+   * nullable. An explicit {@code @NonNull T} overrides T's nullable bound. An intersection permits
+   * null only if all components do: {@code @Nullable Object & Runnable} excludes null, unlike
+   * {@code @Nullable Object & @Nullable Runnable}. Cyclic bounds provide no additional evidence.
+   */
+  private boolean explicitlyNullableBound(Type type, Set<Element> visiting) {
+    if (Nullness.hasNonNullAnnotation(type.getAnnotationMirrors().stream(), config)) {
+      return false;
+    }
+    if (isKnownNullable(type)) {
+      return true;
+    }
+    if (type instanceof Type.IntersectionClassType intersection) {
+      for (TypeMirror component : intersection.getBounds()) {
+        if (!explicitlyNullableBound((Type) component, visiting)) {
+          return false;
+        }
+      }
+      return true;
+    }
+    if (!(type instanceof TypeVar variable)
+        || type instanceof CapturedType
+        || !visiting.add(variable.asElement())) {
+      return false;
+    }
+    try {
+      return hasNullableUpperBoundOverride(variable.asElement())
+          || explicitlyNullableBound(variable.getUpperBound(), visiting);
+    } finally {
+      visiting.remove(variable.asElement());
     }
   }
 
@@ -3085,6 +3197,17 @@ public final class ConstraintSolverImpl implements ConstraintSolver {
       }
     } else if (sStructure != null) {
       recordStructuredBound(sStructure, t, false);
+    }
+
+    if (tVar != null
+        && sStructure == null
+        && s instanceof TypeVar
+        && !(s instanceof CapturedType)) {
+      VarState target = getState(tVar);
+      if (target.rootFixedLowerBoundKeys.add(structuredTypeKey(s))) {
+        target.rootFixedLowerBounds.add(s);
+        structuredConstraintVersion++;
+      }
     }
 
     /* top-level nullability rules */

@@ -65,6 +65,7 @@ import com.uber.nullaway.generics.ConstraintSolver.InferenceVariable;
 import com.uber.nullaway.generics.ConstraintSolver.InputDependencies;
 import com.uber.nullaway.generics.ConstraintSolver.LowerBoundConflict;
 import com.uber.nullaway.generics.ConstraintSolver.NestedUpperBoundViolationException;
+import com.uber.nullaway.generics.ConstraintSolver.NonNullWildcardBoundViolationException;
 import com.uber.nullaway.generics.ConstraintSolver.Solution;
 import com.uber.nullaway.generics.ConstraintSolver.SourceOrigin;
 import com.uber.nullaway.generics.ConstraintSolver.UnsatisfiableConstraintsException;
@@ -1920,13 +1921,13 @@ public final class GenericsChecks {
     } catch (UnsatisfiableConstraintsException e) {
       String inferenceFailureMessage =
           inferenceFailureMessage(e, inferenceCacheState.polyNullContexts);
-      Tree failureSite = e.getInferenceSite();
-      reportInferenceFailure(
-          failureSite != null ? failureSite : callTree,
-          inferenceFailureMessage,
-          state,
-          calledFromDataflow);
+      Tree reportedSite = e.getInferenceSite();
+      Tree inferenceSite = reportedSite != null ? reportedSite : callTree;
+      reportInferenceFailure(inferenceSite, inferenceFailureMessage, state, calledFromDataflow);
       InferenceFailure failureResult = new InferenceFailure(inferenceFailureMessage);
+      // In id(List.copyOf(xs)), a fixed-bound wildcard failure belongs to copyOf, not id.
+      Tree failureSite =
+          e instanceof NonNullWildcardBoundViolationException ? inferenceSite : callTree;
       InferencePublicationDecision publication =
           inferencePublicationDecision(
               failureResult,
@@ -1935,14 +1936,14 @@ public final class GenericsChecks {
               calledFromDataflow,
               path,
               inferenceCall,
-              callTree,
+              failureSite,
               state);
       invalidateMethodReferenceResults(publication.methodReferences());
       if (publication.types() == InferenceTypePublication.FAILURE_SITE) {
-        // Cache this root call's nullness failure only. Nested calls must still infer their own
+        // Cache only the failing call. Other participating calls must still infer their own
         // arguments using their own assignment targets.
-        inferredTypeVarNullabilityForGenericCalls.put(callTree, failureResult);
-        diagnosticInferenceResults.remove(callTree);
+        inferredTypeVarNullabilityForGenericCalls.put(failureSite, failureResult);
+        diagnosticInferenceResults.remove(failureSite);
       }
       return failureResult;
     } finally {
