@@ -2590,6 +2590,9 @@ public class NullAway extends BugChecker
           genericsChecks.checkGenericMethodCallTypeArguments(tree, state);
         }
       }
+    } else if (config.isJSpecifyMode()) {
+      genericsChecks.cacheInferredFunctionalArgumentTypesForUnmarkedCall(
+          methodSymbol, tree, actualParams, state);
     }
 
     // Allow handlers to override the list of non-null argument positions. A position a handler sets

@@ -16,11 +16,15 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Set;
+import javax.lang.model.element.Element;
 import org.jspecify.annotations.Nullable;
 
 /**
- * Repairs inferred substitutions for method type variables in a call-site type using nested
- * nullability annotations from the corresponding actual argument type.
+ * Repairs call-site substitutions only for method variables in {@code topLevelOnlyVariables}, using
+ * nested nullability annotations from the corresponding actual argument type. Variables with a full
+ * {@link ConstraintSolver.Substitution} are left unchanged. See {@link
+ * GenericsChecks#restoreNestedNullabilityForTypeVarArguments} for the remaining fallback cases.
  */
 final class NestedTypeVarSubstitutionRepairVisitor
     extends Types.DefaultTypeVisitor<Type, NestedTypeVarSubstitutionRepairVisitor.RepairContext> {
@@ -43,6 +47,9 @@ final class NestedTypeVarSubstitutionRepairVisitor
   private final Config config;
   private final boolean calledFromDataflow;
 
+  /** Method variables without a full substitution whose nested annotations may need repair. */
+  private final Set<Element> topLevelOnlyVariables;
+
   /**
    * use this map to store repaired substitutions for method type variables, to ensure we use the
    * same repaired substitution for all occurrences of the same type variable
@@ -51,16 +58,16 @@ final class NestedTypeVarSubstitutionRepairVisitor
 
   /**
    * Repairs nested nullability annotations in the inferred call-site method type for a generic
-   * method invocation. In narrow cases, javac drops or misplaces nested type-use nullability
-   * annotations on type variables in its inferred type for a generic method at a call site. See <a
-   * href="https://github.com/uber/NullAway/issues/1455">issue 1455</a>. This method repairs those
-   * annotations based on the types of actual parameters. It does not attempt to be a very general
-   * fix, as we do not fully understand the scenarios where this can arise.
+   * method invocation, restricted to {@code topLevelOnlyVariables}. Full substitutions are not
+   * repaired. This fallback restores annotations dropped by javac using actual argument types; see
+   * {@link GenericsChecks#restoreNestedNullabilityForTypeVarArguments} for the cases that still
+   * need it.
    *
    * @param genericsChecks the owning generics checker, used to compute actual argument types
    * @param invocationTree the method invocation tree for the generic method call
    * @param origMethodType the declared method type for the generic method
    * @param methodTypeAtCallSite the method type inferred by javac at the call site
+   * @param topLevelOnlyVariables variables without a supported full substitution
    * @param invocationPath the path to the invocation tree, or null if not available
    * @param state the visitor state
    * @param config the NullAway configuration
@@ -73,6 +80,7 @@ final class NestedTypeVarSubstitutionRepairVisitor
       MethodInvocationTree invocationTree,
       Type.MethodType origMethodType,
       Type.MethodType methodTypeAtCallSite,
+      Set<Element> topLevelOnlyVariables,
       @Nullable TreePath invocationPath,
       VisitorState state,
       Config config,
@@ -82,6 +90,7 @@ final class NestedTypeVarSubstitutionRepairVisitor
             invocationTree,
             origMethodType,
             methodTypeAtCallSite,
+            topLevelOnlyVariables,
             invocationPath,
             state,
             config,
@@ -94,10 +103,12 @@ final class NestedTypeVarSubstitutionRepairVisitor
       MethodInvocationTree invocationTree,
       Type.MethodType origMethodType,
       Type.MethodType methodTypeAtCallSite,
+      Set<Element> topLevelOnlyVariables,
       @Nullable TreePath invocationPath,
       VisitorState state,
       Config config,
       boolean calledFromDataflow) {
+    this.topLevelOnlyVariables = topLevelOnlyVariables;
     this.genericsChecks = genericsChecks;
     this.invocationTree = invocationTree;
     this.origMethodType = origMethodType;
@@ -168,8 +179,9 @@ final class NestedTypeVarSubstitutionRepairVisitor
 
   @Override
   public Type visitTypeVar(Type.TypeVar typeVar, RepairContext context) {
-    // only repair type variables on the invoked method
-    if (Objects.equals(typeVar.tsym.owner, methodSymbol)) {
+    // Supported substitutions have already been solved from all bounds, not just one argument.
+    if (Objects.equals(typeVar.tsym.owner, methodSymbol)
+        && topLevelOnlyVariables.contains(typeVar.tsym)) {
       return repairTypeVarSubstitution(typeVar, context.actualArgType(), context.callSiteType());
     }
     return context.callSiteType();

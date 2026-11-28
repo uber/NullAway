@@ -33,25 +33,39 @@ import org.jspecify.annotations.Nullable;
 
 /**
  * An implementation of {@link ConstraintSolver} that uses a work-list algorithm to propagate
- * nullability constraints over a graph of type variables and their sub-/supertype relationships.
+ * top-level nullability constraints over a graph of type variables and their sub-/supertype
+ * relationships. Full annotated bounds supply nested nullness for supported substitutions.
  */
 public final class ConstraintSolverImpl implements ConstraintSolver {
   private final Config config;
   private final Handler handler;
   private final VisitorState state;
+  private final FullTypeBounds fullTypeBounds;
 
   /**
    * Maps the symbol of each fresh type variable created by {@link #registerInferenceVariables(Tree,
-   * List)} to the inference variable it represents. Only type variables with these symbols are
-   * treated as inference variables; all other type variables are fixed.
+   * List, Map)} to the inference variable it represents. Only type variables with these symbols are
+   * treated as inference variables; all other type variables are fixed. Insertion order also
+   * determines result order when a variable has inferred information.
    */
-  private final IdentityHashMap<Element, InferenceVariable> inferenceVariables =
+  private final Map<Element, InferenceVariable> inferenceVariables = new LinkedHashMap<>();
+
+  /**
+   * Retains fresh variables so a site can receive javac instantiations after constraints have been
+   * added, without discarding its bounds. Current production callers register each site once per
+   * solver, including PolyNull inference, which uses a separate solver; tests also exercise later
+   * registrations. Reusing symbols avoids rebuilding variables and rebinding earlier constraints;
+   * replacing them without that rebinding would disconnect earlier bounds from later constraints.
+   * Different declarations fail verification.
+   */
+  private final IdentityHashMap<Tree, Map<Element, Type.TypeVar>> freshVariablesBySite =
       new IdentityHashMap<>();
 
   public ConstraintSolverImpl(Config config, VisitorState state, NullAway analysis) {
     this.config = config;
     this.handler = analysis.getHandler();
     this.state = state;
+    this.fullTypeBounds = new FullTypeBounds(config, state, inferenceVariables);
   }
 
   /* ───────────────────── internal enums & data ───────────────────── */
@@ -95,7 +109,15 @@ public final class ConstraintSolverImpl implements ConstraintSolver {
 
   @Override
   public Map<Element, Type.TypeVar> registerInferenceVariables(
-      Tree site, List<? extends Element> typeVariables) {
+      Tree site, List<? extends Element> typeVariables, Map<Element, Type> javacInstantiations) {
+    Map<Element, Type.TypeVar> existing = freshVariablesBySite.get(site);
+    if (existing != null) {
+      Verify.verify(
+          existing.size() == typeVariables.size() && existing.keySet().containsAll(typeVariables),
+          "Repeated inference registration must use the same declarations");
+      fullTypeBounds.register(site, existing, javacInstantiations);
+      return existing;
+    }
 
     // First create all the fresh type variables, since the upper bound of one type variable can
     // refer to others, e.g., <T extends Comparable<T>> or <T, U extends T>.
@@ -117,9 +139,12 @@ public final class ConstraintSolverImpl implements ConstraintSolver {
                   declared.getUpperBound(), fresh, types, config));
     }
     for (Map.Entry<Element, Type.TypeVar> entry : fresh.entrySet()) {
-      inferenceVariables.put(entry.getValue().tsym, new InferenceVariable(entry.getKey(), site));
+      InferenceVariable variable = new InferenceVariable(entry.getKey(), site);
+      inferenceVariables.put(entry.getValue().tsym, variable);
     }
 
+    fullTypeBounds.register(site, fresh, javacInstantiations);
+    freshVariablesBySite.put(site, fresh);
     return fresh;
   }
 
@@ -150,6 +175,7 @@ public final class ConstraintSolverImpl implements ConstraintSolver {
         constrainSubtypeToWildcard(subtype, supertypeWildcard);
         return null;
       }
+      fullTypeBounds.addConstraint(subtype, supertype);
       // handle flow into a type variable. The check for !(subtype instanceof TypeVar) is a
       // small optimization, as that case should be handled in visitTypeVar.
       if (!localVariableType && (supertype instanceof TypeVar) && !(subtype instanceof TypeVar)) {
@@ -351,8 +377,31 @@ public final class ConstraintSolverImpl implements ConstraintSolver {
     }
   }
 
+  /** Combines full substitutions and top-level-only results after nullability propagation. */
   @Override
-  public Map<InferenceVariable, InferredNullability> solve()
+  public Map<InferenceVariable, InferredType> solve() throws UnsatisfiableConstraintsException {
+    Map<InferenceVariable, Nullness> topLevelNullness = solveTopLevelNullability();
+    Map<InferenceVariable, Type> substitutions = fullTypeBounds.solve(topLevelNullness);
+    Map<InferenceVariable, InferredType> result = new LinkedHashMap<>();
+    for (InferenceVariable variable : inferenceVariables.values()) {
+      Type substitution = substitutions.get(variable);
+      if (substitution != null) {
+        result.put(variable, new Substitution(substitution));
+      } else {
+        Nullness nullness = topLevelNullness.get(variable);
+        if (nullness != null) {
+          result.put(variable, new TopLevelOnly(nullness));
+        }
+      }
+    }
+    return Collections.unmodifiableMap(result);
+  }
+
+  /**
+   * Propagates top-level nullness along variable edges, throwing if nullable and non-null
+   * requirements conflict.
+   */
+  private Map<InferenceVariable, Nullness> solveTopLevelNullability()
       throws UnsatisfiableConstraintsException {
     /* ---------- work-list propagation of nullability ---------- */
     Deque<InferenceVariable> work = new ArrayDeque<>();
@@ -392,16 +441,14 @@ public final class ConstraintSolverImpl implements ConstraintSolver {
     }
 
     /* ---------- build final solution map ---------- */
-    Map<InferenceVariable, InferredNullability> result = new LinkedHashMap<>();
+    Map<InferenceVariable, Nullness> result = new LinkedHashMap<>();
     vars.forEach(
         (inferenceVar, st) -> {
           // Note: if the nullness state is UNKNOWN, we infer NONNULL arbitrarily
           // TODO does this matter?  should we use NULLABLE instead?
           result.put(
               inferenceVar,
-              st.nullness == NullnessState.NULLABLE
-                  ? InferredNullability.NULLABLE
-                  : InferredNullability.NONNULL);
+              st.nullness == NullnessState.NULLABLE ? Nullness.NULLABLE : Nullness.NONNULL);
         });
     return result;
   }
